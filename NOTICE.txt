@@ -1,0 +1,26 @@
+aws-cloudendure-migration-factory-solution
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Permission is hereby granted, free of charge, to any person obtaining a copy of this
+software and associated documentation files (the "Software"), to deal in the Software
+without restriction, including without limitation the rights to use, copy, modify,
+merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so.
+
+**********************
+THIRD PARTY COMPONENTS
+**********************
+This software includes third party software subject to the following copyrights:
+
+AWS SDK under the Apache License Version 2.0
+request under the Apache License Version 2.0
+simplejson under the Massachusetts Institute of Technology (MIT) license
+uuid under the Massachusetts Institute of Technology (MIT) license
+aws-amplify under the Apache License Version 2.0
+bootstrap under the Massachusetts Institute of Technology (MIT) license
+react under the Massachusetts Institute of Technology (MIT) license
+react-dom under the Massachusetts Institute of Technology (MIT) license
+react-router-dom under the Massachusetts Institute of Technology (MIT) license
+react-cookie under the Massachusetts Institute of Technology (MIT) license
+react-scripts under the Massachusetts Institute of Technology (MIT) license
+react-spinners under the Massachusetts Institute of Technology (MIT) license
+Paramiko under the GNU Lesser General Public License v2.1
