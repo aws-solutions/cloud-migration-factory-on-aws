@@ -80,8 +80,10 @@ def check(launchtype, session, headers, endpoint, HOST, projectname, waveid):
     for server in serverlist:
         machine_exist = False
         for machine in json.loads(m.text)["items"]:
-           if server["server_name"].lower() == machine['sourceProperties']['name'].lower():
+           if server["server_name"].lower() == machine['sourceProperties']['name'].lower() or server["server_fqdn"].lower() == machine['sourceProperties']['name'].lower():
               machine_exist = True
+        
+           if machine_exist:
               if 'lastConsistencyDateTime' not in machine['replicationInfo']:
                   print("Machine: " + machine['sourceProperties']['name'] + " replication in progress, please wait for a few minutes....")
               else:
@@ -98,7 +100,7 @@ def check(launchtype, session, headers, endpoint, HOST, projectname, waveid):
                      else:
                         print("Machine: " + machine['sourceProperties']['name'] + " has NOT been migrated to the PROD environment....")
         if machine_exist == False:
-               return "ERROR: Machine: " + server["server_name"] + " does not exist in CloudEndure...."
+               return "ERROR: Name: " + server["server_name"] + " or FQDN: " + server["server_fqdn"]  + " does not exist in CloudEndure...."
 
     if machine_status == len(serverlist):
        if launchtype == "test":
