@@ -32,9 +32,15 @@ def status(session, headers, endpoint, HOST, project_id, launchtype, dryrun, ser
     for server in serverlist:
         machine_exist = False
         for machine in json.loads(m.text)["items"]:
-           if server["server_name"].lower() == machine['sourceProperties']['name'].lower():
-              machine_exist = True
+          if server["server_name"].lower() == machine['sourceProperties']['name'].lower():
+            machine_exist = True
+            server_id = server["server_name"].lower()
+          elif server["server_fqdn"].lower() == machine['sourceProperties']['name'].lower():
+            machine_exist = True
+            server_id = server["server_fqdn"].lower()
               # Check if replication is done
+            
+          if machine_exist:
               if 'lastConsistencyDateTime' not in machine['replicationInfo']:
                   return "ERROR: Machine: " + machine['sourceProperties']['name'] + " replication in progress, please wait for a few minutes...."
               else:
@@ -59,20 +65,20 @@ def status(session, headers, endpoint, HOST, project_id, launchtype, dryrun, ser
                                 if 'lastTestLaunchDateTime' not in machine["lifeCycle"] and 'lastCutoverDateTime' not in machine["lifeCycle"]:
                                     machine_status += 1
                                 else:
-                                    testservers = testservers + server["server_name"] + ","
+                                    testservers = testservers + server_id + ","
                             # Check if the target machine has been migrated to PROD already
                             elif launchtype == "cutover":
                                 if 'lastTestLaunchDateTime' in machine["lifeCycle"]:
                                     if 'lastCutoverDateTime' not in machine["lifeCycle"]:
                                         machine_status += 1
                                     else:
-                                        cutoverservers = cutoverservers + server["server_name"] + ","
+                                        cutoverservers = cutoverservers + server_id + ","
                                 else:
-                                    nottested = nottested + server["server_name"] + ","
+                                    nottested = nottested + server_id + ","
                         else:
                             machine_status += 1
         if machine_exist == False:
-               return "ERROR: Machine: " + server["server_name"] + " does not exist in CloudEndure...."
+               return "ERROR: Name: " + server["server_name"] + " or FQDN: " + server["server_fqdn"]  + " does not exist in CloudEndure...."
 
     if launchtype == "test":
         if len(testservers) > 0:
