@@ -117,7 +117,10 @@ def launch(launchtype, session, headers, endpoint, HOST, project_id, serverlist)
             servers = sorted(getserver, key=lambda i: i["server_name"])
             for s in servers:
                 for name in machine_names:
-                    if name.lower() == s["server_name"].lower() or name.lower() == s["server_fqdn"].lower():
+                    if (
+                        name.lower() == s["server_name"].lower()
+                        or name.lower() == s["server_fqdn"].lower()
+                    ):
                         serverids.append(s["server_id"])
             for sid in serverids:
                 existing_attr = servers_table.get_item(Key={"server_id": sid})
