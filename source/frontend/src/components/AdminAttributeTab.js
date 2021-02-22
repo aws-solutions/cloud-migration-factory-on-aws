@@ -1,5 +1,3 @@
-
-
 import React from "react";
 import { Auth } from "aws-amplify";
 import Admin from "../actions/admin";
@@ -9,18 +7,23 @@ export default class AdminAttributeTab extends React.Component {
     super(props);
     this.state = {
       stage: props.stage,
+      selectedWaveAttribute: props.selectedWaveAttribute,
       selectedAppAttribute: props.selectedAppAttribute,
       selectedServerAttribute: props.selectedServerAttribute,
+      WaveAttributeData: props.WaveAttributeData,
       AppAttributeData: props.AppAttributeData,
       ServerAttributeData: props.ServerAttributeData,
       type: props.type,
       isLoading: true,
       isListType: props.isListType,
       listtypes: props.listtypes,
+      PendingChangeWaveAttr: '',
       PendingChangeAppAttr: '',
       PendingChangeServerAttr: '',
+      PendingChangeWaveName: '',
       PendingChangeAppName: '',
       PendingChangeServerName: '',
+      waveAttributes: {attributes:[]},
       appAttributes: {attributes:[]},
       serverAttributes: {attributes:[]}
     };
@@ -30,11 +33,19 @@ export default class AdminAttributeTab extends React.Component {
     this.setState({
       isLoading: nextProps.isLoading
     });
+
+    if (nextProps.selectedWaveAttribute !== this.props.selectedWaveAttribute){
+      this.setState({
+        selectedWaveAttribute: nextProps.selectedWaveAttribute
+      });
+    };
+
     if (nextProps.selectedAppAttribute !== this.props.selectedAppAttribute){
       this.setState({
         selectedAppAttribute: nextProps.selectedAppAttribute
       });
     };
+
     if (nextProps.listtypes !== this.props.listtypes){
       this.setState({
         listtypes: nextProps.listtypes
@@ -56,6 +67,12 @@ export default class AdminAttributeTab extends React.Component {
         type: nextProps.type
       });
     };
+
+    if (nextProps.WaveAttributeData !== this.props.WaveAttributeData){
+      this.setState({
+        WaveAttributeData: nextProps.WaveAttributeData
+      });
+    };
     if (nextProps.AppAttributeData !== this.props.AppAttributeData){
       this.setState({
         AppAttributeData: nextProps.AppAttributeData
@@ -64,6 +81,18 @@ export default class AdminAttributeTab extends React.Component {
     if (nextProps.ServerAttributeData !== this.props.ServerAttributeData){
       this.setState({
         ServerAttributeData: nextProps.ServerAttributeData
+      });
+    };
+
+    if (nextProps.PendingChangeWaveAttr !== this.props.WaveAttributeData){
+      this.setState({
+        PendingChangeWaveAttr: nextProps.WaveAttributeData
+      });
+    };
+    if (nextProps.PendingChangeWaveName !== this.props.selectedWaveAttribute){
+
+      this.setState({
+        PendingChangeWaveName: nextProps.selectedWaveAttribute
       });
     };
     if (nextProps.PendingChangeAppAttr !== this.props.AppAttributeData){
@@ -94,6 +123,9 @@ export default class AdminAttributeTab extends React.Component {
     this.api = await new Admin(session);
 
     try {
+      const schemaWave = await this.api.getSchemaWave();
+      this.setState({ waveAttributes: schemaWave});
+
       const schemaApp = await this.api.getSchemaApp();
       this.setState({ appAttributes: schemaApp});
 
@@ -114,6 +146,10 @@ export default class AdminAttributeTab extends React.Component {
     this.setState({isLoading: true});
 
     try {
+      if (this.state.type === 'wave') {
+        await this.api.delWaveSchemaAttr(this.state.PendingChangeWaveName);
+        this.props.updateAttrList('delete', this.state.PendingChangeWaveName, 'wave');
+        }
       if (this.state.type === 'app') {
       await this.api.delAppSchemaAttr(this.state.PendingChangeAppName);
       this.props.updateAttrList('delete', this.state.PendingChangeAppName, 'app');
@@ -136,6 +172,10 @@ export default class AdminAttributeTab extends React.Component {
     this.setState({isLoading: true});
 
     try {
+      if (this.state.type === 'wave') {
+        await this.api.postWaveSchemaAttr(this.state.PendingChangeWaveAttr);
+        this.props.updateAttrList('add', this.state.PendingChangeWaveAttr, 'wave');
+      }
       if (this.state.type === 'app') {
         await this.api.postAppSchemaAttr(this.state.PendingChangeAppAttr);
         this.props.updateAttrList('add', this.state.PendingChangeAppAttr, 'app');
@@ -157,6 +197,10 @@ export default class AdminAttributeTab extends React.Component {
     this.setState({isLoading: true});
 
     try {
+      if (this.state.type === 'wave') {
+        await this.api.putWaveSchemaAttr(this.state.PendingChangeWaveAttr, this.state.PendingChangeWaveName);
+        this.props.updateAttrList('update', this.state.PendingChangeWaveAttr, 'wave');
+        }
       if (this.state.type === 'app') {
       await this.api.putAppSchemaAttr(this.state.PendingChangeAppAttr, this.state.PendingChangeAppName);
       this.props.updateAttrList('update', this.state.PendingChangeAppAttr, 'app');
@@ -175,6 +219,64 @@ export default class AdminAttributeTab extends React.Component {
   }
 
   onChangeAttrName = type => event => {
+    if (this.state.type === 'wave'){
+      if (type === 'name') {
+        let newAttr = Object.assign({}, this.state.WaveAttributeData);
+        newAttr.name = event.target.value.trim();
+      this.setState({
+        PendingChangeWaveAttr: newAttr,
+        WaveAttributeData: newAttr
+      })
+      }
+      if (type === 'description') {
+        let newAttr = Object.assign({}, this.state.WaveAttributeData);
+        newAttr.description = event.target.value;
+      this.setState({
+        PendingChangeWaveAttr: newAttr,
+        WaveAttributeData: newAttr
+      })
+      }
+      if (type === 'type') {
+        let newAttr = Object.assign({}, this.state.WaveAttributeData);
+        newAttr.type = event.target.value;
+        if (event.target.value === 'list') {
+          this.setState({listtypes: ['string','checkbox','textarea','tag','multivalue-string']})
+          this.setState({isListType: true})
+          }
+        else {
+          this.setState({isListType: false})
+        if (event.target.value === 'string') {
+          this.setState({listtypes: ['list','checkbox','textarea','tag','multivalue-string']})
+        }
+        if (event.target.value === 'multivalue-string') {
+          this.setState({listtypes: ['list','checkbox','textarea','tag','string']})
+        }
+        if (event.target.value === 'checkbox') {
+          this.setState({listtypes: ['string','list','textarea','tag','multivalue-string']})
+        }
+        if (event.target.value === 'textarea') {
+          this.setState({listtypes: ['string','list','checkbox','tag','multivalue-string']})
+        }
+        if (event.target.value === 'tag') {
+          this.setState({listtypes: ['string','list','checkbox','textarea','multivalue-string']})
+        }
+      }
+  
+      this.setState({
+        PendingChangeWaveAttr: newAttr,
+        WaveAttributeData: newAttr
+      })
+      }
+      if (type === 'listvalue') {
+        let newAttr = Object.assign({}, this.state.WaveAttributeData);
+        newAttr.listvalue = event.target.value;
+      this.setState({
+        PendingChangeWaveAttr: newAttr,
+        WaveAttributeData: newAttr
+      })
+      }
+    }
+
     if (this.state.type === 'app'){
     if (type === 'name') {
       let newAttr = Object.assign({}, this.state.AppAttributeData);
@@ -294,6 +396,13 @@ export default class AdminAttributeTab extends React.Component {
 
   onClickSaveAttr = event => {
     event.preventDefault();
+    if (this.state.type === 'wave') {
+      if (this.state.selectedWaveAttribute === ''){
+        this.createAttr();
+      } else {
+        this.updateAttr();
+      }
+    }
     if (this.state.type === 'app') {
       if (this.state.selectedAppAttribute === ''){
         this.createAttr();
@@ -316,16 +425,22 @@ export default class AdminAttributeTab extends React.Component {
   }
 
   render() {
-    var isApp
+    var AttrType
+    if (this.state.type === 'wave'){
+      AttrType = 'wave';
+    }
     if (this.state.type === 'app'){
-      isApp = true;
+      AttrType = 'app';
     }
     if (this.state.type === 'server'){
-      isApp = false;
+      AttrType = 'server';
     }
 
     var isWaveId
     if (this.state.AppAttributeData.name && this.state.AppAttributeData.name.toLowerCase() === 'wave_id'){
+      isWaveId = true;
+    }
+    else if (this.state.WaveAttributeData.name && this.state.WaveAttributeData.name.toLowerCase() === 'wave_id'){
       isWaveId = true;
     }
     else {
@@ -333,6 +448,9 @@ export default class AdminAttributeTab extends React.Component {
     }
 
     var AttrLoaded = false;
+    if ((Object.keys(this.state.WaveAttributeData).length > 0) && (this.state.type === 'wave')){
+      AttrLoaded = true;
+    }
     if ((Object.keys(this.state.AppAttributeData).length > 0) && (this.state.type === 'app')){
       AttrLoaded = true;
     }
@@ -344,7 +462,9 @@ export default class AdminAttributeTab extends React.Component {
       <div>
         {this.state.isLoading?<div className="block-events" ></div>:null}
     <div className="pt-3">
-      <h4>{isApp?this.state.AppAttributeData.name:this.state.ServerAttributeData.name}</h4>
+        {AttrType === 'wave' && <h4>{this.state.WaveAttributeData.name}</h4>}
+        {AttrType === 'app' && <h4>{this.state.AppAttributeData.name}</h4>}
+        {AttrType === 'server' && <h4>{this.state.ServerAttributeData.name}</h4>}
     </div>
     <div id="factory-tab" className="container-fluid rounded  py-3 px-0">
       <ul className="nav nav-tabs">
@@ -353,33 +473,77 @@ export default class AdminAttributeTab extends React.Component {
         </li>
       </ul>
       <div id="factory-tab-container" className="container-fluid rounded bg-white py-3 ">
-        <div className="row px-3 pt-3"> <h3>{isApp?this.state.AppAttributeData.name:this.state.ServerAttributeData.name} &gt; Attribute Details</h3></div>
+        <div className="row px-3 pt-3">
+           {AttrType === 'wave' && <h3>{this.state.WaveAttributeData.name} &gt; Attribute Details</h3> }
+           {AttrType === 'app' && <h3>{this.state.AppAttributeData.name} &gt; Attribute Details</h3> }
+           {AttrType === 'server' && <h3>{this.state.ServerAttributeData.name} &gt; Attribute Details</h3> }
+        </div>
         <form>
           <div className="row px-3 pt-3">
             <div className="col-6 px-0 pr-5">
                 <div className="form-group">
                   <label htmlFor="appName">Name:</label>
-                  <input disabled={!AttrLoaded}
+                  {AttrType === 'wave' && <input disabled={!AttrLoaded}
                          className="form-control form-control-sm"
-                         key={isApp?this.state.AppAttributeData.type:this.state.ServerAttributeData.type}
+                         key={this.state.WaveAttributeData.type}
                          onChange={this.onChangeAttrName('name')}
-                         value={isApp?this.state.AppAttributeData.name:this.state.ServerAttributeData.name}
+                         value={this.state.WaveAttributeData.name}
                          type="text"/>
+                  }
+                  {AttrType === 'app' && <input disabled={!AttrLoaded}
+                         className="form-control form-control-sm"
+                         key={this.state.AppAttributeData.type}
+                         onChange={this.onChangeAttrName('name')}
+                         value={this.state.AppAttributeData.name}
+                         type="text"/>
+                  }
+                  {AttrType === 'server' && <input disabled={!AttrLoaded}
+                         className="form-control form-control-sm"
+                         key={this.state.ServerAttributeData.type}
+                         onChange={this.onChangeAttrName('name')}
+                         value={this.state.ServerAttributeData.name}
+                         type="text"/>
+                  }
+                  {AttrType === undefined && <input disabled={!AttrLoaded}
+                  className="form-control form-control-sm"
+                  type="text"/>
+                  }
                 </div>
                 <div className="form-group">
                   <label htmlFor="appDescription">Description:</label>
-                  <input disabled={!AttrLoaded}
+                  {AttrType === 'wave' && <input disabled={!AttrLoaded}
                          className="form-control form-control-sm"
-                         key={isApp?this.state.AppAttributeData.name:this.state.ServerAttributeData.name}
+                         key={this.state.WaveAttributeData.name}
                          onChange={this.onChangeAttrName('description')}
-                         value={isApp?this.state.AppAttributeData.description:this.state.ServerAttributeData.description}
+                         value={this.state.WaveAttributeData.description}
                          type="text"/>
+                }
+                  {AttrType === 'app' && <input disabled={!AttrLoaded}
+                         className="form-control form-control-sm"
+                         key={this.state.AppAttributeData.name}
+                         onChange={this.onChangeAttrName('description')}
+                         value={this.state.AppAttributeData.description}
+                         type="text"/>
+                }
+                  {AttrType === 'server' && <input disabled={!AttrLoaded}
+                         className="form-control form-control-sm"
+                         key={this.state.ServerAttributeData.name}
+                         onChange={this.onChangeAttrName('description')}
+                         value={this.state.ServerAttributeData.description}
+                         type="text"/>
+                }
+                  {AttrType === undefined && <input disabled={!AttrLoaded}
+                  className="form-control form-control-sm"
+                  type="text"/>
+                  }
                 </div>
 
                 <div className="form-group">
                   <label htmlFor="appType">Type:</label>
                   <select disabled={!AttrLoaded} onChange={this.onChangeAttrName('type')} className="form-control form-control-sm" id="attType">
-                    <option > {isApp?this.state.AppAttributeData.type:this.state.ServerAttributeData.type} </option>
+                    {AttrType === 'wave' && <option > {this.state.WaveAttributeData.type} </option> }
+                    {AttrType === 'app' && <option > {this.state.AppAttributeData.type} </option> }
+                    {AttrType === 'server' && <option > {this.state.ServerAttributeData.type} </option> }
                     {isWaveId?'string':this.state.listtypes.map((item, index) => {
                       return (
                         <option key={item} value={item}>{item}</option>
@@ -390,12 +554,27 @@ export default class AdminAttributeTab extends React.Component {
                   { this.state.isListType &&
                       <div className="form-group">
                         <label htmlFor="listValue">List Value:</label>
-                        <input disabled={!AttrLoaded}
+                        {AttrType === 'wave' && <input disabled={!AttrLoaded}
                         className="form-control form-control-sm"
-                        key={isApp?this.state.AppAttributeData.name:this.state.ServerAttributeData.name}
+                        key={this.state.WaveAttributeData.name}
                         onChange={this.onChangeAttrName('listvalue')}
-                        value={isApp?this.state.AppAttributeData.listvalue:this.state.ServerAttributeData.listvalue}
+                        value={this.state.WaveAttributeData.listvalue}
                         type="text"/>
+                        }
+                        {AttrType === 'app' && <input disabled={!AttrLoaded}
+                        className="form-control form-control-sm"
+                        key={this.state.AppAttributeData.name}
+                        onChange={this.onChangeAttrName('listvalue')}
+                        value={this.state.AppAttributeData.listvalue}
+                        type="text"/>
+                        }
+                        {AttrType === 'server' && <input disabled={!AttrLoaded}
+                        className="form-control form-control-sm"
+                        key={this.state.ServerAttributeData.name}
+                        onChange={this.onChangeAttrName('listvalue')}
+                        value={this.state.ServerAttributeData.listvalue}
+                        type="text"/>
+                        }
                       </div>
                   }
                 <input disabled={!AttrLoaded}

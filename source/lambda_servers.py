@@ -36,8 +36,7 @@ apps_table = boto3.resource('dynamodb').Table(apps_table_name)
 def lambda_handler(event, context):
 
     if event['httpMethod'] == 'GET':
-        resp = servers_table.scan()
-        item = resp['Items']
+        item = scan_dynamodb_server_table()
         newitem = sorted(item, key = lambda i: i['server_name'])
         return {'headers': {'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps(newitem)}
@@ -89,16 +88,16 @@ def lambda_handler(event, context):
                         'statusCode': 400, 'body': 'malformed json input'}
 
             # Check if there is a duplicate server_name
-            itemlist = servers_table.scan()
-            for item in itemlist['Items']:
-                if body['server_name'] in item['server_name']:
+            itemlist = scan_dynamodb_server_table()
+            for item in itemlist:
+                if body['server_name'].lower() == item['server_name'].lower():
                     return {'headers': {'Access-Control-Allow-Origin': '*'},
                             'statusCode': 400, 'body': 'server_name: ' +  body['server_name'] + ' already exist'}
 
             # Validate App_id
-            apps = apps_table.scan()
+            apps = scan_dynamodb_app_table()
             check = False
-            for app in apps['Items']:
+            for app in apps:
                if app['app_id'] == str(body['app_id']):
                    check = True
             if check == False:
@@ -108,7 +107,7 @@ def lambda_handler(event, context):
 
             # Get vacant server_id
             ids = []
-            for item in itemlist['Items']:
+            for item in itemlist:
                 ids.append(int(item['server_id']))
             ids.sort()
             server_id = 1
@@ -123,13 +122,35 @@ def lambda_handler(event, context):
             )
             if (resp['ResponseMetadata']['HTTPStatusCode'] == 200):
                 new_item = {}
-                items = servers_table.scan()['Items']
-                for item in items:
-                    if str(item['server_id']) == str(server_id):
-                        new_item = item
+                query_resp = servers_table.query(KeyConditionExpression=Key('server_id').eq(str(server_id)))
+                if 'Items' in query_resp:
+                    new_item = query_resp['Items']
+                else:
+                    new_item = "Creating server " + body['server_name'] + " failed"
             return {'headers': {'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps(new_item)}
         else:
             return {'headers': {'Access-Control-Allow-Origin': '*'},
                     'statusCode': 401,
                     'body': json.dumps(authResponse)}
+
+
+#Add Pagination for DDB table scan  
+def scan_dynamodb_server_table():
+    response = servers_table.scan(ConsistentRead=True)
+    scan_data = response['Items']
+    while 'LastEvaluatedKey' in response:
+        print("Last Evaluate key is   " + str(response['LastEvaluatedKey']))
+        response = servers_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],ConsistentRead=True)
+        scan_data.extend(response['Items'])
+    return(scan_data)
+
+# Pagination for app DDB table scan  
+def scan_dynamodb_app_table():
+    response = apps_table.scan(ConsistentRead=True)
+    scan_data = response['Items']
+    while 'LastEvaluatedKey' in response:
+        print("Last Evaluate key for app is   " + str(response['LastEvaluatedKey']))
+        response = apps_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],ConsistentRead=True)
+        scan_data.extend(response['Items'])
+    return(scan_data)

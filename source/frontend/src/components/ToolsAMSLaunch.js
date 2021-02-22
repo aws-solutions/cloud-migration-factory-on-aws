@@ -133,16 +133,16 @@ export default class UserListApps extends Component {
       AMSData: newAttr
     })
     }
-    if (type === 'key_id') {
+    if (type === 'access_key_id') {
       let newAttr = Object.assign({}, this.state.AMSData);
-      newAttr.key_id = event.target.value.trim();
+      newAttr.access_key_id = event.target.value.trim();
     this.setState({
       AMSData: newAttr
     })
     }
-    if (type === 'secret') {
+    if (type === 'secret_access_key') {
       let newAttr = Object.assign({}, this.state.AMSData);
-      newAttr.secret = event.target.value.trim();
+      newAttr.secret_access_key = event.target.value.trim();
     this.setState({
       AMSData: newAttr
     })
@@ -195,7 +195,7 @@ export default class UserListApps extends Component {
                 <div class="form-group">
                   <label htmlfor="APItoken">AMS Access Key ID:</label>
                   <input class="form-control form-control-sm"
-                         onChange={this.onChangeAttrName('key_id')}
+                         onChange={this.onChangeAttrName('access_key_id')}
                          Value=''
                          type="text"/>
                 </div>
@@ -203,7 +203,7 @@ export default class UserListApps extends Component {
                 <div class="form-group">
                   <label htmlfor="APItoken">AMS Secret Access Key:</label>
                   <input class="form-control form-control-sm"
-                         onChange={this.onChangeAttrName('secret')}
+                         onChange={this.onChangeAttrName('secret_access_key')}
                          Value=''
                          type="password"/>
                 </div>

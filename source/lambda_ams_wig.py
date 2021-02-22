@@ -208,10 +208,10 @@ def GetServerList(projectname, waveid, access_key_id, secret_access_key, session
        
        # Get all Apps and servers from migration factory
 
-        getserver = servers_table.scan()['Items']
+        getserver = scan_dynamodb_table('server')
         servers = sorted(getserver, key = lambda i: i['server_name'])
 
-        getapp = apps_table.scan()['Items']
+        getapp = scan_dynamodb_table('app')
         apps = sorted(getapp, key = lambda i: i['app_name'])
 
         # Get App list
@@ -235,3 +235,19 @@ def GetServerList(projectname, waveid, access_key_id, secret_access_key, session
         return serverlist
     except:
         return "ERROR: Getting server list failed...."
+
+#Pagination for DDB table scan  
+def scan_dynamodb_table(datatype):
+    if datatype == 'server':
+       response = servers_table.scan(ConsistentRead=True)
+    elif datatype == 'app':
+       response = apps_table.scan(ConsistentRead=True)
+    scan_data = response['Items']
+    while 'LastEvaluatedKey' in response:
+        print("Last Evaluate key is   " + str(response['LastEvaluatedKey']))
+        if datatype == 'server':
+           response = servers_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],ConsistentRead=True)
+        elif datatype == 'app':
+           response = apps_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],ConsistentRead=True)
+        scan_data.extend(response['Items'])
+    return(scan_data)

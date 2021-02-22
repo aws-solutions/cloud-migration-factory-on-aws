@@ -84,12 +84,18 @@ cp ./deployment-packages/lambda_role.zip $build_dist_dir/lambda_role.zip
 cp ./deployment-packages/lambda_role_item.zip $build_dist_dir/lambda_role_item.zip
 cp ./deployment-packages/lambda_schema_app.zip $build_dist_dir/lambda_schema_app.zip
 cp ./deployment-packages/lambda_schema_server.zip $build_dist_dir/lambda_schema_server.zip
+cp ./deployment-packages/lambda_schema_wave.zip $build_dist_dir/lambda_schema_wave.zip
 cp ./deployment-packages/lambda_server_item.zip $build_dist_dir/lambda_server_item.zip
 cp ./deployment-packages/lambda_servers.zip $build_dist_dir/lambda_servers.zip
 cp ./deployment-packages/lambda_stage.zip $build_dist_dir/lambda_stage.zip
 cp ./deployment-packages/lambda_stage_attr.zip $build_dist_dir/lambda_stage_attr.zip
 cp ./deployment-packages/lambda_wave_item.zip $build_dist_dir/lambda_wave_item.zip
 cp ./deployment-packages/lambda_waves.zip $build_dist_dir/lambda_waves.zip
-cp ./deployment-packages/v1.3.zip $build_dist_dir/v1.3.zip
+cp ./deployment-packages/v1.4.zip $build_dist_dir/v1.4.zip
 cp ./deployment-packages/helper.zip $build_dist_dir/helper.zip
+cp ./deployment-packages/lambda_run_athena_savedquery.zip $build_dist_dir/lambda_run_athena_savedquery.zip
+cp ./deployment-packages/lambda_migrationtracker_glue_scriptcopy.zip $build_dist_dir/lambda_migrationtracker_glue_scriptcopy.zip
+cp ./deployment-packages/lambda_migrationtracker_glue_execute.zip $build_dist_dir/lambda_migrationtracker_glue_execute.zip
+cp ./migration-tracker/GlueScript/Migration_Tracker_App_Extract_Script.py $build_dist_dir/Migration_Tracker_App_Extract_Script.py
+cp ./migration-tracker/GlueScript/Migration_Tracker_Server_Extract_Script.py $build_dist_dir/Migration_Tracker_Server_Extract_Script.py
 

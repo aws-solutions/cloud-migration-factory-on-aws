@@ -64,7 +64,7 @@ def launch(launchtype, session, headers, endpoint, HOST, project_id, serverlist)
             if launchtype == "test":
                # Updating server migration_status, change to tested
                serverids = []
-               getserver = servers_table.scan()['Items']
+               getserver = scan_dynamodb_server_table()
                servers = sorted(getserver, key = lambda i: i['server_name'])
                for s in servers:
                   for name in machine_names:
@@ -90,7 +90,7 @@ def launch(launchtype, session, headers, endpoint, HOST, project_id, serverlist)
             if launchtype == "cutover":
                # Updating server migration_status, change to migrated
                serverids = []
-               getserver = servers_table.scan()['Items']
+               getserver = scan_dynamodb_server_table()
                servers = sorted(getserver, key = lambda i: i['server_name'])
                for s in servers:
                   for name in machine_names:
@@ -119,4 +119,13 @@ def launch(launchtype, session, headers, endpoint, HOST, project_id, serverlist)
             return "ERROR: Project license has expired...."
     else:
             return "ERROR: Launch target machine failed...."
-           
+
+# Pagination for server DDB table scan  
+def scan_dynamodb_server_table():
+    response = servers_table.scan(ConsistentRead=True)
+    scan_data = response['Items']
+    while 'LastEvaluatedKey' in response:
+        print("Last Evaluate key for server is   " + str(response['LastEvaluatedKey']))
+        response = servers_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],ConsistentRead=True)
+        scan_data.extend(response['Items'])
+    return(scan_data)

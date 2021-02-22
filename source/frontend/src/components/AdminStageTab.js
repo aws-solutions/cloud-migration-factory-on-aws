@@ -9,6 +9,7 @@ export default class AdminStageTab extends React.Component {
     this.state = {
       stage: props.stage,
       isLoading: true,
+      waveAttributes: {attributes:[]},
       appAttributes: {attributes:[]},
       serverAttributes: {attributes:[]},
     };
@@ -38,6 +39,11 @@ export default class AdminStageTab extends React.Component {
     this.api = await new Admin(session);
 
     try {
+      const schemaWave = await this.api.getSchemaWave();
+      if ('attributes' in schemaWave) {
+        this.setState({ waveAttributes: schemaWave});
+      }
+
       const schemaApp = await this.api.getSchemaApp();
       if ('attributes' in schemaApp) {
         this.setState({ appAttributes: schemaApp});
@@ -146,6 +152,7 @@ export default class AdminStageTab extends React.Component {
   }
 
   onClickAddAttribute = type => event => {
+    this.refs.waveAttributes.blur();
     this.refs.appAttributes.blur();
     this.refs.serverAttributes.blur();
     var alreadyExists = false;
@@ -227,6 +234,18 @@ export default class AdminStageTab extends React.Component {
                     />
                   </div>
 
+                  <div className="form-group">
+                    <label htmlFor="attribute">Add Wave Attribute:</label>
+                    <select disabled={!stageLoaded} ref="waveAttributes" onChange={this.onClickAddAttribute('wave')} value={'none'} className="form-control form-control-sm" id="attribute">
+                      <option value="none" disabled>Select attribute to add</option>
+                      {this.state.waveAttributes.attributes.map((item, index) => {
+                        return (
+                          <option key={item.name} value={item.name}>{item.name}</option>
+                        )
+                      })}
+                    </select>
+                  </div>
+                  
                   <div className="form-group">
                     <label htmlFor="attribute">Add Application Attribute:</label>
                     <select disabled={!stageLoaded} ref="appAttributes" onChange={this.onClickAddAttribute('app')} value={'none'} className="form-control form-control-sm" id="attribute">

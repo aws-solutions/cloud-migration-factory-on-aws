@@ -78,8 +78,8 @@ def lambda_handler(event, context):
                           'statusCode': 400, 'body': 'server Id: ' + str(event['pathParameters']['serverid']) + ' does not exist'}
 
                 # Check if there is a duplicate server_name
-                servers = servers_table.scan()
-                for server in servers['Items']:
+                servers = scan_dynamodb_server_table()
+                for server in servers:
                   if 'server_name' in body:
                     if server['server_name'].lower() == str(body['server_name']).lower() and server['server_id'] != str(event['pathParameters']['serverid']):
                         return {'headers': {'Access-Control-Allow-Origin': '*'},
@@ -87,9 +87,9 @@ def lambda_handler(event, context):
 
                 # Validate App_id
                 if 'app_id' in body:
-                    apps = apps_table.scan()
+                    apps = scan_dynamodb_app_table()
                     check = False
-                    for app in apps['Items']:
+                    for app in apps:
                         if app['app_id'] == str(body['app_id']):
                             check = True
                     if check == False:
@@ -127,9 +127,11 @@ def lambda_handler(event, context):
                     existing_attr['Item'][key] = body[key]
                 new_attr = existing_attr
                 keys = list(new_attr['Item'].keys())
+                # Delete empty keys
                 for key in keys:
                     if new_attr['Item'][key] == '':
                        del new_attr['Item'][key]
+                       continue
                     if isinstance(new_attr['Item'][key], list):
                        if len(new_attr['Item'][key]) == 1 and new_attr['Item'][key][0] == '':
                             del new_attr['Item'][key]
@@ -164,3 +166,23 @@ def lambda_handler(event, context):
             return {'headers': {'Access-Control-Allow-Origin': '*'},
                     'statusCode': 401,
                     'body': json.dumps(authResponse)}
+
+#Add Pagination for DDB table scan  
+def scan_dynamodb_server_table():
+    response = servers_table.scan(ConsistentRead=True)
+    scan_data = response['Items']
+    while 'LastEvaluatedKey' in response:
+        print("Last Evaluate key is   " + str(response['LastEvaluatedKey']))
+        response = servers_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],ConsistentRead=True)
+        scan_data.extend(response['Items'])
+    return(scan_data)
+
+# Pagination for app DDB table scan  
+def scan_dynamodb_app_table():
+    response = apps_table.scan(ConsistentRead=True)
+    scan_data = response['Items']
+    while 'LastEvaluatedKey' in response:
+        print("Last Evaluate key for app is   " + str(response['LastEvaluatedKey']))
+        response = apps_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],ConsistentRead=True)
+        scan_data.extend(response['Items'])
+    return(scan_data)

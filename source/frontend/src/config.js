@@ -8,7 +8,7 @@ export default {
   },
   cognito: {
     REGION: "us-east-1",
-    USER_POOL_ID: "us-east-1_xxxxxx",
-    APP_CLIENT_ID: "xxxxxxx"
+    USER_POOL_ID: "xxxxxx",
+    APP_CLIENT_ID: "xxxxxx"
   }
 };

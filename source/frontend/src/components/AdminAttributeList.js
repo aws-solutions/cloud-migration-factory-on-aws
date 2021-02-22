@@ -6,15 +6,24 @@ export default class AdminAttributeList extends React.Component {
 
     this.state = {
       isLoading: props.isLoading,
+      waveAttributes: props.waveAttributes,
       appAttributes: props.appAttributes,
       serverAttributes: props.serverAttributes,
+      selectedWaveAttribute: '',
       selectedAppAttribute: '',
       selectedServerAttribute: '',
-      type: 'app',
+      type: 'wave',
     };
   }
 
   componentWillReceiveProps(nextProps){
+    if (nextProps.waveAttributes !== this.props.waveAttributes){
+      this.setState({
+        waveAttributes: nextProps.waveAttributes,
+        selectedWaveAttribute: nextProps.selectedWaveAttribute,
+        isLoading: nextProps.isLoading
+      });
+    }
     if (nextProps.appAttributes !== this.props.appAttributes){
       this.setState({
         appAttributes: nextProps.appAttributes,
@@ -38,6 +47,9 @@ export default class AdminAttributeList extends React.Component {
   }
 
   onSelectAttrType = (type) => (event) => {
+    if (event.target.value === 'Wave Attributes') {
+      this.setState({type: 'wave'})
+      }
     if (event.target.value === 'Application Attributes') {
     this.setState({type: 'app'})
     }
@@ -52,6 +64,7 @@ export default class AdminAttributeList extends React.Component {
     <div className="form-group pt-3">
       <label htmlFor="attType">Select Attribute Type:</label>
       <select ref="serverAttributes" onChange={this.onSelectAttrType()} className="form-control form-control-sm" id="attType">
+        <option>Wave Attributes</option>
         <option>Application Attributes</option>
         <option>Server Attributes</option>
       </select>
@@ -64,6 +77,21 @@ export default class AdminAttributeList extends React.Component {
         <tbody>
           {this.state.isLoading?<tr><td><i className="fa fa-spinner fa-spin"></i> Loading Attributes...</td></tr>:null}
 
+          {(this.state.waveAttributes.attributes && this.state.waveAttributes.attributes.length > 0) &&
+            this.state.waveAttributes.attributes.map((item, index) => {
+              if (this.state.type === 'wave') {
+                var style = ''
+                if (item.name === this.props.selectedWaveAttribute){
+                  style = 'bg-grey'
+                }
+                return (
+                  <tr key={item.name} className={style} onClick={this.props.onClick(item.name, 'wave')}>
+                    <td>{item.name}</td>
+                  </tr>
+                )
+              }
+              return null;
+            })}
 
           {(this.state.appAttributes.attributes && this.state.appAttributes.attributes.length > 0) &&
             this.state.appAttributes.attributes.map((item, index) => {

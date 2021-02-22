@@ -81,7 +81,9 @@ def multiprocessing_ce_update(launchtype, session, headers, endpoint, HOST, proj
                     if server["tenancy"].lower() == "dedicated host":
                         blueprint["tenancy"] = 'HOST'                           
                 for disk in blueprint["disks"]:
-                    blueprint["disks"] = [{"type":"SSD", "name":disk["name"]}]
+                    disk["type"] = "GP3"
+                    disk["iops"] = 3000
+                    disk["throughput"] = 125
                 existing_subnetId = blueprint["subnetIDs"]
                 existing_SecurityGroupIds = blueprint["securityGroupIDs"]
                 existing_privateIPAction = blueprint["privateIPAction"]

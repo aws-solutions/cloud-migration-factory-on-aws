@@ -52,10 +52,10 @@ def check(launchtype, session, headers, endpoint, HOST, projectname, waveid):
         
         # Get all Apps and servers from migration factory
 
-        getserver = servers_table.scan()['Items']
+        getserver = scan_dynamodb_server_table()
         servers = sorted(getserver, key = lambda i: i['server_name'])
 
-        getapp = apps_table.scan()['Items']
+        getapp = scan_dynamodb_app_table()
         apps = sorted(getapp, key = lambda i: i['app_name'])
 
         # Get App list
@@ -90,13 +90,13 @@ def check(launchtype, session, headers, endpoint, HOST, projectname, waveid):
                         machine_status += 1
                         print("Machine: " + machine['sourceProperties']['name'] + " has been migrated to the TEST environment....")
                      else:
-                        print("Machine: " + machine['sourceProperties']['name'] + " has NOT been migrated to the TEST environment, please wait....")
+                        print("Machine: " + machine['sourceProperties']['name'] + " has NOT been migrated to the TEST environment, please wait for 15 mins....")
                   elif launchtype == "cutover":
                      if 'lastCutoverDateTime' in machine["lifeCycle"]:
                         machine_status += 1
                         print("Machine: " + machine['sourceProperties']['name'] + " has been migrated to the PROD environment....")
                      else:
-                        print("Machine: " + machine['sourceProperties']['name'] + " has NOT been migrated to the PROD environment....")
+                        print("Machine: " + machine['sourceProperties']['name'] + " has NOT been migrated to the PROD environment, please wait for 15 mins....")
         if machine_exist == False:
                return "ERROR: Machine: " + server["server_name"] + " does not exist in CloudEndure...."
 
@@ -107,6 +107,27 @@ def check(launchtype, session, headers, endpoint, HOST, projectname, waveid):
            return "All Machines in the config file have been migrated to the PROD environment...."
     else:
        if launchtype == "test":
-          return "*WARNING*: Some machines in the config file have NOT been migrated to the TEST environment...."
+          return "*WARNING*: Some machines in the config file have NOT been migrated to the TEST environment, please wait for 15 mins........"
        if launchtype == "cutover":
-          return "*WARNING*: Some machines in the config file have NOT been migrated to the PROD environment...."
+          return "*WARNING*: Some machines in the config file have NOT been migrated to the PROD environment, please wait for 15 mins........"
+
+
+# Pagination for server DDB table scan  
+def scan_dynamodb_server_table():
+    response = servers_table.scan(ConsistentRead=True)
+    scan_data = response['Items']
+    while 'LastEvaluatedKey' in response:
+        print("Last Evaluate key for server is   " + str(response['LastEvaluatedKey']))
+        response = servers_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],ConsistentRead=True)
+        scan_data.extend(response['Items'])
+    return(scan_data)
+
+# Pagination for app DDB table scan  
+def scan_dynamodb_app_table():
+    response = apps_table.scan(ConsistentRead=True)
+    scan_data = response['Items']
+    while 'LastEvaluatedKey' in response:
+        print("Last Evaluate key for app is   " + str(response['LastEvaluatedKey']))
+        response = apps_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],ConsistentRead=True)
+        scan_data.extend(response['Items'])
+    return(scan_data)

@@ -115,6 +115,12 @@ export default class UserWaves extends Component {
     this.props.history.push("/");
   }
 
+  onClickReload = event => {
+    this.setState({ isLoading: true , waves: []});
+    this.getWaves();
+    this.setState({ isLoading: false });
+  }
+
   onClickChangeActiveNav = event => {
     event.preventDefault();
     switch(event.target.id) {
@@ -184,6 +190,7 @@ export default class UserWaves extends Component {
             isLoading={this.state.isLoading}
             updateWaveList={this.updateWaveList}
             showError={this.props.showError}
+            onClickReload={this.onClickReload}
           />
         </div>
       </div>

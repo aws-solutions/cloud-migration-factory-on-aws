@@ -26,8 +26,11 @@ application = os.environ['application']
 environment = os.environ['environment']
 
 waves_table_name = '{}-{}-waves'.format(application, environment)
+schema_table_name = '{}-{}-schema'.format(application, environment)
 
 waves_table = boto3.resource('dynamodb').Table(waves_table_name)
+schema_table = boto3.resource('dynamodb').Table(schema_table_name)
+
 
 def lambda_handler(event, context):
 
@@ -47,6 +50,31 @@ def lambda_handler(event, context):
                 if 'wave_name' not in body:
                     return {'headers': {'Access-Control-Allow-Origin': '*'},
                             'statusCode': 400, 'body': 'attribute wave_name is required'}
+
+                # Check if attribute is defined in the Wave schema
+                wave_attributes = []
+                for wave_schema in schema_table.scan()['Items']:
+                       if wave_schema['schema_name'] == "wave":
+                           wave_attributes = wave_schema['attributes']
+                for key in body.keys():
+                    check = False
+                    for attribute in wave_attributes:
+                        if key == attribute['name']:
+                           check = True
+                    if check == False:
+                        message = "Wave attribute: " + key + " is not defined in the Wave schema"
+                        return {'headers': {'Access-Control-Allow-Origin': '*'},
+                                'statusCode': 400, 'body': message}
+                # Check if attribute in the body matches the list value defined in schema
+                for attribute in wave_attributes:
+                    if 'listvalue' in attribute:
+                        listvalue = attribute['listvalue'].split(',')
+                        for key in body.keys():
+                            if key == attribute['name']:
+                                if body[key] not in listvalue:
+                                    message = "Wave attribute " + key + " for wave " + body['wave_name'] + " is '" + body[key] + "', does not match the list values '" + attribute['listvalue'] + "' defined in the Wave schema"
+                                    return {'headers': {'Access-Control-Allow-Origin': '*'},
+                                            'statusCode': 400, 'body': message}
             except Exception as e:
                 print(e)
                 return {'headers': {'Access-Control-Allow-Origin': '*'},
@@ -55,7 +83,7 @@ def lambda_handler(event, context):
             # Check if there is a duplicate wave_name
             itemlist = waves_table.scan()
             for item in itemlist['Items']:
-                if body['wave_name'] in item['wave_name']:
+                if body['wave_name'].lower() == item['wave_name'].lower():
                     return {'headers': {'Access-Control-Allow-Origin': '*'},
                             'statusCode': 400, 'body': 'wave_name: ' +  body['wave_name'] + ' already exist'}
 

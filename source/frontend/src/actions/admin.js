@@ -5,6 +5,16 @@ export default class Admin {
     this.session = session;
   }
 
+  getSchemaWave() {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.get("admin", "/admin/schema/wave", options);
+  }
+
   getSchemaApp() {
     const token = this.session.idToken.jwtToken;
     const options = {
@@ -77,6 +87,16 @@ export default class Admin {
     return API.get("admin", "/admin/stage", options);
   }
 
+  getWaveAttributes() {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+                        headers: {
+                          Authorization: token
+                        }
+                      };
+    return API.get("admin", "/admin/schema/wave",options);
+  }
+
   getAppAttributes() {
     const token = this.session.idToken.jwtToken;
     const options = {
@@ -143,6 +163,19 @@ export default class Admin {
     return API.del('admin', '/admin/role/'+role_id, options);
   }
 
+delWaveSchemaAttr(attr_name) {
+  const token = this.session.idToken.jwtToken;
+  var data = '{ "event":"DELETE" , "name":"' + attr_name + '"}'
+  var obj = JSON.parse(data)
+  const options = {
+    body: obj,
+    headers: {
+      Authorization: token
+    }
+  };
+  return API.put('admin', '/admin/schema/wave', options);
+}
+
 delAppSchemaAttr(attr_name) {
   const token = this.session.idToken.jwtToken;
   var data = '{ "event":"DELETE" , "name":"' + attr_name + '"}'
@@ -167,6 +200,20 @@ delSerSchemaAttr(attr_name) {
     }
   };
   return API.put('admin', '/admin/schema/server', options);
+}
+
+putWaveSchemaAttr(attr, attr_name) {
+  const token = this.session.idToken.jwtToken;
+  var attrstr = JSON.stringify(attr)
+  var data = '{ "event":"PUT" , "name":"' + attr_name + '", "update":' + attrstr + '}'
+  var obj = JSON.parse(data)
+  const options = {
+    body: obj,
+    headers: {
+      Authorization: token
+    }
+  };
+  return API.put('admin', '/admin/schema/wave', options);
 }
 
 putAppSchemaAttr(attr, attr_name) {
@@ -195,6 +242,20 @@ putServerSchemaAttr(attr, attr_name) {
     }
   };
   return API.put('admin', '/admin/schema/server', options);
+}
+
+postWaveSchemaAttr(attr) {
+  const token = this.session.idToken.jwtToken;
+  var attrstr = JSON.stringify(attr)
+  var data = '{ "event":"POST", "new":' + attrstr + '}'
+  var obj = JSON.parse(data)
+  const options = {
+    body: obj,
+    headers: {
+      Authorization: token
+    }
+  };
+  return API.put('admin', '/admin/schema/wave', options);
 }
 
 postAppSchemaAttr(attr) {

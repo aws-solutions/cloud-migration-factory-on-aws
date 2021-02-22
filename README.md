@@ -1,71 +1,57 @@
 # AWS cloudendure migration factory solution
-AWS CloudEndure Migration Factory solution is an orchestration platform powered by CloudEndure for rehosting servers to AWS at scale. It helps customers with their medium-scale to large-scale migrations by automating manual processes, which are often slow or complex to scale. Thousands of servers have been migrated to AWS using this solution.
+AWS CloudEndure Migration Factory Solution is an AWS Solutions Implementation that helps migrate a large number of servers with CloudEndure Migration in a simplified and expedited way at scale. The solution automates many of the manual, time-consuming tasks that enterprises commonly face in migrating servers from on-premise to the cloud; for example, checking prerequisites on the source machine, installing/uninstalling software on the source and target machine. Thousands of servers have been migrated to AWS using this solution. When customers deploy the solution, its AWS CloudFormation template automatically provisions and configures the necessary AWS services, starting with Amazon Elastic Container Service to build a web interface and an Amazon S3 bucket to contain the frontend code.
 
-For more information about the execution guide, please visit the AWS Prescriptive Guidance:
+The solution also deploys Amazon CloudFront, Amazon API Gateway, AWS Lambda, Amazon Cognito, and Amazon DynamoDB. To learn more about AWS CloudEndure Migration Factory Solution, see the AWS Solutions Implementation webpage. 
+
+For more information about the implementation guide, please visit the AWS Prescriptive Guidance:
+https://docs.aws.amazon.com/solutions/latest/aws-cloudendure-migration-factory-solution/welcome.html 
+
+For more information about the best practices using this solution, please visit the AWS Prescriptive Guidance:
 https://docs.aws.amazon.com/prescriptive-guidance/latest/migration-factory-cloudendure
-
-## Running unit tests for customization
-* Clone the repository, then make the desired code changes
-* Next, run unit tests to make sure added customization passes the tests
-```
-cd ./deployment
-chmod +x ./run-unit-tests.sh  \n
-./run-unit-tests.sh \n
-```
-
-## Building distributable for customization
-* Configure the bucket name of your target Amazon S3 distribution bucket
-```
-export DIST_OUTPUT_BUCKET=my-bucket-name # bucket where customized code will reside
-export SOLUTION_NAME=my-solution-name
-export VERSION=my-version # version number for the customized code
-```
-_Note:_ You would have to create an S3 bucket with the prefix 'my-bucket-name-<aws_region>'; aws_region is where you are testing the customized solution. Also, the assets in bucket should be publicly accessible.
-
-* Now build the distributable:
-```
-chmod +x ./build-s3-dist.sh \n
-./build-s3-dist.sh $DIST_OUTPUT_BUCKET $SOLUTION_NAME $VERSION \n
-```
-
-* Deploy the distributable to an Amazon S3 bucket in your account. _Note:_ you must have the AWS Command Line Interface installed.
-```
-aws s3 cp ./dist/ s3://my-bucket-name-<aws_region>/$SOLUTION_NAME/$VERSION/ --recursive --acl bucket-owner-full-control --profile aws-cred-profile-name \n
-```
-
-* Get the link of the solution template uploaded to your Amazon S3 bucket.
-* Deploy the solution to your account by launching a new AWS CloudFormation stack using the link of the solution template in Amazon S3.
-
-*** 
 
 ## File Structure
 
 ```
 |-deployment/
-  |-build-s3-dist.sh             [ shell script for packaging distribution assets ]
-  |-run-unit-tests.sh            [ shell script for executing unit tests ]
-  |-solution.yaml                [ solution CloudFormation deployment template ]
+  |-aws-cloudendure-migration-factory-solution.template            [ CloudFormation template to deploy the base solution ]
+  |-aws-cloudendure-migration-factory-solution-tracker.template    [ Nested CloudFormation template to deploy migration tracker ]
 |-source/
-  |-example-function-js          [ Example microservice function in javascript ]
-    |- lib/                      [ Example function libraries ]
-  |-example-function-py          [ Example microservice function in python ]
+  |-CE-Integration/                                                [ folder containing CloudEndure Integration Lambda code ]
+  |-frontend/                                                      [ folder containing frontend code ]
+  |-migration-tracker/                                             [ folder containing migration tracker Glue Scripts ]
+  |-helper.py                                                      [ A helper function to help deploy lambda function code through S3 buckets ]
+  |-lambda_ams_wig.py                                              [ lambda function to manage AWS Managed services intergration]
+  |-lambda_app_item.py                                             [ lambda function to manage Migration Factory apps ]
+  |-lambda_apps.py                                                 [ lambda function to manage Migration Factory apps ]
+  |-lambda_auth.py                                                 [ lambda function to manage Migration Factory authentication ]
+  |-lambda_build.py                                                [ lambda function to build frontend code ]
+  |-lambda_cognitogroups.py                                        [ lambda function to manage Migration Factory groups ]
+  |-lambda_defaultschema.py                                        [ lambda function to manage Migration Factory default schema ]
+  |-lambda_login.py                                                [ lambda function to manage Migration Factory login ]
+  |-lambda_migrationtracker_glue_execute.py                        [ lambda function to run migration tracker glue job ]
+  |-lambda_migrationtracker_glue_scriptcopy.py                     [ lambda function to copy Glue scripts to local bucket ]
+  |-lambda_reset.py                                                [ lambda function to manage Migration Factory password reset ]
+  |-lambda_role.py                                                 [ lambda function to manage Migration Factory roles ]
+  |-lambda_role_item.py                                            [ lambda function to manage Migration Factory roles ]
+  |-lambda_run_athena_savedquery.py                                [ lambda function to run migration tracker Athena query ]
+  |-lambda_schema_app.py                                           [ lambda function to manage Migration Factory app schema ]
+  |-lambda_schema_server.py                                        [ lambda function to manage Migration Factory server schema ]
+  |-lambda_schema_wave.py                                          [ lambda function to manage Migration Factory wave schema ]
+  |-lambda_server_item.py                                          [ lambda function to manage Migration Factory servers ]
+  |-lambda_servers.py                                              [ lambda function to manage Migration Factory servers ]
+  |-lambda_stage.py                                                [ lambda function to manage Migration Factory stage ]
+  |-lambda_stage_attr.py                                           [ lambda function to manage Migration Factory stage ]
+  |-lambda_wave_item.py                                            [ lambda function to manage Migration Factory waves ]
+  |-lambda_waves.py                                                [ lambda function to manage Migration Factory waves ]
+  |-policy.py                                                      [ Migration Factory authorization policy ]
 
 ```
 
-Each microservice follows the structure of:
-
-```
-|-service-name/
-  |-lib/
-    |-[service module libraries and unit tests]
-  |-index.js [injection point for microservice]
-  |-package.json
-```
 
 ***
 
 
-Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 Licensed under the the MIT-0 License. See the LICENSE file.
 This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions and limitations under the License.

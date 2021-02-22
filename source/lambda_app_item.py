@@ -77,8 +77,8 @@ def lambda_handler(event, context):
                                 'statusCode': 400, 'body': message}
 
                 # Check if there is a duplicate app_name
-                apps = apps_table.scan()
-                for app in apps['Items']:
+                apps = scan_dynamodb_app_table()
+                for app in apps:
                   if 'app_name' in body:
                     if app['app_name'].lower() == str(body['app_name']).lower() and app['app_id'] != str(event['pathParameters']['appid']):
                         return {'headers': {'Access-Control-Allow-Origin': '*'},
@@ -162,3 +162,13 @@ def lambda_handler(event, context):
             return {'headers': {'Access-Control-Allow-Origin': '*'},
                     'statusCode': 401,
                     'body': json.dumps(authResponse)}
+
+# Pagination for app DDB table scan  
+def scan_dynamodb_app_table():
+    response = apps_table.scan(ConsistentRead=True)
+    scan_data = response['Items']
+    while 'LastEvaluatedKey' in response:
+        print("Last Evaluate key for app is   " + str(response['LastEvaluatedKey']))
+        response = apps_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],ConsistentRead=True)
+        scan_data.extend(response['Items'])
+    return(scan_data)

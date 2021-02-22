@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "(SO0097) - The AWS CloudFormation template for deployment of the AWS CloudEndure Migration Factory Solution"
+Description: "(SO0097) - The AWS CloudFormation template for deployment of the AWS CloudEndure Migration Factory Solution (Version %%VERSION%%)"
 
 Metadata:
   'AWS::CloudFormation::Interface':
@@ -10,6 +10,7 @@ Metadata:
             - Application
             - Environment
             - Version
+            - Tracker
         - Label:
             default: Configuration for ECS  (Default VPC will be used if not provided)
           Parameters:
@@ -23,6 +24,8 @@ Metadata:
         default: Environment name
       Version:
         default: Version
+      Tracker:
+        default: Migration Tracker
       SecurityGroup:
         default: Security Group Id
       SubnetId:
@@ -46,7 +49,13 @@ Parameters:
   Version:
     Type: String
     Description: Version of frontend code to load
-    Default: 1.3
+    Default: 1.4
+
+  Tracker:
+    Type: String
+    Description: Deploy Migration tracker dashboard?
+    Default: 'true'
+    AllowedValues: [true, false]
 
   SecurityGroup:
     Type: String
@@ -66,6 +75,9 @@ Mappings:
     General:
       S3Bucket: '%%BUCKET_NAME%%'
       KeyPrefix: '%%SOLUTION_NAME%%/%%VERSION%%'
+
+Conditions:
+  DeployTracker: !Equals [!Ref Tracker, true]
 
 Resources:
   AccessLoggingBucket:
@@ -469,6 +481,11 @@ Resources:
     Properties:
       LogGroupName: !Sub ${Application}-${Environment}-API-Gateway-Access-Logs
       RetentionInDays: 90
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: "SSE is currently not supported, CMK is not ideal for this solution"
 
   # Tools API
   ToolsAPI:
@@ -871,6 +888,8 @@ Resources:
     DependsOn:
       - APIMethodRoleGet
       - APIMethodRolePost
+      - APIMethodSchemaWaveGet
+      - APIMethodSchemaWavePost
       - APIMethodSchemaAppGet
       - APIMethodSchemaAppPost
       - APIMethodSchemaServerGet
@@ -882,9 +901,11 @@ Resources:
       - APIMethodStageStageIdDelete
       - APIMethodStageOPTIONS
       - APIMethodRoleOPTIONS
+      - APIMethodSchemaWaveOPTIONS
       - APIMethodSchemaAppOPTIONS
       - APIMethodSchemaServerOPTIONS
       - APIMethodStageStageIdOPTIONS
+      - APIMethodSchemaWavePut
       - APIMethodSchemaAppPut
       - APIMethodSchemaServerPut
     Properties:
@@ -1098,6 +1119,110 @@ Resources:
       RestApiId: !Ref AdminAPI
       ParentId: !Ref APIResourceAdmin
       PathPart: "schema"
+
+  APIResourceAdminSchemaWave:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ParentId: !Ref APIResourceAdminSchema
+      PathPart: "wave"
+
+  APIMethodSchemaWaveOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminSchemaWave
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": "'*'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,GET,PUT,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodSchemaWaveGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminSchemaWave
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref AdminGetAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": "'*'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSchemaWave.Arn}/invocations'
+
+  APIMethodSchemaWavePut:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminSchemaWave
+      HttpMethod: "PUT"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": "'*'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSchemaWave.Arn}/invocations'
+
+  APIMethodSchemaWavePost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminSchemaWave
+      HttpMethod: "POST"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": "'*'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSchemaWave.Arn}/invocations'
 
   APIResourceAdminSchemaApp:
     Type: 'AWS::ApiGateway::Resource'
@@ -2334,8 +2459,10 @@ Resources:
                   - 'dynamodb:UpdateItem'
                   - 'dynamodb:DescribeTable'
                 Resource:
-                  - !Join ['', [!GetAtt WavesDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt SchemaDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt ServersDynamoDBTable.Arn, '*']]
                   - !Join ['', [!GetAtt AppsDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt WavesDynamoDBTable.Arn, '*']]
                   - !Join ['', [!GetAtt RoleDynamoDBTable.Arn, '*']]
                   - !Join ['', [!GetAtt StageDynamoDBTable.Arn, '*']]
               -
@@ -2998,6 +3125,40 @@ Resources:
       Principal: 'apigateway.amazonaws.com'
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*'
 
+  LambdaFunctionSchemaWave:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_schema_wave.lambda_handler
+      Runtime: python3.6
+      FunctionName: !Sub ${Application}-${Environment}-schema-wave
+      Timeout: '120'
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_schema_wave.zip"]]
+      Role: !GetAtt SchemaLambdaRole.Arn
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-schema-wave
+
+  LambdaPermissionSchemaWave:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionSchemaWave.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*'
+      
   LambdaFunctionSchemaApp:
     Type: 'AWS::Lambda::Function'
     Properties:
@@ -3659,6 +3820,12 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /ecs/${Application}-${Environment}-deploy
+      RetentionInDays: 90
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: "SSE is currently not supported, CMK is not ideal for this solution"
 
   AppBuild:
     Type: 'AWS::Lambda::Function'
@@ -3709,6 +3876,20 @@ Resources:
       ServiceToken: !GetAtt AppBuild.Arn
       # If the version changes it will trigger an update
       Version: !Ref Version
+
+  MigrationTracker:
+    Condition: DeployTracker
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 
+       - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloudendure-migration-factory-solution-tracker.template'
+       -  S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+          KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+      Parameters:
+        Application: !Ref Application
+        Environment: !Ref Environment
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
 
 Outputs:
   MigrationFactoryURL:

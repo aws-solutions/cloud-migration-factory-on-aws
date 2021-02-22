@@ -17,10 +17,13 @@ export default class AdminAttribute extends Component {
       isAuthenticated: props.isAuthenticated,
       activeNav: 'attribute',
       isLoading: true,
+      waveAttributes: {attributes:[]},
       appAttributes: {attributes:[]},
       serverAttributes: {attributes:[]},
+      selectedWaveAttribute: '',
       selectedAppAttribute: '',
       selectedServerAttribute: '',
+      WaveAttributeData: {},
       AppAttributeData: {},
       ServerAttributeData: {},
       listtypes: [],
@@ -45,8 +48,9 @@ export default class AdminAttribute extends Component {
       const session = await Auth.currentSession();
       const token = session.idToken.jwtToken;
       this.api = await new Admin(session);
+      this.getWaveAttributes();
       this.getAppAttributes();
-      this.getServerAttributes()
+      this.getServerAttributes();
       this.decodeJwt(token);
       this.getPermissions();
 
@@ -102,6 +106,13 @@ export default class AdminAttribute extends Component {
       name: ''
     };
     this.setState({listtypes: ['string','multivalue-string','list','checkbox','textarea','tag']})
+    if (type === 'wave') {
+      this.setState({
+        WaveAttributeData: newAttr,
+        selectedWaveAttribute: '',
+        type: 'wave'
+      });
+    }
     if (type === 'app') {
     this.setState({
       AppAttributeData: newAttr,
@@ -123,6 +134,28 @@ export default class AdminAttribute extends Component {
     this.setState({ isLoading: true });
     try {
       var lt = ['string','multivalue-string','list','checkbox','textarea','tag']
+      if (type === 'wave') {
+        for (var x of this.state.waveAttributes.attributes) {
+          if (x.name === name) {
+            var index = lt.indexOf(x.type)
+            if (index > -1) {
+              lt.splice(index, 1);
+           }
+           if (x.type === 'list') {
+           this.setState({isListType: true})
+           }
+           else {
+            this.setState({isListType: false})
+           }
+            this.setState({
+              selectedWaveAttribute: name,
+              WaveAttributeData: x,
+              type: type,
+              listtypes: lt
+            })
+          }
+        }
+      }
       if (type === 'app') {
       for (var x of this.state.appAttributes.attributes) {
         if (x.name === name) {
@@ -184,6 +217,19 @@ export default class AdminAttribute extends Component {
     });
     switch(action) {
       case 'update':
+        if (type === 'wave') {
+          this.getWaveAttributes();
+          if (attr.type === 'list') {
+            this.setState({isListType: true})
+          }
+          else {
+            this.setState({isListType: false})
+          }
+          this.setState({
+            selectedWaveAttribute: attr.name,
+            WaveAttributeData: attr,
+          });
+        }
         if (type === 'app') {
           this.getAppAttributes();
           if (attr.type === 'list') {
@@ -215,6 +261,20 @@ export default class AdminAttribute extends Component {
 
       case 'add':
 
+        if (type === 'wave') {
+          this.getWaveAttributes();
+          if (attr.type === 'list') {
+            this.setState({isListType: true})
+          }
+          else {
+            this.setState({isListType: false})
+          }
+          this.setState({
+            selectedWaveAttribute: attr.name,
+            WaveAttributeData: attr,
+          });
+        }
+
         if (type === 'app') {
           this.getAppAttributes();
           if (attr.type === 'list') {
@@ -244,6 +304,22 @@ export default class AdminAttribute extends Component {
         break;
 
       case 'delete':
+          if (type === 'wave') {
+            this.setState({
+              selectedWaveAttribute: ''
+            });
+          for ( i = 0; i < this.state.waveAttributes.attributes.length; i++) {
+            if (attr === this.state.waveAttributes.attributes[i].name) {
+              let newAttrs = Array.from(this.state.waveAttributes.attributes);
+              newAttrs.splice(i, 1);
+              this.setState({
+                waveAttributes: {attributes: newAttrs},
+                selectedWaveAttribute: '',
+                WaveAttributeData: {},
+              });
+            }
+          }
+        }
           if (type === 'app') {
             this.setState({
               selectedAppAttribute: ''
@@ -297,6 +373,17 @@ export default class AdminAttribute extends Component {
     }
   }
 
+  async getWaveAttributes(session) {
+    const response = await this.api.getWaveAttributes();
+    this.setState({ waveAttributes: response});
+
+  }catch (e) {
+    console.log(e);
+    if ('data' in e.response) {
+      this.props.showError(e.response.data);
+    }
+  }
+
   async getAppAttributes(session) {
     const response = await this.api.getAppAttributes();
     this.setState({ appAttributes: response});
@@ -324,9 +411,11 @@ export default class AdminAttribute extends Component {
     switch(this.state.activeNav) {
       case 'attribute':
         return <AdminAttributeList
+        selectedWaveAttribute={this.state.selectedWaveAttribute}
         selectedAppAttribute={this.state.selectedAppAttribute}
         selectedServerAttribute={this.state.selectedServerAttribute}
         onClick={this.setselectedAttribute}
+        waveAttributes={this.state.waveAttributes}
         appAttributes={this.state.appAttributes}
         serverAttributes={this.state.serverAttributes}
         isLoading={this.state.isLoading}
@@ -350,8 +439,10 @@ export default class AdminAttribute extends Component {
     switch(this.state.activeNav) {
       case 'attribute':
         return <AdminAttributeTab
+        WaveAttributeData={this.state.WaveAttributeData}
         AppAttributeData={this.state.AppAttributeData}
         ServerAttributeData={this.state.ServerAttributeData}
+        selectedWaveAttribute={this.state.selectedWaveAttribute}
         selectedAppAttribute={this.state.selectedAppAttribute}
         selectedServerAttribute={this.state.selectedServerAttribute}
         updateAttrList={this.updateAttrList}

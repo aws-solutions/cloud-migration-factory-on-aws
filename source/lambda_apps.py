@@ -36,9 +36,8 @@ waves_table = boto3.resource('dynamodb').Table(waves_table_name)
 def lambda_handler(event, context):
 
     if event['httpMethod'] == 'GET':
-        resp = apps_table.scan()
-        item = resp['Items']
-        newitem = sorted(item, key = lambda i: i['app_name'])
+        items = scan_dynamodb_app_table()
+        newitem = sorted(items, key = lambda i: i['app_name'])
         return {'headers': {'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps(newitem)}
     elif event['httpMethod'] == 'POST':
@@ -83,15 +82,15 @@ def lambda_handler(event, context):
                         'statusCode': 400, 'body': 'malformed json input'}
 
             # Check if there is a duplicate app_name
-            apps = apps_table.scan()
-            for app in apps['Items']:
-               if app['app_name'] == str(body['app_name']):
+            itemlist = scan_dynamodb_app_table()
+            for app in itemlist:
+               if app['app_name'].lower() == str(body['app_name']).lower():
                   return {'headers': {'Access-Control-Allow-Origin': '*'},
                           'statusCode': 400, 'body': 'app_name: ' +  body['app_name'] + ' already exist'}
 
             # Validate Wave_id
             if 'wave_id' in body:
-                waves = waves_table.scan()
+                waves = waves_table.scan(ConsistentRead=True)
                 check = False
                 for wave in waves['Items']:
                     if wave['wave_id'] == str(body['wave_id']):
@@ -102,9 +101,8 @@ def lambda_handler(event, context):
                             'statusCode': 400, 'body': message}
 
             # Get vacant app_id
-            itemlist = apps_table.scan()
             ids = []
-            for item in itemlist['Items']:
+            for item in itemlist:
                 ids.append(int(item['app_id']))
             ids.sort()
             app_id = 1
@@ -119,13 +117,24 @@ def lambda_handler(event, context):
             )
             if (resp['ResponseMetadata']['HTTPStatusCode'] == 200):
                 new_item = {}
-                items = apps_table.scan()['Items']
-                for item in items:
-                    if str(item['app_id']) == str(app_id):
-                        new_item = item
+                query_resp = apps_table.query(KeyConditionExpression=Key('app_id').eq(str(app_id)))
+                if 'Items' in query_resp:
+                    new_item = query_resp['Items']
+                else:
+                    new_item = "Creating app " + body['app_name'] + " failed"
             return {'headers': {'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps(new_item)}
         else:
             return {'headers': {'Access-Control-Allow-Origin': '*'},
                     'statusCode': 401,
                     'body': json.dumps(authResponse)}
+
+#Add Pagination for apps DDB table scan  
+def scan_dynamodb_app_table():
+    response = apps_table.scan(ConsistentRead=True)
+    scan_data = response['Items']
+    while 'LastEvaluatedKey' in response:
+        print("Last Evaluate key is   " + str(response['LastEvaluatedKey']))
+        response = apps_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],ConsistentRead=True)
+        scan_data.extend(response['Items'])
+    return(scan_data)

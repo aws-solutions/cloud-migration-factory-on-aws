@@ -19,16 +19,22 @@
 import os
 import json
 import boto3
+import logging
 from boto3.dynamodb.conditions import Key, Attr
 from policy import MFAuth
+
+log = logging.getLogger()
+log.setLevel(logging.INFO)
 
 application = os.environ['application']
 environment = os.environ['environment']
 
 apps_table_name = '{}-{}-apps'.format(application, environment)
+schema_table_name = '{}-{}-schema'.format(application, environment)
 waves_table_name = '{}-{}-waves'.format(application, environment)
 
 apps_table = boto3.resource('dynamodb').Table(apps_table_name)
+schema_table = boto3.resource('dynamodb').Table(schema_table_name)
 waves_table = boto3.resource('dynamodb').Table(waves_table_name)
 
 def lambda_handler(event, context):
@@ -39,8 +45,10 @@ def lambda_handler(event, context):
             return {'headers': {'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps(resp['Item'])}
         else:
+            message = 'wave Id: ' + str(event['pathParameters']['waveid']) + ' does not exist'
+            log.info(message)
             return {'headers': {'Access-Control-Allow-Origin': '*'},
-                    'statusCode': 400, 'body': 'wave Id: ' + str(event['pathParameters']['waveid']) + ' does not exist'}
+                    'statusCode': 400, 'body': message}
 
     elif event['httpMethod'] == 'PUT':
         auth = MFAuth()
@@ -48,24 +56,58 @@ def lambda_handler(event, context):
         if authResponse['action'] == 'allow':
             try:
                 body = json.loads(event['body'])
+                wave_attributes = []
                 if "wave_id" in body:
+                    message = "You cannot modify wave_id, this is managed by the system"
+                    log.info(message)
                     return {'headers': {'Access-Control-Allow-Origin': '*'},
-                            'statusCode': 400, 'body': "You cannot modify wave_id, this is managed by the system"}
+                            'statusCode': 400, 'body': message}
 
                 # check if wave id exist
                 existing_attr = waves_table.get_item(Key={'wave_id': event['pathParameters']['waveid']})
                 print(existing_attr)
                 if 'Item' not in existing_attr:
+                  message = 'wave Id: ' + str(event['pathParameters']['waveid']) + ' does not exist'
+                  log.info(message)
                   return {'headers': {'Access-Control-Allow-Origin': '*'},
-                          'statusCode': 400, 'body': 'wave Id: ' + str(event['pathParameters']['waveid']) + ' does not exist'}
+                          'statusCode': 400, 'body': message}
 
                 # Check if there is a duplicate wave_name
                 waves = waves_table.scan()
                 for wave in waves['Items']:
                   if 'wave_name' in body:
                     if wave['wave_name'].lower() == str(body['wave_name']).lower() and wave['wave_id'] != str(event['pathParameters']['waveid']):
+                        message = 'wave_name: ' +  body['wave_name'] + ' already exist'
+                        log.info(message)
                         return {'headers': {'Access-Control-Allow-Origin': '*'},
-                                'statusCode': 400, 'body': 'wave_name: ' +  body['wave_name'] + ' already exist'}
+                                'statusCode': 400, 'body': message}
+
+                # Check if attribute is defined in the Wave schema
+                for wave_schema in schema_table.scan()['Items']:
+                    if wave_schema['schema_name'] == "wave":
+                        wave_attributes = wave_schema['attributes']
+                for key in body.keys():
+                    check = False
+                    for attribute in wave_attributes:
+                        if key == attribute['name']:
+                           check = True
+                    if check == False:
+                        message = "Wave attribute: " + key + " is not defined in the Wave schema"
+                        log.info(message)
+                        return {'headers': {'Access-Control-Allow-Origin': '*'},
+                                'statusCode': 400, 'body': message}
+
+                # Check if attribute in the body matches the list value defined in schema
+                for attribute in wave_attributes:
+                    if 'listvalue' in attribute:
+                        listvalue = attribute['listvalue'].split(',')
+                        for key in body.keys():
+                            if key == attribute['name']:
+                                if body[key] not in listvalue:
+                                    message = "Wave attribute " + key + " for wave " + body['wave_name'] + " is '" + body[key] + "', does not match the list values '" + attribute['listvalue'] + "' defined in the Wave schema"
+                                    log.info(message)
+                                    return {'headers': {'Access-Control-Allow-Origin': '*'},
+                                            'statusCode': 400, 'body': message}
 
                 # Merge new attributes with existing one
                 for key in body.keys():
@@ -77,7 +119,7 @@ def lambda_handler(event, context):
                 return {'headers': {'Access-Control-Allow-Origin': '*'},
                         'body': json.dumps(resp)}
             except Exception as e:
-                print(e)
+                log.info(str(e))
                 return {'headers': {'Access-Control-Allow-Origin': '*'},
                         'statusCode': 400, 'body': 'malformed json input'}
         else:
@@ -110,8 +152,10 @@ def lambda_handler(event, context):
                     return {'headers': {'Access-Control-Allow-Origin': '*'},
                             'statusCode': respdel['ResponseMetadata']['HTTPStatusCode'], 'body': json.dumps(respdel)}
             else:
+                message = 'wave Id: ' + str(event['pathParameters']['waveid']) + ' does not exist'
+                log.info(message)
                 return {'headers': {'Access-Control-Allow-Origin': '*'},
-                        'statusCode': 400, 'body': 'wave Id: ' + str(event['pathParameters']['waveid']) + ' does not exist'}
+                        'statusCode': 400, 'body': message}
         else:
             return {'headers': {'Access-Control-Allow-Origin': '*'},
                     'statusCode': 401,

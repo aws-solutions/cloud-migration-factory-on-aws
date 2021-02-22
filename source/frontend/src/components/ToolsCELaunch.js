@@ -275,9 +275,9 @@ export default class UserListApps extends Component {
                   </select>
                 </div>
                 <div class="form-group">
-                  <label htmlfor="type">Dry run:</label>
+                  <label htmlfor="type">Dryrun:</label>
                   <select onChange={this.onChangeAttrName('dryrun')} className="form-control form-control-sm" defaultValue="none" id="launchType">
-                   <option value="none" disabled> Select Dry run options </option>
+                   <option value="none" disabled> Select Dryrun options </option>
                     <option > yes </option>
                     <option > no </option>
                   </select>

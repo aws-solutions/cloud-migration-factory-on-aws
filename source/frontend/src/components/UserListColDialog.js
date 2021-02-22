@@ -9,6 +9,7 @@ export default class UserListColDialog extends Component {
 
     this.state = {
       showColumns: this.props.showColumns,
+      schemaWave : [],
       schemaApp : [],
       schemaServer : [],
       showDialog: this.props.showDialog,
@@ -32,6 +33,9 @@ export default class UserListColDialog extends Component {
 
   async getSchema() {
     try {
+      var response = await this.apiAdmin.getSchemaWave();
+      this.setState({ schemaWave : response['attributes']});
+
       var response = await this.apiAdmin.getSchemaApp();
       this.setState({ schemaApp : response['attributes']});
 
@@ -101,6 +105,33 @@ export default class UserListColDialog extends Component {
               <div class="modal-body">
               <div style={{height:"220px",overflow:"auto"}}>
                 <div className="row">
+
+                {this.state.type === 'wave' &&
+                    <div className={this.state.type === 'both'?"col-6":"col-12"}>
+                      <div>Wave Attributes</div>
+                      <hr />
+                      <ul style={{listStyleType: "none"}} className="p-0 m-0">
+                        {this.state.schemaWave.map((item, index) => {
+                          if (item.name === "wave_name" || item.name === "wave_id") {
+                            return null
+                          }
+
+                          return (
+                            <li key={item.name}>
+                              <input
+                                onChange={this.onChangeDialog}
+                                type="checkbox"
+                                name={item.name}
+                                checked={this.state.showColumns.includes(item.name)}
+                                className="mr-3"
+                              />
+                              {item.name}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  }
 
                   {(this.state.type === 'both' || this.state.type === 'app') &&
                     <div className={this.state.type === 'both'?"col-6":"col-12"}>

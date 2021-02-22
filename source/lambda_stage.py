@@ -71,6 +71,7 @@ def lambda_handler(event, context):
             # Get schema defination
             server_attributes = []
             app_attributes = []
+            wave_attributes = []
             for schema in schema_table.scan()['Items']:
                     if schema['schema_name'] == "app":
                         for attribute in schema['attributes']:
@@ -78,8 +79,15 @@ def lambda_handler(event, context):
                     elif schema['schema_name'] == "server":
                         for attribute in schema['attributes']:
                             server_attributes.append(attribute['name'])
+                    elif schema['schema_name'] == "wave":
+                        for attribute in schema['attributes']:
+                            wave_attributes.append(attribute['name'])
+            print("*** Server Attributes: ***")
             print(server_attributes)
+            print("*** App Attributes: ***")
             print(app_attributes)
+            print("*** Wave Attributes: ***")
+            print(wave_attributes)
 
             # Check if attribute is in schema
             attrs = []
@@ -88,6 +96,8 @@ def lambda_handler(event, context):
                     item['attr_type'] = "app"
                 elif item['attr_name'] in server_attributes:
                     item['attr_type'] = "server"
+                elif item['attr_name'] in wave_attributes:
+                    item['attr_type'] = "wave"
                 else:
                     message = 'Attribute Name: ' + item['attr_name'] + " is not defined in schema"
                     return {'headers': {'Access-Control-Allow-Origin': '*'},'statusCode': 400, 'body': message}
