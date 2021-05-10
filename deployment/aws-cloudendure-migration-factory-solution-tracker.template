@@ -744,6 +744,12 @@ Resources:
       Runtime: python3.6
       MemorySize: 128
       Timeout: 720
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   CustomLambdaCopyLocal: # Custom Resource to copy the files locally
     Type: Custom::CopyGlueScript
@@ -771,6 +777,12 @@ Resources:
       Runtime: python3.6
       MemorySize: 128
       Timeout: 720
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
 
   LambdaRunAthenaSavedQuery: 
@@ -793,6 +805,12 @@ Resources:
       Runtime: python3.6
       MemorySize: 128
       Timeout: 720
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   CloudWatchEventRuleForGlueJob:
     Type: AWS::Events::Rule

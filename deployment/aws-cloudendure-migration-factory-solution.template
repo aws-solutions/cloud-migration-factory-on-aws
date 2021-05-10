@@ -3081,6 +3081,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-role
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionRole:
     Type: 'AWS::Lambda::Permission'
@@ -3116,6 +3122,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-role-item
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionRoleItem:
     Type: 'AWS::Lambda::Permission'
@@ -3150,6 +3162,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-schema-wave
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionSchemaWave:
     Type: 'AWS::Lambda::Permission'
@@ -3184,6 +3202,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-schema-app
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionSchemaApp:
     Type: 'AWS::Lambda::Permission'
@@ -3218,6 +3242,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-schema-server
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionSchemaServer:
     Type: 'AWS::Lambda::Permission'
@@ -3252,6 +3282,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-stage
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionStage:
     Type: 'AWS::Lambda::Permission'
@@ -3286,6 +3322,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-stage-attr
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionStageAttr:
     Type: 'AWS::Lambda::Permission'
@@ -3323,6 +3365,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-apps
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionApps:
     Type: 'AWS::Lambda::Permission'
@@ -3360,6 +3408,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-app-item
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionAppsItem:
     Type: 'AWS::Lambda::Permission'
@@ -3397,6 +3451,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-servers
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionServers:
     Type: 'AWS::Lambda::Permission'
@@ -3434,6 +3494,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-server-item
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionServerItem:
     Type: 'AWS::Lambda::Permission'
@@ -3471,6 +3537,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-auth
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionAuth:
     Type: 'AWS::Lambda::Permission'
@@ -3514,6 +3586,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-login
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionLogin:
     Type: 'AWS::Lambda::Permission'
@@ -3549,6 +3627,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-reset
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionPWDReset:
     Type: 'AWS::Lambda::Permission'
@@ -3562,7 +3646,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: CloudEndure.lambda_handler
-      Runtime: python2.7
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-cloudendure
       Timeout: '300'
       MemorySize: '1024'
@@ -3589,6 +3673,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-cloudendure
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionCloudEndure:
     Type: 'AWS::Lambda::Permission'
@@ -3602,7 +3692,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_ams_wig.lambda_handler
-      Runtime: python2.7
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-ams-wig
       Timeout: '300'
       Code:
@@ -3624,6 +3714,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-ams-wig
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionAMSWIG:
     Type: 'AWS::Lambda::Permission'
@@ -3659,6 +3755,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-cognitogroups
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionLoginGroups:
     Type: 'AWS::Lambda::Permission'
@@ -3696,6 +3798,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-waves
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionWaves:
     Type: 'AWS::Lambda::Permission'
@@ -3733,6 +3841,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-wave-item
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   LambdaPermissionWavesItem:
     Type: 'AWS::Lambda::Permission'
@@ -3769,6 +3883,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-default-schema
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   CustomResource:
     Type: Custom::CustomResource
@@ -3792,6 +3912,12 @@ Resources:
       Role: !GetAtt BuildRole.Arn
       Runtime: python3.8
       Timeout: '300'
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   FactoryBuild:
     Type: AWS::ECS::Cluster
@@ -3869,6 +3995,12 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-app-build
+      ReservedConcurrentExecutions: 30
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
 
   AppBuildCustomResource:
     Type: Custom::CustomResource
