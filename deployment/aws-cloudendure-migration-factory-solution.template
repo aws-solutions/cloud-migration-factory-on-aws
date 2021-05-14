@@ -3104,7 +3104,6 @@ Resources:
       FunctionName: !Sub ${Application}-${Environment}-role-item
       Timeout: '120'
       Code:
-      Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_role_item.zip"]]
       Role: !GetAtt RolesLambdaRole.Arn
