@@ -1,0 +1,3 @@
+Name,Product,ApplicationNameStack,ServerRole,Lifecycle,Organization,BusinessUnit,ProjectSponsor,AppOwner,PortfolioName,Last Patch Date
+Server1,Test1,TBD,Application Server,DEV,ENT,IT,Jane Doe,John doe,Finance,10/29/2019 18:23
+Server2,Test1,TBD,Application Server,DEV,ENT,IT,Jane Doe,John doe,Finance,10/29/2019 19:23

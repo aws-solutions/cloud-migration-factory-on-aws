@@ -251,20 +251,20 @@ export default class UserListApps extends Component {
             onClickUpdate={this.onClickUpdate}
           />
         }
-        <div class="row px-3 pt-3"><h4>CloudEndure Launch configuration</h4></div>
+        <div className="row px-3 pt-3"><h4>CloudEndure Launch configuration</h4></div>
         {/* { !this.state.isLoading && */}
         <form>
-          <div class="row px-3 pt-3">
-            <div class="col-6 px-0 pr-5">
-                <div class="form-group">
-                  <label htmlfor="APItoken">CloudEndure API Token:</label>
-                  <input class="form-control form-control-sm"
+          <div className="row px-3 pt-3">
+            <div className="col-6 px-0 pr-5">
+                <div className="form-group">
+                  <label htmlFor="APItoken">CloudEndure API Token:</label>
+                  <input className="form-control form-control-sm"
                          onChange={this.onChangeAttrName('userapitoken')}
-                         Value=''
+                         value=''
                          type="password"/>
                 </div>
-                <div class="form-group">
-                  <label htmlfor="ProjectName">CloudEndure Project Name:</label>
+                <div className="form-group">
+                  <label htmlFor="ProjectName">CloudEndure Project Name:</label>
                   <select onChange={this.onChangeAttrName('projectname')} className="form-control form-control-sm" defaultValue="none" id="waveid">
                     <option value="none" disabled> Select Project Name </option>
                     {this.state.cloudendure_projects.map((item, index) => {
@@ -274,24 +274,24 @@ export default class UserListApps extends Component {
                       })}
                   </select>
                 </div>
-                <div class="form-group">
-                  <label htmlfor="type">Dryrun:</label>
+                <div className="form-group">
+                  <label htmlFor="type">Dryrun:</label>
                   <select onChange={this.onChangeAttrName('dryrun')} className="form-control form-control-sm" defaultValue="none" id="launchType">
                    <option value="none" disabled> Select Dryrun options </option>
                     <option > yes </option>
                     <option > no </option>
                   </select>
                   </div>
-                <div class="form-group">
-                  <label htmlfor="type">Launch Type:</label>
+                <div className="form-group">
+                  <label htmlFor="type">Launch Type:</label>
                   <select onChange={this.onChangeAttrName('launchtype')} className="form-control form-control-sm" defaultValue="none" id="launchType">
                    <option value="none" disabled> Select Launch Type </option>
                     <option > test </option>
                     <option > cutover </option>
                   </select>
                   </div>
-                <div class="form-group">
-                  <label htmlfor="waveid">Wave Id:</label>
+                <div className="form-group">
+                  <label htmlFor="waveid">Wave Id:</label>
                   <select onChange={this.onChangeAttrName('waveid')} className="form-control form-control-sm" defaultValue="none" id="waveid">
                     <option value="none" disabled> Select Wave Id </option>
                     {this.state.waves.map((item, index) => {
@@ -301,24 +301,24 @@ export default class UserListApps extends Component {
                       })}
                   </select>
                   </div>
-                  <div class="form-check">
-                  <input 
-                         class="form-check-input"
+                  <div className="form-check">
+                  <input
+                         className="form-check-input"
                          name="isRelaunch"
                          onChange={this.onChangeAttrName('relaunch')}
                          checked={this.state.isRelaunch}
                          type="checkbox"/>
-                  <label htmlfor="relaunch" >Enforce a server relaunch</label>
+                  <label htmlFor="relaunch" >Enforce a server relaunch</label>
                   </div>
-                <input class="btn btn-primary btn-outline mt-3 mr-3"
+                <input className="btn btn-primary btn-outline mt-3 mr-3"
                        value="Launch Servers"
                        onClick={this.onClickLaunch}
                        type="button"/>
-                <input class="btn btn-primary btn-outline mt-3 mr-3"
+                <input className="btn btn-primary btn-outline mt-3 mr-3"
                        value="Status check"
                        onClick={this.onClickStatusCheck}
                        type="button"/>
-                <input class="btn btn-danger btn-outline mt-3"
+                <input className="btn btn-danger btn-outline mt-3"
                        value="Remove servers from CloudEndure"
                        onClick={this.onClickCleanup}
                        type="button"/>

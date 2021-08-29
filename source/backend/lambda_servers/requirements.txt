@@ -1,0 +1,4 @@
+# Removed from package as will use Lambda provided boto client last tested version was : oto3==1.17.96
+requests==2.25.1
+python-jose==3.3.0
+simplejson==3.17.2

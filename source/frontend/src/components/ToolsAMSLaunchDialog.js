@@ -65,18 +65,18 @@ export default class UserListColDialog extends Component {
 
           <div>
             <div className="block-events-full"> </div>
-            <div class="modal fade show" data-backdrop="static" style={styles} id="ModalCenter" tabindex="-1" role="dialog" aria-labelledby="ModalCenterTitle" aria-hidden="true">
-          <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="ModalLongTitle">
+            <div className="modal fade show" data-backdrop="static" style={styles} id="ModalCenter" tabIndex="-1" role="dialog" aria-labelledby="ModalCenterTitle" aria-hidden="true">
+          <div className="modal-dialog modal-dialog-centered" role="document">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title" id="ModalLongTitle">
                 <div className="pb-4">
                         <b>{(this.state.waitPeriod) ? 'Waiting for AWS Managed Services' : 'Response from AWS Managed Services'}</b>
                         {/* Only display exit button after response is received */}
                       </div>
                 </h5>
               </div>
-              <div class="modal-body">
+              <div className="modal-body">
               {this.state.AMSmsg}
               <BeatLoader
                             css={override}
@@ -86,11 +86,11 @@ export default class UserListColDialog extends Component {
                             loading={this.state.waitPeriod}
                           />
               </div>
-              <div class="modal-footer">
+              <div className="modal-footer">
               {!this.state.waitPeriod &&
-                        <span onClick={this.onClickCancelDialog} className="onhover float-right"><button type="button" class="btn btn-primary" data-dismiss="modal">Close</button></span>
+                        <span onClick={this.onClickCancelDialog} className="onhover float-right"><button type="button" className="btn btn-primary" data-dismiss="modal">Close</button></span>
                         }
-                
+
               </div>
             </div>
           </div>

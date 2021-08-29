@@ -1,0 +1,6 @@
+{
+    "LoginApiUrl":"https://xxxxxx.execute-api.us-east-1.amazonaws.com",
+    "UserApiUrl":"https://xxxxxx.execute-api.us-east-1.amazonaws.com",
+    "Region":"xxxxxx",
+    "UserPoolId":"xxxxxx"
+}

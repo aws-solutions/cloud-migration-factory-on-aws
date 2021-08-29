@@ -1,0 +1,9 @@
+wave_id,app_name,aws_region,aws_accountid,server_name,server_os_family,server_os_version,server_fqdn,server_tier,server_environment,subnet_IDs,securitygroup_IDs,subnet_IDs_test,securitygroup_IDs_test,instanceType,tenancy
+1,app01-hr,us-east-1,111122223333,Server1,windows,windows server 2012 R2,server1.mydomain.local,web,dev,subnet-1111,sg-1111;sg-2222,subnet-1111,sg-3333,m4.large,Shared
+1,app01-hr,us-east-1,111122223333,Server2,windows,windows server 2012 R2,server2.mydomain.local,db,dev,subnet-1111,sg-1111;sg-2222,subnet-1111,sg-3333,m4.large,Shared
+2,app02-sales,us-west-2,111122223333,Server3,windows,windows server 2016,server3.mydomain.local,web,prod,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared
+2,app02-sales,us-west-2,111122223333,Server4,windows,windows server 2016,server4.mydomain.local,app,prod,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared
+2,app02-sales,us-west-2,111122223333,Server5,windows,windows server 2016,server5.mydomain.local,db,prod,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared
+3,app03-sales,us-west-2,111122223333,Server6,windows,windows server 2016,server6.mydomain.local,db,prod,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared
+3,app03-sales,us-west-2,111122223333,Server7,linux,Red Hat Enterprise Linux 7,server7.mydomain.local,db,prod,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared
+3,app03-sales,us-west-2,111122223333,Server8,linux,Red Hat Enterprise Linux 7,server6.mydomain.local,db,prod,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared

@@ -5,6 +5,11 @@ import config from "./config";
 import App from './App';
 import { BrowserRouter as Router } from "react-router-dom";
 
+import 'bootstrap';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import './main.css';
+import '@fortawesome/fontawesome-free/css/all.css'
+
 Amplify.configure({
   Auth: {
     mandatorySignIn: true,

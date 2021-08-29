@@ -163,7 +163,7 @@ class App extends Component {
         break;
       case 'Resource List':
         if (this.state.allowedCreate === true) {
-        this.props.history.push("/apps");
+        this.props.history.push("/waves");
         }
         else {
           this.setState({
@@ -173,7 +173,7 @@ class App extends Component {
         }
         break;
       case 'Tools':
-      this.props.history.push("/tools/cloudendure");
+      this.props.history.push("/tools/mgn");
         break;
       case 'Logout':
         await Auth.signOut({ global: true });

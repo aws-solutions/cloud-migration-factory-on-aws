@@ -168,20 +168,20 @@ export default class UserListApps extends Component {
             onClickUpdate={this.onClickUpdate}
           />
         }
-        <div class="row px-3 pt-3"> <h4>AMS Workload Ingest RFC</h4></div>
+        <div className="row px-3 pt-3"> <h4>AMS Workload Ingest RFC</h4></div>
         <form>
-          <div class="row px-3 pt-3">
-            <div class="col-6 px-0 pr-5">
-                <div class="form-group">
-                  <label htmlfor="APItoken">CloudEndure API Token:</label>
-                  <input class="form-control form-control-sm"
+          <div className="row px-3 pt-3">
+            <div className="col-6 px-0 pr-5">
+                <div className="form-group">
+                  <label htmlFor="APItoken">CloudEndure API Token:</label>
+                  <input className="form-control form-control-sm"
                          onChange={this.onChangeAttrName('userapitoken')}
-                         Value=''
+                         value=''
                          type="password"/>
                 </div>
 
-                <div class="form-group">
-                  <label htmlfor="ProjectName">CloudEndure Project Name:</label>
+                <div className="form-group">
+                  <label htmlFor="ProjectName">CloudEndure Project Name:</label>
                   <select onChange={this.onChangeAttrName('projectname')} className="form-control form-control-sm" defaultValue="none" id="waveid">
                     <option value="none" disabled> Select Project Name </option>
                     {this.state.cloudendure_projects.map((item, index) => {
@@ -192,24 +192,24 @@ export default class UserListApps extends Component {
                   </select>
                 </div>
 
-                <div class="form-group">
-                  <label htmlfor="APItoken">AMS Access Key ID:</label>
-                  <input class="form-control form-control-sm"
+                <div className="form-group">
+                  <label htmlFor="APItoken">AMS Access Key ID:</label>
+                  <input className="form-control form-control-sm"
                          onChange={this.onChangeAttrName('access_key_id')}
-                         Value=''
+                         value=''
                          type="text"/>
                 </div>
 
-                <div class="form-group">
-                  <label htmlfor="APItoken">AMS Secret Access Key:</label>
-                  <input class="form-control form-control-sm"
+                <div className="form-group">
+                  <label htmlFor="APItoken">AMS Secret Access Key:</label>
+                  <input className="form-control form-control-sm"
                          onChange={this.onChangeAttrName('secret_access_key')}
-                         Value=''
+                         value=''
                          type="password"/>
                 </div>
 
-                <div class="form-group">
-                  <label htmlfor="waveid">Wave Id:</label>
+                <div className="form-group">
+                  <label htmlFor="waveid">Wave Id:</label>
                   <select onChange={this.onChangeAttrName('waveid')} className="form-control form-control-sm" defaultValue="none" id="waveid">
                     <option value="none" disabled> Select Wave Id </option>
                     {this.state.waves.map((item, index) => {
@@ -220,7 +220,7 @@ export default class UserListApps extends Component {
                   </select>
                   </div>
 
-                <input class="btn btn-primary btn-outline mt-3 mr-3"
+                <input className="btn btn-primary btn-outline mt-3 mr-3"
                        value="Submit AMS RFC"
                        onClick={this.onClickLaunch}
                        type="button"/>

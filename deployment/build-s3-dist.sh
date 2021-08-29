@@ -45,12 +45,12 @@ echo "--------------------------------------------------------------------------
 echo "[Packing] Templates"
 echo "------------------------------------------------------------------------------"
 echo "cp $template_dir/*.template $template_dist_dir/"
-cp $template_dir/*.template $template_dist_dir/
+cp $template_dir/CFN-templates/*.template $template_dist_dir/
 echo "copy yaml templates and rename"
-cp $template_dir/*.yaml $template_dist_dir/
+cp $template_dir/CFN-templates/*.yaml $template_dist_dir/
 cd $template_dist_dir
 # Rename all *.yaml to *.template
-for f in *.yaml; do 
+for f in *.yaml; do
     mv -- "$f" "${f%.yaml}.template"
 done
 
@@ -65,37 +65,145 @@ sed -i '' -e $replace $template_dist_dir/*.template
 replace="s/%%VERSION%%/$3/g"
 echo "sed -i '' -e $replace $template_dist_dir/*.template"
 sed -i '' -e $replace $template_dist_dir/*.template
+replace="s/%%SOLUTION_ID%%/SO0097/g"
+echo "sed -i '' -e $replace $template_dist_dir/*.template"
+sed -i '' -e $replace $template_dist_dir/*.template
 
 echo "------------------------------------------------------------------------------"
 echo "[Packing] Lambda functions"
 echo "------------------------------------------------------------------------------"
-cd $source_dir
-cp ./deployment-packages/lambda_ams_wig.zip $build_dist_dir/lambda_ams_wig.zip
-cp ./deployment-packages/lambda_app_item.zip $build_dist_dir/lambda_app_item.zip
-cp ./deployment-packages/lambda_apps.zip $build_dist_dir/lambda_apps.zip
-cp ./deployment-packages/lambda_auth.zip $build_dist_dir/lambda_auth.zip
-cp ./deployment-packages/lambda_build.zip $build_dist_dir/lambda_build.zip
-cp ./deployment-packages/lambda_cloudendure.zip $build_dist_dir/lambda_cloudendure.zip
-cp ./deployment-packages/lambda_cognitogroups.zip $build_dist_dir/lambda_cognitogroups.zip
-cp ./deployment-packages/lambda_defaultschema_packaged.zip $build_dist_dir/lambda_defaultschema_packaged.zip
-cp ./deployment-packages/lambda_login.zip $build_dist_dir/lambda_login.zip
-cp ./deployment-packages/lambda_reset.zip $build_dist_dir/lambda_reset.zip
-cp ./deployment-packages/lambda_role.zip $build_dist_dir/lambda_role.zip
-cp ./deployment-packages/lambda_role_item.zip $build_dist_dir/lambda_role_item.zip
-cp ./deployment-packages/lambda_schema_app.zip $build_dist_dir/lambda_schema_app.zip
-cp ./deployment-packages/lambda_schema_server.zip $build_dist_dir/lambda_schema_server.zip
-cp ./deployment-packages/lambda_schema_wave.zip $build_dist_dir/lambda_schema_wave.zip
-cp ./deployment-packages/lambda_server_item.zip $build_dist_dir/lambda_server_item.zip
-cp ./deployment-packages/lambda_servers.zip $build_dist_dir/lambda_servers.zip
-cp ./deployment-packages/lambda_stage.zip $build_dist_dir/lambda_stage.zip
-cp ./deployment-packages/lambda_stage_attr.zip $build_dist_dir/lambda_stage_attr.zip
-cp ./deployment-packages/lambda_wave_item.zip $build_dist_dir/lambda_wave_item.zip
-cp ./deployment-packages/lambda_waves.zip $build_dist_dir/lambda_waves.zip
-cp ./deployment-packages/v1.4.zip $build_dist_dir/v1.4.zip
-cp ./deployment-packages/helper.zip $build_dist_dir/helper.zip
-cp ./deployment-packages/lambda_run_athena_savedquery.zip $build_dist_dir/lambda_run_athena_savedquery.zip
-cp ./deployment-packages/lambda_migrationtracker_glue_scriptcopy.zip $build_dist_dir/lambda_migrationtracker_glue_scriptcopy.zip
-cp ./deployment-packages/lambda_migrationtracker_glue_execute.zip $build_dist_dir/lambda_migrationtracker_glue_execute.zip
+cd $source_dir/backend/helper
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/helper.zip .
+
+cd $source_dir/backend/lambda_ams_wig
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_ams_wig.zip .
+
+cd $source_dir/backend/lambda_apps
+pip install -r ./requirements.txt -t .
+cp $source_dir/backend/policy/policy.py ./
+zip -r $build_dist_dir/lambda_apps.zip .
+
+cd $source_dir/backend/lambda_auth
+pip install -r ./requirements.txt -t .
+cp $source_dir/backend/policy/policy.py ./
+zip -r $build_dist_dir/lambda_auth.zip .
+
+cd $source_dir/backend/lambda_build
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_build.zip .
+
+cd $source_dir/backend/lambda_cognitogroups
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_cognitogroups.zip .
+
+cd $source_dir/backend/lambda_defaultschema
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_defaultschema_packaged.zip .
+
+cd $source_dir/backend/lambda_login
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_login.zip .
+
+cd $source_dir/backend/lambda_migrationtracker_glue_execute
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_migrationtracker_glue_execute.zip .
+
+cd $source_dir/backend/lambda_migrationtracker_glue_scriptcopy
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_migrationtracker_glue_scriptcopy.zip .
+
+cd $source_dir/backend/lambda_reset
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_reset.zip .
+
+cd $source_dir/backend/lambda_role
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_role.zip .
+
+cd $source_dir/backend/lambda_role_item
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_role_item.zip .
+
+cd $source_dir/backend/lambda_run_athena_savedquery
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_run_athena_savedquery.zip .
+
+cd $source_dir/backend/lambda_schema_app
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_schema_app.zip .
+
+cd $source_dir/backend/lambda_schema_server
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_schema_server.zip .
+
+cd $source_dir/backend/lambda_schema_wave
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_schema_wave.zip .
+
+cd $source_dir/backend/lambda_server_item
+pip install -r ./requirements.txt -t .
+cp $source_dir/backend/policy/policy.py ./
+zip -r $build_dist_dir/lambda_server_item.zip .
+
+cd $source_dir/backend/lambda_servers
+pip install -r ./requirements.txt -t .
+cp $source_dir/backend/policy/policy.py ./
+zip -r $build_dist_dir/lambda_servers.zip .
+
+cd $source_dir/backend/lambda_service_account
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_service_account.zip .
+
+cd $source_dir/backend/lambda_stage
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_stage.zip .
+
+cd $source_dir/backend/lambda_stage_attr
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_stage_attr.zip .
+
+cd $source_dir/backend/lambda_wave_item
+pip install -r ./requirements.txt -t .
+cp $source_dir/backend/policy/policy.py ./
+zip -r $build_dist_dir/lambda_wave_item.zip .
+
+cd $source_dir/backend/lambda_waves
+pip install -r ./requirements.txt -t .
+cp $source_dir/backend/policy/policy.py ./
+zip -r $build_dist_dir/lambda_waves.zip .
+
+cd $source_dir/backend/lambda_app_item
+pip install -r ./requirements.txt -t .
+cp $source_dir/backend/policy/policy.py ./
+zip -r $build_dist_dir/lambda_app_item.zip .
+
+cd $source_dir/Tools\ Integration/CE-Integration/Lambdas/
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_cloudendure.zip .
+
+cd $source_dir/Tools\ Integration/MGN-Integration/Lambdas/
+pip install -r ./requirements.txt -t .
+zip -r $build_dist_dir/lambda_mgn.zip .
+
+echo "------------------------------------------------------------------------------"
+echo "[Packing] Tools Integration Scripts"
+echo "------------------------------------------------------------------------------"
+
+cd $source_dir/Tools\ Integration/MGN-Integration/
+zip -r $template_dist_dir/automation-scripts-mgn.zip ./MGN-automation-scripts
+
+cd $source_dir/Tools\ Integration/CE-Integration/
+zip -r $template_dist_dir/automation-scripts-ce.zip ./CE-automation-scripts
+
+echo "------------------------------------------------------------------------------"
+echo "[Packing] Migration Tracker Glue Scripts"
+echo "------------------------------------------------------------------------------"
+
+cd $source_dir/Tools\ Integration/
 cp ./migration-tracker/GlueScript/Migration_Tracker_App_Extract_Script.py $build_dist_dir/Migration_Tracker_App_Extract_Script.py
 cp ./migration-tracker/GlueScript/Migration_Tracker_Server_Extract_Script.py $build_dist_dir/Migration_Tracker_Server_Extract_Script.py
 
+cd $source_dir
+zip -r "$build_dist_dir/fe-$3.zip" ./frontend

@@ -13,7 +13,7 @@ export default class UserListColDialog extends Component {
   constructor(props) {
     super(props);
 
-    // Time since page 
+    // Time since page
     this.lastActivity = Date.now();
     // Limit as to how many minutes API call takes before ruling it a timeout
     this.timeout = 45;
@@ -72,21 +72,21 @@ export default class UserListColDialog extends Component {
       ? { display: "block" }
       : { display: "none" };
     return (
-      <div>        
+      <div>
         <div>
         <div className="block-events-full"> </div>
-        <div class="modal fade show" data-backdrop="static" style={styles} id="ModalCenter" tabindex="-1" role="dialog" aria-labelledby="ModalCenterTitle" aria-hidden="true">
-          <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="ModalLongTitle">
+        <div className="modal fade show" data-backdrop="static" style={styles} id="ModalCenter" tabIndex="-1" role="dialog" aria-labelledby="ModalCenterTitle" aria-hidden="true">
+          <div className="modal-dialog modal-dialog-centered" role="document">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title" id="ModalLongTitle">
                 <div className="pb-4">
                         <b>{(this.state.waitPeriod) ? 'Waiting for CloudEndure' : 'Response from CloudEndure'}</b>
                         {/* Only display exit button after response is received */}
                       </div>
                 </h5>
               </div>
-              <div class="modal-body">
+              <div className="modal-body">
               {this.state.cloudenduremsg}
                           <BeatLoader
                             css={override}
@@ -96,19 +96,19 @@ export default class UserListColDialog extends Component {
                             loading={this.state.waitPeriod}
                           />
               </div>
-              <div class="modal-footer">
+              <div className="modal-footer">
               {!this.state.waitPeriod &&
-                        <span onClick={this.onClickCancelDialog} className="onhover float-right"><button type="button" class="btn btn-primary" data-dismiss="modal">Close</button></span>
+                        <span onClick={this.onClickCancelDialog} className="onhover float-right"><button type="button" className="btn btn-primary" data-dismiss="modal">Close</button></span>
                         }
-                
+
               </div>
             </div>
           </div>
         </div>
-          
+
           </div>
-        
-        
+
+
 
     </div>
     )

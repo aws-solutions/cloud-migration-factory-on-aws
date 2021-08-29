@@ -32,6 +32,9 @@ export default class ToolsCloudEndure extends Component {
       case 'ams':
         this.props.history.push("/tools/ams");
         break;
+      case 'mgn':
+        this.props.history.push("/tools/mgn");
+        break;
       default:
         break;
     }

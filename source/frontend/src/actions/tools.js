@@ -27,4 +27,15 @@ export default class Tools {
     return API.post("tools", "/amswig", options);
   }
 
+  postMGN(mgn) {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      body: mgn,
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.post("tools", "/mgn", options);
+  }
+
 }

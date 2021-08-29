@@ -88,21 +88,21 @@ export default class UserListColDialog extends Component {
         {this.state.showDialog &&
           <div>
             <div className="block-events-full"> </div>
-            <div class="modal fade show" data-backdrop="static" style={styles} id="ModalCenter" tabindex="-1" role="dialog" aria-labelledby="ModalCenterTitle" aria-hidden="true">
-          <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="ModalLongTitle">
+            <div className="modal fade show" data-backdrop="static" style={styles} id="ModalCenter" tabIndex="-1" role="dialog" aria-labelledby="ModalCenterTitle" aria-hidden="true">
+          <div className="modal-dialog modal-dialog-centered" role="document">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title" id="ModalLongTitle">
                 <div className="pb-4">
                 <b>Show/Hide Columns</b>
                 </div>
                 </h5>
                     <span onClick={this.onClickCancelDialog} className="onhover float-right">
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;
+                        <button type="button" className="close" data-dismiss="modal" aria-label="Close">&times;
                         </button>
                     </span>
               </div>
-              <div class="modal-body">
+              <div className="modal-body">
               <div style={{height:"220px",overflow:"auto"}}>
                 <div className="row">
 

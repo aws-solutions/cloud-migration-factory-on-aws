@@ -18,7 +18,7 @@ export default class UserListservers extends Component {
       searchServer: '',
       isLoading: props.isLoading,
       isLocked: false,
-      showColumns: ['server_name', 'app_name', 'wave_id'],
+      showColumns: ['server_name', 'app_name', 'wave_id', 'migration_status', 'replication_status'],
       schemaServer : [],
       showDialog: false,
       showUploadDialog: false,

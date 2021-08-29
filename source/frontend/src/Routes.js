@@ -6,6 +6,7 @@ import UserServers from "./containers/UserServers";
 import UserWaves from "./containers/UserWaves";
 import ToolsCE from "./containers/ToolsCloudEndure";
 import ToolsAMS from "./containers/ToolsAMS";
+import ToolsMGN from "./containers/ToolsMGN";
 import NotFound from "./containers/NotFound";
 import Login from "./containers/Login";
 import AppliedRoute from "./components/AppliedRoute";
@@ -18,6 +19,7 @@ import ChangePassword from "./containers/ChangePassword";
 export default ({ childProps }) =>
   <Switch>
     <AppliedRoute path="/" exact component={User} props={childProps} />
+    <AppliedRoute path="/tools/mgn" exact component={ToolsMGN} props={childProps} />
     <AppliedRoute path="/tools/cloudendure" exact component={ToolsCE} props={childProps} />
     <AppliedRoute path="/tools/ams" exact component={ToolsAMS} props={childProps} />
     <AppliedRoute path="/apps" exact component={UserApps} props={childProps} />

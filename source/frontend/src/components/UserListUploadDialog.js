@@ -31,7 +31,7 @@ export default class UserListUploadDialog extends Component {
       var obj = {};
       var currentline = lines[i].trim().split(",");
       for(var j=0;j<headers.length;j++) {
-        if (currentline[j].charAt(0) === '[' && currentline[j].charAt(currentline[j].length - 1) === ']') 
+        if (currentline[j].charAt(0) === '[' && currentline[j].charAt(currentline[j].length - 1) === ']')
         {
           var arr_str = []
           arr_str = currentline[j].slice(1,currentline[j].length-1).split(';')
@@ -83,21 +83,21 @@ export default class UserListUploadDialog extends Component {
         {this.state.showDialog &&
           <div>
             <div className="block-events-full"> </div>
-            <div class="modal fade show" data-backdrop="static" style={styles} id="ModalCenter" tabindex="-1" role="dialog" aria-labelledby="ModalCenterTitle" aria-hidden="true">
-              <div class="modal-dialog modal-dialog-centered" role="document">
-                <div class="modal-content">
-                  <div class="modal-header">
-                    <h5 class="modal-title" id="ModalLongTitle">
+            <div className="modal fade show" data-backdrop="static" style={styles} id="ModalCenter" tabIndex="-1" role="dialog" aria-labelledby="ModalCenterTitle" aria-hidden="true">
+              <div className="modal-dialog modal-dialog-centered" role="document">
+                <div className="modal-content">
+                  <div className="modal-header">
+                    <h5 className="modal-title" id="ModalLongTitle">
                     <div className="pb-4">
                             <b>File upload </b>
                     </div>
                     </h5>
                     <span onClick={this.onClickCancelDialog} className="onhover float-right">
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;
+                        <button type="button" className="close" data-dismiss="modal" aria-label="Close">&times;
                         </button>
                     </span>
                   </div>
-                  <div class="modal-body">
+                  <div className="modal-body">
                      <div className="pt-1 pl-2" style={{height:"200px"}}>
 
                         { this.state.uploadRunning !== 'no'?

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "(SO0097) - The AWS CloudFormation template for deployment of the AWS CloudEndure Migration Factory Solution (Version %%VERSION%%)"
+Description: "(%%SOLUTION_ID%%) - The AWS CloudFormation template for deployment of the AWS CloudEndure Migration Factory Solution (Version %%VERSION%%)"
 
 Metadata:
   'AWS::CloudFormation::Interface':
@@ -9,8 +9,8 @@ Metadata:
           Parameters:
             - Application
             - Environment
-            - Version
             - Tracker
+            - ServiceAccountEmail
         - Label:
             default: Configuration for ECS  (Default VPC will be used if not provided)
           Parameters:
@@ -22,10 +22,10 @@ Metadata:
         default: Application name
       Environment:
         default: Environment name
-      Version:
-        default: Version
       Tracker:
         default: Migration Tracker
+      ServiceAccountEmail:
+        default: Service Account Email address
       SecurityGroup:
         default: Security Group Id
       SubnetId:
@@ -46,16 +46,17 @@ Parameters:
     AllowedPattern: "[-a-z0-9]*"
     ConstraintDescription: Application parameter must be all lower case characters
 
-  Version:
-    Type: String
-    Description: Version of frontend code to load
-    Default: 1.4
-
   Tracker:
     Type: String
     Description: Deploy Migration tracker dashboard?
-    Default: 'true'
+    Default: true
     AllowedValues: [true, false]
+
+  ServiceAccountEmail:
+    Type: String
+    Description: Default Factory Service Account Email Address, please replace
+    AllowedPattern: ".+"
+    Default: serviceaccount@yourdomain.com
 
   SecurityGroup:
     Type: String
@@ -66,7 +67,7 @@ Parameters:
     Type: String
     Description: Subnet used to deploy container that builds the frontend code - Outbound Internet access needed
     Default: default
-    
+
 Mappings:
   Send:
     AnonymousUsage:
@@ -146,7 +147,7 @@ Resources:
             Action:
                 - "s3:GetObject"
             Effect: "Allow"
-            Resource: !Sub ${FrontEndBucket.Arn}/*
+            Resource: !Sub "${FrontEndBucket.Arn}/*"
             Principal:
               AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudfrontOriginAccessIdentity}'
 
@@ -418,7 +419,7 @@ Resources:
             reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
           - id: W74
             reason: "Default encryption is enabled with no additional charge"
-            
+
   # Cognito
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
@@ -476,7 +477,7 @@ Resources:
     Properties:
       CloudWatchRoleArn: !GetAtt APIGatewayCWRole.Arn
 
-  APIGatewayLogGroup: 
+  APIGatewayLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub ${Application}-${Environment}-API-Gateway-Access-Logs
@@ -2354,7 +2355,7 @@ Resources:
                   - 'cognito-idp:AdminList*'
                   - 'cognito-idp:List*'
                   - 'cognito-idp:Get*'
-                Resource: 
+                Resource:
                   - !GetAtt CognitoUserPool.Arn
     Metadata:
       cfn_nag:
@@ -2417,7 +2418,7 @@ Resources:
                   - 'cognito-idp:AdminList*'
                   - 'cognito-idp:List*'
                   - 'cognito-idp:Get*'
-                Resource: 
+                Resource:
                   - !GetAtt CognitoUserPool.Arn
     Metadata:
       cfn_nag:
@@ -2480,7 +2481,7 @@ Resources:
                   - 'cognito-idp:AdminList*'
                   - 'cognito-idp:List*'
                   - 'cognito-idp:Get*'
-                Resource: 
+                Resource:
                   - !GetAtt CognitoUserPool.Arn
     Metadata:
       cfn_nag:
@@ -2539,7 +2540,7 @@ Resources:
                   - 'cognito-idp:AdminList*'
                   - 'cognito-idp:List*'
                   - 'cognito-idp:Get*'
-                Resource: 
+                Resource:
                   - !GetAtt CognitoUserPool.Arn
     Metadata:
       cfn_nag:
@@ -2772,7 +2773,7 @@ Resources:
                   - 'cognito-idp:Describe*'
                   - 'cognito-idp:List*'
                   - 'cognito-idp:Get*'
-                Resource: 
+                Resource:
                   - !GetAtt CognitoUserPool.Arn
               -
                 Effect: Allow
@@ -2863,7 +2864,7 @@ Resources:
                 Action:
                   - 'cognito-idp:List*'
                   - 'cognito-idp:Get*'
-                Resource: 
+                Resource:
                   - !GetAtt CognitoUserPool.Arn
               -
                 Effect: Allow
@@ -2915,7 +2916,7 @@ Resources:
                 Action:
                   - 'cognito-idp:List*'
                   - 'cognito-idp:Get*'
-                Resource: 
+                Resource:
                   - !GetAtt CognitoUserPool.Arn
               -
                 Effect: Allow
@@ -3045,9 +3046,13 @@ Resources:
                 Effect: Allow
                 Action:
                   - 's3:GetObject'
-                  - 's3:PutObject'
                   - 's3:ListBucket'
                 Resource: '*'
+              -
+                Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                Resource: !Sub "${FrontEndBucket.Arn}/*"
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3060,9 +3065,9 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_role.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-role
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_role.zip"]]
@@ -3081,7 +3086,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-role
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3094,16 +3099,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionRole.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
 
   LambdaFunctionRoleItem:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_role_item.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-role-item
-      Timeout: '120'
-      Code:
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_role_item.zip"]]
@@ -3122,7 +3126,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-role-item
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3135,15 +3139,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionRoleItem.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
 
   LambdaFunctionSchemaWave:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_schema_wave.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-schema-wave
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_schema_wave.zip"]]
@@ -3162,7 +3166,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-schema-wave
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3175,15 +3179,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionSchemaWave.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*'
-      
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
+
   LambdaFunctionSchemaApp:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_schema_app.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-schema-app
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_schema_app.zip"]]
@@ -3202,7 +3206,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-schema-app
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3215,15 +3219,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionSchemaApp.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
 
   LambdaFunctionSchemaServer:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_schema_server.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-schema-server
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_schema_server.zip"]]
@@ -3242,7 +3246,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-schema-server
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3255,15 +3259,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionSchemaServer.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
 
   LambdaFunctionStage:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_stage.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-stage
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_stage.zip"]]
@@ -3282,7 +3286,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-stage
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3295,15 +3299,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionStage.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
 
   LambdaFunctionStageAttr:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_stage_attr.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-stage-attr
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_stage_attr.zip"]]
@@ -3322,7 +3326,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-stage-attr
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3335,15 +3339,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionStageAttr.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
 
   LambdaFunctionApps:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_apps.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-apps
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_apps.zip"]]
@@ -3365,7 +3369,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-apps
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3378,15 +3382,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionApps.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*"
 
   LambdaFunctionAppsItem:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_app_item.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-app-item
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_app_item.zip"]]
@@ -3408,7 +3412,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-app-item
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3421,15 +3425,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionAppsItem.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*"
 
   LambdaFunctionServers:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_servers.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-servers
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_servers.zip"]]
@@ -3451,7 +3455,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-servers
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3464,15 +3468,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionServers.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*"
 
   LambdaFunctionServerItem:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_server_item.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-server-item
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_server_item.zip"]]
@@ -3494,7 +3498,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-server-item
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3507,15 +3511,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionServerItem.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*"
 
   LambdaFunctionAuth:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_auth.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-auth
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_auth.zip"]]
@@ -3537,7 +3541,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-auth
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3550,7 +3554,7 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionAuth.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
 
   LambdaPermissionAuth2:
     Type: 'AWS::Lambda::Permission'
@@ -3558,15 +3562,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionAuth.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LoginAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LoginAPI}/*"
 
   LambdaFunctionLogin:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_login.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-login
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_login.zip"]]
@@ -3586,7 +3590,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-login
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3599,15 +3603,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionLogin.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LoginAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LoginAPI}/*"
 
   LambdaFunctionPWDReset:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_reset.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-reset
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_reset.zip"]]
@@ -3627,7 +3631,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-reset
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3640,7 +3644,7 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionPWDReset.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LoginAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LoginAPI}/*"
 
   LambdaFunctionCloudEndure:
     Type: 'AWS::Lambda::Function'
@@ -3648,7 +3652,7 @@ Resources:
       Handler: CloudEndure.lambda_handler
       Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-cloudendure
-      Timeout: '300'
+      Timeout: 300
       MemorySize: '1024'
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
@@ -3673,7 +3677,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-cloudendure
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 10
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3686,7 +3690,7 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionCloudEndure.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
 
   LambdaFunctionAMSWIG:
     Type: 'AWS::Lambda::Function'
@@ -3694,7 +3698,7 @@ Resources:
       Handler: lambda_ams_wig.lambda_handler
       Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-ams-wig
-      Timeout: '300'
+      Timeout: 300
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_ams_wig.zip"]]
@@ -3714,7 +3718,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-ams-wig
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3727,15 +3731,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionAMSWIG.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
 
   LambdaFunctionLoginGroups:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_cognitogroups.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-cognitogroups
-      Timeout: '300'
+      Timeout: 300
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_cognitogroups.zip"]]
@@ -3755,7 +3759,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-cognitogroups
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3768,15 +3772,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionLoginGroups.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LoginAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LoginAPI}/*"
 
   LambdaFunctionWaves:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_waves.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-waves
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_waves.zip"]]
@@ -3798,7 +3802,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-waves
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3811,15 +3815,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionWaves.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*"
 
   LambdaFunctionWavesItem:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_wave_item.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-wave-item
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_wave_item.zip"]]
@@ -3841,7 +3845,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-wave-item
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3854,16 +3858,15 @@ Resources:
       FunctionName: !GetAtt LambdaFunctionWavesItem.Arn
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*'
-
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*"
 
   DefaultSchema:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_defaultschema.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-default-schema
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_defaultschema_packaged.zip"]]
@@ -3883,7 +3886,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-default-schema
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3911,8 +3914,8 @@ Resources:
       FunctionName: !Sub ${Application}-${Environment}-helper
       Role: !GetAtt BuildRole.Arn
       Runtime: python3.8
-      Timeout: '300'
-      ReservedConcurrentExecutions: 30
+      Timeout: 300
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3934,7 +3937,7 @@ Resources:
       Memory: 4GB
       ContainerDefinitions:
         - Name: "factory-build"
-          Image: !Sub 820623783073.dkr.ecr.us-east-1.amazonaws.com/awscemigrationfactory:latest
+          Image: !Sub 820623783073.dkr.ecr.us-east-1.amazonaws.com/awsmigrationfactoryv2:latest
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -3957,9 +3960,9 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_build.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       FunctionName: !Sub ${Application}-${Environment}-app-build
-      Timeout: '120'
+      Timeout: 120
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_build.zip"]]
@@ -3976,13 +3979,13 @@ Resources:
           APP_CLIENT_ID: !Ref CognitoAppClient
           FRONTEND_BUCKET: !Ref FrontEndBucket
           SOURCE_BUCKET: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
-          SOURCE_KEY: !Join 
+          SOURCE_KEY: !Join
                     - /
-                    - - !FindInMap 
+                    - - !FindInMap
                         - SourceCode
                         - General
                         - KeyPrefix
-                      - !Sub 'v${Version}.zip'
+                      - 'fe-%%VERSION%%.zip'
           SUBNET: !Ref SubnetId
           SG: !Ref SecurityGroup
       Tags:
@@ -3995,7 +3998,7 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-app-build
-      ReservedConcurrentExecutions: 30
+      ReservedConcurrentExecutions: 5
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4007,14 +4010,14 @@ Resources:
     Properties:
       ServiceToken: !GetAtt AppBuild.Arn
       # If the version changes it will trigger an update
-      Version: !Ref Version
+      Version: '%%VERSION%%'
 
   MigrationTracker:
     Condition: DeployTracker
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: !Sub 
-       - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloudendure-migration-factory-solution-tracker.template'
+      TemplateURL: !Sub
+       - 'https://${S3Bucket}-${AWS::Region}.s3.amazonaws.com/${KeyPrefix}/aws-cloudendure-migration-factory-solution-tracker.template'
        -  S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
           KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
       Parameters:
@@ -4023,9 +4026,33 @@ Resources:
         CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
         KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
 
+  AppMigService:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub
+       - 'https://${S3Bucket}-${AWS::Region}.s3.amazonaws.com/${KeyPrefix}/aws-cloudendure-migration-factory-solution-mgn.template'
+       -  S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+          KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+      Parameters:
+        Application: !Ref Application
+        Environment: !Ref Environment
+        ServiceAccountEmail: !Ref ServiceAccountEmail
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+        ToolsAPI: !Ref ToolsAPI
+        ToolsAuthorizer: !Ref ToolsAuthorizer
+        ToolsAPIRootId: !GetAtt ToolsAPI.RootResourceId
+        ServerDynamoTableArn: !GetAtt ServersDynamoDBTable.Arn
+        AppDynamoTableArn: !GetAtt AppsDynamoDBTable.Arn
+        CognitoUserPool: !Ref CognitoUserPool
+        CognitoUserPoolArn: !GetAtt CognitoUserPool.Arn
+        CognitoAdminGroup: !Ref CognitoAdminGroup
+        AnonymousUsageData: !FindInMap ["Send", "AnonymousUsage", "Data"]
+        solutionUUID: !GetAtt CreateUniqueID.UUID
+
 Outputs:
   MigrationFactoryURL:
-    Description: 'Migration Factory URL'
+    Description: 'Migration Factory Management console URL'
     Value: !Sub 'https://${CloudfrontDistribution.DomainName}'
 
   AdminAPI:
@@ -4043,3 +4070,23 @@ Outputs:
   UserAPI:
     Description: 'UserAPI URL'
     Value: !Sub 'https://${UserAPI}.execute-api.${AWS::Region}.amazonaws.com'
+
+  UserPoolId:
+    Description: 'Cognito User Pool Id'
+    Value: !Ref CognitoUserPool
+
+  Region:
+    Description: 'AWS Region'
+    Value: !Ref "AWS::Region"
+
+  ExecutionServerIAMRole:
+    Description: 'IAM Role for Migration Execution Server'
+    Value: !GetAtt
+            - AppMigService
+            - Outputs.ExecutionServerIAMRole
+
+  ExecutionServerIAMPolicy:
+    Description: 'IAM Policy for Migration Execution Server'
+    Value: !GetAtt
+            - AppMigService
+            - Outputs.ExecutionServerIAMPolicy

@@ -12,6 +12,7 @@ THIRD PARTY COMPONENTS
 This software includes third party software subject to the following copyrights:
 
 AWS SDK under the Apache License Version 2.0
+boto3 under the Apache License Version 2.0
 request under the Apache License Version 2.0
 simplejson under the Massachusetts Institute of Technology (MIT) license
 uuid under the Massachusetts Institute of Technology (MIT) license
@@ -24,3 +25,8 @@ react-cookie under the Massachusetts Institute of Technology (MIT) license
 react-scripts under the Massachusetts Institute of Technology (MIT) license
 react-spinners under the Massachusetts Institute of Technology (MIT) license
 Paramiko under the GNU Lesser General Public License v2.1
+python-jose under the Massachusetts Institute of Technology (MIT) license
+fontawesome under the Massachusetts Institute of Technology (MIT) license
+jquery under the Massachusetts Institute of Technology (MIT) license
+popper under the Massachusetts Institute of Technology (MIT) license
+bootstrap under the Massachusetts Institute of Technology (MIT) license
