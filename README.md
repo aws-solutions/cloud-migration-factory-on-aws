@@ -134,7 +134,8 @@ For detailed instructions on deploying this solution from the existing AWS Built
 
 ```
 
-This solution collects anonymous operational metrics to help AWS improve the quality of features of the solution. For more information, including how to disable this capability, please see the [implementation guide](_https://docs.aws.amazon.com/solutions/latest/aws-cloudendure-migration-factory-solution/appendix-b.html_).
+This solution collects anonymous operational metrics to help AWS improve the quality of features of the solution. For more information, including how to disable this capability, please see the [implementation guide](https://docs.aws.amazon.com/solutions/latest/aws-cloudendure-migration-factory-solution/appendix-b.html).
+
 
 ***
 
