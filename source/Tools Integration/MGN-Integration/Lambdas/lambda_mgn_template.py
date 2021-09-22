@@ -273,11 +273,11 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
     ## Update Subnet Id and security group Ids
     for nic in new_launch_template['NetworkInterfaces']:
         if 'private_ip' in factoryserver:
-          if factoryserver['private_IP'] is not None and factoryserver['private_IP'].strip() != '':
+          if factoryserver['private_ip'] is not None and factoryserver['private_ip'].strip() != '':
              ipaddrs = []
              ip = {}
              ip['Primary'] = True
-             ip['PrivateIpAddress'] = factoryserver['private_IP']
+             ip['PrivateIpAddress'] = factoryserver['private_ip']
              ipaddrs.append(ip)
              nic['PrivateIpAddresses'] = ipaddrs
 
