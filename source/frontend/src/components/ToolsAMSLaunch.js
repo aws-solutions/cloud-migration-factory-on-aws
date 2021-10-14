@@ -176,7 +176,6 @@ export default class UserListApps extends Component {
                   <label htmlFor="APItoken">CloudEndure API Token:</label>
                   <input className="form-control form-control-sm"
                          onChange={this.onChangeAttrName('userapitoken')}
-                         value=''
                          type="password"/>
                 </div>
 
@@ -196,7 +195,6 @@ export default class UserListApps extends Component {
                   <label htmlFor="APItoken">AMS Access Key ID:</label>
                   <input className="form-control form-control-sm"
                          onChange={this.onChangeAttrName('access_key_id')}
-                         value=''
                          type="text"/>
                 </div>
 
@@ -204,7 +202,6 @@ export default class UserListApps extends Component {
                   <label htmlFor="APItoken">AMS Secret Access Key:</label>
                   <input className="form-control form-control-sm"
                          onChange={this.onChangeAttrName('secret_access_key')}
-                         value=''
                          type="password"/>
                 </div>
 

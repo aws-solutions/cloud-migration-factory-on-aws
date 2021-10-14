@@ -260,7 +260,6 @@ export default class UserListApps extends Component {
                   <label htmlFor="APItoken">CloudEndure API Token:</label>
                   <input className="form-control form-control-sm"
                          onChange={this.onChangeAttrName('userapitoken')}
-                         value=''
                          type="password"/>
                 </div>
                 <div className="form-group">

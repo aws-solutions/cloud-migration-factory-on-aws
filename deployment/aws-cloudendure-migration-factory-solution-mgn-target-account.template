@@ -105,6 +105,11 @@ Resources:
                 Resource: '*'
               - Effect: Allow
                 Action:
+                  - 'kms:GenerateDataKey*'
+                  - 'kms:ReEncrypt*'
+                  - 'kms:CreateGrant'
+                  - 'kms:Decrypt'
+                  - 'kms:Encrypt'
                   - 'kms:ListAliases'
                   - 'kms:DescribeKey'
                 Resource: '*'

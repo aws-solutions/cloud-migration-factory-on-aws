@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2021-10-14
+### Fixed
+- Fixed a bug in the UI that blocked input textbox
+- Fixed a bug for KMS if customer choose to encrypt their EBS volumes with customer managed keys
+- Added additional CSP hash to style-src policy to reflect updated style library code version update
+
 ## [2.0.1] - 2021-09-20
 ### Fixed
 - Fixed a bug that will affect private_ip and iamRole attributes if these two attributes are used
