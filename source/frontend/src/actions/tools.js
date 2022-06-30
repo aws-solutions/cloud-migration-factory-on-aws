@@ -38,4 +38,90 @@ export default class Tools {
     return API.post("tools", "/mgn", options);
   }
 
+  postTool(apiPath, data) {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      body: data,
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.post("tools", apiPath, options);
+  }
+
+  getTool(apiPath) {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.get("tools", apiPath, options);
+  }
+
+  getSSMJobs() {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.get("tools", "/ssm/jobs", options);
+  }
+
+  deleteSSMJobs(ssmid) {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.del("tools", "/ssm/jobs/" + ssmid, options);
+  }
+
+  getSSMScripts() {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.get("tools", "/ssm/scripts", options);
+  }
+
+  getSSMScript(package_uuid, version, download = false) {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      headers: {
+        Authorization: token
+      }
+    };
+    if (download){
+      return API.get("tools", "/ssm/scripts/" + package_uuid + "/" + version + "/download", options);
+    } else {
+      return API.get("tools", "/ssm/scripts/" + package_uuid + "/" + version, options);
+    }
+  }
+
+  postSSMScripts(data) {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      body: data,
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.post("tools", "/ssm/scripts", options);
+  }
+
+  putSSMScripts(data) {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      body: data,
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.put("tools", "/ssm/scripts/" + data.package_uuid, options);
+  }
 }

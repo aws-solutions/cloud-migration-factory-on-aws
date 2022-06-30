@@ -1,0 +1,15 @@
+Name: "2-Verify Replication Status"
+Description: "This script will verify the replication status for all servers in all MGN AWS accounts in a specific wave"
+MasterFileName: "2-Verify-replication.py"
+UpdateUrl: ""
+Arguments:
+  -
+    name: "Waveid"
+    description: "Wave Name"
+    type: "relationship"
+    rel_display_attribute: "wave_name"
+    rel_entity: "wave"
+    rel_key: "wave_id"
+    validation_regex: "^(?!\\s*$).+"
+    validation_regex_msg: "Wave must be provided."
+    required: true

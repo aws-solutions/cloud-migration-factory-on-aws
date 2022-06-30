@@ -1,0 +1,2 @@
+# Removed from package as will use Lambda provided boto client last tested version was : boto3==1.17.96
+python-jose==3.3.0

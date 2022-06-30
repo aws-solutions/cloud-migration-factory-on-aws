@@ -1,0 +1,770 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "(%%SOLUTION_ID%%-gfield) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution (Version %%VERSION%%)"
+
+Parameters:
+  CodeBucket: # Upload Code in this bucket
+    Description: S3 bucket where all the code reside
+    Type: String
+
+  KeyPrefix:
+    Description: S3 key Prefix where all the code reside
+    Type: String
+
+  Application:
+    Type: String
+    Description: Application name, used to name all AWS resources.
+    Default: migration-factory
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+  Environment:
+    Type: String
+    Description: Environment name, used to name all AWS resources (.i.e dev, test, prod)
+    Default: test
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+  ServiceAccountEmail:
+    Type: String
+    Description: MF Service Account email address
+
+  CognitoUserPool:
+    Type: String
+    Description: Cognito User Pool Id
+
+  CognitoUserPoolArn:
+    Type: String
+    Description: Cognito User Pool Arn
+
+  CognitoAdminGroup:
+    Type: String
+    Description: Cognito Group name
+
+  ToolsAPI:
+    Type: String
+    Description: Tools Rest API Id
+
+  ToolsAPIRootId:
+    Type: String
+    Description: Tools Rest API RootResource Id
+
+  ToolsAuthorizer:
+    Type: String
+    Description: Tools Rest API Authorizer Id
+
+  ServerDynamoTableArn:
+    Type: String
+    Description: Servers DynamoDB Table Arn
+
+  WaveDynamoTableArn:
+    Type: String
+    Description: Wave DynamoDB Table Arn
+
+  AppDynamoTableArn:
+    Type: String
+    Description: Apps DynamoDB Table Arn
+
+  AnonymousUsageData:
+    Type: String
+    Description: Anonymous Usage Data
+
+  solutionUUID:
+    Type: String
+    Description: AWS Solution UUID
+
+  RoleDynamoDBTableArn:
+    Type: String
+
+  PolicyDynamoDBTableArn:
+    Type: String
+
+  LambdaLayerStdPythonLibs:
+    Type: String
+
+  LambdaLayerMFPolicyLib:
+    Type: String
+
+  SchemaDynamoTableArn:
+    Type: String
+    Description: Schema DynamoDB Table Arn
+
+  SchemaDynamoTableName:
+    Type: String
+    Description: Schema DynamoDB Table Name
+
+  CORS:
+    Type: String
+
+Resources:
+
+  APIResourceGFBuild:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref ToolsAPIRootId
+      PathPart: "gfbuild"
+
+  APIResourceGFDeploy:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref ToolsAPIRootId
+      PathPart: "gfdeploy"
+
+  APIResourceGFValidate:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref ToolsAPIRootId
+      PathPart: "gfvalidate"
+
+  APIMethodGFBuildOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceGFBuild
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+
+  APIMethodGFDeployOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceGFDeploy
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+
+  APIMethodGFValidateOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceGFValidate
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  GFAPIDeploy:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - APIMethodGFBuildOPTIONS
+      - APIMethodeGFBuildPost
+      - APIMethodGFValidateOPTIONS
+      - APIMethodeGFValidatePost
+      - APIMethodGFDeployOPTIONS
+      - APIMethodeGFDeployPost
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      StageName: prod
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W68
+            reason: "As this is for internal use only tool, and very low number of API calls, no usage plan is required"
+          - id: W45
+            reason: "StageDescription cannot be specified when stage referenced by StageName already exists"
+
+  APIMethodeGFBuildPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceGFBuild
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionGFBuild.Arn}/invocations'
+
+
+  APIMethodeGFDeployPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceGFDeploy
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionGFDeploy.Arn}/invocations'
+
+
+
+
+  APIMethodeGFValidatePost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceGFValidate
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionGFValidation.Arn}/invocations'
+
+
+  GFBuildLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-gfbuild-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!Ref ServerDynamoTableArn, '*']]
+                  - !Join ['', [!Ref AppDynamoTableArn, '*']]                 
+                  - !Join ['', [!Ref WaveDynamoTableArn, '*']]  
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+                
+              -
+                Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:ListBucket'
+                Resource: !Join ['', [!GetAtt GFBuildCloudFormationTemplateBucket.Arn, '*']]
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join [ '', [ !Ref RoleDynamoDBTableArn, '*' ] ]
+                  - !Join [ '', [ !Ref PolicyDynamoDBTableArn, '*' ] ]
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  GFDeployLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-gfdeploy-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!Ref ServerDynamoTableArn, '*']]
+                  - !Join ['', [!Ref AppDynamoTableArn, '*']]                 
+                  - !Join ['', [!Ref WaveDynamoTableArn, '*']]                 
+
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+                
+              -
+                Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:ListBucket'
+                  - 's3:GetBucketPolicy'
+                  - 's3:PutBucketPolicy'                  
+                Resource: !Join ['', [!GetAtt GFBuildCloudFormationTemplateBucket.Arn, '*']]
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join [ '', [ !Ref RoleDynamoDBTableArn, '*' ] ]
+                  - !Join [ '', [ !Ref PolicyDynamoDBTableArn, '*' ] ]
+
+              -
+                Effect: Allow
+                Action:
+                  - 'sts:AssumeRole'
+                Resource: '*'
+
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+                
+
+  GFValidateLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-gfvalidate-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!Ref ServerDynamoTableArn, '*']]
+                  - !Join ['', [!Ref AppDynamoTableArn, '*']]                 
+                  - !Join ['', [!Ref WaveDynamoTableArn, '*']]                  
+
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+                
+              -
+                Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:ListBucket'
+                Resource: !Join ['', [!GetAtt GFBuildCloudFormationTemplateBucket.Arn, '*']]
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join [ '', [ !Ref RoleDynamoDBTableArn, '*' ] ]
+                  - !Join [ '', [ !Ref PolicyDynamoDBTableArn, '*' ] ]
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+                
+  LambdaFunctionGFBuild:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_gfbuild.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-gfbuild
+      Timeout: '300'
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_gfbuild.zip"]]
+      Role: !GetAtt GFBuildLambdaRole.Arn
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+          region: !Ref 'AWS::Region'
+          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
+          cors: !Ref CORS
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-gfbuild
+      Layers:
+        - !Ref LambdaLayerMFPolicyLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+            
+  LambdaFunctionGFDeploy:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_gfdeploy.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-gfdeploy
+      Timeout: '300'
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_gfdeploy.zip"]]
+      Role: !GetAtt GFDeployLambdaRole.Arn
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+          region: !Ref 'AWS::Region'
+          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
+          cors: !Ref CORS
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-gfdeploy
+      Layers:
+        - !Ref LambdaLayerMFPolicyLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+            
+  LambdaFunctionGFValidation:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_gfvalidation.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-gfvalidation
+      Timeout: '300'
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_gfvalidation.zip"]]
+      Role: !GetAtt GFValidateLambdaRole.Arn
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+          region: !Ref 'AWS::Region'
+          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
+          cors: !Ref CORS
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-gfvalidate
+      Layers:
+        - !Ref LambdaLayerMFPolicyLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+            
+  LambdaPermissionGFBuild:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionGFBuild.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*'
+
+  LambdaPermissionGFDeploy:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionGFDeploy.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*'
+      
+  LambdaPermissionGFValidate:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionGFValidation.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*'      
+
+
+  ReplatformEC2SchemaLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-replatformschema-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!Ref SchemaDynamoTableArn, '*']]
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+
+  ReplatformSchema:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_replatformec2schema.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-replatform-ec2-schema
+      Timeout: 120
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_replatformec2schema.zip"]]
+      Role: !GetAtt ReplatformEC2SchemaLambdaRole.Arn
+      Environment:
+        Variables:
+          SchemaDynamoDBTable: !Ref SchemaDynamoTableName
+          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-default-schema
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  CustomResource:
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !GetAtt 'ReplatformSchema.Arn'
+      Test: 'change5'
+
+
+
+  GFBuildCloudFormationTemplateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Application}-${Environment}-${AWS::AccountId}-gfbuild-cftemplates
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: TRUE
+          BlockPublicPolicy: TRUE
+          IgnorePublicAcls: TRUE
+          RestrictPublicBuckets: TRUE
+      BucketEncryption:
+         ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: AES256
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+      VersioningConfiguration:
+         Status: 'Enabled'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W35
+            reason: "This bucket is for to generate cloud formation template by lambda code, user does not allow direct access"
+          - id: W51
+            reason: "This bucket access is controlled by IAM policies"

@@ -1,0 +1,36 @@
+Name: "1-Install MGN Agents"
+Description: "This script will install MGN agents on the source servers for the wave."
+MasterFileName: "1-AgentInstall.py"
+UpdateUrl: ""
+Arguments:
+  -
+    name: "Force"
+    description: "Force reinstall."
+    long_desc: "Force reinstall of MGN agent."
+    type: "checkbox"
+  -
+    name: "SecretWindows"
+    long_desc: "Windows Secret to use for credentials."
+    description: "Windows Secret"
+    type: "relationship"
+    rel_display_attribute: "Name"
+    rel_entity: "secret"
+    rel_key: "Name"
+  -
+    name: "SecretLinux"
+    long_desc: "Linux Secret to use for credentials."
+    description: "Linux Secret"
+    type: "relationship"
+    rel_display_attribute: "Name"
+    rel_entity: "secret"
+    rel_key: "Name"
+  -
+    name: "Waveid"
+    description: "Wave Name"
+    type: "relationship"
+    rel_display_attribute: "wave_name"
+    rel_entity: "wave"
+    rel_key: "wave_id"
+    validation_regex: "^(?!\\s*$).+"
+    validation_regex_msg: "Wave must be provided."
+    required: true

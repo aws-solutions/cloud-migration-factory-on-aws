@@ -6,7 +6,7 @@
 # cd deployment
 # ./build-s3-dist.sh source-bucket-base-name solution-name version-code
 #
-# Paramenters:
+# Parameters:
 #  - source-bucket-base-name: Name for the S3 bucket location where the template will source the Lambda
 #    code from. The template will append '-[region_name]' to this bucket name.
 #    For example: ./build-s3-dist.sh solutions my-solution v1.0.0
@@ -16,12 +16,17 @@
 #
 #  - version-code: version of the package
 
+start_time=$SECONDS
+
 # Check to see if input has been provided:
+
 if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
     echo "Please provide the base source bucket name, trademark approved solution name and version where the lambda code will eventually reside."
     echo "For example: ./build-s3-dist.sh solutions trademarked-solution-name v1.0.0"
     exit 1
 fi
+
+echo "Build number: $CODEBUILD_BUILD_NUMBER Build Type: $ENV"
 
 # Get reference for all important folders
 template_dir="$PWD"
@@ -55,147 +60,122 @@ for f in *.yaml; do
 done
 
 cd ..
-echo "Updating code source bucket in template with $1"
+echo "Updating code source bucket in templates with $1"
 replace="s/%%BUCKET_NAME%%/$1/g"
 echo "sed -i '' -e $replace $template_dist_dir/*.template"
 sed -i '' -e $replace $template_dist_dir/*.template
+echo "Updating solution name in templates with $2"
 replace="s/%%SOLUTION_NAME%%/$2/g"
 echo "sed -i '' -e $replace $template_dist_dir/*.template"
 sed -i '' -e $replace $template_dist_dir/*.template
-replace="s/%%VERSION%%/$3/g"
-echo "sed -i '' -e $replace $template_dist_dir/*.template"
-sed -i '' -e $replace $template_dist_dir/*.template
+echo "Updating solution id in templates with SO0097"
 replace="s/%%SOLUTION_ID%%/SO0097/g"
 echo "sed -i '' -e $replace $template_dist_dir/*.template"
 sed -i '' -e $replace $template_dist_dir/*.template
 
-echo "------------------------------------------------------------------------------"
-echo "[Packing] Lambda functions"
-echo "------------------------------------------------------------------------------"
-cd $source_dir/backend/helper
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/helper.zip .
+# set version to default for prod build.
+if [ -z "$ENV" ] || [ -z "$CODEBUILD_BUILD_NUMBER" ] ; then
+  cemf_version=$3
+else
+  # Append build and environment to deployment.
+  echo "Updating version for non-prod build to: $3-$CODEBUILD_BUILD_NUMBER-$ENV"
+  cemf_version="$3-$CODEBUILD_BUILD_NUMBER-$ENV"
+  export VERSION="$3-$CODEBUILD_BUILD_NUMBER-$ENV"
+fi
 
-cd $source_dir/backend/lambda_ams_wig
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_ams_wig.zip .
-
-cd $source_dir/backend/lambda_apps
-pip install -r ./requirements.txt -t .
-cp $source_dir/backend/policy/policy.py ./
-zip -r $build_dist_dir/lambda_apps.zip .
-
-cd $source_dir/backend/lambda_auth
-pip install -r ./requirements.txt -t .
-cp $source_dir/backend/policy/policy.py ./
-zip -r $build_dist_dir/lambda_auth.zip .
-
-cd $source_dir/backend/lambda_build
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_build.zip .
-
-cd $source_dir/backend/lambda_cognitogroups
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_cognitogroups.zip .
-
-cd $source_dir/backend/lambda_defaultschema
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_defaultschema_packaged.zip .
-
-cd $source_dir/backend/lambda_login
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_login.zip .
-
-cd $source_dir/backend/lambda_migrationtracker_glue_execute
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_migrationtracker_glue_execute.zip .
-
-cd $source_dir/backend/lambda_migrationtracker_glue_scriptcopy
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_migrationtracker_glue_scriptcopy.zip .
-
-cd $source_dir/backend/lambda_reset
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_reset.zip .
-
-cd $source_dir/backend/lambda_role
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_role.zip .
-
-cd $source_dir/backend/lambda_role_item
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_role_item.zip .
-
-cd $source_dir/backend/lambda_run_athena_savedquery
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_run_athena_savedquery.zip .
-
-cd $source_dir/backend/lambda_schema_app
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_schema_app.zip .
-
-cd $source_dir/backend/lambda_schema_server
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_schema_server.zip .
-
-cd $source_dir/backend/lambda_schema_wave
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_schema_wave.zip .
-
-cd $source_dir/backend/lambda_server_item
-pip install -r ./requirements.txt -t .
-cp $source_dir/backend/policy/policy.py ./
-zip -r $build_dist_dir/lambda_server_item.zip .
-
-cd $source_dir/backend/lambda_servers
-pip install -r ./requirements.txt -t .
-cp $source_dir/backend/policy/policy.py ./
-zip -r $build_dist_dir/lambda_servers.zip .
-
-cd $source_dir/backend/lambda_service_account
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_service_account.zip .
-
-cd $source_dir/backend/lambda_stage
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_stage.zip .
-
-cd $source_dir/backend/lambda_stage_attr
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_stage_attr.zip .
-
-cd $source_dir/backend/lambda_wave_item
-pip install -r ./requirements.txt -t .
-cp $source_dir/backend/policy/policy.py ./
-zip -r $build_dist_dir/lambda_wave_item.zip .
-
-cd $source_dir/backend/lambda_waves
-pip install -r ./requirements.txt -t .
-cp $source_dir/backend/policy/policy.py ./
-zip -r $build_dist_dir/lambda_waves.zip .
-
-cd $source_dir/backend/lambda_app_item
-pip install -r ./requirements.txt -t .
-cp $source_dir/backend/policy/policy.py ./
-zip -r $build_dist_dir/lambda_app_item.zip .
-
-cd $source_dir/Tools\ Integration/CE-Integration/Lambdas/
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_cloudendure.zip .
-
-cd $source_dir/Tools\ Integration/MGN-Integration/Lambdas/
-pip install -r ./requirements.txt -t .
-zip -r $build_dist_dir/lambda_mgn.zip .
+replace="s/%%VERSION%%/$cemf_version/g"
+echo "sed -i '' -e $replace $template_dist_dir/*.template"
+sed -i '' -e $replace $template_dist_dir/*.template
 
 echo "------------------------------------------------------------------------------"
-echo "[Packing] Tools Integration Scripts"
+echo "[Packing] Core Lambda functions"
 echo "------------------------------------------------------------------------------"
 
-cd $source_dir/Tools\ Integration/MGN-Integration/
-zip -r $template_dist_dir/automation-scripts-mgn.zip ./MGN-automation-scripts
+cd $source_dir/backend/lambda_functions/
+for d in */ ; do
+    echo "$d"
+    cd $source_dir/backend/lambda_functions/$d
+    mkdir ./.build
+    cp -r ./[!.]* ./.build
+    cd ./.build
+    pip install -r ./requirements.txt -t .
+    d1=${d%?}
+    zip -r $build_dist_dir/$d1.zip ./
+    cd ..
+    rm -rf ./.build
+done
 
-cd $source_dir/Tools\ Integration/CE-Integration/
-zip -r $template_dist_dir/automation-scripts-ce.zip ./CE-automation-scripts
+echo "------------------------------------------------------------------------------"
+echo "[Packing] Lambda function Layers"
+echo "------------------------------------------------------------------------------"
+
+cd $source_dir/backend/lambda_layers/
+for d in */ ; do
+    echo "$d"
+    cd $source_dir/backend/lambda_layers/$d
+    mkdir ./.build
+    cp -r ./[!.]* ./.build
+    cd $source_dir/backend/lambda_layers/$d/.build/python
+    pip install -r ./requirements.txt -t ./lib/python3.8/site-packages/
+    cd ../
+    d1=${d%?}
+    zip -r $build_dist_dir/$d1.zip .
+    cd $source_dir/backend/lambda_layers/$d
+    rm -rf ./.build
+done
+
+echo "------------------------------------------------------------------------------"
+echo "[Packing] Integration Lambda functions"
+echo "------------------------------------------------------------------------------"
+
+cd $source_dir/Tools\ Integration/
+for d in */ ; do
+    echo "$d"
+    cd $source_dir/Tools\ Integration/$d/lambdas
+    mkdir ./.build
+    cp -r ./[!.]* ./.build
+    cd ./.build
+    pip install -r ./requirements.txt -t .
+    d1=${d%?}
+    zip -r $build_dist_dir/lambda_$d1.zip .
+    cd ..
+    rm -rf ./.build
+done
+
+echo "------------------------------------------------------------------------------"
+echo "[Packing] MGN Integration Automation Scripts"
+echo "------------------------------------------------------------------------------"
+
+cd $source_dir/Tools\ Integration/mgn/MGN-automation-scripts/
+for d in */ ; do
+    echo "$d"
+    cd $source_dir/Tools\ Integration/mgn/MGN-automation-scripts/$d
+    cp $source_dir/Tools\ Integration/mgn/MGN-automation-scripts/common/* ./
+    d1=${d%?}
+    zip -r $build_dist_dir/script_mgn_$d1.zip .
+done
+
+cd $build_dist_dir/
+zip -r $build_dist_dir/default_scripts.zip script_*.zip
+
+echo "------------------------------------------------------------------------------"
+echo "[Packing] Other Automation Scripts"
+echo "------------------------------------------------------------------------------"
+
+cd $source_dir/Tools\ Integration/automation_packages/
+for d in */ ; do
+    echo "$d"
+    cd $source_dir/Tools\ Integration/automation_packages/$d
+    for p in */ ; do
+      cd $source_dir/Tools\ Integration/automation_packages/$d/$p
+      cp $source_dir/Tools\ Integration/mgn/MGN-automation-scripts/common/* ./
+      p1=${p%?}
+      zip -r $build_dist_dir/script_$d_$p1.zip .
+    done
+done
+
+cd $build_dist_dir/
+zip -r $build_dist_dir/default_scripts.zip script_*.zip
 
 echo "------------------------------------------------------------------------------"
 echo "[Packing] Migration Tracker Glue Scripts"
@@ -205,5 +185,67 @@ cd $source_dir/Tools\ Integration/
 cp ./migration-tracker/GlueScript/Migration_Tracker_App_Extract_Script.py $build_dist_dir/Migration_Tracker_App_Extract_Script.py
 cp ./migration-tracker/GlueScript/Migration_Tracker_Server_Extract_Script.py $build_dist_dir/Migration_Tracker_Server_Extract_Script.py
 
-cd $source_dir
-zip -r "$build_dist_dir/fe-$3.zip" ./frontend
+echo "------------------------------------------------------------------------------"
+echo "[Frontend] Preparing for Unit Testing"
+echo "------------------------------------------------------------------------------"
+
+cd $source_dir/frontend/
+echo "  ---- NPM version"
+npm --version
+
+echo "  ---- Installing NPM Dependencies"
+npm install
+npm install jest --global
+
+echo "  ---- Running NPM audit"
+npm audit
+
+echo "------------------------------------------------------------------------------"
+echo "[Unit Tests] Running Frontend Unit Tests"
+echo "------------------------------------------------------------------------------"
+
+jest
+if [ $? -eq 0 ]
+  then
+    echo "  ---- SUCCESS: Frontend Unit tests passed."
+  else
+    echo "  ---- FAILURE: Frontend Unit tests failed."
+    exit 1
+fi
+
+echo "------------------------------------------------------------------------------"
+echo "[Unit Tests] Frontend Unit Tests Complete"
+echo "------------------------------------------------------------------------------"
+
+echo "------------------------------------------------------------------------------"
+echo "[Unit Tests] Running Backend Unit Tests"
+echo "------------------------------------------------------------------------------"
+
+cd $template_dir/../
+chmod +x $template_dir/run_lambda_unit_test.sh
+$template_dir/run_lambda_unit_test.sh
+if [ $? -eq 0 ]
+  then
+    echo "  ---- SUCCESS: Backend Unit tests passed."
+  else
+    echo "  ---- FAILURE: Backend Unit tests failed."
+    exit 1
+fi
+
+echo "------------------------------------------------------------------------------"
+echo "[Packing] Frontend build"
+echo "------------------------------------------------------------------------------"
+
+cd $source_dir/frontend/
+echo "  ---- Building React Production Application"
+npm run build
+echo "  ---- Packaging React Production Application"
+cd ./build/
+zip -r "$build_dist_dir/fe-$cemf_version.zip" .
+
+
+
+
+
+elapsed=$(( SECONDS - start_time ))
+echo "Elapsed build time : $elapsed seconds"

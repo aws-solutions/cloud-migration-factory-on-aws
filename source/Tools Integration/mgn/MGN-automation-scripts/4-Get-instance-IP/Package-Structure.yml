@@ -1,0 +1,15 @@
+Name: "4-Get target Instance IP"
+Description: "This script will get IP details of the target instances in a specific wave"
+MasterFileName: "4-Get-instance-IP.py"
+UpdateUrl: ""
+Arguments:
+  -
+    name: "Waveid"
+    description: "Wave Name"
+    type: "relationship"
+    rel_display_attribute: "wave_name"
+    rel_entity: "wave"
+    rel_key: "wave_id"
+    validation_regex: "^(?!\\s*$).+"
+    validation_regex_msg: "Wave must be provided."
+    required: true

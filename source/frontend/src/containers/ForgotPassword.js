@@ -1,79 +1,128 @@
-import React, {Component} from "react";
+import React, {useState} from "react";
 import {Auth} from "aws-amplify";
-import "./Login.css";
 
-export default class ForgotPassword extends Component {
-  constructor(props) {
-    super(props);
+import {useNavigate} from "react-router-dom";
+import {Box, Button, Container, FormField, Grid, Header, Input, Link, SpaceBetween} from "@awsui/components-react";
 
-    this.state = {
-      isLoading: false,
-      email: "",
-      password: "",
-      code: ""
-    };
+const ForgotPassword = (props) => {
+  let navigate = useNavigate();
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [code, setCode] = useState('');
+
+  function validateForm() {
+    return email.length > 0 && password.length > 0 && code.length > 0;
   }
 
-  validateForm() {
-    return this.state.email.length > 0 && this.state.password.length > 0 && this.state.code.length > 0;
-  }
-
-  handleChange = event => {
-    this.setState({
-      [event.target.id]: event.target.value
-    });
-  }
-
-  handleSubmit = async event => {
-    event.preventDefault();
-
-    this.setState({isLoading: true});
-
-    try {
-      await Auth.forgotPasswordSubmit(this.state.email, this.state.code, this.state.password);
-      alert("Password saved successfully!");
-      this.props.history.push("/login");
-    } catch (e) {
-      alert(e.message);
-      this.setState({isLoading: false});
+  const handleChange = event => {
+    switch(event.target.id) {
+      case 'email': {
+        setEmail(event.target.value)
+        break;
+      }
+      case 'password': {
+        setPassword(event.target.value)
+        break;
+      }
+      case 'code': {
+        setCode(event.target.value)
+        break;
+      }
     }
   }
 
-  render() {
-    return (
-      <div className="container pt-5">
-        <div className="login mx-auto login-box p-0 m-0">
-          <div className="aws-charcoal login-header p-0 m-0" style={{height:"65px"}} >
-            <span style={{height:"65px"}} className="navbar-logo navbar-logo-login pt-5"/>
-            <span className="login-title"><h4>Migration Factory</h4></span>
-          </div>
+  const handleSubmit = async event => {
+    event.preventDefault();
 
-          <div className="mt-5 px-4">
+    setIsLoading(true);
 
-            <form onSubmit={this.handleSubmit}>
-
-              <div className="form-group">
-                <input id="email" type="text" onChange={this.handleChange} className="form-control form-control-sm" ref="email" placeholder="Username"/>
-              </div>
-              <div className="form-group">
-                <input id="code" type="text" onChange={this.handleChange} className="form-control form-control-sm" placeholder="Password Reset Code" ref="appName"/>
-              </div>
-              <div className="form-group">
-                <input id="password" type="password" onChange={this.handleChange} className="form-control form-control-sm" placeholder="New Password" ref="appName"/>
-              </div>
-              <div className="form-group text-center">
-                <input
-                  style={{width:"100%"}}
-                  className="btn btn-primary btn-outline btn-aws-charcoal mt-3 mb-2 mr-3"
-                  type="submit"
-                  value="Reset Password"
-                />
-              </div>
-            </form>
-
-          </div>
-
-      </div>
-    </div>);
+    try {
+      await Auth.forgotPasswordSubmit(email, code, password);
+      alert("Password saved successfully!");
+      navigate("/login");
+    } catch (e) {
+      alert(e.message);
+      setIsLoading(false);
+    }
   }
+
+  return(
+    <Grid
+      gridDefinition={[
+        { colspan: { default: 12, xxs: 6 }, offset: { xxs: 3 } }
+      ]}
+    >
+      <Box margin="xxl" padding="xxl">
+        <Container
+          header={
+            <Header
+              variant="h2"
+            >
+              AWS Cloud Migration Factory - Reset Password
+            </Header>
+          }
+        >
+          <SpaceBetween size={'xl'} direction={'vertical'}>
+            <SpaceBetween size={'xxs'} direction={'vertical'}>
+              <FormField
+                key={'username'}
+                label={'Username'}
+              >
+                <Input
+                  value={email}
+                  onChange={event => setEmail(event.detail.value)}
+                />
+              </FormField>
+
+              <FormField
+                key={'code'}
+                label={'Password Reset Code'}
+              >
+                <Input
+                  value={code}
+                  onChange={event => setCode(event.detail.value)}
+                  type="code"
+                />
+              </FormField>
+
+              <FormField
+                key={'password'}
+                label={'New Password'}
+                errorText={password !== confirmPassword ? 'Passwords do not match.' : null}
+              >
+                <Input
+                  value={password}
+                  onChange={event => setPassword(event.detail.value)}
+                  type="password"
+                />
+              </FormField>
+
+              <FormField
+                key={'confirmPassword'}
+                label={'Confirm New Password'}
+              >
+                <Input
+                  value={confirmPassword}
+                  onChange={event => setConfirmPassword(event.detail.value)}
+                  type="password"
+                />
+              </FormField>
+            </SpaceBetween>
+            <Box float={'right'}>
+            <SpaceBetween size={'xs'} direction={'horizontal'}>
+              <Button disabled={email && code && password && confirmPassword && password === confirmPassword ? false : true} variant={'primary'} onClick={handleSubmit}>Reset Password</Button>
+              <Button onClick={() => navigate("/login")}>Cancel</Button>
+            </SpaceBetween>
+            </Box>
+          </SpaceBetween>
+        </Container>
+      </Box>
+    </Grid>
+  );
+
 }
+
+export default ForgotPassword

@@ -1,0 +1,102 @@
+Name: "5-Post Cutover Validation"
+Description: "Performs various post cutover validation checks, such as, service status, processes, installed software, tags etc."
+MasterFileName: "5-post_cutover_validations.py"
+UpdateUrl: ""
+Arguments:
+  -
+    name: "Waveid"
+    description: "01.Wave Name"
+    type: "relationship"
+    rel_display_attribute: "wave_name"
+    rel_entity: "wave"
+    rel_key: "wave_id"
+    validation_regex: "^(?!\\s*$).+"
+    validation_regex_msg: "Wave must be provided."
+    required: true
+  -
+    name: "SecretWindows"
+    long_desc: "Windows Secret to use for credentials."
+    description: "02.Windows Secret"
+    type: "relationship"
+    rel_display_attribute: "Name"
+    rel_entity: "secret"
+    rel_key: "Name"
+  -
+    name: "SecretLinux"
+    long_desc: "Linux Secret to use for credentials."
+    description: "03.Linux Secret"
+    type: "relationship"
+    rel_display_attribute: "Name"
+    rel_entity: "secret"
+    rel_key: "Name"
+  -
+    name: "NoPrompts"
+    description: "04.No Prompt"
+    long_desc: "Specify if user prompts for Passwords are allowed. True or False"
+    type: "checkbox"
+  -
+    name: "Tags"
+    description: "05.Mandatory Tags"
+    long_desc: "Comma separated list of Mandatory tags. Default: Name"
+    type: "standard"
+    required: false
+  -
+    name: "ServiceList"
+    description: "06.Linux Service List"
+    long_desc: "Comma separated list of Linux Running Services. Default: amazon-ssm-agent"
+    type: "standard"
+    required: false
+  -
+    name: "wantedApplications"
+    description: "07.Windows required applications"
+    long_desc: "Comma separated list of wanted applications to be validated in windows server. Default: Amazon SSM Agent"
+    type: "standard"
+    required: false
+  -
+    name: "unwantedApplications"
+    description: "08.Windows Unwanted applications"
+    long_desc: "Comma separated list of unwanted applications to be validated in windows server. Default: McAfee,Norton,Symantec,VMWare Tools,AVG,Qualys"
+    type: "standard"
+    required: false
+  -
+    name: "runningApplications"
+    description: "09.Windows Running Applications"
+    long_desc: "Comma separated list of running applications to be validated in windows server. Default: AmazonSSMAgent"
+    type: "standard"
+    required: false
+  -
+    name: "EnableTerminationProtection"
+    description: "10.Enable Termination Protection on the Instance"
+    long_desc: "Specify if you would like to enable the termination protection on the target instance. True or False"
+    type: "checkbox"
+  -
+    name: "EnableAllValidations"
+    description: "11.Enable all optional validations"
+    long_desc: "Specify if all optional validations needs to be enabled. True or False"
+    type: "checkbox"
+  -
+    name: "HostFileEntryCheck"
+    description: "12.(Optional - Linux) Check for IP in Host File"
+    long_desc: "Validates if the private IP entry in the Host file of the instance . True or False"
+    type: "checkbox"
+  -
+    name: "DnsEntryCheck"
+    description: "13.(Optional - Linux) Check DNS Server entry in /etc/resolv.conf"
+    long_desc: "Validates if on-prem DNS server IPs are updated in the /etc/resolv.conf. True or False"
+    type: "checkbox"
+  -
+    name: "dnsIps"
+    description: "14.DNS Server IPs"
+    long_desc: "(Optional - Linux) Pipe separated list of DNS Server IPs. eg: 1.1.1.1|2.2.2.2. Required only if Dns Entry Check is enabled."
+    type: "standard"
+    required: false
+  -
+    name: "SyslogEntryCheck"
+    description: "15.(Optional - Linux) Check linuxsyslogaws entry in /etc/rsyslog.conf"
+    long_desc: "Validates if linuxsyslogaws entry is present in /etc/rsyslog.conf. True or False"
+    type: "checkbox"
+  -
+    name: "BootupStatusCheck"
+    description: "16.(Optional - All) Checks the Instance Bootup Screenshot"
+    long_desc: "Validates if the Instance has booted up properly by checking the instance screenshot. True or False"
+    type: "checkbox"

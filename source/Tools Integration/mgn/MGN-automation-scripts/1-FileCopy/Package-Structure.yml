@@ -1,0 +1,43 @@
+Name: "1-Copy Post Launch Scripts"
+Description: "This script copy post launch scripts to source servers in a specific wave."
+MasterFileName: "1-FileCopy.py"
+UpdateUrl: ""
+Arguments:
+  -
+    name: "SecretWindows"
+    long_desc: "Windows Secret to use for credentials."
+    description: "Windows Secret"
+    type: "relationship"
+    rel_display_attribute: "Name"
+    rel_entity: "secret"
+    rel_key: "Name"
+  -
+    name: "SecretLinux"
+    long_desc: "Linux Secret to use for credentials."
+    description: "Linux Secret"
+    type: "relationship"
+    rel_display_attribute: "Name"
+    rel_entity: "secret"
+    rel_key: "Name"
+  -
+    name: "Waveid"
+    description: "Wave Name"
+    type: "relationship"
+    rel_display_attribute: "wave_name"
+    rel_entity: "wave"
+    rel_key: "wave_id"
+    validation_regex: "^(?!\\s*$).+"
+    validation_regex_msg: "Wave must be provided."
+    required: true
+  -
+    name: "WindowsSource"
+    description: "Windows source location."
+    long_desc: "Windows post launch scripts location."
+    type: "standard"
+    required: false
+
+  - name: "LinuxSource"
+    description: "Linux source location."
+    long_desc: "Linux post launch scripts location."
+    type: "standard"
+    required: false

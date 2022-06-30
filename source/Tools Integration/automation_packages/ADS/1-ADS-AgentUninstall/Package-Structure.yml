@@ -1,0 +1,35 @@
+Name: "Uninstall AWS ADS Agents"
+Description: "This script will uninstall ADS agents from the source servers for the wave."
+MasterFileName: "1-ADS-AgentUninstall.py"
+Arguments:
+  -
+    name: "SecretWindows"
+    long_desc: "Windows Secret to use for credentials."
+    description: "Windows Secret"
+    type: "relationship"
+    rel_display_attribute: "Name"
+    rel_entity: "secret"
+    rel_key: "Name"
+  -
+    name: "SecretLinux"
+    long_desc: "Linux Secret to use for credentials."
+    description: "Linux Secret"
+    type: "relationship"
+    rel_display_attribute: "Name"
+    rel_entity: "secret"
+    rel_key: "Name"
+  -
+    name: "Waveid"
+    description: "Wave Name"
+    type: "relationship"
+    rel_display_attribute: "wave_name"
+    rel_entity: "wave"
+    rel_key: "wave_id"
+    validation_regex: "^(?!\\s*$).+"
+    validation_regex_msg: "Wave must be provided."
+    required: true
+  -
+    name: "HardUninstall"
+    description: "Complete uninstall (Windows Only)"
+    long_desc: "Without this option the ADS Agent services and processes will be stopped and removed, but installation files will remain on Windows machines. Reinstall without this option will require a force option."
+    type: "checkbox"

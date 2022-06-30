@@ -1,0 +1,289 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "(%%SOLUTION_ID%%-mgn) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution (Version %%VERSION%%)"
+
+Parameters:
+  CodeBucket: # Upload Code in this bucket
+    Description: S3 bucket where all the code reside
+    Type: String
+
+  KeyPrefix:
+    Description: S3 key Prefix where all the code reside
+    Type: String
+
+  Application:
+    Type: String
+    Description: Application name, used to name all AWS resources.
+    Default: migration-factory
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+  Environment:
+    Type: String
+    Description: Environment name, used to name all AWS resources (.i.e dev, test, prod)
+    Default: test
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+  ServiceAccountEmail:
+    Type: String
+    Description: MF Service Account email address
+
+  CognitoUserPool:
+    Type: String
+    Description: Cognito User Pool Id
+
+  CognitoUserPoolArn:
+    Type: String
+    Description: Cognito User Pool Arn
+
+  CognitoAdminGroup:
+    Type: String
+    Description: Cognito Group name
+
+  ToolsAPI:
+    Type: String
+    Description: Tools Rest API Id
+
+  ToolsAPIRootId:
+    Type: String
+    Description: Tools Rest API RootResource Id
+
+  ToolsAuthorizer:
+    Type: String
+    Description: Tools Rest API Authorizer Id
+
+  ServerDynamoTableArn:
+    Type: String
+    Description: Servers DynamoDB Table Arn
+
+  AppDynamoTableArn:
+    Type: String
+    Description: Apps DynamoDB Table Arn
+
+  AnonymousUsageData:
+    Type: String
+    Description: Anonymous Usage Data
+
+  solutionUUID:
+    Type: String
+    Description: AWS Solution UUID
+
+  RoleDynamoDBTableArn:
+    Type: String
+
+  PolicyDynamoDBTableArn:
+    Type: String
+
+  LambdaLayerStdPythonLibs:
+    Type: String
+
+  LambdaLayerMFPolicyLib:
+    Type: String
+
+  CORS:
+    Type: String
+
+Resources:
+  ## MGN API
+  APIResourceMGN:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref ToolsAPIRootId
+      PathPart: "mgn"
+
+  MGNAPIDeploy:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - APIMethodMGNOPTIONS
+      - APIMethodMGNPost
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      StageName: prod
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W68
+            reason: "As this is for internal use only tool, and very low number of API calls, no usage plan is required"
+          - id: W45
+            reason: "StageDescription cannot be specified when stage referenced by StageName already exists"
+
+  APIMethodMGNOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceMGN
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodMGNPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceMGN
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionMGN.Arn}/invocations'
+
+  ## IAM Role for Application Migration Service Lambda
+  MGNLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-MGNLambdaRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: !Sub ${Application}-${Environment}-MGNLambda
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!Ref ServerDynamoTableArn, '*']]
+                  - !Join ['', [!Ref AppDynamoTableArn, '*']]
+              -
+                Effect: Allow
+                Action:
+                - 'iam:PassRole'
+                - 'sts:AssumeRole'
+                Resource: 'arn:aws:iam::*:role/CMF-*'
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              - 
+                Effect: Allow
+                Action:
+                  - s3:HeadBucket
+                  - s3:HeadObject
+                  - s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${CodeBucket}"
+              - 
+                Effect: Allow
+                Action:
+                  - s3:HeadBucket
+                  - s3:HeadObject
+                  - s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${CodeBucket}/*"
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                Resource:
+                  - !Join ['', [!Ref RoleDynamoDBTableArn, '*']]
+                  - !Join ['', [!Ref PolicyDynamoDBTableArn, '*']]
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: F38
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  LambdaFunctionMGN:
+    Type: AWS::Lambda::Function
+    Properties:
+      Environment:
+        Variables:
+          application: !Sub ${Application}
+          environment: !Sub ${Environment}
+          AnonymousUsageData: !Ref AnonymousUsageData
+          solutionUUID: !Ref solutionUUID
+          region: !Ref "AWS::Region"
+          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
+          cors: !Ref CORS
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_mgn.zip"]]
+      Description: This is the lambda function for application migration service intergration
+      FunctionName: !Sub ${Application}-${Environment}-MGN
+      Handler: "lambda_mgn.lambda_handler"
+      Role: !GetAtt MGNLambdaRole.Arn
+      Runtime: python3.8
+      MemorySize: 2048
+      Timeout: 720
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-MGN
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionMGN:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionMGN.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"

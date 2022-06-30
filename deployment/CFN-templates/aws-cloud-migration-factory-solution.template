@@ -1,0 +1,4428 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "(%%SOLUTION_ID%%) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution (Version %%VERSION%%)"
+
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: Application Configuration
+        Parameters:
+          - Application
+          - Environment
+          - Tracker
+          - ReplatformEC2          
+          - ServiceAccountEmail
+
+    ParameterLabels:
+      Application:
+        default: Application name
+      Environment:
+        default: Environment name
+      Tracker:
+        default: Migration Tracker
+      ReplatformEC2:
+        default: Replatform EC2        
+      ServiceAccountEmail:
+        default: Service Account Email address
+
+Parameters:
+  Application:
+    Type: String
+    Description: Application name is used to name all AWS resources.
+    Default: migration-factory
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+  Environment:
+    Type: String
+    Description: Environment name is used to name all AWS resources (.i.e dev, test, prod)
+    Default: test
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+  Tracker:
+    Type: String
+    Description: Deploy Migration tracker dashboard?
+    Default: true
+    AllowedValues: [true, false]
+
+
+  ReplatformEC2:
+    Type: String
+    Description: Deploy Replatform EC2 Feature?
+    Default: true
+    AllowedValues: [true, false]
+    
+
+  ServiceAccountEmail:
+    Type: String
+    Description: Default Factory Service Account Email Address, please replace
+    AllowedPattern: ".+"
+    Default: serviceaccount@yourdomain.com
+
+Mappings:
+  Send:
+    AnonymousUsage:
+      Data: 'Yes'
+  SourceCode:
+    General:
+      S3Bucket: '%%BUCKET_NAME%%'
+      KeyPrefix: '%%SOLUTION_NAME%%/%%VERSION%%'
+
+Conditions:
+  DeployTracker: !Equals [!Ref Tracker, true]
+  ReplatformEC2: !Equals [!Ref ReplatformEC2, true]
+  
+Resources:
+  AccessLoggingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Application}-${Environment}-${AWS::AccountId}-access-logs
+      AccessControl: LogDeliveryWrite
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: TRUE
+        BlockPublicPolicy: TRUE
+        IgnorePublicAcls: TRUE
+        RestrictPublicBuckets: TRUE
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+      VersioningConfiguration:
+        Status: 'Enabled'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W35
+            reason: "This bucket itself is the access logging bucket"
+          - id: W51
+            reason: "Bucket policy is not required for CloudFront logging bucket"
+
+  AccessLogBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AccessLoggingBucket
+      PolicyDocument:
+        Statement:
+          -
+            Action:
+              - "s3:DeleteBucket"
+            Effect: "Deny"
+            Resource: !GetAtt AccessLoggingBucket.Arn
+            Principal: "*"
+
+  FrontEndBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Application}-${Environment}-${AWS::AccountId}-front-end
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: TRUE
+        BlockPublicPolicy: TRUE
+        IgnorePublicAcls: TRUE
+        RestrictPublicBuckets: TRUE
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+      LoggingConfiguration:
+        DestinationBucketName: !Ref AccessLoggingBucket
+        LogFilePrefix: frontend
+      VersioningConfiguration:
+        Status: 'Enabled'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W41
+            reason: "This bucket is CloudFront origin, it does not work with KMS encrypted S3 objects."
+          - id: W35
+            reason: "This bucket is a CloudFront origin, does not allow direct access"
+
+  FrontEndBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontEndBucket
+      PolicyDocument:
+        Statement:
+          -
+            Action:
+              - "s3:GetObject"
+            Effect: "Allow"
+            Resource: !Sub "${FrontEndBucket.Arn}/*"
+            Principal:
+              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudfrontOriginAccessIdentity}'
+
+  CloudfrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub access-identity-${FrontEndBucket.DomainName}
+
+  CloudfrontDistribution:
+    DependsOn: CloudFrontFunction
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-CloudFrontDistribution
+      DistributionConfig:
+        Enabled: true
+        PriceClass: 'PriceClass_100'
+        DefaultRootObject: 'index.html'
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+          MinimumProtocolVersion: TLSv1.2_2018
+        CustomErrorResponses:
+          - ErrorCachingMinTTL: 300
+            ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: '/index.html'
+        HttpVersion: http2
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - HEAD
+            - DELETE
+            - POST
+            - GET
+            - OPTIONS
+            - PUT
+            - PATCH
+          ForwardedValues:
+            QueryString: false
+          TargetOriginId: !Sub S3-${FrontEndBucket}
+          ViewerProtocolPolicy: redirect-to-https
+          FunctionAssociations:
+            - EventType: viewer-response
+              FunctionARN: !GetAtt CloudFrontFunction.FunctionMetadata.FunctionARN
+        IPV6Enabled: true
+        Logging:
+          Bucket: !GetAtt AccessLoggingBucket.DomainName
+        Origins:
+          - DomainName: !GetAtt FrontEndBucket.DomainName
+            Id: !Sub S3-${FrontEndBucket}
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudfrontOriginAccessIdentity}
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W70
+            reason: "It is already TLSv1.2_2018"
+
+  CloudFrontFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub ${Application}-${Environment}-HTTPHeaders
+      AutoPublish: true
+      FunctionCode: !Sub |
+        function handler(event) {
+          var response = event.response;
+          var headers = response.headers;
+        
+            // Set HTTP security headers
+          headers['strict-transport-security'] = { value: 'max-age=63072000; includeSubdomains; preload'};
+          headers['content-security-policy'] = { value: "frame-ancestors 'none';"};
+          headers['x-content-type-options'] = { value: 'nosniff'};
+          headers['x-frame-options'] = {value: 'DENY'};
+          headers['x-xss-protection'] = {value: '1; mode=block'};
+        
+          // Return the response to viewers
+          return response;
+        }
+      FunctionConfig:
+        Comment: !Sub Append HTTP security headers to responses. NOTE-index.html also contains CSP in meta.
+        Runtime: cloudfront-js-1.0
+
+  RoleDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "role_id"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "role_id"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-roles
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-roles
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  SchemaDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "schema_name"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "schema_name"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-schema
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-schema
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  PolicyDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "policy_id"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "policy_id"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-policies
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-policies
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  ServersDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "server_id"
+          AttributeType: "S"
+        -
+          AttributeName: "app_id"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "server_id"
+          KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        -
+          IndexName: app_id-index
+          KeySchema:
+            -
+              AttributeName: "app_id"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: ALL
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-servers
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-servers
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  AppsDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "app_id"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "app_id"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-apps
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-apps
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  WavesDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "wave_id"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "wave_id"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-waves
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-waves
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  DBsDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "database_id"
+          AttributeType: "S"
+        -
+          AttributeName: "app_id"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "database_id"
+          KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        -
+          IndexName: database_id-index
+          KeySchema:
+            -
+              AttributeName: "app_id"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: ALL
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-databases
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-databases
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  # Cognito
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${Application}-${Environment}-MigrationFactory
+      UsernameAttributes:
+        - email
+      UserPoolTags:
+        application: !Ref Application
+        environment: !Ref Environment
+
+  CognitoAppClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub ${Application}-${Environment}-client
+      ExplicitAuthFlows:
+        - ADMIN_NO_SRP_AUTH
+        - USER_PASSWORD_AUTH
+      GenerateSecret: False
+      UserPoolId: !Ref CognitoUserPool
+
+  CognitoAdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      Description: Admin group to access all /admin API
+      GroupName: admin
+      UserPoolId: !Ref CognitoUserPool
+
+  CognitoReadOnlyGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      Description: ReadOnly group to access all data readonly
+      GroupName: readonly
+      UserPoolId: !Ref CognitoUserPool
+
+  # API Gateway IAM Role, Accont and log group
+  APIGatewayCWRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-apigatewaycw-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - apigateway.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  APIGatewayAccount:
+    Type: 'AWS::ApiGateway::Account'
+    Properties:
+      CloudWatchRoleArn: !GetAtt APIGatewayCWRole.Arn
+
+  APIGatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub ${Application}-${Environment}-API-Gateway-Access-Logs
+      RetentionInDays: 90
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: "SSE is currently not supported, CMK is not ideal for this solution"
+
+  # Tools API
+  ToolsAPI:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      Name: !Sub ${Application}-${Environment}-tools-api
+
+  ToolsAPIGatewayResponses4xx:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      ResponseParameters:
+        gatewayresponse.header.Strict-Transport-Security: "'max-age=63072000; includeSubDomains; preload'"
+      ResponseType: DEFAULT_4XX
+      RestApiId: !Ref ToolsAPI
+
+  ToolsAPIGatewayResponses5xx:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      ResponseParameters:
+        gatewayresponse.header.Strict-Transport-Security: "'max-age=63072000; includeSubDomains; preload'"
+      ResponseType: DEFAULT_5XX
+      RestApiId: !Ref ToolsAPI
+
+  ToolsAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      IdentitySource: method.request.header.Authorization
+      Name: !Sub ${Application}-${Environment}-ToolsAPI-Authorizer
+      ProviderARNs:
+        - !GetAtt CognitoUserPool.Arn
+      RestApiId: !Ref ToolsAPI
+      Type: COGNITO_USER_POOLS
+
+  ToolsAPIDeploy:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - APIMethodCloudEndurePost
+      - APIMethodCloudEndureOPTIONS
+      - APIMethodSSMOPTIONS
+      - APIMethodSSMGet
+      - APIMethodSSMPost
+      - APIMethodSSMScriptsOPTIONS
+      - APIMethodSSMScriptsGet
+      - APIMethodSSMScriptsPost
+      - APIMethodSSMScriptsIdOPTIONS
+      - APIMethodSSMScriptsIdGet
+      - APIMethodSSMScriptsIdPut
+      - APIMethodSSMScriptsIdDelete
+      - APIMethodSSMScriptsIdVersionOPTIONS
+      - APIMethodSSMScriptsIdVersionGet
+      - APIMethodSSMScriptsIdVersionActionOPTIONS
+      - APIMethodSSMScriptsIdVersionActionGet
+      - APIMethodSSMJobsOPTIONS
+      - APIMethodSSMJobsGet
+      - APIMethodSSMJobsIdOPTIONS
+      - APIMethodSSMJobsIdDelete
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      StageName: prod
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W68
+            reason: "As this is for internal use only tool, and very low number of API calls, no usage plan is required"
+          - id: W45
+            reason: "StageDescription cannot be specified when stage referenced by StageName already exists"
+
+  APIResourceCloudEndure:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !GetAtt ToolsAPI.RootResourceId
+      PathPart: "cloudendure"
+
+  APIMethodCloudEndureOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceCloudEndure
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodCloudEndurePost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceCloudEndure
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionCloudEndure.Arn}/invocations'
+
+  APIResourceAMSWIG:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !GetAtt ToolsAPI.RootResourceId
+      PathPart: "amswig"
+
+  APIMethodAMSWIGOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceAMSWIG
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodeAMSWIGPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceAMSWIG
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionAMSWIG.Arn}/invocations'
+
+  APIResourceSSM:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !GetAtt ToolsAPI.RootResourceId
+      PathPart: "ssm"
+
+  APIMethodSSMOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSM
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodSSMGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSM
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMArn}/invocations'
+
+  APIMethodSSMPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSM
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMArn}/invocations'
+
+  #PN - API Gateway SSM Scripts
+  APIResourceSSMScripts:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref APIResourceSSM
+      PathPart: "scripts"
+
+  APIMethodSSMScriptsOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMScripts
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodSSMScriptsGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMScripts
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
+
+  APIMethodSSMScriptsPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMScripts
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
+
+  APIResourceSSMScriptsId:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref APIResourceSSMScripts
+      PathPart: "{scriptid}"
+
+  APIMethodSSMScriptsIdOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMScriptsId
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodSSMScriptsIdGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMScriptsId
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
+
+  APIMethodSSMScriptsIdPut:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMScriptsId
+      HttpMethod: "PUT"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
+
+  APIMethodSSMScriptsIdDelete:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMScriptsId
+      HttpMethod: "DELETE"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
+
+  APIResourceSSMScriptsIdVersion:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref APIResourceSSMScriptsId
+      PathPart: "{version}"
+
+  APIMethodSSMScriptsIdVersionOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMScriptsIdVersion
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodSSMScriptsIdVersionGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMScriptsIdVersion
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
+
+  APIResourceSSMScriptsIdVersionAction:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref APIResourceSSMScriptsIdVersion
+      PathPart: "{action}"
+
+  APIMethodSSMScriptsIdVersionActionOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMScriptsIdVersionAction
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodSSMScriptsIdVersionActionGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMScriptsIdVersionAction
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
+
+  # PN - API Gateway SSM Jobs
+  APIResourceSSMJobs:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref APIResourceSSM
+      PathPart: "jobs"
+
+  APIMethodSSMJobsOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMJobs
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodSSMJobsGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMJobs
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMJobsArn}/invocations'
+
+  APIMethodSSMJobsPOST:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMJobs
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMJobsArn}/invocations'
+
+  APIResourceSSMJobsId:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref APIResourceSSMJobs
+      PathPart: "{jobid}"
+
+  APIMethodSSMJobsIdOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMJobsId
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodSSMJobsIdDelete:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceSSMJobsId
+      HttpMethod: "DELETE"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMJobsArn}/invocations'
+
+  # Login API
+  LoginAPI:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      Name: !Sub ${Application}-${Environment}-login-api
+
+  LoginAPIGatewayResponses4xx:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      ResponseParameters:
+        gatewayresponse.header.Strict-Transport-Security: "'max-age=63072000; includeSubDomains; preload'"
+      ResponseType: DEFAULT_4XX
+      RestApiId: !Ref LoginAPI
+
+  LoginAPIGatewayResponses5xx:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      ResponseParameters:
+        gatewayresponse.header.Strict-Transport-Security: "'max-age=63072000; includeSubDomains; preload'"
+      ResponseType: DEFAULT_5XX
+      RestApiId: !Ref LoginAPI
+
+  LoginAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      AuthorizerUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionAuth.Arn}/invocations'
+      IdentitySource: method.request.header.Authorization
+      AuthorizerResultTtlInSeconds: 0
+      Name: !Sub ${Application}-${Environment}-LoginAPI-Authorizer
+      RestApiId: !Ref LoginAPI
+      Type: TOKEN
+
+  LoginAPIDeploy:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - APIMethodLoginPost
+      - APIMethodLoginPwdResetPost
+      - APIMethodLoginOPTIONS
+      - APIMethodLoginPwdResetOPTIONS
+      - APIMethodLoginGroupsOPTIONS
+      - APIMethodLoginGroupsGet
+    Properties:
+      RestApiId: !Ref LoginAPI
+      StageName: prod
+      StageDescription:
+        AccessLogSetting:
+          DestinationArn: !GetAtt APIGatewayLogGroup.Arn
+          Format: "$context.requestId"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W68
+            reason: "As this is for internal use only tool, and very low number of API calls, no usage plan is required"
+
+  APIResourceLogin:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref LoginAPI
+      ParentId: !GetAtt LoginAPI.RootResourceId
+      PathPart: "login"
+
+  APIMethodLoginPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref LoginAPI
+      ResourceId: !Ref APIResourceLogin
+      HttpMethod: "POST"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionLogin.Arn}/invocations'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W59
+            reason: "This method is used to handle authentication, does not need an Authentication type in API gateway"
+
+  APIMethodLoginOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref LoginAPI
+      ResourceId: !Ref APIResourceLogin
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIResourceLoginPwdReset:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref LoginAPI
+      ParentId: !Ref APIResourceLogin
+      PathPart: "pwdreset"
+
+  APIMethodLoginPwdResetOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref LoginAPI
+      ResourceId: !Ref APIResourceLoginPwdReset
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodLoginPwdResetPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref LoginAPI
+      ResourceId: !Ref APIResourceLoginPwdReset
+      HttpMethod: "POST"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionPWDReset.Arn}/invocations'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W59
+            reason: "This method is used to reset password, does not need an Authentication type in API gateway"
+
+  APIResourceLoginGroups:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref LoginAPI
+      ParentId: !Ref APIResourceLogin
+      PathPart: "groups"
+
+  APIMethodLoginGroupsOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref LoginAPI
+      ResourceId: !Ref APIResourceLoginGroups
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodLoginGroupsGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref LoginAPI
+      ResourceId: !Ref APIResourceLoginGroups
+      HttpMethod: "GET"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref LoginAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionLoginGroups.Arn}/invocations'
+
+  # Admin API
+  AdminAPI:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      Name: !Sub ${Application}-${Environment}-admin-api
+
+  AdminAPIGatewayResponses4xx:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      ResponseParameters:
+        gatewayresponse.header.Strict-Transport-Security: "'max-age=63072000; includeSubDomains; preload'"
+      ResponseType: DEFAULT_4XX
+      RestApiId: !Ref AdminAPI
+
+  AdminAPIGatewayResponses5xx:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      ResponseParameters:
+        gatewayresponse.header.Strict-Transport-Security: "'max-age=63072000; includeSubDomains; preload'"
+      ResponseType: DEFAULT_5XX
+      RestApiId: !Ref AdminAPI
+
+  AdminAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      AuthorizerUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionAuth.Arn}/invocations'
+      IdentitySource: method.request.header.Authorization
+      AuthorizerResultTtlInSeconds: 0
+      Name: !Sub ${Application}-${Environment}-AdminAPI-Authorizer
+      RestApiId: !Ref AdminAPI
+      Type: TOKEN
+
+  AdminGetAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      IdentitySource: method.request.header.Authorization
+      Name: !Sub ${Application}-${Environment}-AdminAPIGet-Authorizer
+      ProviderARNs:
+        - !GetAtt CognitoUserPool.Arn
+      RestApiId: !Ref AdminAPI
+      Type: COGNITO_USER_POOLS
+
+  AdminAPIDeploy:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - APIMethodRoleGet
+      - APIMethodRolePost
+      - APIMethodSchemaAllOPTIONS
+      - APIMethodSchemaAllGet
+      - APIMethodSchemaNamedGet
+      - APIMethodSchemaNamedPost
+      - APIMethodSchemaNamedOPTIONS
+      - APIMethodSchemaNamedPut
+      - APIMethodPolicyGet
+      - APIMethodPolicyPost
+      - APIMethodPolicyPolicyIdGet
+      - APIMethodPolicyPolicyIdPut
+      - APIMethodPolicyPolicyIdDelete
+      - APIMethodPolicyOPTIONS
+      - APIMethodRoleOPTIONS
+      - APIMethodPolicyPolicyIdOPTIONS
+    Properties:
+      RestApiId: !Ref AdminAPI
+      StageName: prod
+      StageDescription:
+        AccessLogSetting:
+          DestinationArn: !GetAtt APIGatewayLogGroup.Arn
+          Format: "$context.requestId"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W68
+            reason: "As this is for internal use only tool, and very low number of API calls, no usage plan is required"
+
+  APIResourceAdmin:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ParentId: !GetAtt AdminAPI.RootResourceId
+      PathPart: "admin"
+
+  APIResourceAdminUsers:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ParentId: !Ref APIResourceAdmin
+      PathPart: "users"
+
+  APIMethodAdminUsersOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminUsers
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodAdminUsersGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminUsers
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref AdminGetAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionUserAdmin.Arn}/invocations'
+
+  APIResourceAdminRole:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ParentId: !Ref APIResourceAdmin
+      PathPart: "role"
+
+  APIMethodRoleOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminRole
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodRoleGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminRole
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref AdminGetAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionRole.Arn}/invocations'
+
+  APIMethodRolePost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminRole
+      HttpMethod: "POST"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionRole.Arn}/invocations'
+
+  APIResourceAdminRoleRoleId:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ParentId: !Ref APIResourceAdminRole
+      PathPart: "{role_id}"
+
+  APIMethodRoleRoleIdOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminRoleRoleId
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodRoleRoleIdGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminRoleRoleId
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref AdminGetAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionRoleItem.Arn}/invocations'
+
+  APIMethodRoleRoleIdPut:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminRoleRoleId
+      HttpMethod: "PUT"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionRoleItem.Arn}/invocations'
+
+  APIMethodRoleRoleIdDelete:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminRoleRoleId
+      HttpMethod: "DELETE"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionRoleItem.Arn}/invocations'
+
+  APIResourceAdminSchema:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ParentId: !Ref APIResourceAdmin
+      PathPart: "schema"
+
+  APIMethodSchemaAllOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminSchema
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodSchemaAllGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminSchema
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref AdminGetAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSchema.Arn}/invocations'
+
+  APIResourceAdminSchemaNamed:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ParentId: !Ref APIResourceAdminSchema
+      PathPart: "{schema_name}"
+
+  APIMethodSchemaNamedOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminSchemaNamed
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,GET,PUT,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodSchemaNamedGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminSchemaNamed
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref AdminGetAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSchema.Arn}/invocations'
+
+  APIMethodSchemaNamedPut:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminSchemaNamed
+      HttpMethod: "PUT"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSchema.Arn}/invocations'
+
+  APIMethodSchemaNamedPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminSchemaNamed
+      HttpMethod: "POST"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSchema.Arn}/invocations'
+
+  APIResourceAdminPolicy:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ParentId: !Ref APIResourceAdmin
+      PathPart: "policy"
+
+  APIMethodPolicyOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminPolicy
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodPolicyGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminPolicy
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref AdminGetAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionPolicy.Arn}/invocations'
+
+  APIMethodPolicyPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminPolicy
+      HttpMethod: "POST"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionPolicy.Arn}/invocations'
+
+  APIResourceAdminPolicyPolicyId:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ParentId: !Ref APIResourceAdminPolicy
+      PathPart: "{policy_id}"
+
+  APIMethodPolicyPolicyIdOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminPolicyPolicyId
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodPolicyPolicyIdGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminPolicyPolicyId
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref AdminGetAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionPolicyAttr.Arn}/invocations'
+
+  APIMethodPolicyPolicyIdPut:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminPolicyPolicyId
+      HttpMethod: "PUT"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionPolicyAttr.Arn}/invocations'
+
+  APIMethodPolicyPolicyIdDelete:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminPolicyPolicyId
+      HttpMethod: "DELETE"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionPolicyAttr.Arn}/invocations'
+
+  # User API
+  UserAPI:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      Name: !Sub ${Application}-${Environment}-user-api
+
+  UserAPIGatewayResponses4xx:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      ResponseParameters:
+        gatewayresponse.header.Strict-Transport-Security: "'max-age=63072000; includeSubDomains; preload'"
+      ResponseType: DEFAULT_4XX
+      RestApiId: !Ref UserAPI
+
+  UserAPIGatewayResponses5xx:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      ResponseParameters:
+        gatewayresponse.header.Strict-Transport-Security: "'max-age=63072000; includeSubDomains; preload'"
+      ResponseType: DEFAULT_5XX
+      RestApiId: !Ref UserAPI
+
+  UserAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      IdentitySource: method.request.header.Authorization
+      Name: !Sub ${Application}-${Environment}-UserAPI-Authorizer
+      ProviderARNs:
+        - !GetAtt CognitoUserPool.Arn
+      RestApiId: !Ref UserAPI
+      Type: COGNITO_USER_POOLS
+
+  UserAPIDeploy:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - APIMethodItemsGet
+      - APIMethodItemsPost
+      - APIMethodItemsOPTIONS
+      - APIMethodItemGet
+      - APIMethodItemPut
+      - APIMethodItemDelete
+      - APIMethodItemOPTIONS
+      - APIMethodItemAppidGet
+      - APIMethodItemAppidOPTIONS
+      - APIMethodNotificationsGet
+      - APIMethodNotificationsOPTIONS
+    Properties:
+      RestApiId: !Ref UserAPI
+      StageName: prod
+      StageDescription:
+        AccessLogSetting:
+          DestinationArn: !GetAtt APIGatewayLogGroup.Arn
+          Format: "$context.requestId"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W68
+            reason: "As this is for internal use only tool, and very low number of API calls, no usage plan is required"
+
+  APIResourceUser:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref UserAPI
+      ParentId: !GetAtt UserAPI.RootResourceId
+      PathPart: "user"
+
+  APIResourceUserItems:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref UserAPI
+      ParentId: !Ref APIResourceUser
+      PathPart: "{schema}"
+
+  APIMethodItemsOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref UserAPI
+      ResourceId: !Ref APIResourceUserItems
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodItemsGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref UserAPI
+      ResourceId: !Ref APIResourceUserItems
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref UserAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItems.Arn}/invocations'
+
+  APIMethodItemsPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref UserAPI
+      ResourceId: !Ref APIResourceUserItems
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref UserAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItems.Arn}/invocations'
+
+  APIResourceUserItemid:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref UserAPI
+      ParentId: !Ref APIResourceUserItems
+      PathPart: "{id}"
+
+  APIMethodItemOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref UserAPI
+      ResourceId: !Ref APIResourceUserItemid
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,GET,PUT,DELETE,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodItemGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref UserAPI
+      ResourceId: !Ref APIResourceUserItemid
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref UserAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItem.Arn}/invocations'
+
+  APIMethodItemPut:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref UserAPI
+      ResourceId: !Ref APIResourceUserItemid
+      HttpMethod: "PUT"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref UserAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItem.Arn}/invocations'
+
+  APIMethodItemDelete:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref UserAPI
+      ResourceId: !Ref APIResourceUserItemid
+      HttpMethod: "DELETE"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref UserAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItem.Arn}/invocations'
+
+  APIResourceUserItemAppid:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref UserAPI
+      ParentId: !Ref APIResourceUserItems
+      PathPart: "appid"
+
+  APIResourceUserItemAppidAppid:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref UserAPI
+      ParentId: !Ref APIResourceUserItemAppid
+      PathPart: "{appid}"
+
+  APIMethodItemAppidOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref UserAPI
+      ResourceId: !Ref APIResourceUserItemAppidAppid
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodItemAppidGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref UserAPI
+      ResourceId: !Ref APIResourceUserItemAppidAppid
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref UserAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItem.Arn}/invocations'
+
+  APIResourceUserNotifications:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref UserAPI
+      ParentId: !Ref APIResourceUser
+      PathPart: "notifications"
+
+  APIMethodNotificationsGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref UserAPI
+      ResourceId: !Ref APIResourceUserNotifications
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref UserAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionNotifications.Arn}/invocations'
+
+  APIMethodNotificationsOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref UserAPI
+      ResourceId: !Ref APIResourceUserNotifications
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  # Lambda IAM Roles
+  ItemsLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-item-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:BatchWriteItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join [ '', [ !GetAtt SchemaDynamoDBTable.Arn, '*' ] ]
+                  - !Join [ '', [ !GetAtt ServersDynamoDBTable.Arn, '*' ] ]
+                  - !Join [ '', [ !GetAtt AppsDynamoDBTable.Arn, '*' ] ]
+                  - !Join [ '', [ !GetAtt WavesDynamoDBTable.Arn, '*' ] ]
+                  - !Join [ '', [ !GetAtt DBsDynamoDBTable.Arn, '*' ] ]
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join [ '', [ !GetAtt RoleDynamoDBTable.Arn, '*' ] ]
+                  - !Join [ '', [ !GetAtt PolicyDynamoDBTable.Arn, '*' ] ]
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              - Effect: Allow
+                Action:
+                  - 'cognito-idp:Describe*'
+                  - 'cognito-idp:AdminGet*'
+                  - 'cognito-idp:AdminList*'
+                  - 'cognito-idp:List*'
+                  - 'cognito-idp:Get*'
+                Resource:
+                  - !GetAtt CognitoUserPool.Arn
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+          - id: W76
+            reason: "Lambda has to access a number of tables to perform functionality."
+
+  RolesLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-roles-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!GetAtt RoleDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt PolicyDynamoDBTable.Arn, '*']]
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              -
+                Effect: Allow
+                Action:
+                  - 'cognito-idp:Describe*'
+                  - 'cognito-idp:AdminGet*'
+                  - 'cognito-idp:AdminList*'
+                  - 'cognito-idp:List*'
+                  - 'cognito-idp:Get*'
+                Resource:
+                  - !GetAtt CognitoUserPool.Arn
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  SchemaLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-schema-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!GetAtt SchemaDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt RoleDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt PolicyDynamoDBTable.Arn, '*']]
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  PolicyLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-policy-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!GetAtt SchemaDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt RoleDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt PolicyDynamoDBTable.Arn, '*']]
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  CloudEndureLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-cloudendure-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!GetAtt ServersDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt AppsDynamoDBTable.Arn, '*']]
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join [ '', [ !GetAtt RoleDynamoDBTable.Arn, '*' ] ]
+                  - !Join [ '', [ !GetAtt PolicyDynamoDBTable.Arn, '*' ] ]
+
+
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is depends on user input"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  AMSWIGLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-amswig-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!GetAtt ServersDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt AppsDynamoDBTable.Arn, '*']]
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join [ '', [ !GetAtt RoleDynamoDBTable.Arn, '*' ] ]
+                  - !Join [ '', [ !GetAtt PolicyDynamoDBTable.Arn, '*' ] ]
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is depends on user input"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  UserAdminLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-user-admin-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'cognito-idp:Describe*'
+                  - 'cognito-idp:List*'
+                  - 'cognito-idp:Get*'
+                  - 'cognito-idp:AdminListGroupsForUser'
+                Resource:
+                  - !GetAtt CognitoUserPool.Arn
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  CognitoGroupLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-cognitogroup-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'cognito-idp:Describe*'
+                  - 'cognito-idp:List*'
+                  - 'cognito-idp:Get*'
+                Resource:
+                  - !GetAtt CognitoUserPool.Arn
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  DefaultSchemaLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-defaultschema-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!GetAtt RoleDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt SchemaDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt PolicyDynamoDBTable.Arn, '*']]
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  LoginResetLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-loginreset-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'cognito-idp:List*'
+                  - 'cognito-idp:Get*'
+                Resource:
+                  - !GetAtt CognitoUserPool.Arn
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  AuthLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-auth-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!GetAtt RoleDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt PolicyDynamoDBTable.Arn, '*']]
+              -
+                Effect: Allow
+                Action:
+                  - 'cognito-idp:List*'
+                  - 'cognito-idp:Get*'
+                Resource:
+                  - !GetAtt CognitoUserPool.Arn
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  BuildRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-build-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: BuildRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                Resource: '*'
+              -
+                Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                  - 's3:DeleteObject'
+                  - 's3:DeleteObjectVersion'
+                  - 's3:GetObjectVersion'
+                Resource: !Sub "${FrontEndBucket.Arn}/*"
+              -
+                Effect: Allow
+                Action:
+                  - 's3:GetBucketVersioning'
+                  - 's3:ListBucketVersions'
+                Resource: !Sub "${FrontEndBucket.Arn}"
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  HelperRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-helper-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: HelperRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Effect: Allow
+              Action:
+                - 'logs:CreateLogGroup'
+                - 'logs:CreateLogStream'
+                - 'logs:PutLogEvents'
+              Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  NotificationsLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-notify-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!GetAtt SchemaDynamoDBTable.Arn, '*']]
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+# Lambda Functions
+
+  LambdaFunctionRole:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_role.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-role
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_role.zip"]]
+      Role: !GetAtt RolesLambdaRole.Arn
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionRole:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionRole.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
+
+  LambdaFunctionRoleItem:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_role_item.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-role-item
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_role_item.zip"]]
+      Role: !GetAtt RolesLambdaRole.Arn
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-role-item
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionRoleItem:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionRoleItem.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
+
+  LambdaFunctionSchema:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_schema.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-schema
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_schema.zip"]]
+      Role: !GetAtt SchemaLambdaRole.Arn
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-schema
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionSchema:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionSchema.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
+
+  LambdaFunctionPolicy:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_policy.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-policy
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_policy.zip"]]
+      Role: !GetAtt PolicyLambdaRole.Arn
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-policy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionPolicy:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionPolicy.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
+
+  LambdaFunctionPolicyAttr:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_policy_attr.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-policy-attr
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_policy_attr.zip"]]
+      Role: !GetAtt PolicyLambdaRole.Arn
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-policy-attr
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionPolicyAttr:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionPolicyAttr.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
+
+  LambdaFunctionItems:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_items.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-items
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_items.zip"]]
+      Role: !GetAtt ItemsLambdaRole.Arn
+      Environment:
+        Variables:
+          clientid: !Ref CognitoAppClient
+          region: !Ref "AWS::Region"
+          userpool: !Ref CognitoUserPool
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-items
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFItemsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionItems:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionItems.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*"
+
+  LambdaFunctionItem:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_item.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-item
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_item.zip"]]
+      Role: !GetAtt ItemsLambdaRole.Arn
+      Environment:
+        Variables:
+          clientid: !Ref CognitoAppClient
+          region: !Ref "AWS::Region"
+          userpool: !Ref CognitoUserPool
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-item
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFItemsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionItem:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionItem.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*"
+
+  LambdaFunctionAuth:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_auth.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-auth
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_auth.zip"]]
+      Role: !GetAtt AuthLambdaRole.Arn
+      Environment:
+        Variables:
+          clientid: !Ref CognitoAppClient
+          region: !Ref "AWS::Region"
+          userpool: !Ref CognitoUserPool
+          application: !Ref Application
+          environment: !Ref Environment
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-auth
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionAuth:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionAuth.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
+
+  LambdaPermissionAuth2:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionAuth.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LoginAPI}/*"
+
+  LambdaFunctionLogin:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_login.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-login
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_login.zip"]]
+      Role: !GetAtt LoginResetLambdaRole.Arn
+      Environment:
+        Variables:
+          clientId: !Ref CognitoAppClient
+          application: !Ref Application
+          environment: !Ref Environment
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-login
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionLogin:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionLogin.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LoginAPI}/*"
+
+  LambdaFunctionPWDReset:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_reset.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-reset
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_reset.zip"]]
+      Role: !GetAtt LoginResetLambdaRole.Arn
+      Environment:
+        Variables:
+          clientId: !Ref CognitoAppClient
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-reset
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionPWDReset:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionPWDReset.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LoginAPI}/*"
+
+  LambdaFunctionCloudEndure:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: CloudEndure.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-cloudendure
+      Timeout: 300
+      MemorySize: '1024'
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_cloudendure.zip"]]
+      Role: !GetAtt CloudEndureLambdaRole.Arn
+      Environment:
+        Variables:
+          login_api: !Ref LoginAPI
+          user_api: !Ref UserAPI
+          region: !Ref 'AWS::Region'
+          application: !Ref Application
+          environment: !Ref Environment
+          AnonymousUsageData: !FindInMap ["Send", "AnonymousUsage", "Data"]
+          solutionUUID: !GetAtt CreateUniqueID.UUID
+          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-cloudendure
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionCloudEndure:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionCloudEndure.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
+
+  LambdaFunctionAMSWIG:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_ams_wig.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-ams-wig
+      Timeout: 300
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_ams_wig.zip"]]
+      Role: !GetAtt AMSWIGLambdaRole.Arn
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+          region: !Ref 'AWS::Region'
+          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-ams-wig
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionAMSWIG:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionAMSWIG.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
+
+  LambdaFunctionUserAdmin:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_user_admin.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-user-admin
+      Timeout: 300
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_user_admin.zip"]]
+      Role: !GetAtt UserAdminLambdaRole.Arn
+      Environment:
+        Variables:
+          userpool_id: !Ref CognitoUserPool
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-user-admin
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionUserAdmin:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionUserAdmin.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
+
+  LambdaFunctionLoginGroups:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_cognitogroups.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-cognitogroups
+      Timeout: 300
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_cognitogroups.zip"]]
+      Role: !GetAtt CognitoGroupLambdaRole.Arn
+      Environment:
+        Variables:
+          userpool_id: !Ref CognitoUserPool
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-cognitogroups
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionLoginGroups:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionLoginGroups.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LoginAPI}/*"
+
+  DefaultSchema:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_defaultschema.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-default-schema
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_defaultschema.zip"]]
+      Role: !GetAtt DefaultSchemaLambdaRole.Arn
+      Environment:
+        Variables:
+          RoleDynamoDBTable: !Ref RoleDynamoDBTable
+          SchemaDynamoDBTable: !Ref SchemaDynamoDBTable
+          PolicyDynamoDBTable: !Ref PolicyDynamoDBTable
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-default-schema
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaFunctionNotifications:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_notifications.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-notifications
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_notifications.zip"]]
+      Role: !GetAtt NotificationsLambdaRole.Arn
+      Environment:
+        Variables:
+          clientid: !Ref CognitoAppClient
+          region: !Ref "AWS::Region"
+          userpool: !Ref CognitoUserPool
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-notifications
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionNotifications:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionNotifications.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*"
+
+  CustomResource:
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !GetAtt 'DefaultSchema.Arn'
+      Test: 'change5'
+
+  CreateUniqueID:
+    Type: Custom::CreateUuid
+    Properties:
+      ServiceToken: !GetAtt CreateUUID.Arn
+
+  CreateUUID:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "helper.zip"]]
+      Handler: helper.lambda_handler
+      FunctionName: !Sub ${Application}-${Environment}-helper
+      Role: !GetAtt BuildRole.Arn
+      Runtime: python3.8
+      Timeout: 300
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaLayerStdPythonLibs:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub ${Application}-${Environment}-Std-Py-Pkgs
+      Description: Standard Python packages boto3, requests, simplejson, python-jose for MF.
+      Content:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_layer_py_pkgs.zip"]]
+      CompatibleRuntimes:
+        - python3.8
+
+  LambdaLayerMFPolicyLib:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub ${Application}-${Environment}-Py-Policy
+      Description: MF authentication policy Python module.
+      Content:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_layer_policy.zip"]]
+      CompatibleRuntimes:
+        - python3.8
+
+  LambdaLayerMFItemsLib:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub ${Application}-${Environment}-Py-Items
+      Description: MF Item validation Python module.
+      Content:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_layer_items.zip"]]
+      CompatibleRuntimes:
+        - python3.8
+
+  AppBuild:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_build.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-app-build
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_build.zip"]]
+      Role: !GetAtt BuildRole.Arn
+      Environment:
+        Variables:
+          USER_API: !Ref UserAPI
+          ADMIN_API: !Ref AdminAPI
+          LOGIN_API: !Ref LoginAPI
+          TOOLS_API: !Ref ToolsAPI
+          SSM_WS_API: !Sub '${AutomationService.Outputs.SSMSocketAPI}'
+          USER_POOL_ID: !Ref CognitoUserPool
+          APP_CLIENT_ID: !Ref CognitoAppClient
+          FRONTEND_BUCKET: !Ref FrontEndBucket
+          SOURCE_BUCKET: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+          SOURCE_KEY: !Join
+            - /
+            - - !FindInMap
+                - SourceCode
+                - General
+                - KeyPrefix
+              - 'fe-%%VERSION%%.zip'
+          VERSION: '%%VERSION%%'
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-app-build
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  AppBuildCustomResource:
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !GetAtt AppBuild.Arn
+      # If the version changes it will trigger an update
+      Version: '%%VERSION%%'
+
+  MigrationTracker:
+    Condition: DeployTracker
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub
+       - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-tracker.template'
+       -  S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+          KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+      Parameters:
+        Application: !Ref Application
+        Environment: !Ref Environment
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+
+  AppMigService:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub
+       - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-mgn.template'
+       -  S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+          KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+      Parameters:
+        Application: !Ref Application
+        Environment: !Ref Environment
+        ServiceAccountEmail: !Ref ServiceAccountEmail
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+        ToolsAPI: !Ref ToolsAPI
+        ToolsAuthorizer: !Ref ToolsAuthorizer
+        ToolsAPIRootId: !GetAtt ToolsAPI.RootResourceId
+        ServerDynamoTableArn: !GetAtt ServersDynamoDBTable.Arn
+        AppDynamoTableArn: !GetAtt AppsDynamoDBTable.Arn
+        CognitoUserPool: !Ref CognitoUserPool
+        CognitoUserPoolArn: !GetAtt CognitoUserPool.Arn
+        CognitoAdminGroup: !Ref CognitoAdminGroup
+        AnonymousUsageData: !FindInMap ["Send", "AnonymousUsage", "Data"]
+        solutionUUID: !GetAtt CreateUniqueID.UUID
+        RoleDynamoDBTableArn: !GetAtt RoleDynamoDBTable.Arn
+        PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
+        LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
+        LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
+        CORS: !Sub 'https://${CloudfrontDistribution.DomainName}'
+
+  CredentialManager:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - AdminAPIDeploy
+    - ToolsAPIDeploy
+    - AppMigService
+    Properties:
+      TemplateURL: !Sub
+       - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-credentialmanager.template'
+       -  S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+          KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+      Parameters:
+        AdminAPI: !Ref AdminAPI
+        AdminAPIRootResourceId: !GetAtt AdminAPI.RootResourceId
+        APIResourceAdmin: !Ref APIResourceAdmin
+        AdminAuthorizer: !Ref AdminAuthorizer
+        ToolsAPI: !Ref ToolsAPI
+        ToolsAPIRootResourceId: !GetAtt ToolsAPI.RootResourceId
+        ToolsAuthorizer: !Ref ToolsAuthorizer
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        KeyPrefix: !FindInMap [ "SourceCode", "General", "KeyPrefix" ]
+        RoleDynamoDBTableArn: !GetAtt RoleDynamoDBTable.Arn
+        PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
+        LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
+        LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
+        CORS: !Sub 'https://${CloudfrontDistribution.DomainName}'
+
+  AutomationService:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub
+       - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-automation.template'
+       -  S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+          KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+      Parameters:
+        Application: !Ref Application
+        Environment: !Ref Environment
+        CloudfrontOriginAccessIdentity: !Ref CloudfrontOriginAccessIdentity
+        ToolsAPI: !Ref ToolsAPI
+        LoginAPI: !Ref LoginAPI
+        UserAPI: !Ref UserAPI
+        Region: !Ref "AWS::Region"
+        KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+        CognitoUserPoolArn: !GetAtt CognitoUserPool.Arn
+        CognitoUserPoolId: !Ref CognitoUserPool
+        CognitoAdminGroup: !Ref CognitoAdminGroup
+        CognitoAppClientId: !Ref CognitoAppClient
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        APIGatewayLogGroup: !GetAtt APIGatewayLogGroup.Arn
+        AccessLoggingBucket: !Ref AccessLoggingBucket
+        RoleDynamoDBTableArn: !GetAtt RoleDynamoDBTable.Arn
+        PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
+        LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
+        LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
+        CORS: !Sub 'https://${CloudfrontDistribution.DomainName}'
+
+  ReplatformService:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - CustomResource
+    Condition: ReplatformEC2
+    Properties:
+      TemplateURL: !Sub
+       - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-replatform.template'
+       -  S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+          KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+      Parameters:
+        Application: !Ref Application
+        Environment: !Ref Environment
+        ServiceAccountEmail: !Ref ServiceAccountEmail
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+        ToolsAPI: !Ref ToolsAPI
+        ToolsAuthorizer: !Ref ToolsAuthorizer
+        ToolsAPIRootId: !GetAtt ToolsAPI.RootResourceId
+        ServerDynamoTableArn: !GetAtt ServersDynamoDBTable.Arn
+        AppDynamoTableArn: !GetAtt AppsDynamoDBTable.Arn
+        WaveDynamoTableArn: !GetAtt WavesDynamoDBTable.Arn
+        CognitoUserPool: !Ref CognitoUserPool
+        CognitoUserPoolArn: !GetAtt CognitoUserPool.Arn
+        CognitoAdminGroup: !Ref CognitoAdminGroup
+        AnonymousUsageData: !FindInMap ["Send", "AnonymousUsage", "Data"]
+        solutionUUID: !GetAtt CreateUniqueID.UUID
+        RoleDynamoDBTableArn: !GetAtt RoleDynamoDBTable.Arn
+        PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
+        LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
+        LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
+        SchemaDynamoTableArn: !GetAtt SchemaDynamoDBTable.Arn
+        SchemaDynamoTableName: !Ref SchemaDynamoDBTable
+        CORS: !Sub 'https://${CloudfrontDistribution.DomainName}'
+
+# Create default service account for initial login and automation.
+  ServiceAccount:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_service_account.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-service-account
+      Timeout: 120
+      Code:
+        S3Bucket: !Join [ "-", [ !FindInMap [ "SourceCode", "General", "S3Bucket" ], !Ref "AWS::Region" ] ]
+        S3Key: !Join [ "/", [ !FindInMap [ "SourceCode", "General", "KeyPrefix" ], "lambda_service_account.zip" ] ]
+      Role: !GetAtt ServiceAccountLambdaRole.Arn
+      Environment:
+        Variables:
+          ServiceAccountEmail: !Ref ServiceAccountEmail
+          UserPoolId: !Ref CognitoUserPool
+          CognitoGroupName: !Ref CognitoAdminGroup
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-service-account
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  ServiceAccountCustomResource:
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !GetAtt ServiceAccount.Arn
+
+  ServiceAccountLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-serviceaccount-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              -
+                Effect: Allow
+                Action:
+                  - 'cognito-idp:Describe*'
+                  - 'cognito-idp:Admin*'
+                  - 'cognito-idp:List*'
+                  - 'cognito-idp:Get*'
+                Resource:
+                  - !GetAtt CognitoUserPool.Arn
+              -
+                Effect: Allow
+                Action:
+                  - 'secretsmanager:CreateSecret'
+                Resource: !Sub "arn:aws:secretsmanager:*:${AWS::AccountId}:secret:*"
+              -
+                Effect: Allow
+                Action:
+                  - 'secretsmanager:GetRandomPassword'
+                Resource: '*'
+              -
+                Effect: Allow
+                Action:
+                  - s3:HeadBucket
+                  - s3:HeadObject
+                  - s3:GetObject
+                Resource: !Sub
+                  - "arn:aws:s3:::${code_bucket}/*"
+                  - code_bucket: !FindInMap
+                      - "SourceCode"
+                      - "General"
+                      - "S3Bucket"
+              -
+                Effect: Allow
+                Action:
+                  - s3:HeadBucket
+                  - s3:HeadObject
+                  - s3:GetObject
+                Resource: !Sub
+                  - "arn:aws:s3:::${code_bucket}/*"
+                  - code_bucket: !FindInMap
+                      - "SourceCode"
+                      - "General"
+                      - "S3Bucket"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+Outputs:
+  MigrationFactoryURL:
+    Description: 'Migration Factory Management console URL'
+    Value: !Sub 'https://${CloudfrontDistribution.DomainName}'
+
+  AdminAPI:
+    Description: 'AdminAPI URL'
+    Value: !Sub 'https://${AdminAPI}.execute-api.${AWS::Region}.amazonaws.com'
+
+  LoginAPI:
+    Description: 'LoginAPI URL'
+    Value: !Sub 'https://${LoginAPI}.execute-api.${AWS::Region}.amazonaws.com'
+
+  ToolsAPI:
+    Description: 'ToolsAPI URL'
+    Value: !Sub 'https://${ToolsAPI}.execute-api.${AWS::Region}.amazonaws.com'
+
+  UserAPI:
+    Description: 'UserAPI URL'
+    Value: !Sub 'https://${UserAPI}.execute-api.${AWS::Region}.amazonaws.com'
+
+  SSMSocketAPI:
+    Description: 'SSM Websocket API URL'
+    Value: !Sub 'wss://${AutomationService.Outputs.SSMSocketAPI}.execute-api.${AWS::Region}.amazonaws.com'
+
+  UserPoolId:
+    Description: 'Cognito User Pool Id'
+    Value: !Ref CognitoUserPool
+
+  Region:
+    Description: 'AWS Region'
+    Value: !Ref "AWS::Region"
+
+  AutomationServerIAMRole:
+    Description: 'IAM Role for Migration Automation Server'
+    Value: !GetAtt
+      - AutomationService
+      - Outputs.AutomationServerIAMRole
+
+  AutomationServerIAMPolicy:
+    Description: 'IAM Policy for Migration Automation Server'
+    Value: !GetAtt
+      - AutomationService
+      - Outputs.AutomationServerIAMPolicy
+
+  AutomationServerInstanceProfile:
+    Description: 'Migration Automation Server Instance Profile'
+    Value: !GetAtt
+      - AutomationService
+      - Outputs.AutomationServerInstanceProfile
+
+  FactoryUserName:
+    Description: 'Factory Service account User name'
+    Value: !Ref ServiceAccountEmail
+
+#  Factory password is only output when used with the migration workshop.
+#  FactoryPassword:
+#    Description: 'Factory Service account Password'
+#    Value: !GetAtt
+#      - AppMigService
+#      - Outputs.ServiceAccountPwd

@@ -1,122 +1,253 @@
-import React, { Component } from "react";
+import React, {useState} from "react";
 import { Auth } from "aws-amplify";
-import "./Login.css";
+import {useLocation, useNavigate, useParams} from "react-router-dom";
+import {
+  Box,
+  FormField,
+  Input,
+  Button, Header, SpaceBetween, Grid,
+  Link, Form, Container
+} from '@awsui/components-react';
+import {getNestedValuePath} from "../resources/main";
 
+const Login = (props) => {
+  let location = useLocation()
+  let navigate = useNavigate();
+  let params = useParams();
 
-export default class Login extends Component {
-  constructor(props) {
-    super(props);
+  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mfaCode, setMFACode] = useState('');
+  const [userChallenge, setUserChallenge] = useState(null);
+  const [getMFACode, setGetMFACode] = useState(false);
+  const [loginError, setLoginError] = useState(null);
 
-    this.state = {
-      isLoading: false,
-      email: "",
-      password: ""
-    };
+  function validateForm() {
+    return email.length > 0 && password.length > 0;
   }
 
-  validateForm() {
-    return this.state.email.length > 0 && this.state.password.length > 0;
+  const handleChange = event => {
+    switch(event.target.id) {
+      case 'email': {
+        setEmail(event.target.value)
+        break;
+      }
+      case 'password': {
+        setPassword(event.target.value)
+        break;
+      }
+    }
   }
 
-  handleChange = event => {
-    this.setState({
-      [event.target.id]: event.target.value
-    });
+  function getCodeFromUserInput(){
+    const code = prompt("One Time Access Code?");
+    return code
   }
 
-  handleSubmit = async event => {
+  const handleSubmit = async event => {
     event.preventDefault();
 
-    this.setState({ isLoading: true });
+    setIsLoading(true);
+    setLoginError(null);
+    let userAuthenticated = false;
 
     try {
-      if (this.state.password === '' || this.state.email === '') {
-        alert('Incorrect username or password.');
+      if (password === '' || email === '') {
+        setLoginError('Incorrect username or password.');
       }
       else {
-      const user = await Auth.signIn(this.state.email, this.state.password);
-      if (user.challengeName === 'NEW_PASSWORD_REQUIRED') {
-              this.props.history.push("/change/pwd");
+        const user = await Auth.signIn(email, password);
+
+        if (user.challengeName === 'SMS_MFA' || user.challengeName === 'SOFTWARE_TOKEN_MFA') {
+          setUserChallenge(user);
+          setGetMFACode(true);
+        } else if (user.challengeName === 'NEW_PASSWORD_REQUIRED') {
+          navigate("/change/pwd");
+          userAuthenticated = false;
+        } else {
+          userAuthenticated = true;
+        }
+
+        if(userAuthenticated){
+          props.userHasAuthenticated(true);
+
+          if(location.pathname !== '/login'){
+            navigate(location.pathname);
+          } else {
+            navigate('/');
           }
-          else {
-            this.props.userHasAuthenticated(true);
-            this.props.history.push("/");
-          }
+        }
       }
     } catch (e) {
       if (e.message === 'User does not exist.') {
-        alert('Incorrect username or password.');
+        setLoginError('Incorrect username or password.');
       }
       else {
-      alert(e.message);
+        setLoginError(e.message);
       }
-      this.setState({ isLoading: false });
+      setIsLoading(false);
     }
   }
 
-  handleForgotPassword = async event => {
+  const handleSubmitCode = async event => {
     event.preventDefault();
 
-    this.setState({ isLoading: true });
+    setIsLoading(true);
+    let userAuthenticated = false;
+    setLoginError(null);
 
     try {
-      await Auth.forgotPassword(this.state.email);
-      this.props.history.push("/forgot/pwd");
+      if (password === '' || email === '' || mfaCode === '') {
+        setLoginError('Incorrect username, password or MFA Code.')
+      }
+      else {
+
+        if (userChallenge.challengeName === 'SMS_MFA' || userChallenge.challengeName === 'SOFTWARE_TOKEN_MFA') {
+          // If MFA is enabled, sign-in should be confirmed with the confirmation code
+          const loggedUser = await Auth.confirmSignIn(
+            userChallenge,   // Return object from Auth.signIn()
+            mfaCode,   // Confirmation code
+            userChallenge.challengeName
+          );
+          userAuthenticated = true;
+
+        } else if (userChallenge.challengeName === 'NEW_PASSWORD_REQUIRED') {
+          navigate("/change/pwd");
+          userAuthenticated = false;
+        } else {
+          userAuthenticated = true;
+        }
+
+        if(userAuthenticated){
+          props.userHasAuthenticated(true);
+
+          if(location.pathname !== '/login'){
+            navigate(location.pathname);
+          } else {
+            navigate('/');
+          }
+
+        }
+        await resetScreen();
+      }
     } catch (e) {
-      alert(e.message);
-      this.setState({ isLoading: false });
+      if (e.message === 'Invalid user.') {
+        setLoginError('Incorrect username, password or code.')
+      }
+      else {
+        setLoginError(e.message);
+      }
+      setIsLoading(false);
     }
   }
 
-  render() {
-    return (
-      <div className="container pt-5">
-        <div className="login mx-auto login-box p-0 m-0">
-          <div className="aws-charcoal login-header p-0 m-0" style={{height:"65px"}} >
-            <span style={{height:"65px"}} className="navbar-logo navbar-logo-login pt-5"/>
-            <span className="login-title"><h4>Migration Factory</h4></span>
-          </div>
+  const resetScreen = async () => {
+    //event.preventDefault();
 
-          <div className="mt-5 px-4">
-              <form onSubmit={this.handleSubmit}>
-
-                  <div className="form-group">
-                    <input
-                      id="email"
-                      type="text"
-                      onChange={this.handleChange}
-                      className="form-control form-control-sm"
-                      ref="email"
-                      placeholder="Username"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <input
-                      id="password"
-                      type="password"
-                      onChange={this.handleChange}
-                      className="form-control form-control-sm"
-                      placeholder="Password"
-                      ref="appName"
-                    />
-                  </div>
-                  <div className="form-group text-center pt-2">
-                    <input
-                      style={{width:"100%"}}
-                      className="btn btn-primary btn-outline btn-aws-charcoal mt-3 mr-3"
-                      type="submit"
-                      value="Login"
-                    />
-                  </div>
-              </form>
-          </div>
-
-          <div className="mt-4 px-4 pb-4">
-            <a href="." style={{fontSize:".8em"}} onClick={this.handleForgotPassword}>Forgot your password?</a>
-          </div>
-
-        </div>
-      </div>
-    );
+    setIsLoading(true);
+    setUserChallenge(null);
+    setEmail('')
+    setPassword('');
+    setMFACode('');
+    setGetMFACode(false);
+    setLoginError(null);
   }
+
+  const handleForgotPassword = async () => {
+    //event.preventDefault();
+
+    setIsLoading(true);
+
+    try {
+      if(email) {
+        await Auth.forgotPassword(email);
+      } else {
+        navigate("/forgot/pwd");
+      }
+    } catch (e) {
+      alert(e.message);
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <Grid
+    gridDefinition={[
+      { colspan: { default: 12, xxs: 6 }, offset: { xxs: 3 } }
+    ]}
+  >
+    <Box margin="xxl" padding="xxl">
+      <Container>
+        <Form
+          header={<Header variant="h1">{'AWS Cloud Migration Factory'}</Header>}
+          actions={
+            // located at the bottom of the form
+            <SpaceBetween direction="horizontal" size="xs">
+              <Button onClick={resetScreen} disabled={email && password ? false : true}>
+                Clear
+              </Button>
+              {getMFACode
+                ?
+                  <Button onClick={handleSubmitCode} disabled={mfaCode ? false : true} variant="primary">
+                    Confirm Code
+                  </Button>
+                :
+                <Button onClick={handleSubmit} disabled={email && password ? false : true} variant="primary">
+                  Login
+                </Button>
+              }
+            </SpaceBetween>
+          }
+          errorText={loginError ? loginError : null}
+        >
+              <SpaceBetween size={'xl'} direction={'vertical'}>
+                <SpaceBetween size={'xxs'} direction={'vertical'}>
+                  <FormField
+                    key={'username'}
+                    label={'Username'}
+                  >
+                    <Input
+                      value={email}
+                      onChange={event => setEmail(event.detail.value)}
+                      disabled={getMFACode}
+                    />
+                  </FormField>
+
+                  <FormField
+                    key={'password'}
+                    label={'Password'}
+                  >
+                    <Input
+                      value={password}
+                      onChange={event => setPassword(event.detail.value)}
+                      type="password"
+                      disabled={getMFACode}
+                    />
+                  </FormField>
+                  {getMFACode ?
+                    <FormField
+                      key={'mfaCode'}
+                      label={'MFA Code'}
+                    >
+                      <Input
+                        value={mfaCode}
+                        onChange={event => setMFACode(event.detail.value)}
+                      />
+                    </FormField>
+                    :
+                    null
+                  }
+                </SpaceBetween>
+                <Link onFollow={handleForgotPassword}>Forgot your password?</Link>
+              </SpaceBetween>
+        </Form>
+      </Container>
+    </Box>
+    </Grid>
+
+  )
+
 }
+
+export default Login

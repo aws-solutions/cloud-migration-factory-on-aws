@@ -1,51 +1,48 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import Amplify from "aws-amplify";
-import config from "./config";
 import App from './App';
-import { BrowserRouter as Router } from "react-router-dom";
-
-import 'bootstrap';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import './main.css';
-import '@fortawesome/fontawesome-free/css/all.css'
+import "@awsui/global-styles/index.css"
+import { BrowserRouter } from 'react-router-dom';
 
 Amplify.configure({
   Auth: {
     mandatorySignIn: true,
-    region: config.cognito.REGION,
-    userPoolId: config.cognito.USER_POOL_ID,
-    userPoolWebClientId: config.cognito.APP_CLIENT_ID
+    region: window.env.COGNITO_REGION,
+    userPoolId: window.env.COGNITO_USER_POOL_ID,
+    userPoolWebClientId: window.env.COGNITO_APP_CLIENT_ID
   },
   API: {
     endpoints: [
       {
         name: "admin",
-        endpoint: config.apiGateway.ADMIN,
-        region: config.apiGateway.REGION
+        endpoint: window.env.API_ADMIN,
+        region: window.env.API_REGION
       },
       {
         name: "user",
-        endpoint: config.apiGateway.USER,
-        region: config.apiGateway.REGION
+        endpoint: window.env.API_USER,
+        region: window.env.API_REGION
       },
       {
         name: "login",
-        endpoint: config.apiGateway.LOGIN,
-        region: config.apiGateway.REGION
+        endpoint: window.env.API_LOGIN,
+        region: window.env.API_REGION
       },
       {
         name: "tools",
-        endpoint: config.apiGateway.TOOLS,
-        region: config.apiGateway.REGION
+        endpoint: window.env.API_TOOLS,
+        region: window.env.API_REGION
       }
     ]
   }
 });
 
-ReactDOM.render(
-  <Router>
-  <App />
-  </Router>,
-  document.getElementById("root")
-);
+document.addEventListener('DOMContentLoaded', () => {
+  ReactDOM.render(
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>,
+    document.getElementById("root")
+  );
+});

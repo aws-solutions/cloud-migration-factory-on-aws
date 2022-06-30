@@ -1,0 +1,846 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "(%%SOLUTION_ID%%-tracker) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution (Version %%VERSION%%)"
+
+Parameters:
+  CodeBucket: # Upload Code in this bucket
+    Description: S3 bucket where all the code reside
+    Type: String
+ 
+  KeyPrefix:
+    Description: S3 key Prefix where all the code reside
+    Type: String
+
+  Application:
+    Type: String
+    Description: Application name, used to name all AWS resources.
+    Default: migration-factory
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+  Environment:
+    Type: String
+    Description: Environment name, used to name all AWS resources (.i.e dev, test, prod)
+    Default: test
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+Resources:
+  MigrationTrackerBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Application}-${Environment}-${AWS::AccountId}-migration-tracker
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: TRUE
+          BlockPublicPolicy: TRUE
+          IgnorePublicAcls: TRUE
+          RestrictPublicBuckets: TRUE
+      BucketEncryption:
+         ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: aws:kms
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+      VersioningConfiguration:
+         Status: 'Enabled'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W35
+            reason: "This bucket is for Glue Service, user does not allow direct access"
+          - id: W51
+            reason: "This bucket access is controled by IAM policies"
+
+  MigrationTrackerAthenaResultsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Application}-${Environment}-${AWS::AccountId}-athena-results
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: TRUE
+          BlockPublicPolicy: TRUE
+          IgnorePublicAcls: TRUE
+          RestrictPublicBuckets: TRUE
+      BucketEncryption:
+         ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: aws:kms
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+      VersioningConfiguration:
+         Status: 'Enabled'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W35
+            reason: "This bucket is for Athena Service, user does not allow direct access"
+          - id: W51
+            reason: "This bucket access is controled by IAM policies"
+
+## IAM Role for  Glue
+  GlueServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-AWSGlueServiceRole-MigrationTracker
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "glue.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: !Sub ${Application}-${Environment}-glueresource-policy-MigrationTracker
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                - dynamodb:DescribeTable
+                - dynamodb:ListTables
+                - dynamodb:Query
+                - dynamodb:Scan
+                - dynamodb:UpdateTable
+                Effect: Allow
+                Resource: 
+                - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-servers
+                - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-apps
+              - Action:
+                - s3:HeadObject
+                - s3:HeadBucket
+                - s3:PutObject
+                - s3:GetObjectAcl
+                - s3:GetObject
+                - s3:DeleteObjectVersion
+                - s3:DeleteObject
+                - s3:CreateBucket
+                - s3:ListBucket
+                - s3:GetBucketAcl
+                Effect: Allow
+                Resource: !GetAtt MigrationTrackerBucket.Arn
+              - Action:
+                - s3:HeadObject
+                - s3:HeadBucket
+                - s3:PutObject
+                - s3:GetObjectAcl
+                - s3:GetObject
+                - s3:DeleteObjectVersion
+                - s3:DeleteObject
+                - s3:CreateBucket
+                - s3:ListBucket
+                - s3:GetBucketAcl
+                Effect: Allow
+                Resource: !Join
+                - ''
+                - - !GetAtt MigrationTrackerBucket.Arn
+                  - '/*'
+              - Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+                Effect: Allow
+                Resource: arn:aws:logs:*:*:/aws-glue/*
+              - Action:
+                - s3:CreateBucket
+                Effect: Allow
+                Resource: arn:aws:s3:::aws-glue-*
+              - Action:
+                - s3:GetObject
+                - s3:PutObject
+                - s3:DeleteObject
+                Effect: Allow
+                Resource: 
+                - arn:aws:s3:::aws-glue-*/*
+                - arn:aws:s3:::*/*aws-glue-*/*
+              - Action:
+                - s3:GetObject
+                Effect: Allow
+                Resource:
+                - arn:aws:s3:::crawler-public*
+                - arn:aws:s3:::aws-glue-*
+              - Action:
+                - s3:GetBucketLocation
+                - s3:ListBucket
+                - s3:ListAllMyBuckets
+                - s3:GetBucketAcl
+                Effect: Allow
+                Resource: !Sub "arn:aws:s3:::${CodeBucket}"
+              - Action:
+                - glue:GetDatabase
+                - glue:GetTables
+                - glue:GetDatabases
+                - glue:GetTable
+                - glue:GetPartitions
+                - glue:UpdateDatabase
+                - glue:CreateTable
+                - glue:CreateDatabase
+                - glue:UpdateTable
+                Effect: Allow
+                Resource: 
+                - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:table/*
+                - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:database/*
+                - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:catalog
+              - Action:
+                - glue:GetDatabase
+                - glue:GetTables
+                - glue:GetDatabases
+                - glue:GetTable
+                - glue:GetPartitions
+                - glue:ListCrawlers
+                - glue:ListJobs
+                - glue:CreateTrigger
+                - glue:StopTrigger
+                - glue:StopCrawler
+                - glue:UpdateCrawler
+                - glue:StartTrigger
+                - glue:CreateJob
+                - glue:UpdateTrigger
+                - glue:StartCrawler
+                - glue:UpdateJob
+                - glue:StopCrawlerSchedule
+                - glue:StartCrawlerSchedule
+                - glue:StartJobRun
+                Effect: Allow
+                Resource: !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:*/*
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"          
+
+  LambdaRunAthenaQueryIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-migration-tracker-Athena-Query-Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: Migration-Tracker-LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                - athena:StartQueryExecution
+                - s3:ListBucketVersions
+                - athena:GetQueryResults
+                - s3:CreateBucket
+                - athena:GetDatabase
+                - s3:ListBucket
+                - athena:GetDataCatalog
+                - athena:UpdateWorkGroup
+                - athena:GetNamedQuery
+                - athena:ListNamedQueries
+                - athena:GetWorkGroup
+                - s3:PutObject
+                - s3:GetObject
+                - s3:HeadBucket
+                - s3:HeadObject
+                - athena:CreateNamedQuery
+                - athena:ListDatabases
+                - athena:StopQueryExecution
+                - athena:GetQueryExecution
+                - s3:GetBucketLocation
+                Effect: Allow
+                Resource: 
+                - !Sub arn:aws:athena:*:${AWS::AccountId}:workgroup/${Application}-${Environment}-workgroup
+                - !Sub arn:aws:athena:*:${AWS::AccountId}:datacatalog/AwsDataCatalog 
+                - !GetAtt MigrationTrackerAthenaResultsBucket.Arn
+                - !Join
+                  - ''
+                  - - !GetAtt MigrationTrackerAthenaResultsBucket.Arn
+                    - '/*'
+              - Effect: Allow
+                Action:
+                  - s3:HeadBucket
+                  - s3:HeadObject
+                  - s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${CodeBucket}"
+              - Effect: Allow
+                Action:
+                  - s3:HeadBucket
+                  - s3:HeadObject
+                  - s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${CodeBucket}/*"
+              - Action:
+                - glue:GetDatabase
+                - glue:GetTables
+                - glue:GetDatabases
+                - glue:GetTable
+                - glue:GetPartitions
+                - glue:UpdateDatabase
+                - glue:CreateTable
+                - glue:CreateDatabase
+                - glue:UpdateTable
+                Effect: Allow
+                Resource: 
+                - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:table/*
+                - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:database/*
+                - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:catalog
+              - Effect: Allow
+                Action:
+                  - athena:ListDataCatalogs
+                  - athena:ListWorkGroups
+                Resource:
+                - !Sub arn:aws:athena:*:${AWS::AccountId}:workgroup/*
+                - !Sub arn:aws:athena:*:${AWS::AccountId}:datacatalog/*
+              - Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Effect: Allow
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+          - id: W76
+            reason: "This IAM role does need to access multiple services"     
+
+  LambdaCopyGlueScriptS3IamRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-migration-tracker-CopyGlueScriptS3
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: Migration-Tracker-LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:HeadBucket
+                  - s3:HeadObject
+                  - s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${CodeBucket}"
+              - Effect: Allow
+                Action:
+                  - s3:HeadBucket
+                  - s3:HeadObject
+                  - s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${CodeBucket}/*"
+              - Effect: Allow
+                Action:
+                  - s3:HeadObject
+                  - s3:PutObject
+                  - s3:GetObjectAcl
+                  - s3:GetObject
+                  - s3:DeleteObjectVersion
+                  - s3:DeleteObject
+                  - s3:ListAllMyBuckets
+                  - s3:ListBucket
+                  - s3:GetBucketAcl
+                Resource: !GetAtt MigrationTrackerBucket.Arn
+              - Effect: Allow
+                Action:
+                  - s3:HeadObject
+                  - s3:PutObject
+                  - s3:GetObjectAcl
+                  - s3:GetObject
+                  - s3:DeleteObjectVersion
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                  - s3:ListAllMyBuckets
+                  - s3:GetBucketAcl
+                Resource: !Join
+                  - ''
+                  - - !GetAtt MigrationTrackerBucket.Arn
+                    - '/*'
+              - Action:
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                  - s3:ListAllMyBuckets
+                  - s3:GetBucketAcl
+                Effect: Allow
+                Resource: !Sub "arn:aws:s3:::${CodeBucket}"
+              - Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Effect: Allow
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+                
+  LambdaTrackerIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-migration-tracker-RunGlueJob
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: Migration-Tracker-LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                - dynamodb:DescribeTable
+                - dynamodb:ListTables
+                - dynamodb:Query
+                - dynamodb:Scan
+                - dynamodb:UpdateTable
+                Effect: Allow
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-servers
+              - Action:
+                - dynamodb:DescribeTable
+                - dynamodb:ListTables
+                - dynamodb:Query
+                - dynamodb:Scan
+                - dynamodb:UpdateTable
+                Effect: Allow
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-apps
+              - Action:
+                - s3:GetBucketLocation
+                - s3:ListBucket
+                - s3:ListAllMyBuckets
+                - s3:GetBucketAcl
+                Effect: Allow
+                Resource: !Sub "arn:aws:s3:::${CodeBucket}"
+              - Action:
+                - glue:UpdateDatabase
+                - glue:CreateTable
+                - glue:CreateDatabase
+                - glue:UpdateTable
+                Effect: Allow
+                Resource: 
+                - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:table/*
+                - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:database/*
+                - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:catalog
+              - Action:
+                - glue:GetDatabase
+                - glue:GetTables
+                - glue:GetDatabases
+                - glue:GetTable
+                - glue:GetPartitions
+                - glue:ListCrawlers
+                - glue:ListJobs
+                - glue:CreateTrigger
+                - glue:StopTrigger
+                - glue:StopCrawler
+                - glue:UpdateCrawler
+                - glue:StartTrigger
+                - glue:CreateJob
+                - glue:UpdateTrigger
+                - glue:StartCrawler
+                - glue:UpdateJob
+                - glue:StopCrawlerSchedule
+                - glue:StartCrawlerSchedule
+                - glue:StartJobRun
+                Effect: Allow
+                Resource: !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:*/*
+              - Effect: Allow
+                Action:
+                  - s3:HeadBucket
+                  - s3:HeadObject
+                  - s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${CodeBucket}"
+              - Effect: Allow
+                Action:
+                  - s3:HeadBucket
+                  - s3:HeadObject
+                  - s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${CodeBucket}/*"
+              - Effect: Allow
+                Action:
+                  - s3:HeadBucket
+                  - s3:HeadObject
+                  - s3:PutObject
+                  - s3:GetObjectAcl
+                  - s3:GetObject
+                  - s3:DeleteObjectVersion
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                  - s3:GetBucketAcl
+                Resource: !GetAtt MigrationTrackerBucket.Arn
+              - Effect: Allow
+                Action:
+                  - s3:HeadBucket
+                  - s3:HeadObject
+                  - s3:PutObject
+                  - s3:GetObjectAcl
+                  - s3:GetObject
+                  - s3:DeleteObjectVersion
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                  - s3:GetBucketAcl
+                Resource: !Join
+                  - ''
+                  - - !GetAtt MigrationTrackerBucket.Arn
+                    - '/*'
+              - Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Effect: Allow
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  MigrationTrackerGlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: !Sub ${Application}-${Environment}-tracker
+        Description: "Glue Database for migration tracker"
+
+  MigrationTrackerAPPGlueCrawler:
+    Type: AWS::Glue::Crawler
+    DependsOn: MigrationTrackerGlueDatabase
+    Properties:
+      Name: !Sub ${Application}-${Environment}-app-crawler
+      Role: !GetAtt GlueServiceRole.Arn
+      DatabaseName: !Sub ${Application}-${Environment}-tracker
+      Targets: 
+        DynamoDBTargets:
+          - Path: !Sub ${Application}-${Environment}-apps
+
+  MigrationTrackerServerGlueCrawler:
+    Type: AWS::Glue::Crawler
+    DependsOn: MigrationTrackerAPPGlueCrawler
+    Properties:
+      Name: !Sub ${Application}-${Environment}-server-crawler
+      Role: !GetAtt GlueServiceRole.Arn
+      DatabaseName: !Sub ${Application}-${Environment}-tracker
+      Targets: 
+        DynamoDBTargets:
+          - Path: !Sub ${Application}-${Environment}-servers
+
+  MigrationTrackerAppGlueJob: 
+    Type: AWS::Glue::Job
+    DependsOn: CustomLambdaCopyLocal
+    Properties:
+      Name: !Sub ${Application}-${Environment}-app-extract
+      Command:
+        Name: glueetl
+        ScriptLocation: !Sub "s3://${MigrationTrackerBucket}/GlueScript/Migration_Tracker_App_Extract_Script.py"
+      GlueVersion: '2.0'
+      MaxRetries: 2
+      DefaultArguments:
+        "--job-bookmark-option": "job-bookmark-disable"
+        "--folder_name": "migration_tracker_app_extract_data"
+        "--bucket_name": !Ref MigrationTrackerBucket
+        "--TempDir": !Sub "s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/"
+        "--environment_name": !Sub ${Environment}
+        "--application_name": !Sub ${Application}
+      Role: !GetAtt GlueServiceRole.Arn
+
+  MigrationTrackerServerGlueJob: 
+    Type: AWS::Glue::Job
+    DependsOn: CustomLambdaCopyLocal
+    Properties:
+      Name: !Sub ${Application}-${Environment}-server-extract
+      Command:
+        Name: glueetl
+        ScriptLocation: !Sub "s3://${MigrationTrackerBucket}/GlueScript/Migration_Tracker_Server_Extract_Script.py"
+      GlueVersion: '2.0'
+      MaxRetries: 2
+      DefaultArguments:
+        "--job-bookmark-option": "job-bookmark-disable"
+        "--folder_name": "migration_tracker_server_extract_data"
+        "--bucket_name": !Ref MigrationTrackerBucket
+        "--TempDir": !Sub "s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/"
+        "--environment_name": !Sub ${Environment}
+        "--application_name": !Sub ${Application}
+      Role: !GetAtt GlueServiceRole.Arn
+
+  ###################################################
+  MigrationTrackerOutputAppTable:
+    # Creating the table waits for the database to be created
+    DependsOn: MigrationTrackerGlueDatabase
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref MigrationTrackerGlueDatabase
+      TableInput:
+        Name: !Sub ${Application}-${Environment}-app-extract-table
+        Description: This is the output table for migration tracker data
+        TableType: EXTERNAL_TABLE
+        Parameters: {
+    "classification": "parquet"
+    }
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          Columns:
+          - Name: cloudendure_projectname
+            Type: string
+          - Name: app_name
+            Type: string
+          - Name: aws_accountid
+            Type: string
+          - Name: wave_id
+            Type: string
+          - Name: app_id
+            Type: string	
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Sub s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/migration_tracker_app_extract_data/
+          SerdeInfo:
+            Parameters:
+              serialization.format: "1"
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+
+  MigrationTrackerOutputServerTable:
+    # Creating the table waits for the database to be created
+    DependsOn: MigrationTrackerGlueDatabase
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref MigrationTrackerGlueDatabase
+      TableInput:
+        Name: !Sub ${Application}-${Environment}-server-extract-table
+        Description: This is the output table for migration tracker data
+        TableType: EXTERNAL_TABLE
+        Parameters: {
+    "classification": "parquet"
+    }
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          Columns:
+          - Name: server_name
+            Type: string
+          - Name: instanceType
+            Type: string
+          - Name: migration_status
+            Type: string
+          - Name: server_id
+            Type: string
+          - Name: server_fqdn
+            Type: string
+          - Name: server_os_family
+            Type: string
+          - Name: server_os_version
+            Type: string
+          - Name: replication_status
+            Type: string
+          - Name: app_id
+            Type: string
+          - Name: app_name
+            Type: string
+          - Name: server_environment
+            Type: string         	
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Sub s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/migration_tracker_server_extract_data/
+          SerdeInfo:
+            Parameters:
+              serialization.format: "1"
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+
+
+  MigrationTrackerJobTrigger1:
+    Type: AWS::Glue::Trigger
+    DependsOn: MigrationTrackerAppGlueJob
+    Properties:
+      Type: SCHEDULED
+      StartOnCreation: True
+      Description: This runs at 1 PM every day
+      Schedule: cron(0 13 * * ? *)
+      Actions:
+        - JobName: !Ref MigrationTrackerAppGlueJob
+        - JobName: !Ref MigrationTrackerServerGlueJob
+          Arguments:
+            '--job-bookmark-option': job-bookmark-disable
+      Name: !Sub ${Application}-${Environment}-JobTrigger1
+
+  MigrationTrackerJobTrigger2:
+    Type: AWS::Glue::Trigger
+    DependsOn: MigrationTrackerAppGlueJob
+    Properties:
+      Type: SCHEDULED
+      StartOnCreation: True
+      Description: This runs at 5 AM every day
+      Schedule: cron(0 5 * * ? *)
+      Actions:
+        - JobName: !Ref MigrationTrackerAppGlueJob
+        - JobName: !Ref MigrationTrackerServerGlueJob
+          Arguments:
+            '--job-bookmark-option': job-bookmark-disable
+      Name: !Sub ${Application}-${Environment}-JobTrigger2
+  
+
+
+  MigrationTrackerWorkGroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name:  !Sub ${Application}-${Environment}-workgroup
+      Description: This workgroup is created for Migration Factory Tracker
+      State: ENABLED
+      WorkGroupConfiguration:
+        EnforceWorkGroupConfiguration: true
+        EngineVersion:
+          EffectiveEngineVersion: "Athena engine version 2"
+          SelectedEngineVersion: "Athena engine version 2"
+        PublishCloudWatchMetricsEnabled: false
+        ResultConfiguration:
+          EncryptionConfiguration:
+           EncryptionOption: SSE_S3
+          OutputLocation: !Sub s3://${Application}-${Environment}-${AWS::AccountId}-athena-results/
+
+  RunGlueCrawlerGlueJob: # Custom Resource to run the glue crawler and glue job
+    Type: Custom::RunGlueJob
+    Properties:
+      ServiceToken: !GetAtt LambdaRunGlueJob.Arn
+      # When a create event type is send to the lambda use this object
+      RoleArn: !GetAtt LambdaTrackerIAMRole.Arn
+      Region: !Ref AWS::Region
+
+  LambdaRunGlueJob: 
+    Type: AWS::Lambda::Function
+    DependsOn: MigrationTrackerJobTrigger2
+    Properties:    
+      Environment:
+        Variables:
+          application: !Sub ${Application}
+          environment: !Sub ${Environment}
+      Code: 
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_migrationtracker_glue_execute.zip"]]
+      Description: This is the custom lambda function to trigger the glue job and glue crawler once upon creation
+      FunctionName: !Sub ${Application}-${Environment}-TrackerGlueExecute
+      Handler: "lambda_migrationtracker_glue_execute.lambda_handler"
+      Role: !GetAtt LambdaTrackerIAMRole.Arn
+      Runtime: python3.8
+      MemorySize: 128
+      Timeout: 720
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  CustomLambdaCopyLocal: # Custom Resource to copy the files locally
+    Type: Custom::CopyGlueScript
+    Properties:
+      ServiceToken: !GetAtt LambdaCopyGlueScriptCopy.Arn
+      # When a create event type is send to the lambda use this object
+
+  LambdaCopyGlueScriptCopy: 
+    Type: AWS::Lambda::Function
+    Properties:    
+      Environment:
+        Variables:
+          application: !Sub ${Application}
+          environment: !Sub ${Environment}
+          remote_bucket: !Ref CodeBucket
+          local_bucket: !Ref MigrationTrackerBucket
+          key_prefix: !Ref KeyPrefix
+      Code: 
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_migrationtracker_glue_scriptcopy.zip"]]
+      Description: This is the custom lambda function copies the glue script to a local s3 bucket
+      FunctionName: !Sub ${Application}-${Environment}-TrackerGlueScriptCopy
+      Handler: "lambda_migrationtracker_glue_scriptcopy.lambda_handler"
+      Role: !GetAtt LambdaCopyGlueScriptS3IamRole.Arn
+      Runtime: python3.8
+      MemorySize: 128
+      Timeout: 720
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaRunAthenaSavedQuery: 
+    Type: AWS::Lambda::Function
+    DependsOn: MigrationTrackerAPPGlueCrawler
+    Properties:    
+      Environment:
+        Variables:
+          application: !Sub ${Application}
+          environment: !Sub ${Environment}
+          database: !Sub ${Application}-${Environment}-tracker
+          workgroup: !Sub ${Application}-${Environment}-workgroup
+      Code: 
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_run_athena_savedquery.zip"]]
+      Description: This is a custom lambda to execute the athena saved query
+      FunctionName: !Sub ${Application}-${Environment}-RunAthenaSavedQuery
+      Handler: "lambda_run_athena_savedquery.lambda_handler"
+      Role: !GetAtt LambdaRunAthenaQueryIAMRole.Arn
+      Runtime: python3.8
+      MemorySize: 128
+      Timeout: 720
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  CloudWatchEventRuleForGlueJob:
+    Type: AWS::Events::Rule
+    DependsOn: MigrationTrackerAPPGlueCrawler
+    Properties: 
+      Description: This is the cloudwatch event rule to check for gluejob status change and trigger a lambda to execute the athena query
+      EventPattern: !Join
+        - ''
+        - - '{"source": ["aws.glue"],"detail-type": ["Glue Job State Change"], "detail": {"jobName": ["'
+          - !Sub ${Application}
+          - '-'
+          - !Sub ${Environment}
+          - '-server-extract"'
+          - '],"state":["SUCCEEDED"]}}'
+      Name: !Sub ${Application}-${Environment}-GlueJobChangeNotification
+      State: "ENABLED"
+      Targets:
+        - Arn: !GetAtt LambdaRunAthenaSavedQuery.Arn
+          Id: "AthenaQueryLambda"
+
+  PermissionForEventsToInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: 
+        Ref: "LambdaRunAthenaSavedQuery"
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt CloudWatchEventRuleForGlueJob.Arn

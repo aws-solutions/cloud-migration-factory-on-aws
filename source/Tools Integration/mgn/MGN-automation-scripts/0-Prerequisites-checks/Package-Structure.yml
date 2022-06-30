@@ -1,0 +1,37 @@
+Name: "0-Check MGN Prerequisites"
+Description: "This script will verify the source servers meet the basic requirements for AWS MGN agent installation."
+MasterFileName: "0-Prerequisites-checks.py"
+UpdateUrl: ""
+Arguments:
+  -
+    name: "ReplicationServerIP"
+    description: "Replication Server IP."
+    long_desc: "IP Address of an AWS MGN Replication EC2 Instance."
+    type: "standard"
+    required: true
+  -
+    name: "SecretWindows"
+    long_desc: "Windows Secret to use for credentials."
+    description: "Windows Secret"
+    type: "relationship"
+    rel_display_attribute: "Name"
+    rel_entity: "secret"
+    rel_key: "Name"
+  -
+    name: "SecretLinux"
+    long_desc: "Linux Secret to use for credentials."
+    description: "Linux Secret"
+    type: "relationship"
+    rel_display_attribute: "Name"
+    rel_entity: "secret"
+    rel_key: "Name"
+  -
+    name: "Waveid"
+    description: "Wave Name"
+    type: "relationship"
+    rel_display_attribute: "wave_name"
+    rel_entity: "wave"
+    rel_key: "wave_id"
+    validation_regex: "^(?!\\s*$).+"
+    validation_regex_msg: "Wave must be provided."
+    required: true

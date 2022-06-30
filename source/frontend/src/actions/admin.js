@@ -5,6 +5,114 @@ export default class Admin {
     this.session = session;
   }
 
+  getSchemas() {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.get("admin", "/admin/schema", options);
+  }
+
+  getSchema(schemaName) {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.get("admin", "/admin/schema/" + schemaName, options);
+  }
+
+  putSchema(schemaName, schema) {
+    const token = this.session.idToken.jwtToken;
+    var schemastr = JSON.stringify(schema)
+    var data = '{ "event":"PUT", "update_schema":' + schemastr + '}'
+    var obj = JSON.parse(data)
+    const options = {
+      body: obj,
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.put('admin', '/admin/schema/' + schemaName, options);
+  }
+
+  postSchema(schemaName, schema) {
+    const token = this.session.idToken.jwtToken;
+    var schemastr = JSON.stringify(schema)
+    var obj = JSON.parse(schemastr)
+    const options = {
+      body: obj,
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.post('admin', '/admin/schema/' + schemaName, options);
+  }
+
+  delSchema(schemaName) {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.del('admin', '/admin/schema/' + schemaName, options);
+  }
+
+  getSchemaAttributes(schemaName) {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.get("admin", "/admin/schema/" + schemaName,options);
+  }
+
+  putSchemaAttr(schemaName, attr, attr_name) {
+    const token = this.session.idToken.jwtToken;
+    var attrstr = JSON.stringify(attr)
+    var data = '{ "event":"PUT" , "name":"' + attr_name + '", "update":' + attrstr + '}'
+    var obj = JSON.parse(data)
+    const options = {
+      body: obj,
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.put('admin', '/admin/schema/' + schemaName, options);
+  }
+
+  postSchemaAttr(schemaName, attr) {
+    const token = this.session.idToken.jwtToken;
+    var attrstr = JSON.stringify(attr)
+    var data = '{ "event":"POST", "new":' + attrstr + '}'
+    var obj = JSON.parse(data)
+    const options = {
+      body: obj,
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.put('admin', '/admin/schema/' + schemaName, options);
+  }
+
+  delSchemaAttr(schemaName, attr_name) {
+    const token = this.session.idToken.jwtToken;
+    var data = '{ "event":"DELETE" , "name":"' + attr_name + '"}'
+    var obj = JSON.parse(data)
+    const options = {
+      body: obj,
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.put('admin', '/admin/schema/' + schemaName, options);
+  }
+
   getSchemaWave() {
     const token = this.session.idToken.jwtToken;
     const options = {
@@ -35,56 +143,76 @@ export default class Admin {
     return API.get('admin', '/admin/schema/server', options);
   }
 
-  putStage(stage) {
+  getSchemaDatabase() {
     const token = this.session.idToken.jwtToken;
     const options = {
-      body: stage,
       headers: {
         Authorization: token
       }
     };
-    return API.put('admin', '/admin/stage/'+stage.stage_id, options);
+    return API.get('admin', '/admin/schema/database', options);
   }
 
-  postStage(stage) {
+  putPolicy(policy) {
     const token = this.session.idToken.jwtToken;
     const options = {
-      body: stage,
+      body: policy,
       headers: {
         Authorization: token
       }
     };
-    return API.post('admin', '/admin/stage', options);
+    return API.put('admin', '/admin/policy/'+policy.policy_id, options);
   }
 
-  delStage(stage_id) {
+  postPolicy(policy) {
     const token = this.session.idToken.jwtToken;
     const options = {
+      body: policy,
       headers: {
         Authorization: token
       }
     };
-    return API.del('admin', '/admin/stage/'+stage_id, options);
+    return API.post('admin', '/admin/policy', options);
   }
 
-  getStage(stage_id) {
+  delPolicy(policy_id) {
     const token = this.session.idToken.jwtToken;
     const options = {
       headers: {
         Authorization: token
       }
     };
-    return API.get("admin", "/admin/stage/"+stage_id, options);
+    return API.del('admin', '/admin/policy/'+policy_id, options);
   }
 
-  getStages() {
+  getPolicy(policy_id) {
     const token = this.session.idToken.jwtToken;
     const options = {
       headers: {
         Authorization: token
       }
     };
-    return API.get("admin", "/admin/stage", options);
+    return API.get("admin", "/admin/policy/"+policy_id, options);
+  }
+
+  getPolicies() {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.get("admin", "/admin/policy", options);
+  }
+
+  getUsers() {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+      headers: {
+        Authorization: token
+      }
+    };
+    return API.get("admin", "/admin/users", options);
   }
 
   getWaveAttributes() {
@@ -115,6 +243,16 @@ export default class Admin {
                         }
                       };
     return API.get("admin", "/admin/schema/server",options);
+  }
+
+  getDatabaseAttributes() {
+    const token = this.session.idToken.jwtToken;
+    const options = {
+                        headers: {
+                          Authorization: token
+                        }
+                      };
+    return API.get("admin", "/admin/schema/database",options);
   }
 
   getRoles() {
@@ -202,6 +340,33 @@ delSerSchemaAttr(attr_name) {
   return API.put('admin', '/admin/schema/server', options);
 }
 
+delDatabaseSchemaAttr(attr_name) {
+  const token = this.session.idToken.jwtToken;
+  var data = '{ "event":"DELETE" , "name":"' + attr_name + '"}'
+  var obj = JSON.parse(data)
+  const options = {
+    body: obj,
+    headers: {
+      Authorization: token
+    }
+  };
+  return API.put('admin', '/admin/schema/database', options);
+}
+
+putDatabaseSchemaAttr(attr, attr_name) {
+  const token = this.session.idToken.jwtToken;
+  var attrstr = JSON.stringify(attr)
+  var data = '{ "event":"PUT" , "name":"' + attr_name + '", "update":' + attrstr + '}'
+  var obj = JSON.parse(data)
+  const options = {
+    body: obj,
+    headers: {
+      Authorization: token
+    }
+  };
+  return API.put('admin', '/admin/schema/database', options);
+}
+
 putWaveSchemaAttr(attr, attr_name) {
   const token = this.session.idToken.jwtToken;
   var attrstr = JSON.stringify(attr)
@@ -242,6 +407,20 @@ putServerSchemaAttr(attr, attr_name) {
     }
   };
   return API.put('admin', '/admin/schema/server', options);
+}
+
+postDatabaseSchemaAttr(attr) {
+  const token = this.session.idToken.jwtToken;
+  var attrstr = JSON.stringify(attr)
+  var data = '{ "event":"POST", "new":' + attrstr + '}'
+  var obj = JSON.parse(data)
+  const options = {
+    body: obj,
+    headers: {
+      Authorization: token
+    }
+  };
+  return API.put('admin', '/admin/schema/database', options);
 }
 
 postWaveSchemaAttr(attr) {
