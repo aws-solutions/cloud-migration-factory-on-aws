@@ -58,7 +58,7 @@ def assume_role(account_id, region):
   try:
     user = sts_client.get_caller_identity()['Arn']
     sessionname = user.split('/')[1]
-    response = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=sessionname)
+    response = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=sessionname, region_name=region)
     credentials = response['Credentials']
     session = boto3.Session(
       region_name = region,
