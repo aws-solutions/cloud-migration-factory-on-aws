@@ -108,7 +108,7 @@ def assume_role(account_id):
         user = sts_client.get_caller_identity()['Arn']
         log.info('Logged in as: ' + user)
         sessionname = user.split('/')[1]
-        response = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=sessionname, region_name=region)
+        response = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=sessionname)
         credentials = response['Credentials']
         return credentials
     except botocore.exceptions.ClientError as e:
