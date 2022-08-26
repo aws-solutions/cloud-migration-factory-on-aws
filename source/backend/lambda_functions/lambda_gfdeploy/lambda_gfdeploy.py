@@ -266,7 +266,7 @@ def launch_stack(template_url,appid,appname,bucketname,targetaccountid):
     # try:
     
 
-        sts_client = boto3.client('sts')
+        sts_client = boto3.client('sts', region_name=os.environ.get('region'))
         rolearnvalue="arn:aws:iam::"+targetaccountid+":role/Factory-Replatform-EC2Deploy"
         assumed_role_object=sts_client.assume_role(
         RoleArn=rolearnvalue,

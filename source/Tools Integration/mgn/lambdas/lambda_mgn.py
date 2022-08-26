@@ -97,7 +97,7 @@ def get_mgn_source_servers(mgn_client_base):
 
 def assume_role(account_id):
 
-    sts_client = boto3.client('sts')
+    sts_client = boto3.client('sts', region_name=os.environ.get('region'))
     role_arn = 'arn:aws:iam::' + account_id + ':role/CMF-MGNAutomation'
     log.info("Creating new session with role: {}".format(role_arn))
 
