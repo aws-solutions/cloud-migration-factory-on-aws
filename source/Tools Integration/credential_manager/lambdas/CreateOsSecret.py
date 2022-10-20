@@ -24,17 +24,22 @@ def create(event):
     secret_type = body['secretType']
     description = body['description']
 
+    if 'isSSHKey' in body and body['isSSHKey']:
+        iskey = body['isSSHKey']
+    else:
+        iskey = False
+
     session = boto3.session.Session(region_name=region)
     client = session.client(service_name='secretsmanager', config=boto_config)
     try:
-        data = "{\"USERNAME\": \"%s\", \"PASSWORD\": \"%s\", \"SECRET_TYPE\": \"%s\", \"OS_TYPE\": \"%s\"}" % (
-        request_user, password, secret_type, os_type)
+        data = "{\"USERNAME\": \"%s\", \"PASSWORD\": \"%s\", \"SECRET_TYPE\": \"%s\", \"OS_TYPE\": \"%s\", \"IS_SSH_KEY\": \"%s\"}" % (
+            request_user, password, secret_type, os_type, iskey)
         client.create_secret(Name=secret_name,
                              Description=description,
-                             # SecretString=base64.b64encode(data.encode("utf-8")).decode("ascii"),
                              SecretString=data,
                              Tags=[{"Key": "CMFUse", "Value": "CMF Automation Credential Manager"}]
                              )
+
         return {"statusCode": 200, "body": "Successfully created Secret - " + secret_name}
     except ClientError as e:
         if e.response['Error']['Code'] == 'ResourceExistsException':

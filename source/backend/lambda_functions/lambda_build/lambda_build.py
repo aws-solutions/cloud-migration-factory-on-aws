@@ -66,6 +66,9 @@ def update_configuration_file():
     with open(temp_directory_name + 'env.js', encoding='utf8') as r:
         config = r.read()
 
+    if SSM_WS_API == 'PrivateNotDeployed':
+        config = config.replace('wss://{{ssm-ws-api}}.execute-api.{{region}}.amazonaws.com/prod', SSM_WS_API)
+
     config = config.replace('{{region}}', region)
     config = config.replace('{{user-api}}', USER_API)
     config = config.replace('{{admin-api}}', ADMIN_API)

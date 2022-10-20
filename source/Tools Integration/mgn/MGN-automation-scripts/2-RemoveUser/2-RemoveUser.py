@@ -219,7 +219,7 @@ def main(arguments):
                         else:
                             print("INFO: Using domain account to connect: " + cred['username'])
                     local_user = mfcommon.getServerCredentials("", "", server, args.LocalUserSecret, args.NoPrompts)
-                    creds = " -Credential (New-Object System.Management.Automation.PSCredential(\"" + cred['username'] + "\", (ConvertTo-SecureString \"" + cred['password'] + "\" -AsPlainText -Force)))"
+                    creds = " -Credential (New-Object System.Management.Automation.PSCredential('" + cred['username'] + "', (ConvertTo-SecureString '" + cred['password'] + "' -AsPlainText -Force)))"
                     p_trustedhosts = subprocess.Popen(["powershell.exe", "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '" + server["server_fqdn"] + "' -Concatenate -Force"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     command1 = "Invoke-Command -ComputerName " + server['server_fqdn'] + " -ScriptBlock {net user " + local_user['username'] + " /delete}" + creds
                     print("------------------------------------------------------")

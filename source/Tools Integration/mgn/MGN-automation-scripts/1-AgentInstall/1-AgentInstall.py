@@ -118,7 +118,7 @@ def install_mgn_agents_for_windows(parameters):
     p = subprocess.Popen(["powershell.exe",
                           ".\\1-Install-Windows.ps1", reinstall, agent_windows_download_url, aws_region,
                           agent_install_secrets['AccessKeyId'], agent_install_secrets['SecretAccessKey'],
-                          server['server_fqdn'], windows_credentials['username'], "\""+windows_credentials['password']+"\""],
+                          server['server_fqdn'], "'" + windows_credentials['username']+"'", "'" +windows_credentials['password']+"'"],
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
   else:
     # User credentials of user executing the script (from remote execution jobs this will be localsystem account and

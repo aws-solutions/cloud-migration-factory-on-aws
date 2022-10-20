@@ -12,6 +12,17 @@ Metadata:
           - Tracker
           - ReplatformEC2          
           - ServiceAccountEmail
+          - DeploymentType
+      - Label:
+          default: (Optional) Private Deployment Type Only
+        Parameters:
+          - WebURL
+          - EndpointVPCId
+          - PrivateEndpointSubnets
+      - Label:
+          default: (Optional) Public with WAF Deployment Type Only
+        Parameters:
+          - SourceCIDR
 
     ParameterLabels:
       Application:
@@ -24,6 +35,18 @@ Metadata:
         default: Replatform EC2        
       ServiceAccountEmail:
         default: Service Account Email address
+      DeployCloudFront:
+        default: Deploy CloudFront access for CMF Web UI
+      WebURL:
+        default: Full URL used to access web user interface
+      DeploymentType:
+        default: Deployment Type
+      SourceCIDR:
+        default: Allowed CIDR
+      EndpointVPCId:
+        default: VPC ID to host API Gateway Endpoints
+      PrivateEndpointSubnets:
+        default: Subnets to host API Gateway Interface Endpoints
 
 Parameters:
   Application:
@@ -46,19 +69,46 @@ Parameters:
     Default: true
     AllowedValues: [true, false]
 
-
   ReplatformEC2:
     Type: String
     Description: Deploy Replatform EC2 Feature?
     Default: true
     AllowedValues: [true, false]
-    
 
   ServiceAccountEmail:
     Type: String
     Description: Default Factory Service Account Email Address, please replace
     AllowedPattern: ".+"
     Default: serviceaccount@yourdomain.com
+
+  DeploymentType:
+    Type: String
+    Description: 'What type of deployment do you require? (Public (default): all CMF endpoints are publicly accessible with user authentication. Public with WAF: access to CMF endpoints is restricted to customisable CIDR ranges. Private: all CMF endpoints are accessible only from your VPC networks and the CMF Web UI must be hosted on a private web server deployed separately.)'
+    Default: Default (Public)
+    AllowedValues: [ Default (Public), Public with WAF, Private ]
+
+  WebURL:
+    Type: String
+    Description: CMF Web UI URL which will be used to access the CMF web interface. Example https://cmf.yourdomain.local
+    Default: ''
+
+  SourceCIDR:
+    Description: >-
+      Comma delimited list of IP CIDRs from which your users and automation server will be connecting from over the public internet (this will be your external public address range). Two CIDRs must be entered, otherwise the stack will fail to deploy. You can add
+      rules later by modifying the created WAF rule if required. Example 192.1.0.0/16, 192.2.0.0/16.
+    Type: CommaDelimitedList
+
+  EndpointVPCId:
+    Type: String
+    Description: >-
+      VPC ID to deploy API Gateway Endpoints.
+    Default: ''
+
+  PrivateEndpointSubnets:
+    Type: CommaDelimitedList
+    Description: >-
+      Comma delimited list of Subnets IDs to host API Gateway private endpoints. These need to be attached to the VPC ID selected.
+    Default: ''
 
 Mappings:
   Send:
@@ -72,6 +122,10 @@ Mappings:
 Conditions:
   DeployTracker: !Equals [!Ref Tracker, true]
   ReplatformEC2: !Equals [!Ref ReplatformEC2, true]
+  DeployWAF: !Equals [!Ref DeploymentType, 'Public with WAF']
+  DeploymentTypePublic: !Equals [!Ref DeploymentType, 'Default (Public)']
+  DeployCloudFront: !Or [ !Condition DeploymentTypePublic, !Condition DeployWAF]
+  DeploymentPrivate: !Equals [!Ref DeploymentType, 'Private']
   
 Resources:
   AccessLoggingBucket:
@@ -148,6 +202,7 @@ Resources:
             reason: "This bucket is a CloudFront origin, does not allow direct access"
 
   FrontEndBucketPolicy:
+    Condition: DeployCloudFront
     Type: AWS::S3::BucketPolicy
     Properties:
       Bucket: !Ref FrontEndBucket
@@ -162,12 +217,14 @@ Resources:
               AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudfrontOriginAccessIdentity}'
 
   CloudfrontOriginAccessIdentity:
+    Condition: DeployCloudFront
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties:
       CloudFrontOriginAccessIdentityConfig:
         Comment: !Sub access-identity-${FrontEndBucket.DomainName}
 
   CloudfrontDistribution:
+    Condition: DeployCloudFront
     DependsOn: CloudFrontFunction
     Type: AWS::CloudFront::Distribution
     Properties:
@@ -182,6 +239,11 @@ Resources:
           Key: Name
           Value: !Sub ${Application}-${Environment}-CloudFrontDistribution
       DistributionConfig:
+        WebACLId:
+          !If
+          - DeployWAF
+          - !GetAtt WAFFEStack.Outputs.WAFFEACLArn
+          - !Ref 'AWS::NoValue'
         Enabled: true
         PriceClass: 'PriceClass_100'
         DefaultRootObject: 'index.html'
@@ -538,7 +600,7 @@ Resources:
       GroupName: readonly
       UserPoolId: !Ref CognitoUserPool
 
-  # API Gateway IAM Role, Accont and log group
+  # API Gateway IAM Role, Account and log group
   APIGatewayCWRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -578,11 +640,102 @@ Resources:
           - id: W84
             reason: "SSE is currently not supported, CMK is not ideal for this solution"
 
+# Configuration for Private API Gateway resources.
+  APIGatewayEndpoint:
+    Condition: DeploymentPrivate
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action:
+              - "execute-api:Invoke"
+              - "execute-api:ManageConnections"
+            Resource:
+              - !Sub  "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*"
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.execute-api'
+      VpcId: !Ref EndpointVPCId
+      VpcEndpointType: Interface
+      SubnetIds:
+        - !Join
+          - ','
+          - !Ref PrivateEndpointSubnets
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref APIGatewayEndpointSG
+
+  APIGatewayEndpointSG:
+    Condition: DeploymentPrivate
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow https to CMF API Gateway RestAPI VPC Endpoint"
+      VpcId: !Ref EndpointVPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W9
+            reason: "API Gateway Interface Endpoint is accessed by all user devices for the application, not possible to restrict."
+          - id: W2
+            reason: "API Gateway Interface Endpoint is accessed by all user devices for the application, not possible to restrict."
+          - id: W5
+            reason: "API Gateway Interface Endpoint is accessed by all user devices for the application, not possible to restrict."
+          - id: W36
+            reason: "Security group has a description."
+
   # Tools API
   ToolsAPI:
     Type: 'AWS::ApiGateway::RestApi'
     Properties:
       Name: !Sub ${Application}-${Environment}-tools-api
+      EndpointConfiguration:
+        !If
+        - DeploymentPrivate
+        -
+          Types:
+            - PRIVATE
+          VpcEndpointIds:
+            - !Ref APIGatewayEndpoint
+        -
+          Types:
+            - EDGE
+      Policy:
+        !If
+        - DeploymentPrivate
+        - {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": "*",
+                  "Action": "execute-api:Invoke",
+                  "Resource": "execute-api:/*"
+                },
+                {
+                  "Effect": "Deny",
+                  "Principal": "*",
+                  "Action": "execute-api:Invoke",
+                  "Resource": "execute-api:/*",
+                  "Condition": {
+                    "StringNotEquals": {
+                      "aws:SourceVpce": !Ref APIGatewayEndpoint
+                    }
+                  }
+                }
+              ]
+            }
+        - !Ref 'AWS::NoValue'
 
   ToolsAPIGatewayResponses4xx:
     Type: AWS::ApiGateway::GatewayResponse
@@ -671,7 +824,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -699,7 +852,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionCloudEndure.Arn}/invocations'
 
   APIResourceAMSWIG:
@@ -729,7 +882,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -757,7 +910,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionAMSWIG.Arn}/invocations'
 
   APIResourceSSM:
@@ -787,7 +940,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -815,7 +968,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMArn}/invocations'
 
   APIMethodSSMPost:
@@ -838,7 +991,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMArn}/invocations'
 
   #PN - API Gateway SSM Scripts
@@ -869,7 +1022,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -897,7 +1050,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
 
   APIMethodSSMScriptsPost:
@@ -920,7 +1073,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
 
   APIResourceSSMScriptsId:
@@ -950,7 +1103,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -978,7 +1131,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
 
   APIMethodSSMScriptsIdPut:
@@ -1001,7 +1154,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
 
   APIMethodSSMScriptsIdDelete:
@@ -1024,7 +1177,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
 
   APIResourceSSMScriptsIdVersion:
@@ -1054,7 +1207,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -1082,7 +1235,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
 
   APIResourceSSMScriptsIdVersionAction:
@@ -1112,7 +1265,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -1140,7 +1293,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMScriptsArn}/invocations'
 
   # PN - API Gateway SSM Jobs
@@ -1171,7 +1324,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -1199,7 +1352,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMJobsArn}/invocations'
 
   APIMethodSSMJobsPOST:
@@ -1222,7 +1375,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMJobsArn}/invocations'
 
   APIResourceSSMJobsId:
@@ -1252,7 +1405,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -1280,7 +1433,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMJobsArn}/invocations'
 
   # Login API
@@ -1288,6 +1441,41 @@ Resources:
     Type: 'AWS::ApiGateway::RestApi'
     Properties:
       Name: !Sub ${Application}-${Environment}-login-api
+      EndpointConfiguration:
+        !If
+        - DeploymentPrivate
+        - Types:
+            - PRIVATE
+          VpcEndpointIds:
+            - !Ref APIGatewayEndpoint
+        - Types:
+            - EDGE
+      Policy:
+        !If
+        - DeploymentPrivate
+        - {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": "execute-api:Invoke",
+              "Resource": "execute-api:/*"
+            },
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "execute-api:Invoke",
+              "Resource": "execute-api:/*",
+              "Condition": {
+                "StringNotEquals": {
+                  "aws:SourceVpce": !Ref APIGatewayEndpoint
+                }
+              }
+            }
+          ]
+        }
+        - !Ref 'AWS::NoValue'
 
   LoginAPIGatewayResponses4xx:
     Type: AWS::ApiGateway::GatewayResponse
@@ -1314,6 +1502,16 @@ Resources:
       Name: !Sub ${Application}-${Environment}-LoginAPI-Authorizer
       RestApiId: !Ref LoginAPI
       Type: TOKEN
+
+  LoginGetAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      IdentitySource: method.request.header.Authorization
+      Name: !Sub ${Application}-${Environment}-LoginAPIGet-Authorizer
+      ProviderARNs:
+        - !GetAtt CognitoUserPool.Arn
+      RestApiId: !Ref LoginAPI
+      Type: COGNITO_USER_POOLS
 
   LoginAPIDeploy:
     Type: AWS::ApiGateway::Deployment
@@ -1363,7 +1561,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionLogin.Arn}/invocations'
     Metadata:
       cfn_nag:
@@ -1391,7 +1589,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -1426,7 +1624,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -1453,7 +1651,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionPWDReset.Arn}/invocations'
     Metadata:
       cfn_nag:
@@ -1488,7 +1686,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -1502,8 +1700,8 @@ Resources:
       RestApiId: !Ref LoginAPI
       ResourceId: !Ref APIResourceLoginGroups
       HttpMethod: "GET"
-      AuthorizationType: "CUSTOM"
-      AuthorizerId: !Ref LoginAuthorizer
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref LoginGetAuthorizer
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1516,7 +1714,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionLoginGroups.Arn}/invocations'
 
   # Admin API
@@ -1524,6 +1722,41 @@ Resources:
     Type: 'AWS::ApiGateway::RestApi'
     Properties:
       Name: !Sub ${Application}-${Environment}-admin-api
+      EndpointConfiguration:
+        !If
+        - DeploymentPrivate
+        - Types:
+            - PRIVATE
+          VpcEndpointIds:
+            - !Ref APIGatewayEndpoint
+        - Types:
+            - EDGE
+      Policy:
+        !If
+        - DeploymentPrivate
+        - {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": "execute-api:Invoke",
+              "Resource": "execute-api:/*"
+            },
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "execute-api:Invoke",
+              "Resource": "execute-api:/*",
+              "Condition": {
+                "StringNotEquals": {
+                  "aws:SourceVpce": !Ref APIGatewayEndpoint
+                }
+              }
+            }
+          ]
+        }
+        - !Ref 'AWS::NoValue'
 
   AdminAPIGatewayResponses4xx:
     Type: AWS::ApiGateway::GatewayResponse
@@ -1627,7 +1860,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -1655,7 +1888,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionUserAdmin.Arn}/invocations'
 
   APIResourceAdminRole:
@@ -1685,7 +1918,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -1713,7 +1946,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionRole.Arn}/invocations'
 
   APIMethodRolePost:
@@ -1736,7 +1969,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionRole.Arn}/invocations'
 
   APIResourceAdminRoleRoleId:
@@ -1766,7 +1999,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -1794,7 +2027,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionRoleItem.Arn}/invocations'
 
   APIMethodRoleRoleIdPut:
@@ -1817,7 +2050,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionRoleItem.Arn}/invocations'
 
   APIMethodRoleRoleIdDelete:
@@ -1840,7 +2073,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionRoleItem.Arn}/invocations'
 
   APIResourceAdminSchema:
@@ -1870,7 +2103,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -1898,7 +2131,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSchema.Arn}/invocations'
 
   APIResourceAdminSchemaNamed:
@@ -1928,7 +2161,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,PUT,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -1956,7 +2189,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSchema.Arn}/invocations'
 
   APIMethodSchemaNamedPut:
@@ -1979,7 +2212,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSchema.Arn}/invocations'
 
   APIMethodSchemaNamedPost:
@@ -2002,7 +2235,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSchema.Arn}/invocations'
 
   APIResourceAdminPolicy:
@@ -2032,7 +2265,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -2060,7 +2293,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionPolicy.Arn}/invocations'
 
   APIMethodPolicyPost:
@@ -2083,7 +2316,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionPolicy.Arn}/invocations'
 
   APIResourceAdminPolicyPolicyId:
@@ -2113,7 +2346,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -2141,7 +2374,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionPolicyAttr.Arn}/invocations'
 
   APIMethodPolicyPolicyIdPut:
@@ -2164,7 +2397,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionPolicyAttr.Arn}/invocations'
 
   APIMethodPolicyPolicyIdDelete:
@@ -2187,7 +2420,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionPolicyAttr.Arn}/invocations'
 
   # User API
@@ -2195,6 +2428,41 @@ Resources:
     Type: 'AWS::ApiGateway::RestApi'
     Properties:
       Name: !Sub ${Application}-${Environment}-user-api
+      EndpointConfiguration:
+        !If
+        - DeploymentPrivate
+        - Types:
+            - PRIVATE
+          VpcEndpointIds:
+            - !Ref APIGatewayEndpoint
+        - Types:
+            - EDGE
+      Policy:
+        !If
+        - DeploymentPrivate
+        - {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": "execute-api:Invoke",
+              "Resource": "execute-api:/*"
+            },
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "execute-api:Invoke",
+              "Resource": "execute-api:/*",
+              "Condition": {
+                "StringNotEquals": {
+                  "aws:SourceVpce": !Ref APIGatewayEndpoint
+                }
+              }
+            }
+          ]
+        }
+        - !Ref 'AWS::NoValue'
 
   UserAPIGatewayResponses4xx:
     Type: AWS::ApiGateway::GatewayResponse
@@ -2283,7 +2551,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -2311,7 +2579,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItems.Arn}/invocations'
 
   APIMethodItemsPost:
@@ -2334,7 +2602,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItems.Arn}/invocations'
 
   APIResourceUserItemid:
@@ -2364,7 +2632,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,PUT,DELETE,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -2392,7 +2660,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItem.Arn}/invocations'
 
   APIMethodItemPut:
@@ -2415,7 +2683,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItem.Arn}/invocations'
 
   APIMethodItemDelete:
@@ -2438,7 +2706,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItem.Arn}/invocations'
 
   APIResourceUserItemAppid:
@@ -2475,7 +2743,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -2503,7 +2771,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItem.Arn}/invocations'
 
   APIResourceUserNotifications:
@@ -2533,7 +2801,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionNotifications.Arn}/invocations'
 
   APIMethodNotificationsOPTIONS:
@@ -2556,7 +2824,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: '200'
             ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'https://${CloudfrontDistribution.DomainName}'"
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
@@ -3296,7 +3564,7 @@ Resources:
         Variables:
           application: !Ref Application
           environment: !Ref Environment
-          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
       Tags:
         -
           Key: application
@@ -3338,7 +3606,7 @@ Resources:
         Variables:
           application: !Ref Application
           environment: !Ref Environment
-          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
       Tags:
         -
           Key: application
@@ -3380,7 +3648,7 @@ Resources:
         Variables:
           application: !Ref Application
           environment: !Ref Environment
-          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
       Tags:
         -
           Key: application
@@ -3422,7 +3690,7 @@ Resources:
         Variables:
           application: !Ref Application
           environment: !Ref Environment
-          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
       Tags:
         -
           Key: application
@@ -3464,7 +3732,7 @@ Resources:
         Variables:
           application: !Ref Application
           environment: !Ref Environment
-          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
       Tags:
         -
           Key: application
@@ -3509,7 +3777,7 @@ Resources:
           userpool: !Ref CognitoUserPool
           application: !Ref Application
           environment: !Ref Environment
-          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
       Tags:
         -
           Key: application
@@ -3558,7 +3826,7 @@ Resources:
           userpool: !Ref CognitoUserPool
           application: !Ref Application
           environment: !Ref Environment
-          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
       Tags:
         -
           Key: application
@@ -3702,7 +3970,7 @@ Resources:
           clientId: !Ref CognitoAppClient
           application: !Ref Application
           environment: !Ref Environment
-          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
       Tags:
         -
           Key: application
@@ -3750,7 +4018,7 @@ Resources:
           environment: !Ref Environment
           AnonymousUsageData: !FindInMap ["Send", "AnonymousUsage", "Data"]
           solutionUUID: !GetAtt CreateUniqueID.UUID
-          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
       Tags:
         -
           Key: application
@@ -3796,7 +4064,7 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           region: !Ref 'AWS::Region'
-          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
       Tags:
         -
           Key: application
@@ -3842,7 +4110,7 @@ Resources:
           userpool_id: !Ref CognitoUserPool
           application: !Ref Application
           environment: !Ref Environment
-          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
       Tags:
         -
           Key: application
@@ -3885,7 +4153,7 @@ Resources:
           userpool_id: !Ref CognitoUserPool
           application: !Ref Application
           environment: !Ref Environment
-          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
       Tags:
         -
           Key: application
@@ -3964,7 +4232,7 @@ Resources:
           userpool: !Ref CognitoUserPool
           application: !Ref Application
           environment: !Ref Environment
-          cors: !Sub 'https://${CloudfrontDistribution.DomainName}'
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
       Tags:
         -
           Key: application
@@ -4153,7 +4421,7 @@ Resources:
         PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
         LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
         LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
-        CORS: !Sub 'https://${CloudfrontDistribution.DomainName}'
+        CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
 
   CredentialManager:
     Type: AWS::CloudFormation::Stack
@@ -4180,7 +4448,7 @@ Resources:
         PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
         LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
         LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
-        CORS: !Sub 'https://${CloudfrontDistribution.DomainName}'
+        CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
 
   AutomationService:
     Type: AWS::CloudFormation::Stack
@@ -4192,7 +4460,7 @@ Resources:
       Parameters:
         Application: !Ref Application
         Environment: !Ref Environment
-        CloudfrontOriginAccessIdentity: !Ref CloudfrontOriginAccessIdentity
+#        CloudfrontOriginAccessIdentity: !Ref CloudfrontOriginAccessIdentity
         ToolsAPI: !Ref ToolsAPI
         LoginAPI: !Ref LoginAPI
         UserAPI: !Ref UserAPI
@@ -4209,7 +4477,8 @@ Resources:
         PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
         LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
         LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
-        CORS: !Sub 'https://${CloudfrontDistribution.DomainName}'
+        CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+        IsDeploymentPrivate: !If [ DeploymentPrivate, true, false ]
 
   ReplatformService:
     Type: AWS::CloudFormation::Stack
@@ -4244,7 +4513,49 @@ Resources:
         LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
         SchemaDynamoTableArn: !GetAtt SchemaDynamoDBTable.Arn
         SchemaDynamoTableName: !Ref SchemaDynamoDBTable
-        CORS: !Sub 'https://${CloudfrontDistribution.DomainName}'
+        CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+
+  WAFBEStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: DeployWAF
+    DependsOn:
+      - ToolsAPIDeploy
+      - UserAPIDeploy
+      - AdminAPIDeploy
+      - LoginAPIDeploy
+    Properties:
+      TemplateURL: !Sub
+        - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-waf-be.template'
+        -  S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+           KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+      Parameters:
+        Application: !Ref Application
+        Environment: !Ref Environment
+        SourceCIDR: !Join
+          - ','
+          - !Ref SourceCIDR
+        CMFAPIToolsID: !Ref ToolsAPI
+        CMFAPILoginID: !Ref LoginAPI
+        CMFAPIUserID: !Ref UserAPI
+        CMFAPIAdminID: !Ref AdminAPI
+        CMFCognitoArn: !GetAtt CognitoUserPool.Arn
+        CloudFrontDeployed: !If [ DeployCloudFront, true, false ]
+
+  WAFFEStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: DeployWAF
+    Properties:
+      TemplateURL: !Sub
+        - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-waf-fe.template'
+        - S3Bucket: !FindInMap [ "SourceCode", "General", "S3Bucket" ]
+          KeyPrefix: !FindInMap [ "SourceCode", "General", "KeyPrefix" ]
+      Parameters:
+        Application: !Ref Application
+        Environment: !Ref Environment
+        SourceCIDR: !Join
+          - ','
+          - !Ref SourceCIDR
+        CloudFrontDeployed: !If [ DeployCloudFront, true, false ]
 
 # Create default service account for initial login and automation.
   ServiceAccount:
@@ -4368,7 +4679,7 @@ Resources:
 Outputs:
   MigrationFactoryURL:
     Description: 'Migration Factory Management console URL'
-    Value: !Sub 'https://${CloudfrontDistribution.DomainName}'
+    Value: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
 
   AdminAPI:
     Description: 'AdminAPI URL'

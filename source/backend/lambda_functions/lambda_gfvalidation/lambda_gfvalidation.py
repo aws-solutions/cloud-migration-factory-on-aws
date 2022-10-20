@@ -142,22 +142,25 @@ def GetServerList(waveid):
                     addvolcount=0
                     if applist[appnumb] == server['app_id'] and server['r_type'].upper() == 'REPLATFORM':
                         serverlist.append(server)
-                        if not "add_vols_name" in server:
-                            server['add_vols_name']=''
-                        if not "add_vols_type" in server:
-                            server['add_vols_type']=''
-                        if not "ebs_optimized" in server:
-                            server['ebs_optimized']=''
-                        if not "detailed_monitoring" in server:
-                            server['detailed_monitoring']=''
-                        if not "root_vol_name" in server:
-                            server['root_vol_name']=''
-                        if not "root_vol_type" in server:
-                            server['root_vol_type']=''
-                        if not "ebs_kmskey_id" in server:
-                            server['ebs_kmskey_id']=''
-                        if not "add_vols_size" in server:
-                            server['add_vols_size']=''
+                        if "add_vols_name"not in server:
+                            server['add_vols_name'] = ''
+                        if "add_vols_type"not in server:
+                            server['add_vols_type'] = ''
+                        if "ebs_optimized"not in server:
+                            server['ebs_optimized'] = ''
+                        if "detailed_monitoring"not in server:
+                            server['detailed_monitoring'] = ''
+                        if "root_vol_name"not in server:
+                            server['root_vol_name'] = ''
+                        if "root_vol_type"not in server:
+                            server['root_vol_type'] = ''
+                        if "ebs_kmskey_id"not in server:
+                            server['ebs_kmskey_id'] = ''
+                        if "add_vols_size"not in server:
+                            server['add_vols_size'] = ''
+                        if "iamRole" not in server:
+                            server['iamRole'] = ''
+
                         print('Input Values Going to be Passed for Validation:')
                         print(server)   
         
@@ -310,14 +313,6 @@ def validateinput(apptotal,app_id,app_name,addvolcount,server_name,instance_type
             msg = 'ERROR:The AMI Id Value is missing for Server: ' + server_name
             print(msg)
             return msg
-
-    
-        if (len(iamRole)==0):
-
-            msg = 'ERROR:The iamRole is missing for Server: ' + server_name
-            print(msg)
-            return msg
-
     
         if (len(availabilityzone)==0):
 

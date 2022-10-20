@@ -161,7 +161,7 @@ def main(arguments):
                                  print("INFO: Using local account to connect: " + windows_credentials['username'])
                        else:
                             print("INFO: Using domain account to connect: " + windows_credentials['username'])
-                       creds = " -Credential (New-Object System.Management.Automation.PSCredential(\"" + windows_credentials['username'] + "\", (ConvertTo-SecureString \"" + windows_credentials['password'] + "\" -AsPlainText -Force)))"
+                       creds = " -Credential (New-Object System.Management.Automation.PSCredential('" + windows_credentials['username'] + "', (ConvertTo-SecureString '" + windows_credentials['password'] + "' -AsPlainText -Force)))"
                        destpath = "'c:\\Program Files (x86)\\AWS Replication Agent\\post_launch\\'"
                        sourcepath = "'" + args.WindowsSource + "\\*'"
                        command1 = "Invoke-Command -ComputerName " + server['server_fqdn'] + " -ScriptBlock {if (!(Test-Path -Path " + destpath + ")) {New-Item -Path " + destpath + " -ItemType directory}}" + creds

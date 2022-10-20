@@ -173,7 +173,8 @@ const CredentialManager = (props) => {
         showCredentialManagerModal();
 
         if (selectedItems[0].data.SECRET_TYPE === 'OS') {
-            setFocusItem({ ...selectedItems[0], secretName: selectedItems[0].Name, secretType: selectedItems[0].data.SECRET_TYPE, userName: selectedItems[0].data.USERNAME, password: selectedItems[0].data.PASSWORD, osType: selectedItems[0].data.OS_TYPE, description: selectedItems[0].Description });
+            console.log(selectedItems[0])
+            setFocusItem({ ...selectedItems[0], secretName: selectedItems[0].Name, secretType: selectedItems[0].data.SECRET_TYPE, userName: selectedItems[0].data.USERNAME, password: selectedItems[0].data.PASSWORD, osType: selectedItems[0].data.OS_TYPE, description: selectedItems[0].Description, isSSHKey: selectedItems[0].data.IS_SSH_KEY });
         } else if (selectedItems[0].data.SECRET_TYPE === 'keyValue') {
             setFocusItem({ ...selectedItems[0], secretName: selectedItems[0].Name, secretType: selectedItems[0].data.SECRET_TYPE, secretKey: selectedItems[0].data.SECRET_KEY, secretValue: selectedItems[0].data.SECRET_VALUE, description: selectedItems[0].Description });
         } else if (selectedItems[0].data.SECRET_TYPE === 'plainText') {
@@ -206,12 +207,16 @@ const CredentialManager = (props) => {
         if (action === 'add') {
             try {
                 if (secretData.secretType === 'OS') {
+                    if (secretData.isSSHKey)
+                      //base64 encode key
+                        secretData.password = btoa(secretData.password.replace(/\n/g, "\\n"))
                     const secretFormData = {
                         secretName: secretData.secretName,
                         user: secretData.userName,
                         password: secretData.password,
                         secretType: secretData.secretType,
                         osType: secretData.osType,
+                        isSSHKey: secretData.isSSHKey,
                         description: (secretData.description !== undefined && secretData.description.trim() !== '') ? secretData.description : 'Secret for Migration Factory'
                     }
 
@@ -246,13 +251,17 @@ const CredentialManager = (props) => {
         } else if (action === 'edit') {
             try {
                 if (secretData.secretType === 'OS') {
+                    if (secretData.isSSHKey)
+                        //base64 encode key
+                        secretData.password = btoa(secretData.password.replace(/\n/g, "\\n"))
                     const secretFormData = {
                         secretName: secretData.secretName,
                         user: secretData.userName,
                         password: secretData.password,
                         secretType: secretData.secretType,
                         osType: secretData.osType,
-                        description: secretData.description
+                        description: secretData.description,
+                        isSSHKey: secretData.isSSHKey
                     }
 
                     await fetchApi('PUT', secretFormData, window.env.API_ADMIN + '/admin/credentialmanager', 'Update', jwt);
@@ -283,6 +292,8 @@ const CredentialManager = (props) => {
             setSelectedItems([]);
             setFocusItem({});
         }
+
+        await getSecretList()
 
     }
 

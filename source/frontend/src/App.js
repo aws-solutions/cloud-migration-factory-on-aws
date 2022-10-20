@@ -207,29 +207,37 @@ const App = (props) => {
 
     //Create Jobs web socket connection.
     if ('API_SSMSocket' in window.env) {
-      const session = await Auth.currentSession();
-      const token = session.idToken.jwtToken;
 
-      websocket = new WebSocket( window.env.API_SSMSocket);
+      // Check for a valid socket url.
+      if (window.env.API_SSMSocket.startsWith('wss://')){
+        const session = await Auth.currentSession();
+        const token = session.idToken.jwtToken;
 
-      // Connection opened
-      websocket.addEventListener('open', function (event) {
-        console.log('websocket session open');
-        const data = {
-          "type": 'auth',
-          "token": token,
-        };
-        let message = JSON.stringify(data);
-        websocket.send(message);
-      });
+        websocket = new WebSocket( window.env.API_SSMSocket);
 
-      if (websocket != null) {
-        console.log("Jobs web socket opened.")
-        //Authenticating.
+        // Connection opened
+        websocket.addEventListener('open', function (event) {
+          console.log('websocket session open');
+          const data = {
+            "type": 'auth',
+            "token": token,
+          };
+          let message = JSON.stringify(data);
+          websocket.send(message);
+        });
+
+        if (websocket != null) {
+          console.log("Jobs web socket opened.")
+          //Authenticating.
 
 
-        websocket.onmessage = processSocketMessage;
+          websocket.onmessage = processSocketMessage;
+        }
+      } else {
+        //Invalid socket URL, could be that this is a private deployment so web socket is not deployed.
+        console.log('Jobs web socket URL not supported: ' + window.env.API_SSMSocket + '.')
       }
+
     }
     console.log('Opened Migration Factory UI session.')
   }

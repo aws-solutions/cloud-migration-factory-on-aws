@@ -674,7 +674,7 @@ schema = [
                 {
                     "M": {
                         "description": {
-                            "S": "IAM role"
+                            "S": "EC2 Instance Profile Name"
                         },
                         "name": {
                             "S": "iamRole"
@@ -687,6 +687,13 @@ schema = [
                         },
                         "system": {
                             "BOOL": True
+                        },
+                        "long_desc": {
+                            "S": "Verify that the value entered here is the Instance Profile name not the IAM "
+                                 "Role name, they maybe different. If you use the AWS CLI, API, or an AWS SDK to "
+                                 "create a role, you create the role and instance profile as separate actions, with"
+                                 " potentially different names."
+
                         }
                     }
                 },
@@ -2342,196 +2349,6 @@ schema = [
               },
               "apiPath": {
                 "S": "/mgn"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "schema_name": {
-        "S": "ams"
-      },
-      "schema_type": {
-        "S": "automation"
-      },
-      "friendly_name": {
-        "S": "AMS"
-      },
-      "attributes": {
-        "L": [
-          {
-            "M": {
-              "system": {
-                "BOOL": True
-              },
-              "validation_regex": {
-                "S": "^(?!\\s*$).+"
-              },
-              "name": {
-                "S": "userapitoken"
-              },
-              "description": {
-                "S": "CloudEndure API Token"
-              },
-              "validation_regex_msg": {
-                "S": "CE token must be provided."
-              },
-              "type": {
-                "S": "password"
-              },
-              "required": {
-                "BOOL": True
-              },
-              "long_desc": {
-                "S": "CloudEndure API token."
-              }
-            }
-          },
-          {
-            "M": {
-              "rel_display_attribute": {
-                "S": "cloudendure_projectname"
-              },
-              "system": {
-                "BOOL": True
-              },
-              "validation_regex": {
-                "S": "^(?!\\s*$).+"
-              },
-              "rel_key": {
-                "S": "cloudendure_projectname"
-              },
-              "name": {
-                "S": "projectname"
-              },
-              "description": {
-                "S": "CloudEndure project name"
-              },
-              "rel_entity": {
-                "S": "application"
-              },
-              "validation_regex_msg": {
-                "S": "CE project name must be provided."
-              },
-              "type": {
-                "S": "relationship"
-              },
-              "required": {
-                "BOOL": True
-              }
-            }
-          },
-          {
-            "M": {
-              "rel_display_attribute": {
-                "S": "wave_name"
-              },
-              "system": {
-                "BOOL": True
-              },
-              "validation_regex": {
-                "S": "^(?!\\s*$).+"
-              },
-              "rel_key": {
-                "S": "wave_id"
-              },
-              "name": {
-                "S": "waveid"
-              },
-              "description": {
-                "S": "Wave"
-              },
-              "rel_entity": {
-                "S": "wave"
-              },
-              "validation_regex_msg": {
-                "S": "Wave must be provided."
-              },
-              "type": {
-                "S": "relationship"
-              },
-              "required": {
-                "BOOL": True
-              }
-            }
-          },
-          {
-            "M": {
-              "system": {
-                "BOOL": True
-              },
-              "validation_regex": {
-                "S": "^(?!\\s*$).+"
-              },
-              "name": {
-                "S": "access_key_id"
-              },
-              "description": {
-                "S": "AWS access ID"
-              },
-              "validation_regex_msg": {
-                "S": "You must provide an AWS access ID."
-              },
-              "type": {
-                "S": "string"
-              },
-              "required": {
-                "BOOL": True
-              }
-            }
-          },
-          {
-            "M": {
-              "system": {
-                "BOOL": True
-              },
-              "validation_regex": {
-                "S": "^(?!\\s*$).+"
-              },
-              "name": {
-                "S": "secret_access_key"
-              },
-              "description": {
-                "S": "AWS access Key"
-              },
-              "validation_regex_msg": {
-                "S": "You must provide an AWS access key."
-              },
-              "type": {
-                "S": "password"
-              },
-              "required": {
-                "BOOL": True
-              }
-            }
-          }
-        ]
-      },
-      "group": {
-        "S": "Rehost"
-      },
-      "description": {
-        "S": "AMS Workload Ingest RFC"
-      },
-      "actions": {
-        "L": [
-          {
-            "M": {
-              "name": {
-                "S": "Submit AMS RFC"
-              },
-              "apiMethod": {
-                "S": "post"
-              },
-              "id": {
-                "S": "submit"
-              },
-              "awsuistyle": {
-                "S": "primary"
-              },
-              "apiPath": {
-                "S": "/amswig"
               }
             }
           }

@@ -150,7 +150,7 @@ def get_scripts(pk):
 def make_default(event, packageUUID, default_item, default_version):
     # Update record audit
     auth = MFAuth()
-    authResponse = auth.getUserAttributePolicy(event, 'script')
+    authResponse = auth.getUserResourceCreationPolicy(event, 'script')
 
     if 'user' in authResponse:
         lastModifiedBy = authResponse['user']
@@ -400,6 +400,13 @@ def lambda_handler(event, context):
             auth = MFAuth()
             authResponse = auth.getUserResourceCreationPolicy(event, 'script')
 
+            # Check that auth is successful or that this is not a invocation from the system so authentication not req.
+            if authResponse['action'] != 'allow' and 'headers' in event:
+                logger.warning('Invocation: %s, Authorisation failed: ' + json.dumps(authResponse), logging_context)
+                return {'headers': {**default_http_headers},
+                        'statusCode': 401,
+                        'body': authResponse['cause']}
+
             if 'user' in authResponse:
                 createdBy = authResponse['user']
                 createdTimestamp = datetime.datetime.utcnow().isoformat()
@@ -593,7 +600,13 @@ def lambda_handler(event, context):
 
                 # Update record audit
                 auth = MFAuth()
-                authResponse = auth.getUserAttributePolicy(event, 'script')
+                authResponse = auth.getUserResourceCreationPolicy(event, 'script')
+
+                if authResponse['action'] != 'allow':
+                    logger.warning('Invocation: %s, Authorisation failed: ' + json.dumps(authResponse), logging_context)
+                    return {'headers': {**default_http_headers},
+                            'statusCode': 401,
+                            'body': authResponse['cause']}
 
                 if 'user' in authResponse:
                     lastModifiedBy = authResponse['user']
@@ -654,7 +667,13 @@ def lambda_handler(event, context):
                          event['pathParameters']['scriptid'], logging_context)
             # Update record audit
             auth = MFAuth()
-            authResponse = auth.getUserAttributePolicy(event, 'script')
+            authResponse = auth.getUserResourceCreationPolicy(event, 'script')
+
+            if authResponse['action'] != 'allow':
+                logger.warning('Invocation: %s, Authorisation failed: ' + json.dumps(authResponse), logging_context)
+                return {'headers': {**default_http_headers},
+                        'statusCode': 401,
+                        'body': authResponse['cause']}
 
             if 'user' in authResponse:
                 lastModifiedBy = authResponse['user']

@@ -65,8 +65,8 @@ def main(arguments):
             command2 = "Invoke-Command -ComputerName " + server['server_fqdn'] + " -ScriptBlock {[Environment]::SetEnvironmentVariable('https_proxy', '', 'Machine')}"
 
             if args.WindowsUser != "":
-                command1 += " -Credential (New-Object System.Management.Automation.PSCredential(\"" + args.WindowsUser + "\", (ConvertTo-SecureString \"" + Windows_Password + "\" -AsPlainText -Force)))"
-                command2 += " -Credential (New-Object System.Management.Automation.PSCredential(\"" + args.WindowsUser + "\", (ConvertTo-SecureString \"" + Windows_Password + "\" -AsPlainText -Force)))"
+                command1 += " -Credential (New-Object System.Management.Automation.PSCredential('" + args.WindowsUser + "', (ConvertTo-SecureString '" + Windows_Password + "' -AsPlainText -Force)))"
+                command2 += " -Credential (New-Object System.Management.Automation.PSCredential('" + args.WindowsUser + "', (ConvertTo-SecureString '" + Windows_Password + "' -AsPlainText -Force)))"
                 p_trustedhosts = subprocess.Popen(["powershell.exe", "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '" + server["server_fqdn"] + "' -Concatenate -Force"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             p1 = subprocess.Popen(["powershell.exe", command1], stdout=subprocess.PIPE, stderr=subprocess.PIPE)

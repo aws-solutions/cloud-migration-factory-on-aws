@@ -96,7 +96,7 @@ def uninstall_ads_agents(get_servers, windows_user_name, windows_password, linux
               print("INFO: Using domain account to connect: " + windows_credentials['username'])
 
             p = subprocess.Popen(["powershell.exe",
-                    ".\\1-Uninstall-Windows.ps1", server['server_fqdn'], windows_credentials['username'], windows_credentials['password'], hard_uninstall_str, agent_windows_download_url],
+                    ".\\1-Uninstall-Windows.ps1", server['server_fqdn'], "'" + windows_credentials['username'] + "'", "'" + windows_credentials['password'] + "'", hard_uninstall_str, agent_windows_download_url],
                     stdout=sys.stdout)
           else:
             # User credentials of user executing the script (from remote execution jobs this will be localsystem account and so will not be able to access remote servers)

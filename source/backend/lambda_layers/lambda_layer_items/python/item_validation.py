@@ -322,16 +322,16 @@ def validate_item_keys_and_values(item, attributes, related_items=None):
             if key == attribute['name']:
                 check = True
                 if attribute['type'] == 'list' and 'listvalue' in attribute:
-                    listvalue = attribute['listvalue'].split(',')
+                    listvalue = attribute['listvalue'].lower().split(',')
                     if 'listMultiSelect' in attribute and attribute['listMultiSelect'] == True:
                         for item in item[key]:
-                            if item not in listvalue:
+                            if item.lower() not in listvalue:
                                 message = "Attribute " + key + "'s value does not match any of the allowed values '" + \
                                           attribute['listvalue'] + "' defined in the schema"
                                 errors.append(message)
                     else:
                         if item[key] != '':
-                            if item[key] not in listvalue:
+                            if item[key].lower() not in listvalue:
                                 message = "Attribute " + key + "'s value does not match any of the allowed values '" + \
                                           attribute[
                                               'listvalue'] + "' defined in the schema"

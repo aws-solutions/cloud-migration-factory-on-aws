@@ -7,6 +7,7 @@ import os
 
 region = os.environ['region']
 
+
 def update(event):
     body = json.loads(event['body'])
     secret_name = body['secretName']
@@ -60,7 +61,8 @@ def update(event):
                         else:
                             secret_value = list(output.values())[0]
 
-                        data = "{\"SECRET_KEY\": \"%s\", \"SECRET_VALUE\": \"%s\", \"SECRET_TYPE\": \"%s\"}" %(secret_key, secret_value, secret_type)
+                        data = "{\"SECRET_KEY\": \"%s\", \"SECRET_VALUE\": \"%s\", \"SECRET_TYPE\": \"%s\"}" % (
+                        secret_key, secret_value, secret_type)
                     elif secret_type == 'plainText':
                         secret_name = body.get('secretName')
                         # checking if secretString is updated
@@ -70,7 +72,7 @@ def update(event):
                         else:
                             secret_string = list(output.values())[0]
 
-                        data = "{\"SECRET_STRING\": \"%s\", \"SECRET_TYPE\": \"%s\"}" %(secret_string, secret_type)
+                        data = "{\"SECRET_STRING\": \"%s\", \"SECRET_TYPE\": \"%s\"}" % (secret_string, secret_type)
                     else:
                         # checking if username, password and osType is updated
                         # else fetches original value from secret manager and updates
@@ -87,9 +89,14 @@ def update(event):
                         else:
                             os_type = output.get("OS_TYPE")
 
-                        data = "{\"USERNAME\": \"%s\", \"PASSWORD\": \"%s\", \"SECRET_TYPE\": \"%s\", \"OS_TYPE\": \"%s\"}" %(username, password, secret_type, os_type)
+                        if body.get('isSSHKey'):
+                            iskey = body['isSSHKey']
+                        else:
+                            iskey = output.get("isSSHKey")
 
-                    # client.update_secret(SecretId=secret_name,Description=description, SecretString=base64.b64encode(data.encode("utf-8")).decode("ascii"))
+                    data = "{\"USERNAME\": \"%s\", \"PASSWORD\": \"%s\", \"SECRET_TYPE\": \"%s\", \"OS_TYPE\": \"%s\", \"IS_SSH_KEY\": \"%s\"}" % (
+                    username, password, secret_type, os_type, iskey)
+
                     client.update_secret(SecretId=secret_name, Description=description, SecretString=data)
                     updated = True
 

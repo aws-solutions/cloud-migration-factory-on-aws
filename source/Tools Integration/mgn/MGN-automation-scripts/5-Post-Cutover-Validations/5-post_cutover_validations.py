@@ -343,8 +343,8 @@ def validate_software_services(args, server_details, report):
 
             credentials = mfcommon.getServerCredentials(Domain_User, Domain_Password, server_details["server_name"],
                                                         args.SecretWindows, args.NoPrompts)
-            #creds = " -Credential (New-Object System.Management.Automation.PSCredential(\"" + credentials['username'] + \
-            #        "\", (ConvertTo-SecureString \"" + credentials['password'] + "\" -AsPlainText -Force)))"
+            #creds = " -Credential (New-Object System.Management.Automation.PSCredential('" + credentials['username'] + \
+            #        "\", (ConvertTo-SecureString '" + credentials['password'] + "' -AsPlainText -Force)))"
 
 
             report["serverType"] = "Windows"

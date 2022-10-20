@@ -108,6 +108,48 @@ const AutomationJobsTable = (props) => {
     setPreferences(lPreferences);
   }
 
+  function getEntityAccess() {
+    let disabledButtons = {}
+    if (props.userAccess) {
+      //access permissions provided.
+      if (props.userAccess[props.schemaName]) {
+
+        if (props.userAccess[props.schemaName].create) {
+          if (props.userAccess[props.schemaName].create == false){
+            disabledButtons.add = true;
+          }
+        } else{
+          //user does not have this right defined, disable button.
+          disabledButtons.add = true;
+        }
+        if (props.userAccess[props.schemaName].update) {
+          if (props.userAccess[props.schemaName].update == false) {
+            disabledButtons.edit = true;
+          }
+        } else {
+          //user does not have this right defined, disable button.
+          disabledButtons.edit = true;
+        }
+        if (props.userAccess[props.schemaName].delete) {
+          if (props.userAccess[props.schemaName].delete == false) {
+            disabledButtons.delete = true;
+          }
+        } else{
+          //user does not have this right defined, disable button.
+          disabledButtons.delete = true;
+        }
+      } else
+      {
+        //access permissions provided but schema not present so default to no buttons enabled.
+        disabledButtons.add = true;
+        disabledButtons.edit = true;
+        disabledButtons.delete = true;
+      }
+    }
+
+    return disabledButtons;
+  }
+
   return (
       <Table
         {...collectionProps}
@@ -121,16 +163,17 @@ const AutomationJobsTable = (props) => {
         stickyHeader={true}
         header={
           <TableHeader
-          title='Automation Scripts'
-          selectedItems={props.selectedItems ? props.selectedItems : undefined}
-          counter={headerCounter(props.selectedItems, props.items)}
-          handleRefreshClick={props.handleRefreshClick ? handleRefresh : undefined}
-          handleDeleteClick={props.handleDeleteItem ? props.handleDeleteItem : undefined}
-          handleEditClick={props.handleUpdateItem ? props.handleUpdateItem : undefined}
-          handleAddClick={props.handleAddItem ? props.handleAddItem : undefined}
-          handleActionSelection={props.handleActionSelection ? props.handleActionSelection : undefined}
-          actionsButtonDisabled={props.actionsButtonDisabled}
-          actionItems={props.actionItems ? props.actionItems : []}
+            title='Automation Scripts'
+            selectedItems={props.selectedItems ? props.selectedItems : undefined}
+            counter={headerCounter(props.selectedItems, props.items)}
+            handleRefreshClick={props.handleRefreshClick ? handleRefresh : undefined}
+            handleDeleteClick={props.handleDeleteItem ? props.handleDeleteItem : undefined}
+            handleEditClick={props.handleUpdateItem ? props.handleUpdateItem : undefined}
+            handleAddClick={props.handleAddItem ? props.handleAddItem : undefined}
+            handleActionSelection={props.handleActionSelection ? props.handleActionSelection : undefined}
+            actionsButtonDisabled={props.actionsButtonDisabled}
+            actionItems={props.actionItems ? props.actionItems : []}
+            disabledButtons={getEntityAccess()}
           />
         }
         preferences={

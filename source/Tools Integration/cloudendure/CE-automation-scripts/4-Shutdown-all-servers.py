@@ -111,7 +111,7 @@ def main(arguments):
         for s in winServers:
             command = "Stop-Computer -ComputerName " + s["server_fqdn"] + " -Force"
             if args.WindowsUser != "":
-                command += " -Credential (New-Object System.Management.Automation.PSCredential(\"" + args.WindowsUser + "\", (ConvertTo-SecureString \"" + windows_password + "\" -AsPlainText -Force)))"
+                command += " -Credential (New-Object System.Management.Automation.PSCredential('" + args.WindowsUser + "', (ConvertTo-SecureString '" + windows_password + "' -AsPlainText -Force)))"
             print("Shutting down server: " + s["server_name"] + " using address " + s["server_fqdn"])
             p = subprocess.Popen(["powershell.exe", command], stdout=sys.stdout)
             p.communicate()

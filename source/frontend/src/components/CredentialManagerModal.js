@@ -8,7 +8,7 @@ import {
   FormField,
   Input,
   RadioGroup,
-  Spinner
+  Spinner, Checkbox, Textarea
 } from "@awsui/components-react";
 
 type Props = {
@@ -81,6 +81,19 @@ const CredentialManagerModal = React.memo(
       setLocalAttr(newAttr);
     }
 
+    //Encodes value as base64.
+    function handleUserInputBase64(value, base64) {
+      let newAttr = Object.assign({}, localAttr);
+      if (base64){
+        let base64EncodeValue = btoa(value.value.replace(/\n/g, "\\n"))
+        newAttr[value.field] = base64EncodeValue;
+      } else {
+        newAttr[value.field] = value.value;
+      }
+
+      setLocalAttr(newAttr);
+    }
+
     function handleSave(e) {
       setShowSpinner(true);
       confirmAction(localAttr, action);
@@ -132,7 +145,7 @@ const CredentialManagerModal = React.memo(
                   items={[
                     {
                       value: "OS",
-                      label: "OS Credentials (Username/Password)",
+                      label: "OS Credentials (Username / Password or Key)",
                       disabled: (action === 'edit' && localAttr.secretType !== 'OS') ? true : false
                     },
                     {
@@ -176,19 +189,48 @@ const CredentialManagerModal = React.memo(
                       }
                     />
                   </FormField>
-
-                  <FormField label="Password" description="">
-                    <Input
-                      value={localAttr.password}
+                  <FormField label="" description="">
+                    <Checkbox
+                      checked={localAttr.isSSHKey?localAttr.isSSHKey:false}
                       onChange={(event) =>
                         handleUserInput({
-                          field: "password",
-                          value: event.detail.value,
+                          field: "isSSHKey",
+                          value: event.detail.checked,
                         })
                       }
-                      type="password"
-                    />
+                    >
+                      SSH key used
+                    </Checkbox>
                   </FormField>
+
+                  {
+                    localAttr.isSSHKey
+                    ?
+                      <FormField label="SSH Key" description="">
+                        <Textarea
+                          value={localAttr.password}
+                          onChange={(event) =>
+                                handleUserInputBase64({
+                                  field: "password",
+                                  value: event.detail.value,
+                                }, false)}
+                          type="password"
+                        />
+                      </FormField>
+                    :
+                      <FormField label="Password" description="">
+                        <Input
+                          value={localAttr.password}
+                          onChange={
+                              (event) =>
+                                handleUserInput({
+                                  field: "password",
+                                  value: event.detail.value
+                                })}
+                          type="password"
+                        />
+                      </FormField>
+                  }
 
                   <FormField label="Description" description="">
                     <Input

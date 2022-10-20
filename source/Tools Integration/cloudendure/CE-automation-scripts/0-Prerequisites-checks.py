@@ -46,7 +46,7 @@ def check_windows(Servers_Windows, CEServerIP, Domain_User):
         final = ""
         command = "Invoke-Command -ComputerName " + s["server_fqdn"] + " -FilePath 0-Prerequisites-Windows.ps1 -ArgumentList " + CEServerIP
         if Domain_User != "":
-            command += " -Credential (New-Object System.Management.Automation.PSCredential(\"" + Domain_User + "\", (ConvertTo-SecureString \"" + Domain_Password + "\" -AsPlainText -Force)))"
+            command += " -Credential (New-Object System.Management.Automation.PSCredential('" + Domain_User + "', (ConvertTo-SecureString '" + Domain_Password + "' -AsPlainText -Force)))"
             p_trustedhosts = subprocess.Popen(["powershell.exe", "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '" + s["server_fqdn"] + "' -Concatenate -Force"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         p = subprocess.Popen(["powershell.exe", command], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 

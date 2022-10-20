@@ -165,7 +165,7 @@ def check_windows(parameters):
             #logger.debug("INFO: Using local account to connect: " + credentials['username'])
         else:
             print("INFO: Using domain account to connect: " + credentials['username'])
-        command += " -Credential (New-Object System.Management.Automation.PSCredential(\"" + credentials['username'] + "\", (ConvertTo-SecureString \"" + credentials['password'] + "\" -AsPlainText -Force)))"
+        command += " -Credential (New-Object System.Management.Automation.PSCredential('" + credentials['username'] + "', (ConvertTo-SecureString '" + credentials['password'] + "' -AsPlainText -Force)))"
         #p_trustedhosts = subprocess.Popen(["powershell.exe", "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '" + s["server_fqdn"] + "' -Concatenate -Force"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     p = subprocess.Popen(["powershell.exe", command], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = p.communicate()
@@ -457,7 +457,7 @@ def open_ssh(host, username, key_pwd, using_key):
     try:
         if using_key:
             from io import StringIO
-            private_key = paramiko.RSAKey.from_private_key_file(StringIO(key_pwd))
+            private_key = paramiko.RSAKey.from_private_key(StringIO(key_pwd))
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(hostname=host, username=username, pkey=private_key)

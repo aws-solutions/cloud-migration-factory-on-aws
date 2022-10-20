@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "(%%SOLUTION_ID%%) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution (Version %%VERSION%%)"
+Description: "(%%SOLUTION_ID%%-automation) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution (Version %%VERSION%%)"
 
 Parameters:
   Application: 
@@ -8,8 +8,8 @@ Parameters:
   Environment: 
     Type: String
 
-  CloudfrontOriginAccessIdentity: 
-    Type: String
+#  CloudfrontOriginAccessIdentity:
+#    Type: String
 
   ToolsAPI: 
     Type: String
@@ -62,6 +62,15 @@ Parameters:
   CORS:
     Type: String
 
+  IsDeploymentPrivate:
+    Type: String
+    Description: Is this a private deployment?
+    Default: false
+    AllowedValues: [ true, false ]
+
+Conditions:
+  DeploymentPublic: !Equals [!Ref IsDeploymentPrivate, false]
+
 Resources:
   #S3 Bucket to store remote scripts
   SSMBucket:
@@ -84,20 +93,6 @@ Resources:
          ServerSideEncryptionConfiguration:
             - ServerSideEncryptionByDefault:
                 SSEAlgorithm: aws:kms
-
-  SSMBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref SSMBucket
-      PolicyDocument:
-        Statement:
-          -
-            Action:
-                - "s3:GetObject"
-            Effect: "Allow"
-            Resource: !Sub ${SSMBucket.Arn}/*
-            Principal:
-              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudfrontOriginAccessIdentity}'
 
   #S3 Bucket to store post cutover validation reports
   PostMigrationReportsBucket:
@@ -126,19 +121,19 @@ Resources:
       VersioningConfiguration:
         Status: 'Enabled'
 
-  PostMigrationReportsBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref PostMigrationReportsBucket
-      PolicyDocument:
-        Statement:
-          -
-            Action:
-              - "s3:GetObject"
-            Effect: "Allow"
-            Resource: !Sub "${PostMigrationReportsBucket.Arn}/*"
-            Principal:
-              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudfrontOriginAccessIdentity}'
+#  PostMigrationReportsBucketPolicy:
+#    Type: AWS::S3::BucketPolicy
+#    Properties:
+#      Bucket: !Ref PostMigrationReportsBucket
+#      PolicyDocument:
+#        Statement:
+#          -
+#            Action:
+#              - "s3:GetObject"
+#            Effect: "Allow"
+#            Resource: !Sub "${PostMigrationReportsBucket.Arn}/*"
+#            Principal:
+#              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudfrontOriginAccessIdentity}'
 
   # DynamoDB - connectionIds
   SSMConnectionIdDynamoDBTable:
@@ -250,6 +245,7 @@ Resources:
 
   # API Gateway Websocket
   SSMSocketAPIStage:
+    Condition: DeploymentPublic
     Type: 'AWS::ApiGatewayV2::Stage'
     Properties:
       StageName: prod
@@ -263,6 +259,7 @@ Resources:
             reason: "Access Logging already enabled on resource"
 
   SSMSocketAPIDeploy:
+    Condition: DeploymentPublic
     Type: 'AWS::ApiGatewayV2::Deployment'
     DependsOn: 
       - ConnectRoute
@@ -272,12 +269,15 @@ Resources:
       ApiId: !Ref SSMSocketAPI
 
   SSMSocketAPI:
+    Condition: DeploymentPublic
     Type: AWS::ApiGatewayV2::Api
     Properties:
       Name: !Sub ${Application}-${Environment}-ssm-socket-api
       ProtocolType: WEBSOCKET
       RouteSelectionExpression: "$request.body.message"
+
   ConnectRoute:
+    Condition: DeploymentPublic
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref SSMSocketAPI
@@ -290,6 +290,7 @@ Resources:
         - - 'integrations'
           - !Ref ConnectInteg
   ConnectInteg:
+    Condition: DeploymentPublic
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref SSMSocketAPI
@@ -298,7 +299,8 @@ Resources:
       IntegrationUri: 
         Fn::Sub:
             arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSSMSocket.Arn}/invocations
-  ConnectRouteResponse: 
+  ConnectRouteResponse:
+    Condition: DeploymentPublic
     Type: 'AWS::ApiGatewayV2::RouteResponse'
     Properties:
       RouteId: !Ref ConnectRoute
@@ -306,6 +308,7 @@ Resources:
       RouteResponseKey: $default
 
   DisconnectRoute:
+    Condition: DeploymentPublic
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref SSMSocketAPI
@@ -318,6 +321,7 @@ Resources:
         - - 'integrations'
           - !Ref DisconnectInteg
   DisconnectInteg:
+    Condition: DeploymentPublic
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref SSMSocketAPI
@@ -326,7 +330,8 @@ Resources:
       IntegrationUri: 
         Fn::Sub:
             arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSSMSocket.Arn}/invocations
-  DisconnectRouteResponse: 
+  DisconnectRouteResponse:
+    Condition: DeploymentPublic
     Type: 'AWS::ApiGatewayV2::RouteResponse'
     Properties:
       RouteId: !Ref DisconnectRoute
@@ -334,6 +339,7 @@ Resources:
       RouteResponseKey: $default
 
   DefaultRoute:
+    Condition: DeploymentPublic
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref SSMSocketAPI
@@ -346,6 +352,7 @@ Resources:
         - - 'integrations'
           - !Ref DefaultInteg
   DefaultInteg:
+    Condition: DeploymentPublic
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref SSMSocketAPI
@@ -354,7 +361,8 @@ Resources:
       IntegrationUri: 
         Fn::Sub:
             arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionSSMSocket.Arn}/invocations
-  DefaultRouteResponse: 
+  DefaultRouteResponse:
+    Condition: DeploymentPublic
     Type: 'AWS::ApiGatewayV2::RouteResponse'
     Properties:
       RouteId: !Ref DefaultRoute
@@ -587,7 +595,7 @@ Resources:
           - id: W28
             reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
 
-  SSMOutputLambdaRole:        
+  SSMOutputLambdaRole:
     Type: 'AWS::IAM::Role'
     Properties:
       RoleName: !Sub ${Application}-${Environment}-ssm-output-lambda-role
@@ -608,11 +616,14 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              -
-                Effect: Allow
-                Action:
-                  - 'execute-api:ManageConnections'
-                Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SSMSocketAPI}/prod/POST/@connections/*"
+              - !If
+                - DeploymentPublic
+                -
+                  Effect: Allow
+                  Action:
+                    - 'execute-api:ManageConnections'
+                  Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SSMSocketAPI}/prod/POST/@connections/*"
+                - !Ref 'AWS::NoValue'
               -
                 Effect: Allow
                 Action:
@@ -633,6 +644,7 @@ Resources:
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -897,7 +909,7 @@ Resources:
       Role: !GetAtt SSMOutputLambdaRole.Arn
       Environment:
         Variables:
-          socket_url: !Sub https://${SSMSocketAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/
+          socket_url: !If [ DeploymentPublic, !Sub "https://${SSMSocketAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/", !Sub "PrivateNotDeployed"]
           application: !Ref Application
           environment: !Ref Environment
           solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
@@ -991,7 +1003,7 @@ Resources:
     Type: AWS::Logs::SubscriptionFilter
     Properties: 
       LogGroupName: !Ref RunCMFAutomationPackageSSMDocumentLogGroup
-      FilterPattern: "-Content"
+      FilterPattern: ""
       DestinationArn: !GetAtt LambdaFunctionSSMOutput.Arn
 
   # Automation Server role to run scripts using SSM
@@ -1411,6 +1423,32 @@ Resources:
           - id: W28
             reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
 
+  ScriptsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SSMBucket
+      PolicyDocument:
+        Statement:
+          -
+            Action:
+              - "s3:DeleteBucket"
+            Effect: "Deny"
+            Resource: !GetAtt SSMBucket.Arn
+            Principal: "*"
+
+  ScriptsOutputBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref PostMigrationReportsBucket
+      PolicyDocument:
+        Statement:
+          -
+            Action:
+              - "s3:DeleteBucket"
+            Effect: "Deny"
+            Resource: !GetAtt PostMigrationReportsBucket.Arn
+            Principal: "*"
+
 Outputs: 
   LambdaFunctionSSMArn:
     Value: !GetAtt LambdaFunctionSSM.Arn
@@ -1422,7 +1460,7 @@ Outputs:
     Value: !GetAtt LambdaFunctionSSMJobs.Arn
 
   SSMSocketAPI:
-    Value: !Ref SSMSocketAPI
+    Value: !If [ DeploymentPublic, !Ref SSMSocketAPI, PrivateNotDeployed]
 
   AutomationServerIAMRole:
     Description: 'Migration Automation Server IAM Role'

@@ -74,7 +74,16 @@ def list(event):
                     statusCode = 200
                     try:
                         data = json.loads(output)
+
                         if data['SECRET_TYPE'] == 'OS':
+                            if 'IS_SSH_KEY' in data:
+                               # convert to boolean.
+                               if data['IS_SSH_KEY'].lower() == 'true':
+                                  data['IS_SSH_KEY'] = True
+                               else:
+                                  data['IS_SSH_KEY'] = False
+                            else:
+                                  data['IS_SSH_KEY'] = False
                             data['PASSWORD'] = "*********"
                             # data sanitization
                             data['USERNAME'] = data['USERNAME'].replace('\t','\\t')
@@ -95,7 +104,7 @@ def list(event):
                             data['PASSWORD'] = "*********"
                             data['APIKEY'] = "*********"
                             key['data'] = data
-                        raw_list.append(key)    
+                        raw_list.append(key)
                     except:
                         pass
 

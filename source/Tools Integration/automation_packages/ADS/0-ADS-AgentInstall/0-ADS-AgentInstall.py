@@ -96,7 +96,7 @@ def install_ads_agents(force, get_servers, region, ads_secret_name, windows_user
                 print("INFO: Using domain account to connect: " + windows_credentials['username'])
 
               p = subprocess.Popen(["powershell.exe",
-                      ".\\1-Install-Windows.ps1", reinstall, agent_windows_download_url, region, agent_install_secrets['secret_key'], agent_install_secrets['secret_value'], server['server_fqdn'], windows_credentials['username'], windows_credentials['password']],
+                      ".\\1-Install-Windows.ps1", reinstall, agent_windows_download_url, region, agent_install_secrets['secret_key'], agent_install_secrets['secret_value'], server['server_fqdn'], "'" + windows_credentials['username'] + "'", "'" + windows_credentials['password'] + "'"],
                       stdout=sys.stdout)
             else:
               # User credentials of user executing the script (from remote execution jobs this will be localsystem account and so will not be able to access remote servers)

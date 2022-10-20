@@ -69,7 +69,8 @@ def open_ssh(host, username, key_pwd, using_key, SSHPort):
     error = ''
     try:
         if using_key:
-            private_key = paramiko.RSAKey.from_private_key_file(key_pwd)
+            from io import StringIO
+            private_key = paramiko.RSAKey.from_private_key(StringIO(key_pwd))
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(hostname=host, port=SSHPort, username=username, pkey=private_key)

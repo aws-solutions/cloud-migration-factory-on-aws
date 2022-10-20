@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "(%%SOLUTION_ID%%-waf-be) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution WAF Backend additional security template (Version %%VERSION%%)"
+
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: Application Configuration
+        Parameters:
+          - Application
+          - Environment
+      - Label:
+          default: Source Network
+        Parameters:
+          - SourceCIDR
+
+    ParameterLabels:
+      Application:
+        default: Application name
+      Environment:
+        default: Environment name
+      SourceCIDR:
+        default: Public CIDR for users and automation server
+
+Parameters:
+  SourceCIDR:
+    Description: >-
+      IP CIDR from which your users and automation server will be connecting from over the public internet (this will be your external public address range). e.g. 54.32.98.160/32 You can add
+      rules later by modifying the created WAF rule if required.
+    Type: CommaDelimitedList
+
+  Application:
+    Type: String
+    Description: Application name is used to name all AWS resources.
+    Default: migration-factory
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+  Environment:
+    Type: String
+    Description: Environment name is used to name all AWS resources (.i.e dev, test, prod)
+    Default: test
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+  CloudFrontDeployed:
+    Type: String
+    Description: Has CloudFront been deployed?
+    Default: true
+    AllowedValues: [ true, false ]
+
+  CMFAPILoginID:
+    Type: String
+
+  CMFAPIToolsID:
+    Type: String
+
+  CMFAPIUserID:
+    Type: String
+
+  CMFAPIAdminID:
+    Type: String
+
+  CMFCognitoArn:
+    Type: String
+
+Conditions:
+  CloudFrontDeployed: !Equals [!Ref CloudFrontDeployed, true]
+  InRegionUSEAST1: !Equals [!Ref AWS::Region, us-east-1]
+  DeployCloudFrontIPSet: !And [!Condition CloudFrontDeployed, !Condition InRegionUSEAST1]
+  DontDeployCloudFrontIPSet: !Not [Condition: DeployCloudFrontIPSet]
+
+Resources:
+  WAFBERuleSet:
+    Type: AWS::WAFv2::IPSet
+    Properties:
+      Addresses: !Ref SourceCIDR
+      Description: !Sub ${Application}-${Environment}-${AWS::AccountId}-BE-Ruleset
+      IPAddressVersion: IPV4
+      Name: !Sub ${Application}-${Environment}-${AWS::AccountId}-BE-Ruleset
+      Scope: REGIONAL
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+
+  WAFBEACL:
+    Type: 'AWS::WAFv2::WebACL'
+    Properties:
+      Name: !Sub ${Application}-${Environment}-${AWS::AccountId}-BE-ACL
+      Scope: REGIONAL
+      DefaultAction:
+        Block: {}
+      Rules:
+        - Name: !Sub ${Application}-${Environment}-${AWS::AccountId}-BE-Ruleset
+          Priority: 0
+          Action:
+            Allow: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub ${Application}-${Environment}-${AWS::AccountId}-BE-Ruleset-Allows
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt WAFBERuleSet.Arn
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub ${Application}-${Environment}-${AWS::AccountId}-BE-Ruleset-Denied
+
+  WAFBEAdminAPIAssoc:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Sub 'arn:aws:apigateway:${AWS::Region}::/restapis/${CMFAPIAdminID}/stages/prod'
+      WebACLArn: !GetAtt WAFBEACL.Arn
+
+  WAFBELoginAPIAssoc:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Sub 'arn:aws:apigateway:${AWS::Region}::/restapis/${CMFAPILoginID}/stages/prod'
+      WebACLArn: !GetAtt WAFBEACL.Arn
+
+  WAFBEUserAPIAssoc:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Sub 'arn:aws:apigateway:${AWS::Region}::/restapis/${CMFAPIUserID}/stages/prod'
+      WebACLArn: !GetAtt WAFBEACL.Arn
+
+  WAFBEToolsAPIAssoc:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Sub 'arn:aws:apigateway:${AWS::Region}::/restapis/${CMFAPIToolsID}/stages/prod'
+      WebACLArn: !GetAtt WAFBEACL.Arn
+
+  WAFBECognitoAssoc:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Ref CMFCognitoArn
+      WebACLArn: !GetAtt WAFBEACL.Arn

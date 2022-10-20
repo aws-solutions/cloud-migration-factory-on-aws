@@ -143,7 +143,7 @@ def main(arguments):
                     else:
                         print("INFO: Using domain account to connect: " + windows_credentials['username'])
                     command = "Stop-Computer -ComputerName " + server['server_fqdn'] + " -Force"
-                    command += " -Credential (New-Object System.Management.Automation.PSCredential(\"" + windows_credentials['username'] + "\", (ConvertTo-SecureString \"" + windows_credentials['password'] + "\" -AsPlainText -Force)))"
+                    command += " -Credential (New-Object System.Management.Automation.PSCredential('" + windows_credentials['username'] + "', (ConvertTo-SecureString '" + windows_credentials['password'] + "' -AsPlainText -Force)))"
                     print("Shutting down server: " + server['server_fqdn'], flush = True)
                     p = subprocess.Popen(["powershell.exe", command],  stdout=subprocess.PIPE,stderr = subprocess.PIPE)
                     stdout, stderr = p.communicate()

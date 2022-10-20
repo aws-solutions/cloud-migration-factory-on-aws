@@ -13,13 +13,15 @@ https://docs.aws.amazon.com/prescriptive-guidance/latest/migration-factory-cloud
 
 ```
 |-deployment/
-    |-aws-cloudendure-migration-factory-solution.template                          [ CloudFormation template to deploy the base solution ]
-    |-aws-cloudendure-migration-factory-solution-automation.template               [ Nested CloudFormation template to deploy the remote automation feature ]
-    |-aws-cloudendure-migration-factory-solution-credentialmanager.template        [ Nested CloudFormation template to deploy the credential manager feature ]
-    |-aws-cloudendure-migration-factory-solution-mgn.template                      [ Nested CloudFormation template to deploy MGN Lambda ]
-    |-aws-cloudendure-migration-factory-solution-replatform.template               [ Nested CloudFormation template to deploy replatform feature ]
-    |-aws-cloudendure-migration-factory-solution-tracker.template                  [ Nested CloudFormation template to deploy migration tracker ]
-    |-aws-cloudendure-migration-factory-solution-target-account.template           [ CloudFormation template to deploy target account IAM roles ]
+    |-aws-cloud-migration-factory-solution.template                          [ CloudFormation template to deploy the base solution ]
+    |-aws-cloud-migration-factory-solution-automation.template               [ Nested CloudFormation template to deploy the remote automation feature ]
+    |-aws-cloud-migration-factory-solution-credentialmanager.template        [ Nested CloudFormation template to deploy the credential manager feature ]
+    |-aws-cloud-migration-factory-solution-mgn.template                      [ Nested CloudFormation template to deploy MGN Lambda ]
+    |-aws-cloud-migration-factory-solution-replatform.template               [ Nested CloudFormation template to deploy replatform feature ]
+    |-aws-cloud-migration-factory-solution-tracker.template                  [ Nested CloudFormation template to deploy migration tracker ]
+    |-aws-cloud-migration-factory-solution-waf-be.template                   [ Nested CloudFormation template to deploy the optional WAF in front of API Gateway and Cognito ]
+    |-aws-cloud-migration-factory-solution-waf-fe.template                   [ Nested CloudFormation template to deploy the optional WAF in front of CloudFront ]
+    |-aws-cloud-migration-factory-solution-target-account.template           [ CloudFormation template to deploy target account IAM roles ]
     
 |-source/
     |-backend/                     [ folder containing backend code ]

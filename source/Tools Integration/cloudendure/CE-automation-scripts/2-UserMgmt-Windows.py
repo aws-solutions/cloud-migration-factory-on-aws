@@ -71,7 +71,7 @@ def main(arguments):
 
     if args.WindowsUser != "":
         Windows_Password = mfcommon.GetWindowsPassword()
-        creds = " -Credential (New-Object System.Management.Automation.PSCredential(\"" + args.WindowsUser + "\", (ConvertTo-SecureString \"" + Windows_Password + "\" -AsPlainText -Force)))"
+        creds = " -Credential (New-Object System.Management.Automation.PSCredential('" + args.WindowsUser + "', (ConvertTo-SecureString '" + Windows_Password + "' -AsPlainText -Force)))"
     else:
         creds = ""
 

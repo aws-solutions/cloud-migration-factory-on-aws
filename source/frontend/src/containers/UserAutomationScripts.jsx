@@ -575,8 +575,10 @@ const AutomationScripts = (props) => {
           (
             <SpaceBetween direction="vertical" size="xs">
               <AutomationScriptsTable
+                userAccess={props.userEntityAccess}
                 sendNotification={handleNotification}
                 schema={schemaSSMAttribs}
+                schemaName={'script'}
                 schemaKeyAttribute={itemIDKey}
                 dataAll={dataAll}
                 items={dataMain}
@@ -587,7 +589,7 @@ const AutomationScripts = (props) => {
                 handleRefreshClick={handleRefreshClick}
                 handleAddItem={handleAddItem}
                 handleActionSelection={handleAction}
-                actionsButtonDisabled={selectedItems.length !== 1 ? true: false}
+                actionsButtonDisabled={props.userEntityAccess['script'] && props.userEntityAccess['script'].create ? selectedItems.length !== 1 ? true: false : true}
                 actionItems={[{
                   id: 'change_default',
                   text: 'Change default version',

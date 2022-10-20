@@ -19,7 +19,6 @@
 # Version: 17NOV2021.01
 
 import sys
-import argparse
 import requests
 import json
 import getpass
@@ -30,6 +29,7 @@ import calendar
 import time
 import subprocess
 import csv
+
 if not sys.warnoptions:
     import warnings
 with warnings.catch_warnings():
@@ -51,15 +51,17 @@ credentials_store = {}
 with open('FactoryEndpoints.json') as json_file:
     mf_config = json.load(json_file)
 
+
 # common functions
 def GetWindowsPassword():
     pass_first = getpass.getpass("Windows User Password: ")
     pass_second = getpass.getpass("Re-enter Password: ")
-    while(pass_first != pass_second):
+    while (pass_first != pass_second):
         print("Password mismatch, please try again!")
         pass_first = getpass.getpass("Windows User Password: ")
         pass_second = getpass.getpass("Re-enter Password: ")
     return pass_second
+
 
 def get_linux_password():
     print("******************************************")
@@ -77,13 +79,14 @@ def get_linux_password():
     else:
         pass_key_first = getpass.getpass('Linux Password: ')
         pass_key_second = getpass.getpass('Re-enter Password: ')
-        while(pass_key_first != pass_key_second):
+        while (pass_key_first != pass_key_second):
             print("Password mismatch, please try again!")
             pass_key_first = getpass.getpass('Linux Password: ')
             pass_key_second = getpass.getpass('Re-enter Password: ')
         pass_key = pass_key_second
     print("")
     return user_name, pass_key, key_exist
+
 
 def Factorylogin():
     username = ""
@@ -93,15 +96,17 @@ def Factorylogin():
         try:
             secretsmanager_client = boto3.client('secretsmanager', mf_config['Region'])
             # mf_service_account_details = secretsmanager_client.describe_secret(SecretId='MFServiceAccount-' + mf_config['UserPoolId'])
-            mf_service_account = secretsmanager_client.get_secret_value(SecretId='MFServiceAccount-' + mf_config['UserPoolId'])
-            #username = mf_service_account_details['Description']
+            mf_service_account = secretsmanager_client.get_secret_value(
+                SecretId='MFServiceAccount-' + mf_config['UserPoolId'])
+            # username = mf_service_account_details['Description']
             mfauth = json.loads(mf_service_account['SecretString'])
             username = mfauth['username']
             password = mfauth['password']
             using_secret = True
         except botocore.exceptions.ClientError as e:
             print(e)
-            if e.response['Error']['Code'] == 'ResourceNotFoundException' or e.response['Error']['Code'] == 'AccessDeniedException':
+            if e.response['Error']['Code'] == 'ResourceNotFoundException' or e.response['Error'][
+                'Code'] == 'AccessDeniedException':
                 print("Service Account doesn't exist or access is denied to Secret, please enter username and password")
                 if 'DefaultUser' in mf_config:
                     DefaultUser = mf_config['DefaultUser']
@@ -145,7 +150,8 @@ def Factorylogin():
 
         if r.status_code == 502 or r.status_code == 400:
             if using_secret:
-                print("ERROR: Incorrect username or password stored in Secrets Manager [MFServiceAccount-" + mf_config['UserPoolId'] + "] in region " + mf_config['Region'] + ".")
+                print("ERROR: Incorrect username or password stored in Secrets Manager [MFServiceAccount-" + mf_config[
+                    'UserPoolId'] + "] in region " + mf_config['Region'] + ".")
             else:
                 print("ERROR: Incorrect username or password....")
             sys.exit()
@@ -153,16 +159,18 @@ def Factorylogin():
             print(r.text)
             sys.exit()
     except requests.ConnectionError as e:
-        raise SystemExit("ERROR: Connecting to the Login API failed, please check Login API in FactoryEndpoints.json file. "
-                         "If the API endpoint is correct, please close cmd and open a new cmd to run the script again")
+        raise SystemExit(
+            "ERROR: Connecting to the Login API failed, please check Login API in FactoryEndpoints.json file. "
+            "If the API endpoint is correct, please close cmd and open a new cmd to run the script again")
 
-def getServerCredentials(local_username, local_password, server, secret_overide = None, no_user_prompts = False):
+
+def getServerCredentials(local_username, local_password, server, secret_overide=None, no_user_prompts=False):
     username = ""
     password = ""
     secret_name = ""
     using_secret = False
 
-    #Local account details passed, do not get from secrets manager.
+    # Local account details passed, do not get from secrets manager.
     if local_username != "" and local_password != "":
         return {'username': local_username, 'password': local_password}
 
@@ -175,7 +183,7 @@ def getServerCredentials(local_username, local_password, server, secret_overide 
 
     if secret_name != "":
 
-        #Check if already read secret, and if so return cached.
+        # Check if already read secret, and if so return cached.
         if 'cached_secret:' + secret_name in credentials_store:
             return credentials_store['cached_secret:' + secret_name]
 
@@ -189,7 +197,7 @@ def getServerCredentials(local_username, local_password, server, secret_overide 
             mfauth = None
 
             if secret_data_raw[0] != "{":
-                #Secret could be encoded, perform decode.
+                # Secret could be encoded, perform decode.
                 secret_data_tmp = base64.b64decode(secret_data_raw.encode("utf-8")).decode("ascii")
                 secret_data_tmp_json = json.loads(secret_data_tmp)
             else:
@@ -201,8 +209,10 @@ def getServerCredentials(local_username, local_password, server, secret_overide 
             else:
                 secret_data['username'] = ""
             if "PASSWORD" in secret_data_tmp_json:
-                if "PEM" in secret_name or "pem" in secret_name:
-                    secret_data['password'] = base64.b64decode(secret_data_tmp_json['PASSWORD']).decode("utf-8")
+                if "IS_SSH_KEY" in secret_data_tmp_json and secret_data_tmp_json['IS_SSH_KEY'].lower() == 'true':
+                    secret_data['password'] = base64.b64decode(secret_data_tmp_json['PASSWORD'].encode("utf-8")) \
+                        .decode("ascii")
+                    secret_data['password'] = secret_data['password'].replace('\\n', '\n')
                     secret_data['private_key'] = True
                 else:
                     secret_data['password'] = secret_data_tmp_json['PASSWORD']
@@ -222,32 +232,37 @@ def getServerCredentials(local_username, local_password, server, secret_overide 
 
             using_secret = True
 
-            #Cache secret for next server.
+            # Cache secret for next server.
             credentials_store['cached_secret:' + secret_name] = mfauth
 
             return mfauth
         except botocore.exceptions.ClientError as e:
             print(e)
-            if e.response['Error']['Code'] == 'ResourceNotFoundException' or e.response['Error']['Code'] == 'AccessDeniedException':
+            if e.response['Error']['Code'] == 'ResourceNotFoundException' or e.response['Error'][
+                'Code'] == 'AccessDeniedException':
                 if no_user_prompts == True:
-                    print("Secret not found [" + server['secret_name'] + "] doesn't exist or access is denied to Secret.")
+                    print(
+                        "Secret not found [" + server['secret_name'] + "] doesn't exist or access is denied to Secret.")
                 else:
-                    print("Secret not found [" + server['secret_name'] + "] doesn't exist or access is denied to Secret, please enter username and password")
+                    print("Secret not found [" + server[
+                        'secret_name'] + "] doesn't exist or access is denied to Secret, please enter username and password")
             else:
-                #Unknown error returned when getting secret.
+                # Unknown error returned when getting secret.
                 print(e.response['Error'])
 
     if server['server_os_family'].lower() == "windows":
         if 'windows' in credentials_store:
             return credentials_store['windows']
         if no_user_prompts == False:
-            print("No Windows credentials supplied by user or specified in Migration Factory server secret attribute. Please enter credentials now.")
+            print(
+                "No Windows credentials supplied by user or specified in Migration Factory server secret attribute. Please enter credentials now.")
             username = input("Windows Username (leave blank to use current logged on user): ")
             if username != "":
                 password = GetWindowsPassword()
             else:
                 password = ""
-            store_cred = input("Do you wish to use the same credentials for all Windows servers in the job?, press [Y] or if you wish to be prompted per server [N]: ")
+            store_cred = input(
+                "Do you wish to use the same credentials for all Windows servers in the job?, press [Y] or if you wish to be prompted per server [N]: ")
             credentials = {'username': username, 'password': password}
             if 'y' in store_cred.lower():
                 credentials_store['windows'] = credentials
@@ -256,23 +271,26 @@ def getServerCredentials(local_username, local_password, server, secret_overide 
         if 'linux' in credentials_store:
             return credentials_store['linux']
         if no_user_prompts == False:
-            print("No Linux credentials supplied by user or specified in Migration Factory server secret attribute. Please enter credentials now.")
+            print(
+                "No Linux credentials supplied by user or specified in Migration Factory server secret attribute. Please enter credentials now.")
             username, password, key_exist = get_linux_password()
-            store_cred = input("Do you wish to use the same credentials for all Linux servers in the job?, press [Y] or if you wish to be prompted per server [N]: ")
+            store_cred = input(
+                "Do you wish to use the same credentials for all Linux servers in the job?, press [Y] or if you wish to be prompted per server [N]: ")
             credentials = {'username': username, 'password': password, 'private_key': key_exist}
             if 'y' in store_cred.lower():
                 credentials_store['linux'] = credentials
             return credentials
 
     if no_user_prompts == True:
-        print("No credentials supplied by user or specified in Migration Factory server secret attribute. Returning blank username and password")
+        print(
+            "No credentials supplied by user or specified in Migration Factory server secret attribute. Returning blank username and password")
         return {'username': '', 'password': ''}
 
-def getCredentials(secret_name):
 
+def getCredentials(secret_name, no_user_prompts=True):
     if secret_name != "":
 
-        #Check if already read secret, and if so return cached.
+        # Check if already read secret, and if so return cached.
         if 'cached_secret:' + secret_name in credentials_store:
             return credentials_store['cached_secret:' + secret_name]
 
@@ -286,7 +304,7 @@ def getCredentials(secret_name):
             mfauth = None
 
             if secret_data_raw[0] != "{":
-                #Secret could be encoded, perform decode.
+                # Secret could be encoded, perform decode.
                 secret_data_tmp = base64.b64decode(secret_data_raw.encode("utf-8")).decode("ascii")
                 secret_data_tmp_json = json.loads(secret_data_tmp)
             else:
@@ -298,7 +316,14 @@ def getCredentials(secret_name):
             else:
                 secret_data['username'] = ""
             if "PASSWORD" in secret_data_tmp_json:
-                secret_data['password'] = secret_data_tmp_json['PASSWORD']
+                if "IS_SSH_KEY" in secret_data_tmp_json and secret_data_tmp_json['IS_SSH_KEY'].lower() == 'true':
+                    secret_data['password'] = base64.b64decode(secret_data_tmp_json['PASSWORD'].encode("utf-8")) \
+                        .decode("ascii")
+                    secret_data['password'] = secret_data['password'].replace('\\n', '\n')
+                    secret_data['private_key'] = True
+                else:
+                    secret_data['password'] = secret_data_tmp_json['PASSWORD']
+                    secret_data['private_key'] = False
             else:
                 secret_data['password'] = ""
             if "SECRET_TYPE" in secret_data_tmp_json:
@@ -326,36 +351,36 @@ def getCredentials(secret_name):
             else:
                 secret_data['os_type'] = ""
 
-            secret_data['private_key'] = False
-
             mfauth = secret_data
 
-            #Cache secret for next server.
+            # Cache secret for next server.
             credentials_store['cached_secret:' + secret_name] = mfauth
 
             return mfauth
         except botocore.exceptions.ClientError as e:
-            print(e)
-            if e.response['Error']['Code'] == 'ResourceNotFoundException' or e.response['Error']['Code'] == 'AccessDeniedException':
-                if no_user_prompts == True:
-                    print("Secret not found [" + server['secret_name'] + "] doesn't exist or access is denied to Secret.")
+            if e.response['Error']['Code'] == 'ResourceNotFoundException' or e.response['Error'][
+                'Code'] == 'AccessDeniedException':
+                if no_user_prompts:
+                    print(
+                        "Secret not found [" + secret_name + "] doesn't exist or access is denied to Secret.")
                 else:
-                    print("Secret not found [" + server['secret_name'] + "] doesn't exist or access is denied to Secret, please enter username and password")
+                    print("Secret not found [" + secret_name +
+                          "] doesn't exist or access is denied to Secret, please enter username and password")
             else:
-                #Unknown error returned when getting secret.
+                # Unknown error returned when getting secret.
                 print(e.response['Error'])
 
-    if no_user_prompts == True:
+    if no_user_prompts:
         print("No secret specified. Returning blank username and password")
         return {'username': '', 'password': ''}
+
 
 def ServerList(waveid, token, UserHOST, Projectname):
     # Get all Apps and servers from migration factory
     auth = {"Authorization": token}
     servers = json.loads(requests.get(UserHOST + serverendpoint, headers=auth).text)
-    #print(servers)
+    # print(servers)
     apps = json.loads(requests.get(UserHOST + appendpoint, headers=auth).text)
-    #print(apps)
 
     # Get App list
     applist = []
@@ -368,8 +393,8 @@ def ServerList(waveid, token, UserHOST, Projectname):
                 else:
                     applist.append(app['app_id'])
 
-    #print(apps)
-    #print(servers)
+    # print(apps)
+    # print(servers)
     # Get Server List
     servers_Windows = []
     servers_Linux = []
@@ -386,7 +411,8 @@ def ServerList(waveid, token, UserHOST, Projectname):
                         print("ERROR: server_fqdn for server: " + server['server_name'] + " doesn't exist")
                         sys.exit(4)
                 else:
-                    print ('server_os_family attribute does not exist for server: ' + server['server_name'] + ", please update this attribute")
+                    print('server_os_family attribute does not exist for server: ' + server[
+                        'server_name'] + ", please update this attribute")
                     sys.exit(2)
     if len(servers_Windows) == 0 and len(servers_Linux) == 0:
         print("ERROR: Serverlist for wave: " + waveid + " in CE Project " + Projectname + " is empty....")
@@ -410,6 +436,7 @@ def ServerList(waveid, token, UserHOST, Projectname):
             print("*** No Linux Servers")
         return servers_Windows, servers_Linux
 
+
 def CElogin(userapitoken):
     login_data = {'userApiToken': userapitoken}
     r = requests.post(ce_address + ce_endpoint.format('login'),
@@ -425,7 +452,8 @@ def CElogin(userapitoken):
             print('ERROR: There is no active license configured for this CloudEndure account....')
             return None, None
         elif r.status_code == 429:
-            print('ERROR: CloudEndure Authentication failure limit has been reached. The service will become available for additional requests after a timeout....')
+            print(
+                'ERROR: CloudEndure Authentication failure limit has been reached. The service will become available for additional requests after a timeout....')
             return None, None
 
     # check if need to use a different API entry point
@@ -441,11 +469,16 @@ def CElogin(userapitoken):
 
     return r.cookies['session'], None
 
+
 def GetCERegion(project_id, ce_session, ce_headers):
     region_ids = []
-    rep = requests.get(ce_address + ce_endpoint.format('projects/{}/replicationConfigurations').format(project_id), headers=ce_headers, cookies=ce_session)
+    rep = requests.get(ce_address + ce_endpoint.format('projects/{}/replicationConfigurations').format(project_id),
+                       headers=ce_headers, cookies=ce_session)
     for item in json.loads(rep.text)['items']:
-        region = requests.get(ce_address + ce_endpoint.format('cloudCredentials/{}/regions/{}').format(item['cloudCredentials'], item['region']), headers=ce_headers, cookies=ce_session)
+        region = requests.get(
+            ce_address + ce_endpoint.format('cloudCredentials/{}/regions/{}').format(item['cloudCredentials'],
+                                                                                     item['region']),
+            headers=ce_headers, cookies=ce_session)
         name = json.loads(region.text)['name']
         region_code = ""
         if "Northern Virginia" in name:
@@ -493,19 +526,20 @@ def GetCERegion(project_id, ce_session, ce_headers):
         region_ids.append(region_code)
     return region_ids
 
-#Function is used with new MGN capabiltiy to get servers based on the AWS account they are targeted to.
-def get_factory_servers(waveid, token, UserHOST, osSplit = True, rtype = None):
+
+# Function is used with new MGN capabiltiy to get servers based on the AWS account they are targeted to.
+def get_factory_servers(waveid, token, UserHOST, osSplit=True, rtype=None):
     try:
         linux_exist = False
         windows_exist = False
         auth = {"Authorization": token}
         # Get all Apps and servers from migration factory
         getservers = json.loads(requests.get(UserHOST + serverendpoint, headers=auth).text)
-        #print(servers)
+        # print(servers)
         getapps = json.loads(requests.get(UserHOST + appendpoint, headers=auth).text)
-        #print(apps)
-        servers = sorted(getservers, key = lambda i: i['server_name'])
-        apps = sorted(getapps, key = lambda i: i['app_name'])
+        # print(apps)
+        servers = sorted(getservers, key=lambda i: i['server_name'])
+        apps = sorted(getapps, key=lambda i: i['app_name'])
 
         # Get Unique target AWS account and region
         aws_accounts = []
@@ -534,7 +568,8 @@ def get_factory_servers(waveid, token, UserHOST, osSplit = True, rtype = None):
 
         # Get server list
         for account in aws_accounts:
-            print("### Servers in Target Account: " + account['aws_accountid'] + " , region: " + account['aws_region'] + " ###")
+            print("### Servers in Target Account: " + account['aws_accountid'] + " , region: " + account[
+                'aws_region'] + " ###")
             for app in apps:
                 if 'wave_id' in app and 'aws_accountid' in app and 'aws_region' in app:
                     if str(app['wave_id']) == str(waveid):
@@ -554,22 +589,26 @@ def get_factory_servers(waveid, token, UserHOST, osSplit = True, rtype = None):
                                                             elif server['server_os_family'].lower() == 'linux':
                                                                 account['servers_linux'].append(server)
                                                             else:
-                                                                print("ERROR: Invalid server_os_family for: " + server['server_name'] + ", please select either Windows or Linux")
+                                                                print("ERROR: Invalid server_os_family for: " + server[
+                                                                    'server_name'] + ", please select either Windows or Linux")
                                                                 sys.exit()
                                                         else:
                                                             account['servers'].append(server)
                                                         print(server['server_fqdn'])
                                                     else:
-                                                        print("ERROR: server_fqdn for server: " + server['server_name'] + " doesn't exist")
+                                                        print("ERROR: server_fqdn for server: " + server[
+                                                            'server_name'] + " doesn't exist")
                                                         sys.exit()
                                                 else:
-                                                    print("ERROR: server_os_family does not exist for: " + server['server_name'])
+                                                    print("ERROR: server_os_family does not exist for: " + server[
+                                                        'server_name'])
                                                     sys.exit()
             print("")
             if osSplit:
                 # Check if the server list is empty for both Windows and Linux
                 if len(account['servers_windows']) == 0 and len(account['servers_linux']) == 0:
-                    msg = "ERROR: Server list for wave " + waveid + " and account: " + account['aws_accountid'] + " region: " + account['aws_region'] + " is empty...."
+                    msg = "ERROR: Server list for wave " + waveid + " and account: " + account[
+                        'aws_accountid'] + " region: " + account['aws_region'] + " is empty...."
                     print(msg)
                     sys.exit()
                 if len(account['servers_linux']) > 0:
@@ -578,7 +617,8 @@ def get_factory_servers(waveid, token, UserHOST, osSplit = True, rtype = None):
                     windows_exist = True
             else:
                 if len(account['servers']) == 0:
-                    msg = "ERROR: Server list for wave " + waveid + " and account: " + account['aws_accountid'] + " region: " + account['aws_region'] + " is empty...."
+                    msg = "ERROR: Server list for wave " + waveid + " and account: " + account[
+                        'aws_accountid'] + " region: " + account['aws_region'] + " is empty...."
                     print(msg)
                     sys.exit()
         if osSplit:
@@ -599,13 +639,14 @@ def get_factory_servers(waveid, token, UserHOST, osSplit = True, rtype = None):
             print(msg)
             sys.exit()
 
+
 def get_MGN_Source_Server(factoryserver, mgn_sourceservers):
     lsourceserver = None
 
     for sourceserver in mgn_sourceservers:
         if sourceserver['isArchived'] == False:
             # Check if the factory server exist in Application Migration Service
-            #Check if IP address is matching any on record.
+            # Check if IP address is matching any on record.
             if 'networkInterfaces' in sourceserver['sourceProperties']:
                 for interface in sourceserver['sourceProperties']['networkInterfaces']:
                     if interface['isPrimary'] is True:
@@ -619,19 +660,24 @@ def get_MGN_Source_Server(factoryserver, mgn_sourceservers):
                     if lsourceserver is not None:
                         break
 
-            if factoryserver['server_name'].lower().strip() == sourceserver['sourceProperties']['identificationHints']['hostname'].lower().strip():
+            if factoryserver['server_name'].lower().strip() == sourceserver['sourceProperties']['identificationHints'][
+                'hostname'].lower().strip():
                 lsourceserver = sourceserver
-            elif factoryserver['server_name'].lower().strip() == sourceserver['sourceProperties']['identificationHints']['fqdn'].lower().strip():
+            elif factoryserver['server_name'].lower().strip() == \
+                sourceserver['sourceProperties']['identificationHints']['fqdn'].lower().strip():
                 lsourceserver = sourceserver
-            elif factoryserver['server_fqdn'].lower().strip() == sourceserver['sourceProperties']['identificationHints']['hostname'].lower().strip():
+            elif factoryserver['server_fqdn'].lower().strip() == \
+                sourceserver['sourceProperties']['identificationHints']['hostname'].lower().strip():
                 lsourceserver = sourceserver
-            elif factoryserver['server_fqdn'].lower().strip() == sourceserver['sourceProperties']['identificationHints']['fqdn'].lower().strip():
+            elif factoryserver['server_fqdn'].lower().strip() == \
+                sourceserver['sourceProperties']['identificationHints']['fqdn'].lower().strip():
                 lsourceserver = sourceserver
 
     if lsourceserver is not None:
         return lsourceserver
     else:
         return None
+
 
 def execute_external_script(command):
     print("Executing an external script " + command)
@@ -642,7 +688,7 @@ def execute_external_script(command):
         output = result.stderr.decode("utf-8")
         error = result.stdout.decode("utf-8")
         if "ERROR" in error or "Error" in error:
-            print("Failed to run the external script: "+ command)
+            print("Failed to run the external script: " + command)
             print(error)
             return False
         if result.stdout != "":
@@ -652,6 +698,7 @@ def execute_external_script(command):
         print("Exception while executing script: " + command)
         return False
 
+
 def execute_cmd(host, username, key, cmd, using_key):
     output = ''
     error = ''
@@ -660,7 +707,7 @@ def execute_cmd(host, username, key, cmd, using_key):
         ssh = open_ssh(host, username, key, using_key)
         if ssh is None:
             error = "Not able to get the SSH connection for the host " + host
-            print(error, flush = True)
+            print(error, flush=True)
         else:
             stdin, stdout, stderr = ssh.exec_command(cmd)
             for line in stdout.readlines():
@@ -670,11 +717,11 @@ def execute_cmd(host, username, key, cmd, using_key):
     except IOError as io_error:
         error = "Unable to execute the command " + cmd + " due to " + \
                 str(io_error)
-        print(error, flush = True)
+        print(error, flush=True)
     except paramiko.SSHException as ssh_exception:
         error = "Unable to execute the command " + cmd + " due to " + \
                 str(ssh_exception)
-        print(error, flush = True)
+        print(error, flush=True)
     finally:
         if ssh is not None:
             ssh.close()
@@ -686,7 +733,7 @@ def open_ssh(host, username, key_pwd, using_key):
     try:
         if using_key:
             from io import StringIO
-            private_key = paramiko.RSAKey.from_private_key_file(StringIO(key_pwd))
+            private_key = paramiko.RSAKey.from_private_key(StringIO(key_pwd))
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(hostname=host, username=username, pkey=private_key)
@@ -704,10 +751,10 @@ def open_ssh(host, username, key_pwd, using_key):
         print(error)
     return ssh
 
+
 # Function to print the status in csv format.
 def create_csv_report(report_name, agent_installed_server_details, wave_id):
-
-    final_report_name_csv = "cmf-"+ report_name +"-report_Wave_" + wave_id + ".csv"
+    final_report_name_csv = "cmf-" + report_name + "-report_Wave_" + wave_id + ".csv"
 
     iterator = map(convert_dictionaries_keys_to_list, agent_installed_server_details)
     fields = list(iterator)[0]
@@ -730,6 +777,7 @@ def create_csv_report(report_name, agent_installed_server_details, wave_id):
     print("Please check the status in the generated report...")
     print("Validation Overview CSV : " + final_report_name_csv)
     return final_report_name_csv
+
 
 # Function to convert a dictionaries keys into list format required by csv module
 def convert_dictionaries_keys_to_list(var):
