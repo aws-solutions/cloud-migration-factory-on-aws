@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+
 # This script must be executed from the package root directory
 
 set -e

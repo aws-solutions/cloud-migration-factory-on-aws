@@ -29,7 +29,7 @@ https://docs.aws.amazon.com/prescriptive-guidance/latest/migration-factory-cloud
       |-lambda_layers              [ folder containing all lambda layers, each sub folder is a lambda layer used in one or more lambda functions as defined in the CloudFormation templates ]
       |-lambda_unittests           [ folder containing lambda function unit tests ]
     |-frontend/                    [ folder containing frontend code ]
-    |-Tools Integration/           [ folder containing tool integration code ]    
+    |-integrations/                [ folder containing tool integration code ]    
 
 ```
 ***

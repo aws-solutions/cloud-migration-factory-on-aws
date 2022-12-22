@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, { useState, useEffect } from 'react';
 import { Auth } from "aws-amplify";
 import {
@@ -10,7 +15,6 @@ import { useModal } from '../actions/Modal.js';
 import { useCredentialManagerModal } from '../actions/CredentialManagerModalHook.js';
 
 const CredentialManager = (props) => {
-    const [decodedJwt, setDecodedJwt] = useState({});
     const [jwt, setJwt] = useState('');
     const [modalTitle, setModalTitle] = useState('');
     const [{ isLoading: secretDataIsLoading, data: secretData, error: secretDataErrorLoading }, { getSecretList }] = useCredentialManager();
@@ -24,34 +28,22 @@ const CredentialManager = (props) => {
     const { show: showCredentialManagerModal, hide: hideCredentialManagerModal, RenderModal: CredentialManagerModal } = useCredentialManagerModal();
     const { show: showDeleteConfirmaton, hide: hideDeleteConfirmaton, RenderModal: DeleteModal } = useModal();
 
-    async function decodeJwt(token) {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace('-', '+').replace('_', '/');
-        const decodedJwt = JSON.parse(window.atob(base64));
-        setDecodedJwt(decodedJwt);
-    }
-
     async function getToken() {
         try {
             const session = await Auth.currentSession();
             const token = session.idToken.jwtToken;
-            setJwt(token);
+            const accesstoken = session.accessToken.jwtToken;
+            setJwt({'token': token, 'access_token': accesstoken});
 
         } catch (e) {
             console.log(e);
         }
     }
 
-
     useEffect(() => {
         getToken();
     }, []);
 
-    useEffect(() => {
-        if (jwt !== '') {
-            decodeJwt(jwt);
-        }
-    }, [jwt]);
 
     function handleNotification(notification) {
         props.updateNotification('add', notification)
@@ -87,7 +79,8 @@ const CredentialManager = (props) => {
         const requestPayload = {
             method: method,
             headers: {
-                Authorization: token
+                Authorization: token.token,
+                'Authorization-Access': token.access_token
             },
             body: JSON.stringify(formData)
         };

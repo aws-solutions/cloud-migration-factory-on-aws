@@ -2,6 +2,11 @@
  * @jest-environment jsdom
  */
 
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // Audit.test.js
 import {cleanup, screen, render} from '@testing-library/react';
 import Audit from "./Audit";

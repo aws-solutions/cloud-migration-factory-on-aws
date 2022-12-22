@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { API } from "aws-amplify";
 
 export default class Admin {
@@ -27,13 +32,15 @@ export default class Admin {
 
   putSchema(schemaName, schema) {
     const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
     var schemastr = JSON.stringify(schema)
     var data = '{ "event":"PUT", "update_schema":' + schemastr + '}'
     var obj = JSON.parse(data)
     const options = {
       body: obj,
       headers: {
-        Authorization: token
+        Authorization: token,
+        'Authorization-Access': accesstoken
       }
     };
     return API.put('admin', '/admin/schema/' + schemaName, options);
@@ -41,12 +48,14 @@ export default class Admin {
 
   postSchema(schemaName, schema) {
     const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
     var schemastr = JSON.stringify(schema)
     var obj = JSON.parse(schemastr)
     const options = {
       body: obj,
       headers: {
-        Authorization: token
+        Authorization: token,
+        'Authorization-Access': accesstoken
       }
     };
     return API.post('admin', '/admin/schema/' + schemaName, options);
@@ -74,13 +83,15 @@ export default class Admin {
 
   putSchemaAttr(schemaName, attr, attr_name) {
     const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
     var attrstr = JSON.stringify(attr)
     var data = '{ "event":"PUT" , "name":"' + attr_name + '", "update":' + attrstr + '}'
     var obj = JSON.parse(data)
     const options = {
       body: obj,
       headers: {
-        Authorization: token
+        Authorization: token,
+        'Authorization-Access': accesstoken
       }
     };
     return API.put('admin', '/admin/schema/' + schemaName, options);
@@ -88,13 +99,15 @@ export default class Admin {
 
   postSchemaAttr(schemaName, attr) {
     const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
     var attrstr = JSON.stringify(attr)
     var data = '{ "event":"POST", "new":' + attrstr + '}'
     var obj = JSON.parse(data)
     const options = {
       body: obj,
       headers: {
-        Authorization: token
+        Authorization: token,
+        'Authorization-Access': accesstoken
       }
     };
     return API.put('admin', '/admin/schema/' + schemaName, options);
@@ -102,63 +115,27 @@ export default class Admin {
 
   delSchemaAttr(schemaName, attr_name) {
     const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
     var data = '{ "event":"DELETE" , "name":"' + attr_name + '"}'
     var obj = JSON.parse(data)
     const options = {
       body: obj,
       headers: {
-        Authorization: token
+        Authorization: token,
+        'Authorization-Access': accesstoken
       }
     };
     return API.put('admin', '/admin/schema/' + schemaName, options);
   }
 
-  getSchemaWave() {
-    const token = this.session.idToken.jwtToken;
-    const options = {
-      headers: {
-        Authorization: token
-      }
-    };
-    return API.get("admin", "/admin/schema/wave", options);
-  }
-
-  getSchemaApp() {
-    const token = this.session.idToken.jwtToken;
-    const options = {
-      headers: {
-        Authorization: token
-      }
-    };
-    return API.get("admin", "/admin/schema/app", options);
-  }
-
-  getSchemaServer() {
-    const token = this.session.idToken.jwtToken;
-    const options = {
-      headers: {
-        Authorization: token
-      }
-    };
-    return API.get('admin', '/admin/schema/server', options);
-  }
-
-  getSchemaDatabase() {
-    const token = this.session.idToken.jwtToken;
-    const options = {
-      headers: {
-        Authorization: token
-      }
-    };
-    return API.get('admin', '/admin/schema/database', options);
-  }
-
   putPolicy(policy) {
     const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
     const options = {
       body: policy,
       headers: {
-        Authorization: token
+        Authorization: token,
+        'Authorization-Access': accesstoken
       }
     };
     return API.put('admin', '/admin/policy/'+policy.policy_id, options);
@@ -166,10 +143,12 @@ export default class Admin {
 
   postPolicy(policy) {
     const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
     const options = {
       body: policy,
       headers: {
-        Authorization: token
+        Authorization: token,
+        'Authorization-Access': accesstoken
       }
     };
     return API.post('admin', '/admin/policy', options);
@@ -177,9 +156,11 @@ export default class Admin {
 
   delPolicy(policy_id) {
     const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
     const options = {
       headers: {
-        Authorization: token
+        Authorization: token,
+        'Authorization-Access': accesstoken
       }
     };
     return API.del('admin', '/admin/policy/'+policy_id, options);
@@ -215,44 +196,17 @@ export default class Admin {
     return API.get("admin", "/admin/users", options);
   }
 
-  getWaveAttributes() {
+  putUsers(users) {
     const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
     const options = {
-                        headers: {
-                          Authorization: token
-                        }
-                      };
-    return API.get("admin", "/admin/schema/wave",options);
-  }
-
-  getAppAttributes() {
-    const token = this.session.idToken.jwtToken;
-    const options = {
-                        headers: {
-                          Authorization: token
-                        }
-                      };
-    return API.get("admin", "/admin/schema/app",options);
-  }
-
-  getServerAttributes() {
-    const token = this.session.idToken.jwtToken;
-    const options = {
-                        headers: {
-                          Authorization: token
-                        }
-                      };
-    return API.get("admin", "/admin/schema/server",options);
-  }
-
-  getDatabaseAttributes() {
-    const token = this.session.idToken.jwtToken;
-    const options = {
-                        headers: {
-                          Authorization: token
-                        }
-                      };
-    return API.get("admin", "/admin/schema/database",options);
+      body: {'users' :users},
+      headers: {
+        Authorization: token,
+        'Authorization-Access': accesstoken
+      }
+    };
+    return API.put("admin", "/admin/users", options);
   }
 
   getRoles() {
@@ -271,10 +225,12 @@ export default class Admin {
     delete updateRole.role_id
 
     const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
     const options = {
       body: updateRole,
       headers: {
-        Authorization: token
+        Authorization: token,
+        'Authorization-Access': accesstoken
       }
     };
     return API.put('admin', '/admin/role/'+role.role_id, options);
@@ -282,10 +238,12 @@ export default class Admin {
 
   postRole(role) {
     const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
     const options = {
       body: role,
       headers: {
-        Authorization: token
+        Authorization: token,
+        'Authorization-Access': accesstoken
       }
     };
     return API.post('admin', '/admin/role', options);
@@ -293,176 +251,39 @@ export default class Admin {
 
   delRole(role_id) {
     const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
     const options = {
       headers: {
-        Authorization: token
+        Authorization: token,
+        'Authorization-Access': accesstoken
       }
     };
     return API.del('admin', '/admin/role/'+role_id, options);
   }
 
-delWaveSchemaAttr(attr_name) {
-  const token = this.session.idToken.jwtToken;
-  var data = '{ "event":"DELETE" , "name":"' + attr_name + '"}'
-  var obj = JSON.parse(data)
-  const options = {
-    body: obj,
-    headers: {
-      Authorization: token
-    }
-  };
-  return API.put('admin', '/admin/schema/wave', options);
-}
+  postGroups(group) {
+    const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
+    const options = {
+      body: {'groups': group},
+      headers: {
+        Authorization: token,
+        'Authorization-Access': accesstoken
+      }
+    };
+    return API.post('admin', '/admin/groups', options);
+  }
 
-delAppSchemaAttr(attr_name) {
-  const token = this.session.idToken.jwtToken;
-  var data = '{ "event":"DELETE" , "name":"' + attr_name + '"}'
-  var obj = JSON.parse(data)
-  const options = {
-    body: obj,
-    headers: {
-      Authorization: token
-    }
-  };
-  return API.put('admin', '/admin/schema/app', options);
-}
-
-delSerSchemaAttr(attr_name) {
-  const token = this.session.idToken.jwtToken;
-  var data = '{ "event":"DELETE" , "name":"' + attr_name + '"}'
-  var obj = JSON.parse(data)
-  const options = {
-    body: obj,
-    headers: {
-      Authorization: token
-    }
-  };
-  return API.put('admin', '/admin/schema/server', options);
-}
-
-delDatabaseSchemaAttr(attr_name) {
-  const token = this.session.idToken.jwtToken;
-  var data = '{ "event":"DELETE" , "name":"' + attr_name + '"}'
-  var obj = JSON.parse(data)
-  const options = {
-    body: obj,
-    headers: {
-      Authorization: token
-    }
-  };
-  return API.put('admin', '/admin/schema/database', options);
-}
-
-putDatabaseSchemaAttr(attr, attr_name) {
-  const token = this.session.idToken.jwtToken;
-  var attrstr = JSON.stringify(attr)
-  var data = '{ "event":"PUT" , "name":"' + attr_name + '", "update":' + attrstr + '}'
-  var obj = JSON.parse(data)
-  const options = {
-    body: obj,
-    headers: {
-      Authorization: token
-    }
-  };
-  return API.put('admin', '/admin/schema/database', options);
-}
-
-putWaveSchemaAttr(attr, attr_name) {
-  const token = this.session.idToken.jwtToken;
-  var attrstr = JSON.stringify(attr)
-  var data = '{ "event":"PUT" , "name":"' + attr_name + '", "update":' + attrstr + '}'
-  var obj = JSON.parse(data)
-  const options = {
-    body: obj,
-    headers: {
-      Authorization: token
-    }
-  };
-  return API.put('admin', '/admin/schema/wave', options);
-}
-
-putAppSchemaAttr(attr, attr_name) {
-  const token = this.session.idToken.jwtToken;
-  var attrstr = JSON.stringify(attr)
-  var data = '{ "event":"PUT" , "name":"' + attr_name + '", "update":' + attrstr + '}'
-  var obj = JSON.parse(data)
-  const options = {
-    body: obj,
-    headers: {
-      Authorization: token
-    }
-  };
-  return API.put('admin', '/admin/schema/app', options);
-}
-
-putServerSchemaAttr(attr, attr_name) {
-  const token = this.session.idToken.jwtToken;
-  var attrstr = JSON.stringify(attr)
-  var data = '{ "event":"PUT" , "name":"' + attr_name + '", "update":' + attrstr + '}'
-  var obj = JSON.parse(data)
-  const options = {
-    body: obj,
-    headers: {
-      Authorization: token
-    }
-  };
-  return API.put('admin', '/admin/schema/server', options);
-}
-
-postDatabaseSchemaAttr(attr) {
-  const token = this.session.idToken.jwtToken;
-  var attrstr = JSON.stringify(attr)
-  var data = '{ "event":"POST", "new":' + attrstr + '}'
-  var obj = JSON.parse(data)
-  const options = {
-    body: obj,
-    headers: {
-      Authorization: token
-    }
-  };
-  return API.put('admin', '/admin/schema/database', options);
-}
-
-postWaveSchemaAttr(attr) {
-  const token = this.session.idToken.jwtToken;
-  var attrstr = JSON.stringify(attr)
-  var data = '{ "event":"POST", "new":' + attrstr + '}'
-  var obj = JSON.parse(data)
-  const options = {
-    body: obj,
-    headers: {
-      Authorization: token
-    }
-  };
-  return API.put('admin', '/admin/schema/wave', options);
-}
-
-postAppSchemaAttr(attr) {
-  const token = this.session.idToken.jwtToken;
-  var attrstr = JSON.stringify(attr)
-  var data = '{ "event":"POST", "new":' + attrstr + '}'
-  var obj = JSON.parse(data)
-  const options = {
-    body: obj,
-    headers: {
-      Authorization: token
-    }
-  };
-  return API.put('admin', '/admin/schema/app', options);
-}
-
-postServerSchemaAttr(attr) {
-  const token = this.session.idToken.jwtToken;
-  var attrstr = JSON.stringify(attr)
-  var data = '{ "event":"POST", "new":' + attrstr + '}'
-  var obj = JSON.parse(data)
-  const options = {
-    body: obj,
-    headers: {
-      Authorization: token
-    }
-  };
-  return API.put('admin', '/admin/schema/server', options);
-}
+  delGroup(group_name) {
+    const token = this.session.idToken.jwtToken;
+    const accesstoken = this.session.accessToken.jwtToken;
+    const options = {
+      headers: {
+        Authorization: token,
+        'Authorization-Access': accesstoken
+      }
+    };
+    return API.del('admin', '/admin/groups/'+encodeURIComponent(group_name), options);
+  }
 
 }

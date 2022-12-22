@@ -207,7 +207,7 @@ class MFAuth(object):
         self.policy_table = boto3.resource('dynamodb').Table(policy_table_name)
         self.region = os.environ['region']
 
-    def get_claims(self, aws_region, aws_user_pool, token, audience=None):
+    def get_claims(self, aws_region, aws_user_pool, token, audience=None, access_token=None):
         """ Given a token (and optionally an audience), validate and
         return the claims for the token
         """
@@ -225,12 +225,14 @@ class MFAuth(object):
         if audience is not None:
             kargs["audience"] = audience
 
+        if access_token is not None:
+            kargs["access_token"] = access_token
+
         claims = jwt.decode(
             token,
             key,
             **kargs
         )
-
         return claims
 
     def pool_url(self, aws_region, aws_user_pool):
@@ -243,7 +245,7 @@ class MFAuth(object):
         """
         return (
             "https://cognito-idp.{}.amazonaws.com/{}".
-                format(aws_region, aws_user_pool)
+            format(aws_region, aws_user_pool)
         )
 
     def getAdminResourcePolicy(self, event):
@@ -251,29 +253,51 @@ class MFAuth(object):
         userpool = os.environ['userpool']
         clientid = os.environ['clientid']
 
-        token = event['authorizationToken']
-        claims = self.get_claims(region, userpool, token, clientid)
-        if claims.get('token_use') != 'id':
-            raise ValueError('Not an ID Token')
+        if 'authorizationToken' in event:
+            # support for TOKEN based authentication request from API GW.
+            token = event['authorizationToken']
+        else:
+            # support for REQUEST based authentication request from API GW.
+            token = event['headers']['Authorization']
+
+        # Check to see if an access token has been provided and extract.
+        if 'authorization-access' in event['headers']:
+            access = event['headers']['authorization-access']
+        else:
+            access = None
+
         arn = event['methodArn'].split(':')
         apigatwayArn = arn[5].split('/')
         logger.debug('API Gateway ARN: %s', arn)
 
-        email = claims.get('email')
-        group = claims.get('cognito:groups')
-        principalId = claims.get('sub')
-        logger.info('Cognito User email: %s', email)
-        logger.debug('Cognito User principalId: %s', principalId)
-
         awsAccountId = arn[4]
 
-        policy = AuthPolicy(principalId, awsAccountId)
+        policy = AuthPolicy('', awsAccountId)
         policy.restApiId = apigatwayArn[0]
         policy.region = arn[3]
         policy.policy = apigatwayArn[1]
 
         method = apigatwayArn[2]
         apitype = apigatwayArn[3]
+
+        try:
+            claims = self.get_claims(region, userpool, token, clientid, access_token=access)
+        except Exception as claim_error:
+            logger.error('Denying Admin API Access, Claims Error, %s', claim_error)
+            policy.denyAllMethods()
+            # Build the policy
+            authResponse = policy.build()
+            return authResponse
+
+        if claims.get('token_use') != 'id':
+            raise ValueError('Not an ID Token')
+
+        email = claims.get('email')
+        group = claims.get('cognito:groups')
+        principalId = claims.get('sub')
+        policy.principalId = principalId
+        logger.info('Cognito User email: %s', email)
+        logger.debug('Cognito User principalId: %s', principalId)
 
         path = "/" + "/".join(apigatwayArn[3:])
 
@@ -345,7 +369,8 @@ class MFAuth(object):
         try:
             event['requestContext']['authorizer']['claims']['cognito:groups']
         except KeyError as error:
-            logger.error('%s: User is not assigned to any Cognito group. Access denied.', event['requestContext']['authorizer']['claims']['email'])
+            logger.error('%s: User is not assigned to any Cognito group. Access denied.',
+                         event['requestContext']['authorizer']['claims']['email'])
             return {
                 'action': "deny",
                 'cause': "User is not assigned to any group. Access denied.",
@@ -422,8 +447,9 @@ class MFAuth(object):
                 'user': user
             }
         else:
-            logger.error('%s: User does not have permission to ' + allow_access_type + ' the resource type ' + schema_name + '. Verify you have been assign a policy or role with this permission.',
-                         event['requestContext']['authorizer']['claims']['cognito:username'])
+            logger.error(
+                '%s: User does not have permission to ' + allow_access_type + ' the resource type ' + schema_name + '. Verify you have been assign a policy or role with this permission.',
+                event['requestContext']['authorizer']['claims']['cognito:username'])
             return {
                 'action': "deny",
                 'cause': "User does not have permission to " + allow_access_type + " the resource type " + schema_name + ". Verify you have been assign a policy or role with this permission.",
@@ -461,7 +487,8 @@ class MFAuth(object):
             body = {}
         attrList = body.keys()
         if (len(attrList) == 0):
-            logger.error('%s: There are no attributes to update', event['requestContext']['authorizer']['claims']['cognito:username'])
+            logger.error('%s: There are no attributes to update',
+                         event['requestContext']['authorizer']['claims']['cognito:username'])
             return {
                 'action': "deny",
                 'cause': "There are no attributes to update",

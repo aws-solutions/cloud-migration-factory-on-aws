@@ -122,7 +122,7 @@ def load_schema():
                     "name": "ami_id",
                     "system": True,
                     "type": "string",
-                    "group": "Target",
+                    "group": "Target - Instance",
                     "validation_regex": "^(ami-(([a-z0-9]{8,17})+)$)",
                     "validation_regex_msg": "AMI ID must start with ami- and followed by upto 12 alphanumeric characters.",
                     "conditions": {
@@ -155,7 +155,7 @@ def load_schema():
                     "name": "availabilityzone",
                     "system": True,
                     "type": "string",
-                    "group": "Target",
+                    "group": "Target - Instance",
                     "conditions": {
                         "queries": [
                             {
@@ -334,7 +334,7 @@ def load_schema():
                     "name": "detailed_monitoring",
                     "system": True,
                     "type": "checkbox",
-                    "group": "Target",
+                    "group": "Target - Instance",
                     "conditions": {
                         "queries": [
                             {
@@ -504,7 +504,7 @@ def delete_schema():
                     "name": "ami_id",
                     "system": True,
                     "type": "string",
-                    "group": "Target"
+                    "group": "Target - Instance"
                 })
         if azexist == 1:
             attributes.remove(
@@ -514,7 +514,7 @@ def delete_schema():
                     "name": "availabilityzone",
                     "system": True,
                     "type": "string",
-                    "group": "Target"
+                    "group": "Target - Instance"
                 })
 
         if roottypeexist == 1:
@@ -580,7 +580,7 @@ def delete_schema():
                     "name": "detailed_monitoring",
                     "system": True,
                     "type": "checkbox",
-                    "group": "Target"
+                    "group": "Target - Instance"
                 })
 
         if rootvolnamexists == 1:

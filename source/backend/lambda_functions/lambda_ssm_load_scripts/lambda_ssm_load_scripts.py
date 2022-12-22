@@ -8,6 +8,7 @@ import logging
 import shutil
 import zipfile
 import requests
+import tempfile
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -68,17 +69,17 @@ def respond(event, context, responseStatus, responseData, physicalResourceId):
 def cleanup_temp(packageUUID):
 
     # Delete temp package files in /tmp/ to ensure that large files are not left hanging around for longer than required.
-    if os.path.exists("/tmp/default_scripts.zip"):
-        os.remove("/tmp/default_scripts.zip")
+    if os.path.exists(tempfile.gettempdir() + '/default_scripts.zip'):
+        os.remove(tempfile.gettempdir() + '/default_scripts.zip')
 
-    if os.path.exists("/tmp/" + packageUUID):
-        shutil.rmtree("/tmp/" + packageUUID, ignore_errors=True)
+    if os.path.exists(tempfile.gettempdir() + '/' + packageUUID):
+        shutil.rmtree(tempfile.gettempdir() + '/' + packageUUID, ignore_errors=True)
 
 def import_script_packages():
-    temp_directory_name = '/tmp/default_scripts/'
+    temp_directory_name = tempfile.gettempdir() + '/default_scripts/'
 
     try:
-        temp_path = "/tmp/default_scripts.zip"
+        temp_path = tempfile.gettempdir() + '/default_scripts.zip'
 
         s3.download_file(code_bucket, default_scripts_s3_key, temp_path)
 
@@ -91,7 +92,7 @@ def import_script_packages():
             if total_uncompressed_size > ZIP_MAX_SIZE:
                 errorMsg = f'Zip file uncompressed contents exceeds maximum size of {ZIP_MAX_SIZE/1e+6}MBs.'
                 print(errorMsg)
-            zip.extractall("/tmp/default_scripts/")
+            zip.extractall(tempfile.gettempdir() + '/default_scripts/')
         except (IOError, zipfile.BadZipfile) as e:
             errorMsg = 'Invalid zip file.'
             print(errorMsg)

@@ -3,13 +3,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.2.0] - 2022-12-22
+### Added
+- Security: Allowed customers to use corporate credentials/SSO to login to the CMF web interface; this ability enables federated sign in using any SAML identity provider that can be integrated with Cognito.
+- Administration: Management(add/remove) of Cognito groups and group membership is now provided in the CMF web interface; CMF administrators no longer need access to the Cognito console to manage CMF access.
+- Deployment: On deployment of the stack it now automatically registers the Cloud Migration Factory as an application in AppRegistry to allow customers to track costs and resource usage.
+### Changed
+- Schema: Updated existing default schema attributes for Rehost and Replatform to include UI grouping to align with other attributes.
+- General: Updated all external libraries used frontend JS and backend Python to the latest versions.
+- Credentials Manager: Removed code that allowed any secret to be returned from Secrets Manager that was not functional and not used.
+### Fixed
+- Deployment-WAF: When WAF is enabled automation scripts could not log in to the /prod/login due to the Lambda function not being granted access to the Cognito due to WAF rules. Updated mfcommon.py Factorylogin function so it no longer uses the login API and Lambda function to get an access token from Lambda and calls directly to Cognito using the boto3 library; this resolves the issue as the automation server has to be in the WAF rules and the Lambda no longer needs access to Cognito. We will keep the login Lambda for this release but may review in future releases. IMPORTANT: Any customized scripts will need to have the mfcommon.py module updated to work with this updated version if using WAF.
+- Rehost MGN: Resolved issue causing the use of private IP address to be ignored when used with MGN Rehost migrations actions.
+- Security: Resolved issues with forgotten password reset screens. Moved all reset functions to the same screen, user can now request the reset code and also use it on the same screen, previously this function was hidden in the forgotten password link click.
 ## [3.1.0] - 2022-10-20
 ### Added
 - Added options for deployment type into Cloud Formation Template with the option of Default (Public), Public with WAF and Private, These options allow deployment into environments with strict requirements on accessibility on the service endpoints. With Private the solution is only accessible from within the VPC, using API Gateway Private endpoints. Public with WAF automatically deploys WAF in front of CloudFront, API Gateway and Cognito, and restricts access to the CIDR ranges specified in the Stack parameter.
 ### Changed
 - Added ability to control access to manage automation scripts via policies. Previous to this change any user with access to CMF could add and edit scripts. The policies implemented only use the create flag for the script entity type in the policy all other permissions and attribute level are not implemented.
-### Fixed   
-- Credentials Manager: When a dollar $ character was present in the password for any Windows Powershell command it caused the logon to fail as Powershell was seeing this as a variable declaration as the strings were double-quoted (expandable) and should have been single-quoted (verbatim or wysiwyg). Changed all occurrences to single quotes.
+### Fixed
+- Credentials Manager: When a dollar $ character was present in the password for any Wind ows Powershell command it caused the logon to fail as Powershell was seeing this as a variable declaration as the strings were double-quoted (expandable) and should have been single-quoted (verbatim or wysiwyg). Changed all occurrences to single quotes.
 - Credentials Manager: When an ssh private key is used to authenticate to a Linux OS the script aborts with an exception as the key string was being passed to the method from_private_key_file function and this only accepts a file path, not File Object, changed the method to from_private_key as this accepts a File like object.
 - API: Permissions mapping in the UI failed when user is not in Cognito admin group, as only admin members could retrieve group lists from API. This update adds a new authorizer to the Login API that provides authorization of the user if they have a valid token in the CMF user pool (used currently in Admin API too), this authorizer has been configured for the /login/groups resource only, allowing any authenticated user to access this resource.
 - Schema/Attribute Validation: When importing data through the UI list field values were case-sensitive in the backend but not in frontend validation; this caused the API to return validation errors after the data had been validated by the frontend code. Updated BE API Lambda layer for validation of list values to be case-insensitive to match FE validation.

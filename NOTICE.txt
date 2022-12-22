@@ -11,8 +11,12 @@ THIRD PARTY COMPONENTS
 **********************
 This software includes third party software subject to the following copyrights:
 
-AWS SDK under the Apache License Version 2.0
-request under the Apache License Version 2.0
+AWS SDK/boto3 under the Apache License Version 2.0
+aws-amplify under the Apache License Version 2.0
+@awsui/components-react under the Apache License Version 2.0
+@awsui/global-styles under the Apache License Version 2.0
+@awsui/jest-preset under the Apache License Version 2.0
+requests under the Apache License Version 2.0
 simplejson under the Massachusetts Institute of Technology (MIT) license
 uuid under the Massachusetts Institute of Technology (MIT) license
 aws-amplify under the Apache License Version 2.0
@@ -23,3 +27,22 @@ react-scripts under the Massachusetts Institute of Technology (MIT) license
 Paramiko under the GNU Lesser General Public License v2.1
 troposphere is licensed under the BSD 2-Clause license.
 ace is licensed under the BSD 2-Clause license.
+moto under the Apache License Version 2.0
+coverage under the Apache License Version 2.0
+python-jose under the Massachusetts Institute of Technology (MIT) license
+jquery under the Massachusetts Institute of Technology (MIT) license
+jquery-csv under the Massachusetts Institute of Technology (MIT) license
+uuid under the Massachusetts Institute of Technology (MIT) license
+xlsx under the Apache License Version 2.0
+@babel/preset-env under the Massachusetts Institute of Technology (MIT) license
+@babel/preset-react under the Massachusetts Institute of Technology (MIT) license
+@testing-library/react under the Massachusetts Institute of Technology (MIT) license
+babel-core under the Massachusetts Institute of Technology (MIT) license
+babel-jest under the Massachusetts Institute of Technology (MIT) license
+jest under the Massachusetts Institute of Technology (MIT) license
+jest-sonar-reporter under the Massachusetts Institute of Technology (MIT) license
+jest-environment-jsdom under the Massachusetts Institute of Technology (MIT) license
+jsdoc under the Apache License Version 2.0
+react-test-renderer under the Massachusetts Institute of Technology (MIT) license
+source-map-explorer under the Apache License Version 2.0
+ts-jest under the Massachusetts Institute of Technology (MIT) license

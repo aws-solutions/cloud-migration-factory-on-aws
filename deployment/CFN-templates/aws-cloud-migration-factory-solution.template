@@ -1,3 +1,6 @@
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "(%%SOLUTION_ID%%) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution (Version %%VERSION%%)"
 
@@ -13,6 +16,7 @@ Metadata:
           - ReplatformEC2          
           - ServiceAccountEmail
           - DeploymentType
+          - CognitoFederation
       - Label:
           default: (Optional) Private Deployment Type Only
         Parameters:
@@ -47,21 +51,25 @@ Metadata:
         default: VPC ID to host API Gateway Endpoints
       PrivateEndpointSubnets:
         default: Subnets to host API Gateway Interface Endpoints
+      CognitoFederation:
+        default: Allow additional identity provider to be configured in Cognito.
 
 Parameters:
   Application:
     Type: String
     Description: Application name is used to name all AWS resources.
     Default: migration-factory
-    AllowedPattern: "[-a-z0-9]*"
-    ConstraintDescription: Application parameter must be all lower case characters
+    AllowedPattern: "((?!aws.*$)(([-a-z0-9]*)$))"
+    MaxLength: 30
+    ConstraintDescription: Must contain only lower case characters, numbers or hyphens, and with a maximum length of 30 characters. Also it cannot start with aws.
 
   Environment:
     Type: String
     Description: Environment name is used to name all AWS resources (.i.e dev, test, prod)
     Default: test
     AllowedPattern: "[-a-z0-9]*"
-    ConstraintDescription: Application parameter must be all lower case characters
+    MaxLength: 10
+    ConstraintDescription: Must contain only lower case characters, numbers or hyphens, and with a maximum length of 10 characters.
 
   Tracker:
     Type: String
@@ -110,6 +118,12 @@ Parameters:
       Comma delimited list of Subnets IDs to host API Gateway private endpoints. These need to be attached to the VPC ID selected.
     Default: ''
 
+  CognitoFederation:
+    Type: String
+    Description: Enable additional identity providers?
+    Default: false
+    AllowedValues: [ true, false ]
+
 Mappings:
   Send:
     AnonymousUsage:
@@ -118,6 +132,11 @@ Mappings:
     General:
       S3Bucket: '%%BUCKET_NAME%%'
       KeyPrefix: '%%SOLUTION_NAME%%/%%VERSION%%'
+  Solution:
+    Data:
+      SolutionID: '%%SOLUTION_ID%%'
+    AppRegistry:
+      SolutionName: 'Cloud Migration Factory on AWS'
 
 Conditions:
   DeployTracker: !Equals [!Ref Tracker, true]
@@ -126,6 +145,7 @@ Conditions:
   DeploymentTypePublic: !Equals [!Ref DeploymentType, 'Default (Public)']
   DeployCloudFront: !Or [ !Condition DeploymentTypePublic, !Condition DeployWAF]
   DeploymentPrivate: !Equals [!Ref DeploymentType, 'Private']
+  DeployFederation: !Equals [!Ref CognitoFederation, true]
   
 Resources:
   AccessLoggingBucket:
@@ -579,12 +599,41 @@ Resources:
   CognitoAppClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
-      ClientName: !Sub ${Application}-${Environment}-client
-      ExplicitAuthFlows:
-        - ADMIN_NO_SRP_AUTH
-        - USER_PASSWORD_AUTH
-      GenerateSecret: False
+      !If
+      - DeployFederation
+      - UserPoolId: !Ref CognitoUserPool
+        CallbackURLs:
+          - !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}/', !Sub "${WebURL}/" ]
+        LogoutURLs:
+          - !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}/', !Sub "${WebURL}/" ]
+        AllowedOAuthScopes:
+          - phone
+          - email
+          - openid
+          - aws.cognito.signin.user.admin
+        AllowedOAuthFlows:
+          - code
+        SupportedIdentityProviders:
+          - COGNITO
+        ClientName: !Sub ${Application}-${Environment}-client
+        ExplicitAuthFlows:
+          - ADMIN_NO_SRP_AUTH
+          - USER_PASSWORD_AUTH
+        GenerateSecret: False
+      - UserPoolId: !Ref CognitoUserPool
+        ClientName: !Sub ${Application}-${Environment}-client
+        ExplicitAuthFlows:
+          - ADMIN_NO_SRP_AUTH
+          - USER_PASSWORD_AUTH
+        GenerateSecret: False
+
+
+  CognitoUserPoolDomain:
+    Condition: DeployFederation
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
       UserPoolId: !Ref CognitoUserPool
+      Domain: !Sub ${Application}-${Environment}
 
   CognitoAdminGroup:
     Type: AWS::Cognito::UserPoolGroup
@@ -826,7 +875,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -884,7 +933,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -942,7 +991,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -1024,7 +1073,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -1105,7 +1154,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -1209,7 +1258,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -1267,7 +1316,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -1326,7 +1375,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -1407,7 +1456,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -1591,7 +1640,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -1626,7 +1675,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -1688,7 +1737,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -1778,11 +1827,11 @@ Resources:
     Type: AWS::ApiGateway::Authorizer
     Properties:
       AuthorizerUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionAuth.Arn}/invocations'
-      IdentitySource: method.request.header.Authorization
+      IdentitySource: method.request.header.Authorization,method.request.header.Authorization-Access
       AuthorizerResultTtlInSeconds: 0
       Name: !Sub ${Application}-${Environment}-AdminAPI-Authorizer
       RestApiId: !Ref AdminAPI
-      Type: TOKEN
+      Type: REQUEST
 
   AdminGetAuthorizer:
     Type: AWS::ApiGateway::Authorizer
@@ -1813,6 +1862,11 @@ Resources:
       - APIMethodPolicyOPTIONS
       - APIMethodRoleOPTIONS
       - APIMethodPolicyPolicyIdOPTIONS
+      - APIMethodAdminUsersOPTIONS
+      - APIMethodAdminUsersGET
+      - APIMethodADMINUsersPut
+      - APIMethodAdminGroupsPOST
+      - APIMethodAdminGroupsDELETE
     Properties:
       RestApiId: !Ref AdminAPI
       StageName: prod
@@ -1861,8 +1915,8 @@ Resources:
           - StatusCode: '200'
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
-              "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -1890,6 +1944,146 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionUserAdmin.Arn}/invocations'
+
+  APIMethodADMINUsersPut:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminUsers
+      HttpMethod: "PUT"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionUserUpdate.Arn}/invocations'
+
+
+  APIResourceAdminGroups:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ParentId: !Ref APIResourceAdmin
+      PathPart: "groups"
+
+  APIMethodAdminGroupsOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminGroups
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodAdminGroupsPOST:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminGroups
+      HttpMethod: "POST"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionGroupUpdate.Arn}/invocations'
+
+  APIResourceAdminGroupsGroupName:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ParentId: !Ref APIResourceAdminGroups
+      PathPart: "{group_name}"
+
+  APIMethodAdminGroupsGroupNameOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminGroupsGroupName
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
+              "method.response.header.Access-Control-Allow-Methods": "'DELETE,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodAdminGroupsDELETE:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ResourceId: !Ref APIResourceAdminGroupsGroupName
+      HttpMethod: "DELETE"
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionGroupUpdate.Arn}/invocations'
 
   APIResourceAdminRole:
     Type: 'AWS::ApiGateway::Resource'
@@ -1920,7 +2114,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -2001,7 +2195,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -2105,7 +2299,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -2163,7 +2357,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,PUT,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -2267,7 +2461,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -2348,7 +2542,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'PUT,GET,DELETE,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -2553,7 +2747,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -2634,7 +2828,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'POST,GET,PUT,DELETE,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -2745,7 +2939,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -2826,7 +3020,7 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
               "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
             ResponseTemplates:
               'application/json': ''
         RequestTemplates:
@@ -3539,6 +3733,98 @@ Resources:
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  UserUpdateLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-user-update-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              -
+                Effect: Allow
+                Action:
+                  - 'cognito-idp:ListUsers'
+                  - 'cognito-idp:AdminListGroupsForUser'
+                  - 'cognito-idp:AdminRemoveUserFromGroup'
+                  - 'cognito-idp:AdminAddUserToGroup'
+                  - 'cognito-idp:AdminEnableUser'
+                  - 'cognito-idp:AdminDisableUser'
+                Resource:
+                  - !GetAtt CognitoUserPool.Arn
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  GroupUpdateLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-group-update-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              -
+                Effect: Allow
+                Action:
+                  - 'cognito-idp:CreateGroup'
+                  - 'cognito-idp:DeleteGroup'
+                  - 'cognito-idp:ListGroups'
+                  - 'cognito-idp:ListUsersInGroup'
+                Resource:
+                  - !GetAtt CognitoUserPool.Arn
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4325,6 +4611,89 @@ Resources:
       CompatibleRuntimes:
         - python3.8
 
+  LambdaFunctionUserUpdate:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_cognito_user_update.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-user-update
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_cognito_user_update.zip"]]
+      Role: !GetAtt UserUpdateLambdaRole.Arn
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+          userpool_id: !Ref CognitoUserPool
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-user-update
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionUserUpdate:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionUserUpdate.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
+
+  LambdaFunctionGroupUpdate:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_cognito_group_update.lambda_handler
+      Runtime: python3.8
+      FunctionName: !Sub ${Application}-${Environment}-group-update
+      Timeout: 120
+      Code:
+        S3Bucket: !Join [ "-", [ !FindInMap [ "SourceCode", "General", "S3Bucket" ], Ref: "AWS::Region" ] ]
+        S3Key: !Join [ "/", [ !FindInMap [ "SourceCode", "General", "KeyPrefix" ],  "lambda_cognito_group_update.zip" ] ]
+      Role: !GetAtt GroupUpdateLambdaRole.Arn
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+          userpool_id: !Ref CognitoUserPool
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-group-update
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionGroupUpdate:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionGroupUpdate.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AdminAPI}/*"
+
   AppBuild:
     Type: 'AWS::Lambda::Function'
     Properties:
@@ -4345,6 +4714,7 @@ Resources:
           SSM_WS_API: !Sub '${AutomationService.Outputs.SSMSocketAPI}'
           USER_POOL_ID: !Ref CognitoUserPool
           APP_CLIENT_ID: !Ref CognitoAppClient
+          COGNITO_HOSTED_UI_URL: !If [ DeployFederation, !Sub "${CognitoUserPoolDomain}.auth.${AWS::Region}.amazoncognito.com", ""]
           FRONTEND_BUCKET: !Ref FrontEndBucket
           SOURCE_BUCKET: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
           SOURCE_KEY: !Join
@@ -4379,6 +4749,8 @@ Resources:
       ServiceToken: !GetAtt AppBuild.Arn
       # If the version changes it will trigger an update
       Version: '%%VERSION%%'
+
+# Nested stacks.
 
   MigrationTracker:
     Condition: DeployTracker
@@ -4675,6 +5047,113 @@ Resources:
             reason: "The resources ARN is unknown, because it is based on user's input"
           - id: W28
             reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+
+  # AppRegistry Application
+  AppRegistryApplication:
+    Type: AWS::ServiceCatalogAppRegistry::Application
+    Properties:
+      Description: "Service Catalog application to track and manage all your resources for the solution Cloud Migration Factory on AWS. The SolutionID is %%SOLUTION_ID%% and SolutionVersion is %%VERSION%%."
+      Name:
+        !Join
+        - "-"
+        - - !Ref Application
+          - !Ref Environment
+          - !Ref AWS::Region
+          - !Ref AWS::AccountId
+          - !Ref AWS::StackName
+      Tags: {
+        'Solutions:SolutionID': !FindInMap [Solution, Data, "SolutionID"],
+        'Solutions:SolutionVersion': "%%VERSION%%",
+        'Solutions:SolutionName': "%%SOLUTION_NAME%%",
+        'Solutions:ApplicationType': 'AWS-Solutions',
+      }
+
+  AppRegistryApplicationStackAssociation:
+    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
+    Properties:
+      Application: !GetAtt AppRegistryApplication.Id
+      Resource:
+        !Ref AWS::StackId
+      ResourceType: CFN_STACK
+
+  AppRegistryApplicationStackAssociationNestedStackMigrationTracker:
+    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
+    Condition: DeployTracker
+    Properties:
+      Application: !GetAtt AppRegistryApplication.Id
+      Resource:
+        !Ref MigrationTracker
+      ResourceType: CFN_STACK
+
+  AppRegistryApplicationStackAssociationNestedStackAppMigService:
+    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
+    Properties:
+      Application: !GetAtt AppRegistryApplication.Id
+      Resource:
+        !Ref AppMigService
+      ResourceType: CFN_STACK
+
+  AppRegistryApplicationStackAssociationNestedStackCredentialManager:
+    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
+    Properties:
+      Application: !GetAtt AppRegistryApplication.Id
+      Resource:
+        !Ref CredentialManager
+      ResourceType: CFN_STACK
+
+  AppRegistryApplicationStackAssociationNestedStackAutomationService:
+    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
+    Properties:
+      Application: !GetAtt AppRegistryApplication.Id
+      Resource:
+        !Ref AutomationService
+      ResourceType: CFN_STACK
+
+  AppRegistryApplicationStackAssociationNestedStackReplatformService:
+    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
+    Condition: ReplatformEC2
+    Properties:
+      Application: !GetAtt AppRegistryApplication.Id
+      Resource:
+        !Ref ReplatformService
+      ResourceType: CFN_STACK
+
+  AppRegistryApplicationStackAssociationNestedStackWAFBEStack:
+    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
+    Condition: DeployWAF
+    Properties:
+      Application: !GetAtt AppRegistryApplication.Id
+      Resource:
+        !Ref WAFBEStack
+      ResourceType: CFN_STACK
+
+  AppRegistryApplicationStackAssociationNestedStackWAFFEStack:
+    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
+    Condition: DeployWAF
+    Properties:
+      Application: !GetAtt AppRegistryApplication.Id
+      Resource:
+        !Ref WAFFEStack
+      ResourceType: CFN_STACK
+
+  DefaultApplicationAttributes:
+    Type: AWS::ServiceCatalogAppRegistry::AttributeGroup
+    Properties:
+      Name: !Sub '${AWS::Region}-${AWS::StackName}'
+      Description: Attribute group for solution information.
+      Attributes:
+        { "ApplicationType" : 'AWS-Solutions',
+          "Version": "%%VERSION%%",
+          "SolutionID": !FindInMap [Solution, Data, "SolutionID"],
+          "SolutionName": "%%SOLUTION_NAME%%"
+        }
+
+  AppRegistryApplicationAttributeAssociation:
+    Type: AWS::ServiceCatalogAppRegistry::AttributeGroupAssociation
+    Properties:
+      Application: !GetAtt AppRegistryApplication.Id
+      AttributeGroup: !GetAtt DefaultApplicationAttributes.Id
 
 Outputs:
   MigrationFactoryURL:

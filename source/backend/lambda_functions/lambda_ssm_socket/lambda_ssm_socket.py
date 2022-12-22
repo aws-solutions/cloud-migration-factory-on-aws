@@ -19,7 +19,7 @@ keys_url = 'https://cognito-idp.{}.amazonaws.com/{}/.well-known/jwks.json'.forma
 # instead of re-downloading the public keys every time
 # we download them only on cold start
 # https://aws.amazon.com/blogs/compute/container-reuse-in-lambda/
-response = urllib.request.urlopen(keys_url)
+response = urllib.request.urlopen(keys_url) # nosec B310
 keys = json.loads(response.read())['keys']
 
 application = os.environ["application"]

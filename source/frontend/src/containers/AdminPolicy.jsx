@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, { useState } from 'react';
 import Admin from "../actions/admin";
 
@@ -12,6 +17,8 @@ import {useAdminPermissions} from "../actions/AdminPermissionsHook.js";
 import ItemTable from '../components/ItemTable.jsx';
 import PermissionsView from "../components/PermissionsView";
 import ItemAmend from "../components/ItemAmend";
+import {useUserGroupsModal} from "../actions/UserGroupsModalHook";
+import {useAmendItemModal} from "../actions/AmendItemModalHook";
 
 const AdminPolicy = (props) => {
 
@@ -32,11 +39,17 @@ const AdminPolicy = (props) => {
   const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
 
   //Modals
-  const { show: showDeleteConfirmaton, hide: hideDeleteConfirmaton, RenderModal: DeleteModal } = useModal()
+  const { show: showDeleteConfirmation, hide: hideDeleteConfirmation, RenderModal: DeleteModal } = useModal()
+  const { show: showGroupDeleteConfirmation, hide: hideGroupDeleteConfirmation, RenderModal: GroupDeleteModal } = useModal()
+  const { show: showAddGroups, hide: hideAddGroups, RenderModal: AddGroupsModal } = useUserGroupsModal()
+  const { show: showRemoveGroups, hide: hideRemoveGroups, RenderModal: RemoveGroupsModal } = useUserGroupsModal()
+  const { show: showAddGroup, hide: hideAddGroup, RenderModal: AddGroupModal } = useAmendItemModal()
+
+
 
   function handleNotification(notification)
   {
-    props.updateNotification('add', notification)
+    return props.updateNotification('add', notification)
   }
 
   function handleAddItem()
@@ -45,6 +58,17 @@ const AdminPolicy = (props) => {
     setFocusItem({});
     setEditingItem(true);
 
+  }
+
+  async function handleAddGroupClick(e) {
+    e.preventDefault();
+    showAddGroup();
+    //showDeleteConfirmation();
+  }
+
+  async function handleDeleteGroupClick(e) {
+    e.preventDefault();
+    showGroupDeleteConfirmation();
   }
 
   function handleEditItem()
@@ -218,7 +242,7 @@ const AdminPolicy = (props) => {
 
   async function handleDeleteItemClick(e) {
     e.preventDefault();
-    showDeleteConfirmaton();
+    showDeleteConfirmation();
   }
 
   async function handleRefreshClick(e) {
@@ -227,12 +251,244 @@ const AdminPolicy = (props) => {
 
   }
 
+  async function handleActionClick(e) {
+    e.preventDefault();
+
+    let action = e.detail.id;
+
+    if(action === 'add_group'){
+      await addUsersToGroupsClick()
+    } else if (action === 'remove_group'){
+      await removeUsersFromGroupsClick()
+    }
+  }
+
+  async function addUsersToGroups(groups) {
+
+    if (!groups.selectedGroups){
+      return;
+    }
+    let notificationId = null;
+
+    try {
+      notificationId = handleNotification({
+        type: 'success',
+        loading: true,
+        dismissible: false,
+        header: "Update users",
+        content: "Adding selected users to groups: " + groups.selectedGroups.map(group => group.value),
+      });
+
+      let users = [];
+      for (const user of selectedItems) {
+        users.push({'username': user['userRef'], 'addGroups': groups.selectedGroups.map(group => group.value)})
+      }
+
+      const session = await Auth.currentSession();
+      const apiAdmin = await new Admin(session);
+      const response = await apiAdmin.putUsers(users);
+
+      permissionsUpdate();
+
+      handleNotification({
+        id: notificationId,
+        type: 'success',
+        dismissible: true,
+        header: "Update users",
+        content: "Users added to groups: " + groups.selectedGroups.map(group => group.value),
+      });
+
+      setSelectedItems([]);
+
+    } catch (e) {
+      console.log(e);
+      if ('response' in e) {
+        if(e.response != null && typeof e.response === 'object') {
+          if ('data' in e.response) {
+            handleNotification({
+              id: notificationId,
+              type: 'error',
+              dismissible: true,
+              header: "Update users",
+              content: 'Add to group failed: ' + e.response.data
+            });
+          }
+        } else {
+          handleNotification({
+            id: notificationId,
+            type: 'error',
+            dismissible: true,
+            header: "Update users",
+            content: 'Add to group failed: ' + e.message
+          });
+        }
+      } else {
+        handleNotification({
+          id: notificationId,
+          type: 'error',
+          dismissible: true,
+          header: "Update users",
+          content: 'Add to group failed.',
+        });
+      }
+    }
+
+  }
+
+  async function addUsersToGroupsClick() {
+    await showAddGroups();
+  }
+
+  async function removeUsersFromGroups(groups) {
+
+    if (!groups.selectedGroups){
+      return;
+    }
+    let notificationId = null;
+
+    try {
+      notificationId = handleNotification({
+        type: 'success',
+        loading: true,
+        dismissible: false,
+        header: "Update users",
+        content: "Removing selected users from groups: " + groups.selectedGroups.map(group => group.value),
+      });
+
+      let users = [];
+      for (const user of selectedItems) {
+        users.push({'username': user['userRef'], 'removeGroups': groups.selectedGroups.map(group => group.value)})
+      }
+
+      const session = await Auth.currentSession();
+      const apiAdmin = await new Admin(session);
+      const response = await apiAdmin.putUsers(users);
+
+      permissionsUpdate();
+
+      handleNotification({
+        id: notificationId,
+        type: 'success',
+        dismissible: true,
+        header: "Update users",
+        content: "Users removed from groups: " + groups.selectedGroups.map(group => group.value),
+      });
+
+      setSelectedItems([]);
+
+    } catch (e) {
+      console.log(e);
+      if ('response' in e) {
+        if(e.response != null && typeof e.response === 'object') {
+          if ('data' in e.response) {
+            handleNotification({
+              id: notificationId,
+              type: 'error',
+              dismissible: true,
+              header: "Update users",
+              content: 'Remove from group failed: ' + e.response.data
+            });
+          }
+        } else {
+          handleNotification({
+            id: notificationId,
+            type: 'error',
+            dismissible: true,
+            header: "Update users",
+            content: 'Remove from group failed: ' + e.message
+          });
+        }
+      } else {
+        handleNotification({
+          id: notificationId,
+          type: 'error',
+          dismissible: true,
+          header: "Update users",
+          content: 'Remove from group failed.',
+        });
+      }
+    }
+
+  }
+
+  async function createGroup(group) {
+
+    if (!group.group_name){
+      return;
+    }
+    let notificationId = null;
+
+    try {
+      notificationId = handleNotification({
+        type: 'success',
+        loading: true,
+        dismissible: false,
+        header: "Add group",
+        content: "Adding new group: " + group.group_name,
+      });
+
+      const session = await Auth.currentSession();
+      const apiAdmin = await new Admin(session);
+      const response = await apiAdmin.postGroups([group]);
+
+      permissionsUpdate();
+
+      handleNotification({
+        id: notificationId,
+        type: 'success',
+        dismissible: true,
+        header: "Add group",
+        content: "New group added: " + group.group_name,
+      });
+
+      setSelectedItems([]);
+
+    } catch (e) {
+      console.log(e);
+      if ('response' in e) {
+        if(e.response != null && typeof e.response === 'object') {
+          if ('data' in e.response) {
+            handleNotification({
+              id: notificationId,
+              type: 'error',
+              dismissible: true,
+              header: "Add group",
+              content: 'Add group failed: ' + e.response.data
+            });
+          }
+        } else {
+          handleNotification({
+            id: notificationId,
+            type: 'error',
+            dismissible: true,
+            header: "Add group",
+            content: 'Add group failed: ' + e.message
+          });
+        }
+      } else {
+        handleNotification({
+          id: notificationId,
+          type: 'error',
+          dismissible: true,
+          header: "Add group",
+          content: 'Add group failed.',
+        });
+      }
+    }
+
+  }
+
+  async function removeUsersFromGroupsClick() {
+    await showRemoveGroups();
+  }
+
   async function handleDeleteItem(e) {
     e.preventDefault();
     let currentItem = 0;
-    let notifcationHeader = 'Role'
+    let notifcationHeader = 'Group'
 
-    await hideDeleteConfirmaton();
+    await hideDeleteConfirmation();
+    await hideGroupDeleteConfirmation();
 
     try {
       const session = await Auth.currentSession();
@@ -247,11 +503,11 @@ const AdminPolicy = (props) => {
           header: notifcationHeader + ' deleted successfully',
           content: selectedItems[0].role_name + ' was deleted.'
         });
-        }
+      }
 
       if (selectedTab === 'policies') {
         notifcationHeader = 'Policy'
-      await apiAdmin.delPolicy(selectedItems[0].policy_id);
+        await apiAdmin.delPolicy(selectedItems[0].policy_id);
         handleNotification({
           type: 'success',
           dismissible: true,
@@ -260,17 +516,28 @@ const AdminPolicy = (props) => {
         });
       }
 
+      if (selectedTab === 'groups') {
+        notifcationHeader = 'Group'
+        await apiAdmin.delGroup(selectedItems[0].group_name);
+        handleNotification({
+          type: 'success',
+          dismissible: true,
+          header: notifcationHeader + ' deleted successfully',
+          content: selectedItems[0].group_name + ' was deleted.'
+        });
+      }
+
       permissionsUpdate();
       setSelectedItems([]);
 
     } catch (e) {
       console.log(e);
-        handleNotification({
-            type: 'error',
-            dismissible: true,
-            header: notifcationHeader + ' deletion failed',
-            content: selectedItems[currentItem].role_id ? selectedItems[currentItem].role_id : selectedItems[currentItem].policy_id + ' failed to delete.'
-          });
+      handleNotification({
+        type: 'error',
+        dismissible: true,
+        header: notifcationHeader + ' deletion failed',
+        content: selectedItems[currentItem].role_id ? selectedItems[currentItem].role_id : selectedItems[currentItem].policy_id + ' failed to delete.'
+      });
     }
   }
 
@@ -278,7 +545,7 @@ const AdminPolicy = (props) => {
 
     const [selectedItemsViewer, lsetSelectedItemsViewer] = useState([]);
 
-    if (selectedItems.length === 1) {
+    if (selectedItems.length === 1 && (selectedTab === 'roles' || selectedTab === 'policies')) {
 
       return (
         <PermissionsView {...props}
@@ -366,7 +633,6 @@ const AdminPolicy = (props) => {
                 content:
                   <SpaceBetween direction="vertical" size="xs">
                     <ItemTable
-                      description={'User access groups must be managed through Amazon Cognito.'}
                       schema={props.schema.group}
                       schemaKeyAttribute={'group_name'}
                       schemaName={'group'}
@@ -375,6 +641,11 @@ const AdminPolicy = (props) => {
                       isLoading={permissionsIsLoading}
                       errorLoading={permissionsError}
                       handleRefreshClick={handleRefreshClick}
+                      handleAddItem={handleAddGroupClick}
+                      handleDeleteItem={handleDeleteGroupClick}
+                      handleSelectionChange={handleItemSelectionChange}
+                      selectionType={'single'}
+                      selectedItems={selectedItems}
                     />
                     <ViewPermissions
                       schema={props.schema}
@@ -388,7 +659,7 @@ const AdminPolicy = (props) => {
                 content:
                   <SpaceBetween direction="vertical" size="xs">
                     <ItemTable
-                      description={'Users must be managed through Amazon Cognito.'}
+                      description={'Users must be created through Amazon Cognito or a federated IDP.'}
                       schema={props.schema.user}
                       schemaKeyAttribute={'userRef'}
                       schemaName={'user'}
@@ -397,6 +668,23 @@ const AdminPolicy = (props) => {
                       isLoading={permissionsIsLoading}
                       errorLoading={permissionsError}
                       handleRefreshClick={handleRefreshClick}
+                      actionsButtonDisabled={false}
+                      handleAction={handleActionClick}
+                      actionItems={[{
+                        id: 'add_group',
+                        text: 'Add users to group',
+                        description: 'Add users to group.',
+                        disabled: selectedItems.length === 0 ? true : false
+                      },
+                        {
+                          id: 'remove_group',
+                          text: 'Remove users to group',
+                          description: 'Remove users to group.',
+                          disabled: selectedItems.length === 0 ? true : false
+                        }]}
+                      handleSelectionChange={handleItemSelectionChange}
+                      selectionType={'multi'}
+                      selectedItems={selectedItems}
                     />
                     <ViewPermissions
                       schema={props.schema}
@@ -423,6 +711,38 @@ const AdminPolicy = (props) => {
           <p>Are you sure you wish to delete the {selectedItems.length} selected policies?</p>
         }
       </DeleteModal>
+      <GroupDeleteModal
+        title={'Delete group'}
+        onConfirmation={handleDeleteItem}
+      >
+        {selectedItems.length === 1
+          ?
+          <SpaceBetween size="l">
+            <p>Are you sure you wish to delete the selected group?</p>
+          </SpaceBetween>
+          :
+          <p>Are you sure you wish to delete the {selectedItems.length} selected groups?</p>
+        }
+      </GroupDeleteModal>
+      <AddGroupsModal
+        title={'Select groups to add'}
+        onConfirmation={addUsersToGroups}
+        groups={permissionsData.groups.map(group => group.group_name)}
+      >
+      </AddGroupsModal>
+      <RemoveGroupsModal
+        title={'Select groups to remove'}
+        onConfirmation={removeUsersFromGroups}
+        groups={permissionsData.groups.map(group => group.group_name)}
+      >
+      </RemoveGroupsModal>
+      <AddGroupModal
+        title={'New group'}
+        schemas={props.schema}
+        schemaName={'group'}
+        userAccess={props.userEntityAccess}
+        onConfirmation={createGroup}
+      />
     </div>
   );
 };

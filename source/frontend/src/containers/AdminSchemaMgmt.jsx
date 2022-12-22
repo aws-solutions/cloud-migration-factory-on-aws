@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, {useEffect, useState} from 'react';
 import Admin from "../actions/admin";
 
@@ -278,30 +283,30 @@ const AdminSchemaMgmt = (props) => {
         });
 
         await props.reloadSchema();
-
-        setEditingItem(false);
-
       }
 
 
     } catch (e) {
       console.log(e);
-      if ('response' in e && 'data' in e.response) {
+      if ('response' in e && 'data' in e.response && 'message' in e.response.data) {
+        hideAmend();
         handleNotification({
           type: 'error',
           dismissible: true,
           header: "Save attribute",
-          content: e.message
+          content: e.response.data.message
         });
+        setEditingItem(false);
       } else{
-
+        hideAmend();
         handleNotification({
           type: 'error',
           dismissible: true,
           header: "Save attribute",
-          content: 'Unknown error occured',
+          content: 'Unknown error occurred',
         });
       }
+      setEditingItem(false);
     }
 
   }

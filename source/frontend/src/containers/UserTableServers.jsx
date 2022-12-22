@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, {useEffect, useState} from 'react';
 import User from "../actions/user";
 import {useLocation, useNavigate, useParams} from "react-router-dom";
@@ -157,6 +162,16 @@ const UserServerTable = (props) => {
         const session = await Auth.currentSession();
         const apiUser = new User(session);
         newItem = getChanges(newItem, dataServers, "server_id");
+        if(!newItem){
+          // no changes to original record.
+          handleNotification({
+            type: 'warning',
+            dismissible: true,
+            header: "Save " + schemaName,
+            content: "No updates to save."
+          });
+          return false;
+        }
         var result = await apiUser.putItem(server_id, newItem, 'server');
 
         if (result['errors']) {
@@ -222,6 +237,7 @@ const UserServerTable = (props) => {
         if (e.response.data.errors)
         {
           response = e.response.data.errors;
+          response = parsePUTResponseErrors(response);
         } else if (e.response.data.cause){
           response = e.response.data.cause;
         } else {

@@ -30,7 +30,7 @@ else:
 default_http_headers = {
     'Access-Control-Allow-Origin': cors,
     'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy' : "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
+    'Content-Security-Policy': "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
 }
 application = os.environ['application']
 environment = os.environ['environment']
@@ -39,13 +39,14 @@ schema_table_name = '{}-{}-schema'.format(application, environment)
 
 schema_table = boto3.resource('dynamodb').Table(schema_table_name)
 
+
 def lambda_handler(event, context):
     if event['pathParameters'] is None or 'schema_name' not in event['pathParameters']:
         if event['httpMethod'] != 'GET':
             return {'headers': {**default_http_headers},
                     'statusCode': 400, 'body': 'schema name not provided.'}
         else:
-            #This is a request for the schema list, return array of schemas.
+            # This is a request for the schema list, return array of schemas.
             schemas = get_schema_list()
             return {'headers': {**default_http_headers},
                     'body': json.dumps(schemas)}
@@ -56,7 +57,7 @@ def lambda_handler(event, context):
         schema_name = 'app'
 
     if event['httpMethod'] == 'GET':
-        resp = schema_table.get_item(Key={'schema_name' : schema_name})
+        resp = schema_table.get_item(Key={'schema_name': schema_name})
         if 'Item' in resp:
             item = resp['Item']
             return {'headers': {**default_http_headers},
@@ -65,51 +66,56 @@ def lambda_handler(event, context):
             return {'headers': {**default_http_headers},
                     'body': json.dumps([])}
     elif event['httpMethod'] == 'DELETE':
-        resp = schema_table.update_item(
+        resp = schema_table.put_item(
             Item={
-              'schema_name': schema_name,
-              'schema_type': 'deleted-user',
-              'schema_deleted': True,
-              'lastModifiedTimestamp': datetime.datetime.utcnow().isoformat()
+                'schema_name': schema_name,
+                'schema_type': 'deleted-user',
+                'schema_deleted': True,
+                'lastModifiedTimestamp': datetime.datetime.utcnow().isoformat()
             }
         )
         if 'Item' in resp:
             item = resp['Item']
             return {'headers': {**default_http_headers},
                     'statusCode': 400, 'body': schema_name + ' schema does not exists.'}
+        else:
+            return {'headers': {**default_http_headers},
+                    'statusCode': 200,
+                    'body': json.dumps(resp)}
 
     elif event['httpMethod'] == 'POST':
+        # Add new schema.
         try:
             body = json.loads(event['body'])
         except:
             return {'headers': {**default_http_headers},
                     'statusCode': 400, 'body': 'malformed json input'}
 
-        resp = schema_table.get_item(Key={'schema_name': schema_name})
-        if 'Item' in resp:
-            item = resp['Item']
-            return {'headers': {**default_http_headers},
-                    'statusCode': 400, 'body': schema_name + ' schema already exists.'}
-
         if 'schema_name' not in body:
             return {'headers': {**default_http_headers},
-                  'statusCode': 400, 'body': 'schema_name not provided.'}
+                    'statusCode': 400, 'body': 'schema_name not provided.'}
 
         if 'attributes' not in body:
             return {'headers': {**default_http_headers},
-                  'statusCode': 400, 'body': 'attributes not provided.'}
+                    'statusCode': 400, 'body': 'attributes not provided.'}
+
+        resp = schema_table.get_item(Key={'schema_name': body['schema_name']})
+        print(resp)
+        if 'Item' in resp:
+            return {'headers': {**default_http_headers},
+                    'statusCode': 400, 'body': body['schema_name'] + ' schema already exists.'}
 
         resp = schema_table.put_item(
-
             Item={
-                'schema_name': body.schema_name,
+                'schema_name': body['schema_name'],
                 'schema_type': 'user',
-                'attributes' : body.attributes,
+                'attributes': body['attributes'],
                 'lastModifiedTimestamp': datetime.datetime.utcnow().isoformat()
             }
 
         )
         return {'headers': {**default_http_headers},
+                'statusCode': 200,
                 'body': json.dumps(resp)}
 
     elif event['httpMethod'] == 'PUT':
@@ -117,11 +123,10 @@ def lambda_handler(event, context):
             body = json.loads(event['body'])
 
         except:
-            print(event['body'])
             return {'headers': {**default_http_headers},
                     'statusCode': 400, 'body': 'malformed json input'}
 
-        if 'update_schema' in body: # Check if this is a main schema update and not attribute.
+        if 'update_schema' in body:  # Check if this is a main schema update and not attribute.
             updates = False
             update_expression_values = {':dt': datetime.datetime.utcnow().isoformat()}
             update_expresssion_set = 'SET lastModifiedTimestamp =:dt'
@@ -130,10 +135,10 @@ def lambda_handler(event, context):
             if 'friendly_name' in body['update_schema']:
                 updates = True
                 if body['update_schema']['friendly_name'] == '':
-                  update_expresssion_remove += ' REMOVE friendly_name'
+                    update_expresssion_remove += ' REMOVE friendly_name'
                 else:
-                  update_expresssion_set += ', friendly_name=:fn'
-                  update_expression_values[':fn'] = body['update_schema']['friendly_name']
+                    update_expresssion_set += ', friendly_name=:fn'
+                    update_expression_values[':fn'] = body['update_schema']['friendly_name']
 
             if 'help_content' in body['update_schema']:
                 updates = True
@@ -142,38 +147,38 @@ def lambda_handler(event, context):
 
             if updates:
                 try:
-                  resp = schema_table.update_item(
-                      Key={'schema_name': schema_name },
-                      UpdateExpression=update_expresssion_set + update_expresssion_remove,
-                      ExpressionAttributeValues=update_expression_values,
-                      ReturnValues='UPDATED_NEW'
-                  )
+                    resp = schema_table.update_item(
+                        Key={'schema_name': schema_name},
+                        UpdateExpression=update_expresssion_set + update_expresssion_remove,
+                        ExpressionAttributeValues=update_expression_values,
+                        ReturnValues='UPDATED_NEW'
+                    )
                 except Exception as e:
-                  print(e)
-                  print(update_expresssion_set + update_expresssion_remove)
-                  return {'headers': {**default_http_headers},
-                          'statusCode': 400,
-                          'body': str(e)}
+                    print(e)
+                    print(update_expresssion_set + update_expresssion_remove)
+                    return {'headers': {**default_http_headers},
+                            'statusCode': 400,
+                            'body': str(e)}
 
                 if 'Attributes' in resp:
                     return {'headers': {**default_http_headers},
                             'body': json.dumps(resp)}
                 else:
-                  return {'headers': {**default_http_headers},
-                          'statusCode': 400,
-                          'body': "Error updating schema."}
+                    return {'headers': {**default_http_headers},
+                            'statusCode': 400,
+                            'body': "Error updating schema."}
             else:
-              return {'headers': {**default_http_headers},
-                      'body': 'No updates provided.'}
+                return {'headers': {**default_http_headers},
+                        'body': 'No updates provided.'}
 
         if schema_name + '_id' in body:
-          return {'headers': {**default_http_headers},
-                  'statusCode': 400,
-                  'body': "You cannot create " + schema_name + "_id schema, this is managed by the system"}
+            return {'headers': {**default_http_headers},
+                    'statusCode': 400,
+                    'body': "You cannot create " + schema_name + "_id schema, this is managed by the system"}
 
         attributes = []
         names = []
-        resp = schema_table.get_item(Key={'schema_name' : schema_name})
+        resp = schema_table.get_item(Key={'schema_name': schema_name})
         if 'Item' in resp:
             attributes = resp['Item']['attributes']
         for attr in attributes:
@@ -181,12 +186,12 @@ def lambda_handler(event, context):
                 names.append(attr['name'])
         if 'event' in body:
             if body['event'] == 'DELETE':
-               if "name" not in body:
+                if "name" not in body:
                     return {'headers': {**default_http_headers},
                             'statusCode': 400, 'body': "Attribute Name: name is required"}
-               for attr in attributes:
-                   if attr['name'] == body['name']:
-                       attributes.remove(attr)
+                for attr in attributes:
+                    if attr['name'] == body['name']:
+                        attributes.remove(attr)
             if body['event'] == 'PUT':
                 if "update" not in body:
                     return {'headers': {**default_http_headers},
@@ -209,8 +214,8 @@ def lambda_handler(event, context):
                             return {'headers': {**default_http_headers},
                                     'statusCode': 400, 'body': "Attribute Name: 'List Value' can not be empty"}
                     else:
-                            return {'headers': {**default_http_headers},
-                                    'statusCode': 400, 'body': "Attribute Name: 'List Value' can not be empty"}
+                        return {'headers': {**default_http_headers},
+                                'statusCode': 400, 'body': "Attribute Name: 'List Value' can not be empty"}
                 if body['update']['name'] in names and body['name'] != body['update']['name']:
                     return {'headers': {**default_http_headers},
                             'statusCode': 400, 'body': "Name: " + body['update']['name'] + " already exist"}
@@ -243,8 +248,8 @@ def lambda_handler(event, context):
                         return {'headers': {**default_http_headers},
                                 'statusCode': 400, 'body': "Attribute Name: 'Description' cannot be empty"}
                 if 'type' not in body['new']:
-                        return {'headers': {**default_http_headers},
-                                'statusCode': 400, 'body': "Attribute Name: 'Type' cannot be empty"}
+                    return {'headers': {**default_http_headers},
+                            'statusCode': 400, 'body': "Attribute Name: 'Type' cannot be empty"}
                 else:
                     if body['new']['type'] == '':
                         return {'headers': {**default_http_headers},
@@ -255,8 +260,8 @@ def lambda_handler(event, context):
                             return {'headers': {**default_http_headers},
                                     'statusCode': 400, 'body': "Attribute Name: 'List Value' can not be empty"}
                     else:
-                            return {'headers': {**default_http_headers},
-                                    'statusCode': 400, 'body': "Attribute Name: 'List Value' can not be empty"}
+                        return {'headers': {**default_http_headers},
+                                'statusCode': 400, 'body': "Attribute Name: 'List Value' can not be empty"}
                 attributes.append(body['new'])
         else:
             return {'headers': {**default_http_headers},
@@ -273,11 +278,12 @@ def lambda_handler(event, context):
         return {'headers': {**default_http_headers},
                 'body': json.dumps(resp)}
 
+
 def get_schema_list():
     response = schema_table.scan(ConsistentRead=True)
     scan_data = response['Items']
     while 'LastEvaluatedKey' in response:
-        response = schema_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],ConsistentRead=True)
+        response = schema_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'], ConsistentRead=True)
         scan_data.extend(response['Items'])
 
     schema_list = []
@@ -293,9 +299,9 @@ def get_schema_list():
             'schema_type': schema_type
         }
 
-        if'friendly_name' in schema:
-          returnSchema['friendly_name'] = schema['friendly_name']
+        if 'friendly_name' in schema:
+            returnSchema['friendly_name'] = schema['friendly_name']
 
         schema_list.append(returnSchema)
 
-    return(schema_list)
+    return (schema_list)

@@ -1,2 +1,2 @@
-troposphere==3.0.3
+troposphere==4.2.0
 # Removed from package as will use Lambda provided boto client last tested version was : boto3==1.17.96

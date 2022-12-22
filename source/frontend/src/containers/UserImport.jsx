@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, {useEffect, useState} from 'react';
 import User from "../actions/user";
 import ImportOverview from '../components/import/ImportOverview.jsx';
@@ -85,88 +90,6 @@ const UserImport = (props) => {
     setImportProgressStatus(notification);
   }
 
-  async function commitWaves(items, dataImport, action, notification) {
-
-    let loutputCommit = [];
-    let currentItem = null;
-    const session = await Auth.currentSession();
-    const apiUser = new User(session);
-
-    for (let itemIdx = 0; itemIdx < items.length; itemIdx++)
-    {
-      let newItem = Object.assign({}, items[itemIdx]);
-
-      currentItem = items[itemIdx];
-
-      //Remove any calculated key from object.
-      for (const key in newItem){
-        if (key.startsWith('__')){
-          delete newItem[key]
-        }
-      }
-
-      try {
-        if (action === 'Update') {
-          let wave_id = newItem.wave_id;
-          delete newItem.wave_id;
-          const result = await apiUser.putWave(wave_id, newItem);
-        }
-        else if (action === 'Create') {
-          delete newItem.wave_id;
-          const result = await apiUser.postWave(newItem);
-
-          //Update servers with ID for created wave where relationship exists.
-          updateRelatedItemAttributes(result[0], "wave", dataImport.server.Create, "server")
-          updateRelatedItemAttributes(result[0], "wave", dataImport.server.Update, "server")
-
-          //Update databases with ID for created wave where relationship exists.
-          updateRelatedItemAttributes(result[0], "wave", dataImport.database.Create, "database")
-          updateRelatedItemAttributes(result[0], "wave", dataImport.database.Update, "database")
-
-          //Update servers with ID for created wave where relationship exists.
-          updateRelatedItemAttributes(result[0], "wave", dataImport.application.Create, "application")
-          updateRelatedItemAttributes(result[0], "wave", dataImport.application.Update, "application")
-
-          //Update servers with ID for created wave where relationship exists.
-          updateRelatedItemAttributes(result[0], "wave", dataImport.wave.Create, "wave")
-          updateRelatedItemAttributes(result[0], "wave", dataImport.wave.Update, "wave")
-
-        }
-
-      } catch (e) {
-        console.log(e);
-        if ('response' in e && 'data' in e.response) {
-          if (typeof e.response.data === 'object' && 'cause' in e.response.data){
-            loutputCommit.push({
-              itemType: 'Wave',
-              error: currentItem.wave_name ? currentItem.wave_name + " - " + e.response.data.cause : e.response.data.cause,
-              item: currentItem
-            });
-          } else {
-            loutputCommit.push({
-              itemType: 'Wave',
-              error: currentItem.wave_name ? currentItem.wave_name + " - " + e.response.data : e.response.data,
-              item: currentItem
-            });
-          }
-        } else {
-          loutputCommit.push({itemType: 'Wave', error: 'Unknown error occurred', item: currentItem})
-        }
-      }
-      updateUploadStatus(notification, "Uploading waves...");
-    }
-
-    //TODO Need to check if updates are needed in the commit as we could
-    // refresh this if a user wants to upload another instead.
-    updateWaves();
-
-    if (loutputCommit.length > 0) {
-      let newCommitError = outputCommitErrors;
-      newCommitError.push(...loutputCommit)
-      setOutputCommitErrors(newCommitError);
-    }
-  }
-
   function updateRelatedItemAttributes(newItem, new_item_schema_name, related_items, related_schema_name){
 
     if (!props.schema[new_item_schema_name]){
@@ -227,152 +150,6 @@ const UserImport = (props) => {
       }
     }
   }
-
-  async function commitApps(items, dataImport, action, notification) {
-
-    let loutputCommit = [];
-    let currentItem = null;
-    const session = await Auth.currentSession();
-    const apiUser = new User(session);
-
-    for (let itemIdx = 0; itemIdx < items.length; itemIdx++)
-    {
-      let newItem = Object.assign({}, items[itemIdx]);
-
-      currentItem = items[itemIdx];
-
-      //Remove any calculated key from object.
-      for (const key in newItem){
-        if (key.startsWith('__')){
-          delete newItem[key]
-        }
-      }
-
-      try {
-        if (action === 'Update') {
-          let app_id = newItem.app_id;
-          delete newItem.app_id;
-          //delete newItem.app_name;
-          const result = await apiUser.putApp(app_id, newItem);
-        }
-        else if (action === 'Create') {
-          delete newItem.app_id;
-          var result = await apiUser.postItem(newItem, 'app');
-
-          //Update servers with ID for created app where relationship exists.
-          updateRelatedItemAttributes(result.newItems[0], "application", dataImport.server.Create, "server")
-          updateRelatedItemAttributes(result.newItems[0], "application", dataImport.server.Update, "server")
-
-          //Update databases with ID for created app where relationship exists.
-          updateRelatedItemAttributes(result.newItems[0], "application", dataImport.database.Create, "database")
-          updateRelatedItemAttributes(result.newItems[0], "application", dataImport.database.Update, "database")
-
-          //Update servers with ID for created app where relationship exists.
-          updateRelatedItemAttributes(result.newItems[0], "application", dataImport.application.Create, "application")
-          updateRelatedItemAttributes(result.newItems[0], "application", dataImport.application.Update, "application")
-
-        }
-      } catch (e) {
-        console.log(e);
-        if ('response' in e && 'data' in e.response) {
-          if (typeof e.response.data === 'object' && 'cause' in e.response.data){
-            loutputCommit.push({
-              itemType: 'Application',
-              error: currentItem.app_name ? currentItem.app_name + " - " + e.response.data.cause : e.response.data.cause,
-              item: currentItem
-            });
-          } else {
-            loutputCommit.push({
-              itemType: 'Application',
-              error: currentItem.app_name ? currentItem.app_name + " - " + e.response.data : e.response.data,
-              item: currentItem
-            });
-          }
-        } else{
-          loutputCommit.push({itemType: 'Application', error: newItem.app_name ? newItem.app_name + ' - Unknown error occurred' : 'Unknown error occurred', item: newItem})
-        }
-      }
-      updateUploadStatus(notification, "Uploading applications...");
-    }
-
-    //TODO Need to check if updates are needed in the commit as we could
-    // refresh this if a user wants to upload another instead.
-    updateApps();
-
-    if (loutputCommit.length > 0) {
-
-      let newCommitError = outputCommitErrors;
-      newCommitError.push(...loutputCommit)
-      setOutputCommitErrors(newCommitError);
-    }
-
-  }
-
-    function getRelationshipRecord (attribute, value) {
-
-      switch (attribute.rel_entity) {
-        case 'application':
-          if (isLoadingApps || !value)
-            return null;
-          else {
-                let app = dataApps.find(item => {
-                  if (item[attribute.rel_key]){
-                    if (item[attribute.rel_key].toLowerCase() === value.toLowerCase()){
-                      return true;
-                    }
-                  }
-              }
-            )
-
-            if (app) {
-              return app;
-            } else {
-              return null;
-            }
-          }
-       case 'wave':
-         if (isLoadingWaves || !value)
-           return null;
-         else {
-               let wave = dataWaves.find(item => {
-               if (item[attribute.rel_key]){
-                 if (item[attribute.rel_key].toLowerCase() === value.toLowerCase()){
-                   return true;
-                 }
-               }
-             }
-           )
-
-           if (wave) {
-             return wave;
-           } else {
-             return null;
-           }
-         }
-       case 'server':
-         if (isLoadingServers || !value)
-           return null;
-         else {
-               let server = dataServers.find(item => {
-                 if (item[attribute.rel_key]){
-                   if (item[attribute.rel_key].toLowerCase() === value.toLowerCase()){
-                     return true;
-                   }
-                 }
-             }
-           )
-
-           if (server) {
-             return server;
-           } else {
-             return null;
-           }
-         }
-       default:
-         return null;
-     }
-
-    }
 
   async function commitItems(schema, items, dataImport, action, notification) {
 
@@ -508,241 +285,11 @@ const UserImport = (props) => {
     }
   }
 
-    async function commitServers(items, dataImport, action, notification) {
-
-        const start = Date.now();
-        const schema = 'server';
-
-        let loutputCommit = [];
-        let commitItems = [];
-        let currentItem = null;
-        const session = await Auth.currentSession();
-        const apiUser = new User(session);
-
-        for (let itemIdx = 0; itemIdx < items.length; itemIdx++)
-        {
-          let newItem = Object.assign({}, items[itemIdx]);
-
-          currentItem = items[itemIdx];
-
-          //Remove any calculated keys from object.
-          for (const key in newItem){
-            if (key.startsWith('__')){
-              delete newItem[key]
-            }
-          }
-
-          commitItems.push(currentItem);
-
-          //If item has related attributes then resolve names to IDs.
-          //TODO this only supports app_id/app_name and should allow support for all relationship attributes.
-          // if (!newItem.app_id && newItem.app_name){
-          //   let app_id = -1;
-          //   let app = dataApps.find(item => {
-          //       if (item.app_name.toLowerCase() === newItem.app_name.toLowerCase()){
-          //         return true;
-          //       }
-          //     }
-          //   )
-          //   if (app){
-          //     app_id = app.app_id;
-          //     newItem.app_id = app_id;
-          //     delete newItem.app_name;
-          //   }
-          // }
-
-          try {
-            if (action === 'Update') {
-              let item_id = newItem[schema + '_id'];
-              delete newItem[schema + '_id'];
-              const result = await apiUser.putItem(item_id, newItem, schema);
-              updateUploadStatus(notification, action + " " + schema + " records...");
-            }
-
-          } catch (e) {
-            updateUploadStatus(notification, action + " " + schema + " records...");
-            console.error(e);
-            if ('response' in e && 'data' in e.response) {
-              if (typeof e.response.data === 'object' && 'cause' in e.response.data){
-                loutputCommit.push({
-                  itemType: schema,
-                  error: currentItem[schema + '_name'] ? currentItem[schema + '_name'] + " - " + e.response.data.cause : e.response.data.cause,
-                  item: currentItem
-                });
-              } else {
-                loutputCommit.push({
-                  itemType: schema,
-                  error: currentItem[schema + '_name'] ? currentItem[schema + '_name'] + " - " + e.response.data : e.response.data,
-                  item: currentItem
-                });
-              }
-            } else{
-              loutputCommit.push({itemType: schema, error: currentItem[schema + '_name'] ? currentItem[schema + '_name'] + ' - Unknown error occurred' : 'Unknown error occurred', item: currentItem})
-            }
-          }
-
-        }
-
-      try {
-        if (action === 'Create') {
-          for (const item in commitItems){
-            delete item[schema + '_id'];
-          }
-
-          console.debug("Starting bulk post")
-          const result = await apiUser.postItems(commitItems, schema);
-          updateUploadStatus(notification, "Updating any related records with new " + schema + " IDs...", commitItems.length/2);
-          console.debug("Bulk post complete")
-
-          if (result['newItems']) {
-            console.debug("Updating related items")
-            for (const item of result['newItems']){
-
-              //Update servers with ID for created server where relationship exists.
-              updateRelatedItemAttributes(item, schema, dataImport.server.Update, "server")
-              //
-              // //Update databases with ID for created server where relationship exists.
-              updateRelatedItemAttributes(item, schema, dataImport.database.Create, "database")
-              updateRelatedItemAttributes(item, schema, dataImport.database.Update, "database")
-
-              // //Update servers with ID for created server where relationship exists.
-              updateRelatedItemAttributes(item, schema, dataImport.application.Update, "application")
-            }
-
-            updateUploadStatus(notification, "Updating any related records with new " + schema + " IDs...", commitItems.length/2);
-          }
-
-          if (result['errors']) {
-            console.debug("PUT " + schema + " errors");
-            console.debug(result['errors']);
-            let errorsReturned = parsePUTResponseErrors(result['errors']);
-            loutputCommit.push({
-                  'itemType': schema,
-                  'error': 'Create failed',
-                  'item': errorsReturned
-                });
-          }
-        }
-
-      } catch (e) {
-        console.debug(e);
-        if(e) {
-          loutputCommit.push({
-            itemType: schema + ' ' + action,
-            error: 'Internal API error - Contact support',
-            item: JSON.stringify(e)
-          });
-        } else {
-          loutputCommit.push({
-            itemType: schema + ' ' + action,
-            error: 'Internal API error - Contact support',
-            item: {}
-          });
-        }
-
-        updateUploadStatus(notification, "Error uploading records of type :" + schema, commitItems.length);
-      }
-
-      const millis = Date.now() - start;
-      console.debug(`seconds elapsed = ${Math.floor(millis / 1000)}`);
-
-        //TODO Need to check if updates are needed in the commit as we could
-        // refresh this if a user wants to upload another instead.
-        //updateServers();
-
-        if (loutputCommit.length > 0) {
-          let newCommitError = outputCommitErrors;
-          newCommitError.push(...loutputCommit)
-          setOutputCommitErrors(newCommitError);
-        }
-      }
-
-  async function commitDatabases(items, dataImport, action, notification) {
-
-    let schema_name = 'database';
-
-    let loutputCommit = [];
-    let currentItem = null;
-    const session = await Auth.currentSession();
-    const apiUser = new User(session);
-
-    for (let itemIdx = 0; itemIdx < items.length; itemIdx++)
-    {
-      let newItem = Object.assign({}, items[itemIdx]);
-
-      currentItem = items[itemIdx];
-
-      //Remove any calculated key from object.
-      for (const key in newItem){
-        if (key.startsWith('__')){
-          delete newItem[key]
-        }
-      }
-
-      try {
-        if (action === 'Update') {
-          let item_id = newItem[schema_name + '_id'];
-          delete newItem[schema_name + '_id'];
-          //delete newItem[schema_name + '_name'];
-          const result = await apiUser.putDatabase(item_id, newItem);
-        }
-        else if (action === 'Create') {
-          delete newItem[schema_name + '_id'];
-          const result = await apiUser.postDatabase(newItem);
-
-          //Update servers with ID for created db where relationship exists.
-          updateRelatedItemAttributes(result[0], "database", dataImport.server.Create, "server")
-          updateRelatedItemAttributes(result[0], "database", dataImport.server.Update, "server")
-
-          //Update databases with ID for created db where relationship exists.
-          updateRelatedItemAttributes(result[0], "database", dataImport.database.Create, "database")
-          updateRelatedItemAttributes(result[0], "database", dataImport.database.Update, "database")
-
-          //Update servers with ID for created db where relationship exists.
-          updateRelatedItemAttributes(result[0], "database", dataImport.application.Create, "application")
-          updateRelatedItemAttributes(result[0], "database", dataImport.application.Update, "application")
-        }
-
-
-      } catch (e) {
-        console.log(e);
-        if ('response' in e && 'data' in e.response) {
-          if (typeof e.response.data === 'object' && 'cause' in e.response.data){
-            loutputCommit.push({
-              itemType: capitalize(schema_name),
-              error: schema_name + "_name" in currentItem ? currentItem[schema_name + "_name"] + " - " + e.response.data.cause : e.response.data.cause,
-              item: currentItem
-            });
-          } else {
-            loutputCommit.push({
-              itemType:  capitalize(schema_name),
-              error: schema_name + "_name" in currentItem ? currentItem[schema_name + "_name"] + " - " + e.response.data : e.response.data,
-              item: currentItem
-            });
-          }        } else{
-          loutputCommit.push({itemType: capitalize(schema_name), error: schema_name + '_name' in currentItem ? currentItem[schema_name + '_name'] + ' - Unknown error occurred' : 'Unknown error occurred', item: currentItem})
-        }
-      }
-
-      updateUploadStatus(notification, "Uploading " + schema_name + "s...");
-    }
-
-    //TODO Need to check if updates are needed in the commit as we could
-    // refresh this if a user wants to upload another instead.
-    updateDatabases();
-
-    if (loutputCommit.length > 0) {
-      let newCommitError = outputCommitErrors;
-      newCommitError.push(...loutputCommit)
-      setOutputCommitErrors(newCommitError);
-    }
-  }
-
   function readCSVFile(file){
-    if (typeof (FileReader) != "undefined") {
-        var reader = new FileReader();
+    if (typeof (FileReader) !== "undefined") {
+      var reader = new FileReader();
 
-        return new Promise((resolve, reject) => {
+      return new Promise((resolve, reject) => {
         reader.onerror = () => {
           reader.abort();
           reject(new DOMException("Problem parsing input file."));
@@ -754,12 +301,12 @@ const UserImport = (props) => {
         reader.readAsText(file);
       });
     } else {
-        alert("This browser does not support HTML5.");
+      setErrorFile(["This browser does not support HTML5, it is not possible to import files."])
     }
   }
 
   function readXLSXFile(file){
-    if (typeof (FileReader) != "undefined") {
+    if (typeof (FileReader) !== "undefined") {
       var reader = new FileReader();
 
       return new Promise((resolve, reject) => {
@@ -774,7 +321,7 @@ const UserImport = (props) => {
         reader.readAsArrayBuffer(file);
       });
     } else {
-      alert("This browser does not support HTML5.");
+      setErrorFile(["This browser does not support HTML5, it is not possible to import files."])
     }
   }
 
@@ -896,92 +443,79 @@ const UserImport = (props) => {
 
   }
 
-  function parseData(data){
-    let csvData = [];
-    let lbreak = data.split("\n");
-    lbreak.forEach(res => {
-        if (res.trim() !== ''){
-          csvData.push(res.trim().split(","));
-        }
-    });
+  function performDataValidation (csvData){
+    let objArray = [];
+    let attributeMappings = [];
+    let schemas = [];
 
-    return csvData;
-    //console.table(csvData);
-}
-
-function performDataValidation (csvData){
-  let objArray = [];
-  let attributeMappings = [];
-  let schemas = [];
-
-  for (var itemIdx = 0; itemIdx < csvData.length; itemIdx++) {
+    for (var itemIdx = 0; itemIdx < csvData.length; itemIdx++) {
       //let item = {};
       let itemErrors = [];
       let itemWarnings = [];
       let itemInformational = [];
       for (const key in csvData[itemIdx]) {
-            let attr = [];
-            let schema_name = null;
-            if (key.startsWith('[')) {
-              //Schema name provided in key.
-              let keySplit = key.split(']');
-              if (keySplit.length > 1) {
-                if (keySplit[0] !== '' && keySplit[1] !== '') {
-                  schema_name = keySplit[0].substring(1);
-                  attr = getFindAttribute(keySplit[1], props.schema, schema_name);
-                } else {
-                  //check with full key as not in correct format.
-                  //Key does not provide schema hint.
-                  attr = getFindAttribute(key, props.schema);
-                }
-              } else {
-                //check with full key as not in correct format.
-                //Key does not provide schema hint.
-                attr = getFindAttribute(key, props.schema);
-              }
-            }else{
+        let attr = [];
+        let schema_name = null;
+        if (key.startsWith('[')) {
+          //Schema name provided in key.
+          let keySplit = key.split(']');
+          if (keySplit.length > 1) {
+            if (keySplit[0] !== '' && keySplit[1] !== '') {
+              schema_name = keySplit[0].substring(1);
+              attr = getFindAttribute(keySplit[1], props.schema, schema_name);
+            } else {
+              //check with full key as not in correct format.
               //Key does not provide schema hint.
               attr = getFindAttribute(key, props.schema);
             }
+          } else {
+            //check with full key as not in correct format.
+            //Key does not provide schema hint.
+            attr = getFindAttribute(key, props.schema);
+          }
+        }else{
+          //Key does not provide schema hint.
+          attr = getFindAttribute(key, props.schema);
+        }
 
-            if (attr.length > 1) {
-              itemInformational.push({attribute: key, error: 'Ambiguous attribute name provided. It is found in multiple schemas ['+ attr.map(item => {return item.schema_name}).join(', ') +']. Import will map data to schemas as required based on record types.'});
+        if (attr.length > 1) {
+          itemInformational.push({attribute: key, error: 'Ambiguous attribute name provided. It is found in multiple schemas ['+ attr.map(item => {return item.schema_name}).join(', ') +']. Import will map data to schemas as required based on record types.'});
+        }
+
+        for (const foundAttr of attr){
+          foundAttr['import_raw_header'] = key;
+
+          let filterMappings = attributeMappings.filter(item => {
+            if (item['import_raw_header'] === key) {
+              if (item['schema_name'] === foundAttr.schema_name){
+                return true;
+              } else {
+                return false;
+              }
+
+            } else {
+              return false;
             }
+          });
 
-            for (const foundAttr of attr){
-              foundAttr['import_raw_header'] = key;
+          if (filterMappings.length === 0){
+            attributeMappings.push(foundAttr);
+          }
 
-              let filterMappings = attributeMappings.filter(item => {
-                if (item['import_raw_header'] === key) {
-                  if (item['schema_name'] === foundAttr.schema_name){
-                    return true;
-                  } else {
-                    return false;
-                  }
+          //Add schema names to list for quick lookup later.
+          if (foundAttr.attribute && !schemas.includes(foundAttr.schema_name)){
+            schemas.push(foundAttr.schema_name);
+          }
 
-                } else {
-                  return false;
-                }
-              });
-
-              if (filterMappings.length === 0){
-                attributeMappings.push(foundAttr);
-              }
-
-              //Add schema names to list for quick lookup later.
-              if (foundAttr.attribute && !schemas.includes(foundAttr.schema_name)){
-                schemas.push(foundAttr.schema_name);
-              }
-
-              let msgError = performValueValidation(foundAttr, csvData[itemIdx][key])
-              if (msgError){
-                if (msgError.type === 'error') {
-                  itemErrors.push({attribute: key, error: msgError.message});
-                } else if (msgError.type === 'warning') {
-                  itemWarnings.push({attribute: key, error: msgError.message});
-                }
-              }
+          let msgError = performValueValidation(foundAttr, csvData[itemIdx][key])
+          if (msgError){
+            if (msgError.type === 'error') {
+              itemErrors.push({attribute: key, error: msgError.message});
+            } else if (msgError.type === 'warning') {
+              itemWarnings.push({attribute: key, error: msgError.message});
             }
+          }
+        }
 
         //}
       }
@@ -991,10 +525,10 @@ function performDataValidation (csvData){
       csvData[itemIdx]['__validation']['errors'] = itemErrors;
       csvData[itemIdx]['__validation']['warnings'] = itemWarnings;
       csvData[itemIdx]['__validation']['informational'] = itemInformational
-  }
+    }
 
-  return {'data': csvData, 'attributeMappings': attributeMappings, 'schema_names': schemas};
-}
+    return {'data': csvData, 'attributeMappings': attributeMappings, 'schema_names': schemas};
+  }
 
   async function handleUploadChange(e) {
     e.preventDefault();
@@ -1033,14 +567,14 @@ function performDataValidation (csvData){
   function getSchemaAttribute(attributeName, schema) {
     let attr = null;
 
-        for (var row = 0; row < schema.attributes.length; row++) {
-          if (schema.attributes[row].name === attributeName){
-            attr = schema.attributes[row];
-            break;
-          }
-        }
+    for (var row = 0; row < schema.attributes.length; row++) {
+      if (schema.attributes[row].name === attributeName){
+        attr = schema.attributes[row];
+        break;
+      }
+    }
 
-        return attr;
+    return attr;
   }
 
   function getSchemaRelationshipAttributes(attributeName, schema) {
@@ -1203,7 +737,7 @@ function performDataValidation (csvData){
         };
 
         //Populate distinct records from data import for each schema, referenced by _name or _id attribute.
-         const tempDistinct = [...new Set(items.data.map(x => {
+        const tempDistinct = [...new Set(items.data.map(x => {
           if (temp_schema_name + '_name' in x){
             return x[temp_schema_name + '_name'];
           } else if ('[' + schema_name + ']' + temp_schema_name + '_name' in x) {
@@ -1618,11 +1152,11 @@ function performDataValidation (csvData){
       loading: true,
       dismissible: false,
       content: <ProgressBar
-          label={"Importing file " + importName + " ..."}
-          value={0}
-          additionalInfo="Starting upload..."
-          variant="flash"
-        />
+        label={"Importing file " + importName + " ..."}
+        value={0}
+        additionalInfo="Starting upload..."
+        variant="flash"
+      />
     });
 
     setCommitting(true);
@@ -1668,9 +1202,9 @@ function performDataValidation (csvData){
 
     if (outputCommitErrors.length > 0) {
       let errors = outputCommitErrors.map(errorItem => (
-            <ExpandableSection
-              header={errorItem.itemType + " - " + errorItem.error}>{JSON.stringify(errorItem.item)}</ExpandableSection>
-        ))
+        <ExpandableSection
+          header={errorItem.itemType + " - " + errorItem.error}>{JSON.stringify(errorItem.item)}</ExpandableSection>
+      ))
 
       handleNotification({
         id: status.id,
@@ -1712,42 +1246,42 @@ function performDataValidation (csvData){
         let mvlist = value.split(';')
         for (let item in mvlist){
           errorMsg = validateValue(mvlist[item], attribute.attribute)
-         }
-         break;
-       case 'relationship':
-         errorMsg = validateValue(value, attribute.attribute)
+        }
+        break;
+      case 'relationship':
+        errorMsg = validateValue(value, attribute.attribute)
 
-         // if(value !== '' && value !== undefined && value !== null) {
-         //   let relatedRecord = getRelationshipRecord(attribute, value);
-         //   if (relatedRecord === null){
-         //     errorMsg = 'Related record not found based on value provided.';
-         //   }
-         // }
-         break;
-       case 'json':
-         if (value) {
-           try{
-             let testJSON = JSON.parse(value);
-           } catch (objError) {
-             if (objError instanceof SyntaxError) {
-                   console.error(objError.name);
-                   errorMsg = "Invalid JSON: " + objError.message;
-               } else {
-                   console.error(objError.message);
-               }
+        // if(value !== '' && value !== undefined && value !== null) {
+        //   let relatedRecord = getRelationshipRecord(attribute, value);
+        //   if (relatedRecord === null){
+        //     errorMsg = 'Related record not found based on value provided.';
+        //   }
+        // }
+        break;
+      case 'json':
+        if (value) {
+          try{
+            let testJSON = JSON.parse(value);
+          } catch (objError) {
+            if (objError instanceof SyntaxError) {
+              console.error(objError.name);
+              errorMsg = "Invalid JSON: " + objError.message;
+            } else {
+              console.error(objError.message);
+            }
 
-           }
           }
-          break;
+        }
+        break;
       default:
-          errorMsg = validateValue(value, attribute.attribute)
-       }
+        errorMsg = validateValue(value, attribute.attribute)
+    }
 
-       if (errorMsg != null)
-        return {'type': 'error', 'message': errorMsg}
-       else
-         return null;
-   }
+    if (errorMsg != null)
+      return {'type': 'error', 'message': errorMsg}
+    else
+      return null;
+  }
 
   useEffect( () => {
     let dataJson = []
@@ -1825,38 +1359,38 @@ function performDataValidation (csvData){
   }, [selectedFile, selectedSheet])
 
   return (
-    <div>
+    <>
       {<ImportIntakeWizard
-          selectedFile={selectedFile}
-          commitErrors={outputCommitErrors}
-          items={items}
-          errors={errors}
-          warnings={warnings}
-          informational={informational}
-          schema={props.schema}
-          dataAll={dataAll}
-          uploadChange={handleUploadChange}
-          uploadClick={handleUploadClick}
-          cancelClick={handleCancelClick}
-          summary={summary}
-          importProgress={importProgressStatus}
-          exportClick={handleDownloadTemplate}
-          committed={committed}
-          committing={committing}
-          errorMessage={selectedFile && errorFile.length === 0 ? null : errorFile.length > 0 ? 'Error with file : ' + errorFile.join() : 'No file selected'}
-          selectedSheetName={selectedSheet}
-          sheetNames={sheetNames}
-          sheetChange={setSelectedSheet}
-          setHelpPanelContent={props.setHelpPanelContent ? props.setHelpPanelContent : undefined}
-          />}
+        selectedFile={selectedFile}
+        commitErrors={outputCommitErrors}
+        items={items}
+        errors={errors}
+        warnings={warnings}
+        informational={informational}
+        schema={props.schema}
+        dataAll={dataAll}
+        uploadChange={handleUploadChange}
+        uploadClick={handleUploadClick}
+        cancelClick={handleCancelClick}
+        summary={summary}
+        importProgress={importProgressStatus}
+        exportClick={handleDownloadTemplate}
+        committed={committed}
+        committing={committing}
+        errorMessage={selectedFile && errorFile.length === 0 ? null : errorFile.length > 0 ? 'Error with file : ' + errorFile.join() : 'No file selected'}
+        selectedSheetName={selectedSheet}
+        sheetNames={sheetNames}
+        sheetChange={setSelectedSheet}
+        setHelpPanelContent={props.setHelpPanelContent ? props.setHelpPanelContent : undefined}
+      />}
 
       <CommitProgressModel
-          title={'Commit intake'}
-          description="Committing intake form data to Migration factory datastore."
-          label="Commit in progress"
+        title={'Commit intake'}
+        description="Committing intake form data to Migration factory datastore."
+        label="Commit in progress"
       />
-      <NoCommitModel title={'Commit intake'} noCancel onConfirmation={handleModalClose}>{<p>Nothing to be committed!</p>}</NoCommitModel>
-      </div>
+      <NoCommitModel title={'Commit intake'} noCancel onConfirmation={handleModalClose}>Nothing to be committed!</NoCommitModel>
+    </>
   );
 };
 
@@ -1961,207 +1495,202 @@ const ImportIntakeWizard = (props) => {
   return (
     props.committing
       ?
-        <ImportCompletion {...props}
-            setActiveStepIndex={setActiveStepIndex}
-        />
+      <ImportCompletion {...props}
+                        setActiveStepIndex={setActiveStepIndex}
+      />
       :
-    <Wizard
-      i18nStrings={{
-        stepNumberLabel: stepNumber =>
-          `Step ${stepNumber}`,
-        collapsedStepsLabel: (stepNumber, stepsCount) =>
-          `Step ${stepNumber} of ${stepsCount}`,
-        cancelButton: "Cancel",
-        previousButton: "Previous",
-        nextButton: "Next",
-        submitButton: "Upload",
-        optional: "optional"
-      }}
-      onCancel={(e) => {
+      <Wizard
+        i18nStrings={{
+          stepNumberLabel: stepNumber =>
+            `Step ${stepNumber}`,
+          collapsedStepsLabel: (stepNumber, stepsCount) =>
+            `Step ${stepNumber} of ${stepsCount}`,
+          cancelButton: "Cancel",
+          previousButton: "Previous",
+          nextButton: "Next",
+          submitButton: "Upload",
+          optional: "optional"
+        }}
+        onCancel={(e) => {
           props.cancelClick(e);
           setActiveStepIndex(0);
         }
-      }
-      onSubmit={(e) => {
-            props.uploadClick(e);
         }
-      }
-      onNavigate={({ detail }) => {
+        onSubmit={(e) => {
+          props.uploadClick(e);
+        }
+        }
+        onNavigate={({ detail }) => {
 
-        //onClick={props.uploadClick} disabled={(props.errors > 0 || !props.selectedFile || props.committed)}
+          //onClick={props.uploadClick} disabled={(props.errors > 0 || !props.selectedFile || props.committed)}
 
-        switch (detail.requestedStepIndex) {
-          case 0:
+          switch (detail.requestedStepIndex) {
+            case 0:
               setActiveStepIndex(detail.requestedStepIndex)
               break;
-          case 1:
-            if (props.errorMessage) {
-              setActiveStepIndex(activeStepIndex)
-            } else {
-              setActiveStepIndex(detail.requestedStepIndex)
-            }
-            break;
-          case 2:
-            if (props.errorMessage || props.errors > 0) {
-              setActiveStepIndex(activeStepIndex)
-            } else {
-              setActiveStepIndex(detail.requestedStepIndex)
-            }
-            break;
-          default:
-            if (props.errorMessage) {
-              setActiveStepIndex(activeStepIndex)
-            }
-            break;
+            case 1:
+              if (!props.errorMessage) {
+                setActiveStepIndex(detail.requestedStepIndex)
+              }
+              break;
+            case 2:
+              if (!(props.errorMessage || props.errors > 0)) {
+                setActiveStepIndex(detail.requestedStepIndex)
+              }
+              break;
+            default:
+              break;
+          }
+
+
         }
+        }
+        activeStepIndex={activeStepIndex}
+        steps={[
+          {
+            title: "Select import file",
+            info: props.setHelpPanelContent ? <Link variant="info" onFollow={() => props.setHelpPanelContent(helpContent, false)}>Info</Link> : undefined,
+            description:
+              <SpaceBetween size={'xl'} direction={'vertical'}>
+                Intake forms should be in CSV/UTF8 or Excel/xlsx format.
+              </SpaceBetween>,
+            content: (
+              <SpaceBetween size={'xl'} direction={'vertical'}>
+                <SpaceBetween size={'s'} direction={'horizontal'}>
+                  Download a template intake form.
+                  <ButtonDropdown
+                    items={[{
+                      id: 'download_req',
+                      text: 'Template with only required attributes',
+                      description: 'Download template with required only.'
+                    },{
+                      id: 'download_all',
+                      text: 'Template with all attributes',
+                      description: 'Download template with all attributes.'
+                    }]}
+                    onItemClick={props.exportClick}
+                  >Actions
+                  </ButtonDropdown>
+                </SpaceBetween>
+                <Container
+                  header={
+                    <Header variant="h2">
+                      Select file to commit
+                    </Header>
+                  }
+                >
+                  <FormField
+                    label={'Intake Form'}
+                    description={'Upload your intake form to load new data into Migration Factory.'}
+                    errorText={props.errorMessage}
+                  >
+                    <SpaceBetween direction="vertical" size="xs">
+                      <input ref={hiddenFileInput} accept=".csv,.xlsx" type="file" name="file" onChange={props.uploadChange} style={{ display: 'none' }}/>
+                      <Button variant="primary" iconName="upload" onClick={() => {
+                        hiddenFileInput.current.click();
+                      }}>Select file
+                      </Button>
+                      {( props.selectedFile) ?
+                        (
+                          <SpaceBetween size={'xxl'} direction={'vertical'}>
+                            <SpaceBetween size={'xxs'} direction={'vertical'}>
+                              <SpaceBetween size={'xxs'} direction={'horizontal'}>
+                                <Icon
+                                  name={props.errorMessage ? "status-negative" : "status-positive"}
+                                  size="normal"
+                                  variant={props.errorMessage ? "error" : "success"}
+                                /><>Filename: {props.selectedFile.name}</>
+                              </SpaceBetween>
+                              <SpaceBetween size={'xxs'} direction={'horizontal'}>File size: {(props.selectedFile.size/1024).toFixed(4)} KB</SpaceBetween>
+                            </SpaceBetween>
+                            {props.sheetNames ?
+                              <SpaceBetween size={'xxs'} direction={'vertical'}>
+                                Select Excel sheet to import from.
+                                <Select
+                                  selectedOption={{'label': props.selectedSheetName, 'value': props.selectedSheetName}}
+                                  options={props.sheetNames.map(item => {
+                                    return {'label': item, 'value': item}
+                                  })}
+                                  onChange={e => {props.sheetChange(e.detail.selectedOption.value)}}
+                                />
+                              </SpaceBetween>
+                              :
+                              null
+                            }
+                          </SpaceBetween>
+                        )
+                        :
+                        null
+                      }
+                    </SpaceBetween>
 
-
-    }
-  }
-      activeStepIndex={activeStepIndex}
-      steps={[
-        {
-          title: "Select import file",
-          info: props.setHelpPanelContent ? <Link variant="info" onFollow={() => props.setHelpPanelContent(helpContent, false)}>Info</Link> : undefined,
-          description:
-            <SpaceBetween size={'xl'} direction={'vertical'}>
-              <p>Intake forms should be in CSV/UTF8 or Excel/xlsx format.</p>
-            </SpaceBetween>,
-          content: (
-            <SpaceBetween size={'xl'} direction={'vertical'}>
-              <SpaceBetween size={'s'} direction={'horizontal'}>
-                <p>Download a template intake form.</p>
-                <ButtonDropdown
-                  items={[{
-                    id: 'download_req',
-                    text: 'Template with only required attributes',
-                    description: 'Download template with required only.'
-                  },{
-                    id: 'download_all',
-                    text: 'Template with all attributes',
-                    description: 'Download template with all attributes.'
-                  }]}
-                  onItemClick={props.exportClick}
-                >Actions
-                </ButtonDropdown>
+                  </FormField>
+                </Container>
               </SpaceBetween>
+            )
+          },
+          {
+            title: "Review changes",
+            content: (
               <Container
                 header={
                   <Header variant="h2">
-                    Select file to commit
+                    Pre-upload validation
                   </Header>
                 }
               >
-                <FormField
-                  label={'Intake Form'}
-                  description={'Upload your intake form to load new data into Migration Factory.'}
-                  errorText={props.errorMessage}
-                >
-                  <SpaceBetween direction="vertical" size="xs">
-                    <input ref={hiddenFileInput} accept=".csv,.xlsx" type="file" name="file" onChange={props.uploadChange} style={{ display: 'none' }}/>
-                    <Button variant="primary" iconName="upload" onClick={() => {
-                                                hiddenFileInput.current.click();
-                                            }}>Select file
-                    </Button>
-                    {( props.selectedFile) ?
-                      (
-                        <SpaceBetween size={'xxl'} direction={'vertical'}>
-                          <SpaceBetween size={'xxs'} direction={'vertical'}>
-                            <SpaceBetween size={'xxs'} direction={'horizontal'}><Icon
-                              name={props.errorMessage ? "status-negative" : "status-positive"}
-                              size="normal"
-                              variant={props.errorMessage ? "error" : "success"}
-                            /><>Filename: {props.selectedFile.name}</></SpaceBetween>
-                            <p>File size: {(props.selectedFile.size/1024).toFixed(4)} KB</p>
-                          </SpaceBetween>
-                          {props.sheetNames ?
-                            <SpaceBetween size={'xxs'} direction={'vertical'}>
-                              <p>Select Excel sheet to import from.</p>
-                              <Select
-                                selectedOption={{'label': props.selectedSheetName, 'value': props.selectedSheetName}}
-                                options={props.sheetNames.map(item => {
-                                  return {'label': item, 'value': item}
-                                })}
-                                onChange={e => {props.sheetChange(e.detail.selectedOption.value)}}
-                              />
-                            </SpaceBetween>
-                            :
-                            null
-                          }
-                        </SpaceBetween>
-                      )
-                      :
-                        null
-                    }
+                {( props.selectedFile) ?
+                  <SpaceBetween direction="vertical" size="l">
+                    <Alert
+                      visible={(props.errors > 0)}
+                      dismissAriaLabel="Close alert"
+                      type="error"
+                      header={"Your intake form has " + props.errors + " validation errors."}
+                    >
+                      Please see table below for details of the validation errors, you cannot import this file until resolved.
+                    </Alert>
+                    <Alert
+                      visible={(props.warnings > 0)}
+                      dismissAriaLabel="Close alert"
+                      type="info"
+                      header={"Your intake form has " + props.warnings + " validation warnings."}
+                    >
+                      Please see table below for details of the validation warnings, you can import this file with these warnings.
+                    </Alert>
+                    <Alert
+                      visible={(props.informational > 0)}
+                      dismissAriaLabel="Close alert"
+                      type="info"
+                      header={"Your intake form has " + props.informational + " informational validation messages."}
+                    >
+                      Please see table below for details of the validation messages.
+                    </Alert>
+
+                    <IntakeFormTable
+                      items={props.items}
+                      isLoading={false}
+                      errorLoading={null}
+                      schema={props.summary.attributeMappings ? props.summary.attributeMappings : []}
+                    />
                   </SpaceBetween>
-
-                </FormField>
+                  :
+                  null
+                }
               </Container>
-            </SpaceBetween>
-          )
-        },
-        {
-          title: "Review changes",
-          content: (
-            <Container
-              header={
-                <Header variant="h2">
-                  Pre-upload validation
-                </Header>
-              }
-            >
-            {( props.selectedFile) ?
-              <SpaceBetween direction="vertical" size="l">
-                <Alert
-                  visible={(props.errors > 0)}
-                  dismissAriaLabel="Close alert"
-                  type="error"
-                  header={"Your intake form has " + props.errors + " validation errors."}
-                >
-                  Please see table below for details of the validation errors, you cannot import this file until resolved.
-                </Alert>
-                <Alert
-                  visible={(props.warnings > 0)}
-                  dismissAriaLabel="Close alert"
-                  type="info"
-                  header={"Your intake form has " + props.warnings + " validation warnings."}
-                >
-                  Please see table below for details of the validation warnings, you can import this file with these warnings.
-                </Alert>
-                <Alert
-                  visible={(props.informational > 0)}
-                  dismissAriaLabel="Close alert"
-                  type="info"
-                  header={"Your intake form has " + props.informational + " informational validation messages."}
-                >
-                  Please see table below for details of the validation messages.
-                </Alert>
-
-                <IntakeFormTable
-                  items={props.items}
-                  isLoading={false}
-                  errorLoading={null}
-                  schema={props.summary.attributeMappings ? props.summary.attributeMappings : []}
-                />
-              </SpaceBetween>
-              :
-              null
-            }
-            </Container>
-          )
-        },
-        {
-          title: "Upload data",
-          content: (
-            <ImportOverview
-              items={props.summary}
-              schemas={props.schema}
-              dataAll={props.dataAll}
-            />
-          )
-        }
-      ]}
-    />
+            )
+          },
+          {
+            title: "Upload data",
+            content: (
+              <ImportOverview
+                items={props.summary}
+                schemas={props.schema}
+                dataAll={props.dataAll}
+              />
+            )
+          }
+        ]}
+      />
   );
 }
 

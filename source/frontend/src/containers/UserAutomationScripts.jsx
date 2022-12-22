@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, {useEffect, useState} from 'react';
 import User from "../actions/user";
 import {useLocation, useNavigate, useParams} from "react-router-dom";

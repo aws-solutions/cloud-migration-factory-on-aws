@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import {getNestedValuePath} from "./main";
 
 export function checkAttributeRequiredConditions(item, conditions){
@@ -35,7 +40,7 @@ export function checkAttributeRequiredConditions(item, conditions){
         }
       }
     }else if (query.comparator === '!empty') {
-      if (item[query.attribute]) { //Check this condition has ability to provide outcome.
+      if (query.attribute in item) { //Check this condition has ability to provide outcome.
         //Attribute exists.
         if (Array.isArray(item[query.attribute])) {
           if (item[query.attribute].length !== 0) {
@@ -47,7 +52,7 @@ export function checkAttributeRequiredConditions(item, conditions){
           }
         } else {
           //Not an array check value
-          if (item[query.attribute] !== '') {
+          if (item[query.attribute] !== '' && item[query.attribute] !== false) {
             if (queryResult !== false) //AND the results.
               queryResult = true;
           } else {
@@ -55,9 +60,12 @@ export function checkAttributeRequiredConditions(item, conditions){
             break; //At least one query is false, no need to continue.
           }
         }
+      } else {
+        queryResult = false;
+        break; //attribute is not set.
       }
     }else if (query.comparator === 'empty') {
-      if (item[query.attribute]) { //Check this condition has ability to provide outcome.
+      if (query.attribute in item) { //Check this condition has ability to provide outcome.
         //Attribute exists.
 
         if (Array.isArray(item[query.attribute])) {
@@ -71,7 +79,7 @@ export function checkAttributeRequiredConditions(item, conditions){
           }
         } else {
           //Not an array check value
-          if (item[query.attribute] === '') {
+          if (item[query.attribute] === '' || item[query.attribute] === false) {
             if (queryResult !== false) //AND the results.
               queryResult = true;
           } else {
@@ -80,7 +88,7 @@ export function checkAttributeRequiredConditions(item, conditions){
           }
 
         }
-      } else  if (!item[query.attribute] && query.comparator) {
+      } else {
         if (queryResult !== false) //AND the results.
           queryResult = true;
       }
@@ -212,10 +220,12 @@ export function getRelationshipRecord (relatedData, attribute, value) {
 export function getRelationshipValue (relatedData, attribute, value) {
 
   if (!relatedData) {
+    //No related data to lookup was provided.
     return value ? {status: 'not found', value: value} : {status: 'loaded', value: null};
   }
 
   if (relatedData[attribute.rel_entity]) {
+    //relatedData contains the related entity data to perform lookup.
     if (relatedData[attribute.rel_entity].isLoading || !value) {
       //Loading relatedData still or value empty.
       return value ? {status: 'loading', value: value} : {status: 'loaded', value: null};
@@ -236,9 +246,8 @@ export function getRelationshipValue (relatedData, attribute, value) {
         });
 
         if (returnItems) {
+          // Items have been returned from map function.
           return {status: 'loaded', value: returnItems};
-        } else {
-          return value ? {status: 'not found', value: value} : {status: 'loaded', value: null};
         }
       } else {
         let record = relatedData[attribute.rel_entity].data.find(item => {
@@ -257,15 +266,14 @@ export function getRelationshipValue (relatedData, attribute, value) {
           }
 
           return returnValue ? {status: 'loaded', value: returnValue} : {status: 'loaded', value: null};
-        } else {
-          return value ? {status: 'not found', value: value} : {status: 'loaded', value: null};
         }
       }
     }
-  } else {
-    return value ? {status: 'not found', value: value} : {status: 'loaded', value: null};
   }
 
+  // By default, return null or the original value provided. default return will only be used when other lookups
+  // failed to return data.
+  return value ? {status: 'not found', value: value} : {status: 'loaded', value: null};
 }
 
 export function parsePUTResponseErrors(errors){
@@ -292,6 +300,20 @@ export function parsePUTResponseErrors(errors){
         returnMessage.push(error_detail + ' : ' + error[error_detail].join());
       }
     }
+  }
+
+  // This is an array of errors,
+  if (Array.isArray(errors)){
+    for (let error of errors){
+      if(error.cause){
+        //If cause key exists populate with string.
+        returnMessage.push(error.cause);
+      } else {
+        returnMessage.push(error);
+      }
+
+    }
+
   }
   return returnMessage;
 
