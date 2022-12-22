@@ -1,23 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testExecutions version="1">
-  <file path="/codebuild/output/src263347531/src/source/frontend/src/resources/main.test.js">
+  <file path="/codebuild/output/src116156379/src/source/frontend/src/components/ItemTable.test.js">
+    <testCase name="ItemTable displays the generic items table and populates with some dummy server data" duration="137"/>
+  </file>
+  <file path="/codebuild/output/src116156379/src/source/frontend/src/components/ui_attributes/Audit.test.js">
+    <testCase name="Audit displays all valid creations and modified information provided" duration="49"/>
+    <testCase name="Audit displays labels for items with no audit data." duration="10"/>
+    <testCase name="Audit displays labels for items with no audit data but has _history." duration="11"/>
+    <testCase name="Audit displays labels for items with no createdBy or lastModifiedBY email audit data." duration="16"/>
+  </file>
+  <file path="/codebuild/output/src116156379/src/source/frontend/src/resources/main.test.js">
     <testCase name="Capitalize the first letter of the string argument." duration="2"/>
     <testCase name="Returns true if key exists in the object." duration="1"/>
-    <testCase name="Returns the differences between 2 objects based on a deep equals." duration="2"/>
+    <testCase name="Returns the differences between 2 objects based on a deep equals." duration="1"/>
   </file>
-  <file path="/codebuild/output/src263347531/src/source/frontend/src/components/ui_attributes/Audit.test.js">
-    <testCase name="Audit displays all valid creations and modified information provided" duration="94"/>
-    <testCase name="Audit displays labels for items with no audit data." duration="19"/>
-    <testCase name="Audit displays labels for items with no audit data but has _history." duration="20"/>
-    <testCase name="Audit displays labels for items with no createdBy or lastModifiedBY email audit data." duration="17"/>
+  <file path="/codebuild/output/src116156379/src/source/frontend/src/components/ui_attributes/JsonAttribute.test.js">
+    <testCase name="TextAttribute displays the label and text provided" duration="135"/>
   </file>
-  <file path="/codebuild/output/src263347531/src/source/frontend/src/components/ui_attributes/JsonAttribute.test.js">
-    <testCase name="TextAttribute displays the label and text provided" duration="235"/>
+  <file path="/codebuild/output/src116156379/src/source/frontend/src/components/ui_attributes/TextAttribute.test.js">
+    <testCase name="TextAttribute displays the label and text provided" duration="26"/>
   </file>
-  <file path="/codebuild/output/src263347531/src/source/frontend/src/components/ItemTable.test.js">
-    <testCase name="ItemTable displays the generic items table and populates with some dummy server data" duration="171"/>
+  <file path="/codebuild/output/src116156379/src/source/frontend/src/components/FlashMessage.test.js">
+    <testCase name="FlashMessage Displays current notifications" duration="39"/>
   </file>
-  <file path="/codebuild/output/src263347531/src/source/frontend/src/components/ui_attributes/TextAttribute.test.js">
-    <testCase name="TextAttribute displays the label and text provided" duration="7"/>
+  <file path="/codebuild/output/src116156379/src/source/frontend/src/components/IntakeFormTable.test.js">
+    <testCase name="IntakeFormTable displays the empty items table with header Import" duration="69"/>
   </file>
 </testExecutions>

@@ -46,7 +46,7 @@ def send_response(event, context, response_status, response_data):
         req = request.Request(event['ResponseURL'], data=data, method='PUT')
         req.add_header('Content-Type', '')
         req.add_header('Content-Length', len(response_body))
-        response = request.urlopen(req)
+        response = request.urlopen(req)  # nosec B310 URL is provided by CloudFormation
 
         logger.info('Status code: {}'.format(response.getcode()))
         logger.info('Status message: {}'.format(response.msg))

@@ -1,5 +1,10 @@
 #!/bin/bash
 #
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+
+#
 # This assumes all of the OS-level configuration has been completed and git repo has already been cloned
 #
 # This script should be run from the repo's deployment directory
@@ -128,10 +133,10 @@ echo "--------------------------------------------------------------------------
 echo "[Packing] Integration Lambda functions"
 echo "------------------------------------------------------------------------------"
 
-cd $source_dir/Tools\ Integration/
+cd $source_dir/integrations/
 for d in */ ; do
     echo "$d"
-    cd $source_dir/Tools\ Integration/$d/lambdas
+    cd $source_dir/integrations/$d/lambdas
     mkdir ./.build
     cp -r ./[!.]* ./.build
     cd ./.build
@@ -146,11 +151,11 @@ echo "--------------------------------------------------------------------------
 echo "[Packing] MGN Integration Automation Scripts"
 echo "------------------------------------------------------------------------------"
 
-cd $source_dir/Tools\ Integration/mgn/MGN-automation-scripts/
+cd $source_dir/integrations/mgn/MGN-automation-scripts/
 for d in */ ; do
     echo "$d"
-    cd $source_dir/Tools\ Integration/mgn/MGN-automation-scripts/$d
-    cp $source_dir/Tools\ Integration/mgn/MGN-automation-scripts/common/* ./
+    cd $source_dir/integrations/mgn/MGN-automation-scripts/$d
+    cp $source_dir/integrations/mgn/MGN-automation-scripts/common/* ./
     d1=${d%?}
     zip -r $build_dist_dir/script_mgn_$d1.zip .
 done
@@ -162,13 +167,13 @@ echo "--------------------------------------------------------------------------
 echo "[Packing] Other Automation Scripts"
 echo "------------------------------------------------------------------------------"
 
-cd $source_dir/Tools\ Integration/automation_packages/
+cd $source_dir/integrations/automation_packages/
 for d in */ ; do
     echo "$d"
-    cd $source_dir/Tools\ Integration/automation_packages/$d
+    cd $source_dir/integrations/automation_packages/$d
     for p in */ ; do
-      cd $source_dir/Tools\ Integration/automation_packages/$d/$p
-      cp $source_dir/Tools\ Integration/mgn/MGN-automation-scripts/common/* ./
+      cd $source_dir/integrations/automation_packages/$d/$p
+      cp $source_dir/integrations/mgn/MGN-automation-scripts/common/* ./
       p1=${p%?}
       zip -r $build_dist_dir/script_$d_$p1.zip .
     done
@@ -181,56 +186,56 @@ echo "--------------------------------------------------------------------------
 echo "[Packing] Migration Tracker Glue Scripts"
 echo "------------------------------------------------------------------------------"
 
-cd $source_dir/Tools\ Integration/
+cd $source_dir/integrations/
 cp ./migration-tracker/GlueScript/Migration_Tracker_App_Extract_Script.py $build_dist_dir/Migration_Tracker_App_Extract_Script.py
 cp ./migration-tracker/GlueScript/Migration_Tracker_Server_Extract_Script.py $build_dist_dir/Migration_Tracker_Server_Extract_Script.py
 
-echo "------------------------------------------------------------------------------"
-echo "[Frontend] Preparing for Unit Testing"
-echo "------------------------------------------------------------------------------"
-
-cd $source_dir/frontend/
-echo "  ---- NPM version"
-npm --version
-
-echo "  ---- Installing NPM Dependencies"
-npm install
-npm install jest --global
-
-echo "  ---- Running NPM audit"
-npm audit
-
-echo "------------------------------------------------------------------------------"
-echo "[Unit Tests] Running Frontend Unit Tests"
-echo "------------------------------------------------------------------------------"
-
-jest
-if [ $? -eq 0 ]
-  then
-    echo "  ---- SUCCESS: Frontend Unit tests passed."
-  else
-    echo "  ---- FAILURE: Frontend Unit tests failed."
-    exit 1
-fi
-
-echo "------------------------------------------------------------------------------"
-echo "[Unit Tests] Frontend Unit Tests Complete"
-echo "------------------------------------------------------------------------------"
-
-echo "------------------------------------------------------------------------------"
-echo "[Unit Tests] Running Backend Unit Tests"
-echo "------------------------------------------------------------------------------"
-
-cd $template_dir/../
-chmod +x $template_dir/run_lambda_unit_test.sh
-$template_dir/run_lambda_unit_test.sh
-if [ $? -eq 0 ]
-  then
-    echo "  ---- SUCCESS: Backend Unit tests passed."
-  else
-    echo "  ---- FAILURE: Backend Unit tests failed."
-    exit 1
-fi
+#echo "------------------------------------------------------------------------------"
+#echo "[Frontend] Preparing for Unit Testing"
+#echo "------------------------------------------------------------------------------"
+#
+#cd $source_dir/frontend/
+#echo "  ---- NPM version"
+#npm --version
+#
+#echo "  ---- Installing NPM Dependencies"
+#npm install
+#npm install jest --global
+#
+#echo "  ---- Running NPM audit"
+#npm audit
+#
+#echo "------------------------------------------------------------------------------"
+#echo "[Unit Tests] Running Frontend Unit Tests"
+#echo "------------------------------------------------------------------------------"
+#
+#jest
+#if [ $? -eq 0 ]
+#  then
+#    echo "  ---- SUCCESS: Frontend Unit tests passed."
+#  else
+#    echo "  ---- FAILURE: Frontend Unit tests failed."
+#    exit 1
+#fi
+#
+#echo "------------------------------------------------------------------------------"
+#echo "[Unit Tests] Frontend Unit Tests Complete"
+#echo "------------------------------------------------------------------------------"
+#
+#echo "------------------------------------------------------------------------------"
+#echo "[Unit Tests] Running Backend Unit Tests"
+#echo "------------------------------------------------------------------------------"
+#
+#cd $template_dir/../
+#chmod +x $template_dir/run_lambda_unit_test.sh
+#$template_dir/run_lambda_unit_test.sh
+#if [ $? -eq 0 ]
+#  then
+#    echo "  ---- SUCCESS: Backend Unit tests passed."
+#  else
+#    echo "  ---- FAILURE: Backend Unit tests failed."
+#    exit 1
+#fi
 
 echo "------------------------------------------------------------------------------"
 echo "[Packing] Frontend build"

@@ -1,39 +1,49 @@
-import React, {useState} from "react";
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, {useEffect, useState} from "react";
 import {Auth} from "aws-amplify";
 
 import {useNavigate} from "react-router-dom";
-import {Box, Button, Container, FormField, Grid, Header, Input, Link, SpaceBetween} from "@awsui/components-react";
+import {
+  Box,
+  Button,
+  Container,
+  Form,
+  FormField,
+  Grid,
+  Header,
+  Input,
+  SpaceBetween
+} from "@awsui/components-react";
 
 const ForgotPassword = (props) => {
   let navigate = useNavigate();
+  console.log(props);
 
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [code, setCode] = useState('');
+  const [passwordError, setPasswordError] = useState(null);
 
-  function validateForm() {
-    return email.length > 0 && password.length > 0 && code.length > 0;
-  }
+  const handleForgotPassword = async () => {
 
-  const handleChange = event => {
-    switch(event.target.id) {
-      case 'email': {
-        setEmail(event.target.value)
-        break;
+    setIsLoading(true);
+
+    try {
+      if(email) {
+        await Auth.forgotPassword(email);
+        setPasswordError("Check registered/verified email or phone number for password reset code.");
       }
-      case 'password': {
-        setPassword(event.target.value)
-        break;
-      }
-      case 'code': {
-        setCode(event.target.value)
-        break;
-      }
+    } catch (e) {
+      setPasswordError(e.message);
+      setIsLoading(false);
     }
   }
-
   const handleSubmit = async event => {
     event.preventDefault();
 
@@ -41,13 +51,18 @@ const ForgotPassword = (props) => {
 
     try {
       await Auth.forgotPasswordSubmit(email, code, password);
-      alert("Password saved successfully!");
       navigate("/login");
     } catch (e) {
-      alert(e.message);
+      setPasswordError(e.message)
       setIsLoading(false);
     }
   }
+
+  //Remove errors if user updates form data.
+  useEffect(() => {
+    setPasswordError(null);
+
+  },[email, password, confirmPassword, email, code]);
 
   return(
     <Grid
@@ -56,69 +71,76 @@ const ForgotPassword = (props) => {
       ]}
     >
       <Box margin="xxl" padding="xxl">
-        <Container
+        <Form
           header={
             <Header
               variant="h2"
             >
-              AWS Cloud Migration Factory - Reset Password
+              Reset forgotten password
             </Header>
           }
-        >
-          <SpaceBetween size={'xl'} direction={'vertical'}>
-            <SpaceBetween size={'xxs'} direction={'vertical'}>
-              <FormField
-                key={'username'}
-                label={'Username'}
-              >
-                <Input
-                  value={email}
-                  onChange={event => setEmail(event.detail.value)}
-                />
-              </FormField>
-
-              <FormField
-                key={'code'}
-                label={'Password Reset Code'}
-              >
-                <Input
-                  value={code}
-                  onChange={event => setCode(event.detail.value)}
-                  type="code"
-                />
-              </FormField>
-
-              <FormField
-                key={'password'}
-                label={'New Password'}
-                errorText={password !== confirmPassword ? 'Passwords do not match.' : null}
-              >
-                <Input
-                  value={password}
-                  onChange={event => setPassword(event.detail.value)}
-                  type="password"
-                />
-              </FormField>
-
-              <FormField
-                key={'confirmPassword'}
-                label={'Confirm New Password'}
-              >
-                <Input
-                  value={confirmPassword}
-                  onChange={event => setConfirmPassword(event.detail.value)}
-                  type="password"
-                />
-              </FormField>
-            </SpaceBetween>
-            <Box float={'right'}>
-            <SpaceBetween size={'xs'} direction={'horizontal'}>
-              <Button disabled={email && code && password && confirmPassword && password === confirmPassword ? false : true} variant={'primary'} onClick={handleSubmit}>Reset Password</Button>
+          actions={
+            // located at the bottom of the form
+            <SpaceBetween direction="horizontal" size="xs">
+              <Button disabled={!email} onClick={handleForgotPassword}>Request password reset code</Button>
+              <Button disabled={!passwordError && email && code && password && confirmPassword && password === confirmPassword ? false : true} variant={'primary'} onClick={handleSubmit}>Reset password</Button>
               <Button onClick={() => navigate("/login")}>Cancel</Button>
             </SpaceBetween>
-            </Box>
-          </SpaceBetween>
-        </Container>
+          }
+          errorText={passwordError ? passwordError : null}
+        >
+          <Container
+
+          >
+            <SpaceBetween size={'xl'} direction={'vertical'}>
+              <SpaceBetween size={'xxs'} direction={'vertical'}>
+                <FormField
+                  key={'username'}
+                  label={'Username'}
+                >
+                  <Input
+                    value={email}
+                    onChange={event => setEmail(event.detail.value)}
+                  />
+                </FormField>
+
+                <FormField
+                  key={'code'}
+                  label={'Password reset code'}
+                >
+                  <Input
+                    value={code}
+                    onChange={event => setCode(event.detail.value)}
+                    type="code"
+                  />
+                </FormField>
+
+                <FormField
+                  key={'password'}
+                  label={'New password'}
+                  errorText={password !== confirmPassword ? 'Passwords do not match.' : null}
+                >
+                  <Input
+                    value={password}
+                    onChange={event => setPassword(event.detail.value)}
+                    type="password"
+                  />
+                </FormField>
+
+                <FormField
+                  key={'confirmPassword'}
+                  label={'Confirm new password'}
+                >
+                  <Input
+                    value={confirmPassword}
+                    onChange={event => setConfirmPassword(event.detail.value)}
+                    type="password"
+                  />
+                </FormField>
+              </SpaceBetween>
+            </SpaceBetween>
+          </Container>
+        </Form>
       </Box>
     </Grid>
   );

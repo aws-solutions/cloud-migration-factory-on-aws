@@ -1,8 +1,13 @@
-import React, {useState} from "react";
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, {useEffect, useState} from "react";
 import { Auth } from "aws-amplify";
 
 import {useLocation, useNavigate, useParams} from "react-router-dom";
-import {Box, Button, Container, FormField, Grid, Header, Input, SpaceBetween} from "@awsui/components-react";
+import {Box, Button, Container, Form, FormField, Header, Input, SpaceBetween} from "@awsui/components-react";
 
 const ChangePassword = (props) => {
   let location = useLocation()
@@ -14,27 +19,7 @@ const ChangePassword = (props) => {
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-
-  function validateForm() {
-    return email.length > 0 && oldPassword.length > 0 && newPassword.length > 0;
-  }
-
-  const handleChange = event => {
-    switch(event.target.id) {
-      case 'email': {
-        setEmail(event.target.value)
-        break;
-      }
-      case 'newpassword': {
-        setNewPassword(event.target.value)
-        break;
-      }
-      case 'oldpassword': {
-        setOldPassword(event.target.value)
-        break;
-      }
-    }
-  }
+  const [passwordError, setPasswordError] = useState(null);
 
   const handleSubmit = async event => {
     event.preventDefault();
@@ -52,30 +37,45 @@ const ChangePassword = (props) => {
         const authUser = await Auth.currentAuthenticatedUser();
         await Auth.changePassword(authUser, oldPassword, newPassword);
       }
-      alert("Password changed successfully!");
-      //this.props.userHasAuthenticated(true);
       navigate("/");
     } catch (e) {
       if (e.message === 'User does not exist.') {
-        alert('Incorrect username or password.');
+        setPasswordError('Incorrect username or password.');
       }
       else{
-        alert(e.message);
+        setPasswordError('An unexpected error occurred.');
       }
       setIsLoading(false);
     }
   }
 
+  //Remove errors if user updates form data.
+  useEffect(() => {
+    setPasswordError(null);
+
+  },[email, oldPassword, newPassword]);
+
   return (
-      <Box margin="xxl" padding="xxl">
+    <Box margin="xxl" padding="xxl">
+      <Form
+        header={
+          <Header
+            variant="h1"
+          >
+            Change Password
+          </Header>
+        }
+        actions={
+          // located at the bottom of the form
+          <SpaceBetween direction="horizontal" size="xs">
+            <Button disabled={!passwordError && email && oldPassword && newPassword && confirmPassword && newPassword === confirmPassword ? false : true} variant={'primary'} loading={isLoading} onClick={handleSubmit}>Change Password</Button>
+            <Button onClick={() => navigate("/")}>Cancel</Button>
+          </SpaceBetween>
+        }
+        errorText={passwordError ? passwordError : null}
+      >
         <Container
-          header={
-            <Header
-              variant="h2"
-            >
-              Change Password
-            </Header>
-          }
+
         >
           <SpaceBetween size={'xl'} direction={'vertical'}>
             <SpaceBetween size={'xxs'} direction={'vertical'}>
@@ -91,7 +91,7 @@ const ChangePassword = (props) => {
 
               <FormField
                 key={'oldPassword'}
-                label={'Current Password'}
+                label={'Current password'}
               >
                 <Input
                   value={oldPassword}
@@ -102,7 +102,7 @@ const ChangePassword = (props) => {
 
               <FormField
                 key={'password'}
-                label={'New Password'}
+                label={'New password'}
                 errorText={newPassword !== confirmPassword ? 'Passwords do not match.' : null}
               >
                 <Input
@@ -114,7 +114,7 @@ const ChangePassword = (props) => {
 
               <FormField
                 key={'confirmPassword'}
-                label={'Confirm New Password'}
+                label={'Confirm new password'}
               >
                 <Input
                   value={confirmPassword}
@@ -123,136 +123,12 @@ const ChangePassword = (props) => {
                 />
               </FormField>
             </SpaceBetween>
-            <Box float={'right'}>
-              <SpaceBetween size={'xs'} direction={'horizontal'}>
-                <Button disabled={email && oldPassword && newPassword && confirmPassword && newPassword === confirmPassword ? false : true} variant={'primary'} onClick={handleSubmit}>Change Password</Button>
-                <Button onClick={() => navigate("/")}>Cancel</Button>
-              </SpaceBetween>
-            </Box>
           </SpaceBetween>
         </Container>
-      </Box>
+      </Form>
+    </Box>
   );
 
 }
 
 export default ChangePassword
-
-// export default class ChangePassword extends Component {
-//   constructor(props) {
-//     super(props);
-//
-//     this.state = {
-//       isLoading: false,
-//       email: "",
-//       oldPassword: "",
-//       newPassword: ""
-//     };
-//   }
-//
-//   validateForm() {
-//     return this.state.email.length > 0 && this.state.oldPassword.length > 0 && this.state.newPassword.length > 0;
-//   }
-//
-//   handleChange = event => {
-//     this.setState({
-//       [event.target.id]: event.target.value
-//     });
-//   }
-//
-//   handleSubmit = async event => {
-//     event.preventDefault();
-//
-//     this.setState({isLoading: true});
-//
-//     try {
-//       const user = await Auth.signIn(this.state.email, this.state.oldPassword);
-//
-//       if (user.challengeName === 'NEW_PASSWORD_REQUIRED') {
-//         //? What is this? const { requiredAttributes } = user.challengeParam; // the array of required attributes, e.g ['email', 'phone_number']
-//         await Auth.completeNewPassword(user, this.state.newPassword);
-//       } else {
-//         const authUser = await Auth.currentAuthenticatedUser();
-//         await Auth.changePassword(authUser, this.state.oldPassword, this.state.newPassword);
-//       }
-//       alert("Password changed successfully!");
-//       //this.props.userHasAuthenticated(true);
-//       this.props.history.push("/");
-//     } catch (e) {
-//       if (e.message === 'User does not exist.') {
-//         alert('Incorrect username or password.');
-//       } else {
-//         alert(e.message);
-//       }
-//       this.setState({isLoading: false});
-//     }
-//   }
-//
-//
-// }
-//
-//
-//
-//   render() {
-//     return (
-//       <div className="container pt-5">
-//         <div className="login mx-auto login-box p-0 m-0">
-//           <div className="aws-charcoal login-header p-0 m-0" style={{height:"65px"}} >
-//             <span style={{height:"65px"}} className="navbar-logo navbar-logo-login pt-5"/>
-//             <span className="login-title"><h4>Migration Factory</h4></span>
-//           </div>
-//
-//           <div className="mt-5 px-4">
-//
-//               <form onSubmit={this.handleSubmit}>
-//
-//                   <div className="form-group">
-//                   <label htmlfor="emailaddress">Username</label>
-//                     <input
-//                       id="email"
-//                       type="text"
-//                       onChange={this.handleChange}
-//                       className="form-control form-control-sm"
-//                       ref="email"
-//                       placeholder="Username"
-//                     />
-//                   </div>
-//                   <div className="form-group">
-//                     <label htmlfor="currentpwd">Current Password</label>
-//                     <input
-//                       id="oldPassword"
-//                       type="password"
-//                       onChange={this.handleChange}
-//                       className="form-control form-control-sm"
-//                       placeholder="Current Password"
-//                       ref="appName"
-//                     />
-//                   </div>
-//                   <div className="form-group">
-//                     <label htmlfor="newpwd">New Password</label>
-//                     <input
-//                       id="newPassword"
-//                       type="password"
-//                       onChange={this.handleChange}
-//                       className="form-control form-control-sm"
-//                       placeholder="New Password"
-//                       ref="appName"
-//                     />
-//                   </div>
-//                   <div className="form-group text-center">
-//                     <input
-//                       style={{width:"100%"}}
-//                       className="btn btn-primary btn-outline btn-aws-charcoal mt-3 mb-2 mr-3"
-//                       type="submit"
-//                       value="Change Password"
-//                     />
-//
-//                   </div>
-//               </form>
-//             </div>
-//
-//         </div>
-//       </div>
-//     );
-//   }
-// }

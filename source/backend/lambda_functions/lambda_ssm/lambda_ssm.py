@@ -32,6 +32,7 @@ mf_userapi = os.environ['mf_userapi']
 mf_loginapi = os.environ['mf_loginapi']
 mf_cognitouserpoolid = os.environ['userpool']
 mf_region = os.environ['region']
+mf_cognitouserpoolclientid = os.environ['clientid']
 
 lambda_client = boto3.client('lambda')
 
@@ -158,6 +159,7 @@ def lambda_handler(event, context):
                         'LoginApiUrl': 'https://' + mf_loginapi + '.execute-api.' + mf_region + '.amazonaws.com',
                         'UserApiUrl': 'https://' + mf_userapi + '.execute-api.' + mf_region + '.amazonaws.com',
                         'UserPoolId': mf_cognitouserpoolid,
+                        'UserPoolClientId': mf_cognitouserpoolclientid,
                         'Region': mf_region
                     }
 

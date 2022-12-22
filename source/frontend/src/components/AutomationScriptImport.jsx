@@ -1,5 +1,9 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, {useEffect, useState} from 'react';
-import {getNestedValuePath} from '../resources/main.js'
 
 import {
   SpaceBetween,
@@ -14,8 +18,6 @@ import {
   Link, Checkbox
 } from '@awsui/components-react';
 
-import { useProgressModal } from "../actions/ProgressModalHook.js";
-
 const AutomationScriptImport = (props) => {
 
     const [selectedFile, setSelectedFile] = useState(null);
@@ -23,21 +25,12 @@ const AutomationScriptImport = (props) => {
 
   const [saving, setSaving] = useState(false);
 
-    //Modals
-    //const { show: showCommitProgress, hide: hideCommitProgress, RenderModal: CommitProgressModel } = useModal()
-    const { show: showCommitProgress, hide: hideCommitProgress, setProgress: setImportProgress, RenderModal: CommitProgressModel } = useProgressModal()
-
     const [activeStepIndex, setActiveStepIndex] = useState(0);
     const [scriptDetails, setScriptDetails] = useState(props.item ? props.item : {})
 
     const hiddenFileInput = React.createRef();
 
     const maxFileUploadSizeBytes = 10485760;
-
-    function handleNotification(notification)
-    {
-      props.updateNotification(notification)
-    }
 
     function handleAction (e){
 
@@ -104,30 +97,21 @@ const AutomationScriptImport = (props) => {
 
             switch (detail.requestedStepIndex) {
               case 0:
-                if (selectedFile && errorFile) {
-                  setActiveStepIndex(activeStepIndex)
-                } else {
+                if (!(selectedFile && errorFile)) {
                   setActiveStepIndex(detail.requestedStepIndex)
                 }
                 break;
               case 1:
-                if (selectedFile && errorFile) {
-                  setActiveStepIndex(activeStepIndex)
-                } else {
+                if (!(selectedFile && errorFile)) {
                   setActiveStepIndex(detail.requestedStepIndex)
                 }
                 break;
               case 2:
-                if (selectedFile && !errorFile) {
-                  setActiveStepIndex(activeStepIndex)
-                } else {
+                if (!(selectedFile && !errorFile)) {
                   setActiveStepIndex(detail.requestedStepIndex)
                 }
                 break;
               default:
-                if (selectedFile && !errorFile) {
-                  setActiveStepIndex(activeStepIndex)
-                }
                 break;
             }
 
@@ -211,7 +195,7 @@ const AutomationScriptImport = (props) => {
                         onChange={event => handleUserInput('script_name', event.detail.value)}
                       />
                     </FormField>
-                    {props.action == 'Update'
+                    {props.action === 'Update'
                       ?
                         <Checkbox
                           checked={scriptDetails.__make_default}

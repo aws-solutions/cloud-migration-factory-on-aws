@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React from 'react';
 import { BarChart,
 Container,
@@ -97,10 +102,9 @@ const WaveServersByMonth = (props) => {
   if (waveStatus !== undefined && waveStatus.length > 0){
     let numWaves = waveStatus.length;
     chart_data = dateRange(waveStatus[0].x, waveStatus[waveStatus.length-1].x);
-  }
 
-  //Map each wave into the chart_data array and combine waves server totals where occuringing the same month.
-  waveStatus.forEach(function(value, index) {
+    //Map each wave into the chart_data array and combine waves server totals where occurring the same month.
+    waveStatus.forEach(function(value, index) {
       if (value.x){
         let startDate = new Date(value.x);
         let month = startDate.getMonth()+1;
@@ -111,12 +115,13 @@ const WaveServersByMonth = (props) => {
         });
 
         if (item.length === 1) {
-            item[0].y += value.y;
+          item[0].y += value.y;
         } else {
-            chart_data.push({x: year + '-' + month , y: value.y});
+          chart_data.push({x: year + '-' + month , y: value.y});
         }
       }
-  });
+    });
+  }
 
   if (!props.Waves.isLoading && !props.Waves.error && !props.Servers.isLoading && !props.Servers.error && !props.Apps.isLoading && !props.Apps.error) {
     statusType = 'finished';

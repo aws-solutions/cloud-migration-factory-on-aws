@@ -2,6 +2,11 @@
  * @jest-environment jsdom
  */
 
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // JsonAttribute.test.js
 import {cleanup, screen, render} from '@testing-library/react';
 import JsonAttribute from "./JsonAttribute";

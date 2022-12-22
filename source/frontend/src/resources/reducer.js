@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 const REQUEST_STARTED = 'REQUEST_STARTED';
 const REQUEST_SUCCESSFUL = 'REQUEST_SUCCESSFUL';
 const REQUEST_FAILED = 'REQUEST_FAILED';

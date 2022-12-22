@@ -584,7 +584,7 @@ schema = [
                             "S": "Subnets must start with subnet-, followed by 8 or 17 alphanumeric characters."
                         },
                         "group": {
-                            "S": "Target"
+                            "S": "Target - Networking"
                         },
                         "system": {
                             "BOOL": True
@@ -664,7 +664,7 @@ schema = [
                             "S": "string"
                         },
                         "group": {
-                            "S": "Target"
+                            "S": "Target - Instance"
                         },
                         "system": {
                             "BOOL": True
@@ -683,7 +683,7 @@ schema = [
                             "S": "string"
                         },
                         "group": {
-                            "S": "Target"
+                            "S": "Target - Instance"
                         },
                         "system": {
                             "BOOL": True
@@ -756,7 +756,7 @@ schema = [
                             "S": "list"
                         },
                         "group": {
-                            "S": "Target"
+                            "S": "Target - Instance"
                         },
                         "system": {
                             "BOOL": True
@@ -846,7 +846,7 @@ schema = [
                              "S": "Migration Strategy"
                          },
                          "listvalue": {
-                             "S": "Retire,Retain,Relocate,Rehost,Repurchase,Replatform,Reachitect,TBC"
+                             "S": "Retire,Retain,Relocate,Rehost,Repurchase,Replatform,Rearchitect,TBC"
                          },
                          "name": {
                              "S": "r_type"
@@ -887,7 +887,7 @@ schema = [
                              "BOOL": True
                          },
                          "group": {
-                             "S": "Target"
+                             "S": "Target - Instance"
                          },
                          "validation_regex": {
                              "S": "^(h-([a-z0-9]{8}|[a-z0-9]{17})$)"

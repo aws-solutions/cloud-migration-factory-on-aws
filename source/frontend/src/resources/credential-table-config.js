@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import {getNestedValue, returnLocaleDateTime, sortAscendingComparator} from './main.js';
 
 function getSecretType(item) {

@@ -26,6 +26,7 @@ from troposphere import Base64, Tags, FindInMap, GetAtt, Output, Parameter, Ref,
 from policy import MFAuth
 import traceback
 import re
+import tempfile
 
 headers = {'Content-Type': 'application/json'}
 if 'cors' in os.environ:
@@ -169,7 +170,7 @@ def lambda_handler(event, context):
 
                     # lambda path and Json File
 
-                    lambda_path = '/tmp/' + 'CFN_Template_' + appid + '_' + appname + '.yaml'
+                    lambda_path = tempfile.gettempdir() + '/CFN_Template_' + appid + '_' + appname + '.yaml'
 
                     # S3 path and Json File
 
@@ -653,7 +654,7 @@ def generate_cft(apptotal, app_id, app_name, template, addvolcount, server_name,
                 appid += character
 
         original_stdout = sys.stdout
-        with open('/tmp/' + 'CFN_Template_' + app_id + '_' + app_name + '.yaml', 'w') as f:
+        with open(tempfile.gettempdir() + '/CFN_Template_' + app_id + '_' + app_name + '.yaml', 'w') as f:
             sys.stdout = f
             sys.stdout = print(template.to_yaml())
 

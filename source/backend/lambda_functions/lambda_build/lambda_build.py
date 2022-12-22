@@ -21,6 +21,7 @@ from botocore.exceptions import ClientError
 import requests
 import zipfile
 import mimetypes
+import tempfile
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -32,13 +33,14 @@ TOOLS_API = os.getenv('TOOLS_API')
 SSM_WS_API = os.getenv('SSM_WS_API')
 USER_POOL_ID = os.getenv('USER_POOL_ID')
 APP_CLIENT_ID = os.getenv('APP_CLIENT_ID')
+COGNITO_HOSTED_UI_URL = os.getenv('COGNITO_HOSTED_UI_URL')
 FRONTEND_BUCKET = os.getenv('FRONTEND_BUCKET')
 SOURCE_BUCKET = os.getenv('SOURCE_BUCKET')
 SOURCE_KEY = os.getenv('SOURCE_KEY')
 VERSION = os.getenv('VERSION')
 
-temp_directory_name = '/tmp/frontend/'
-temp_path = "/tmp/frontend.zip"
+temp_directory_name = tempfile.gettempdir() + '/frontend/'
+temp_path = tempfile.gettempdir() + '/frontend.zip'
 
 s3 = boto3.client('s3')
 
@@ -78,6 +80,7 @@ def update_configuration_file():
     config = config.replace('{{user-pool-id}}', USER_POOL_ID)
     config = config.replace('{{app-client-id}}', APP_CLIENT_ID)
     config = config.replace('{{version}}', VERSION)
+    config = config.replace('{{cognito-hosted_ui_url}}', COGNITO_HOSTED_UI_URL)
 
     with open(temp_directory_name + 'env.js', "w", encoding='utf8') as w:
         w.write(config)
@@ -97,6 +100,7 @@ def update_index_html():
     index_html = index_html.replace('{{login-api}}', LOGIN_API)
     index_html = index_html.replace('{{tools-api}}', TOOLS_API)
     index_html = index_html.replace('{{ssm-ws-api}}', SSM_WS_API)
+    index_html = index_html.replace('{{cognito-hosted_ui_url}}', COGNITO_HOSTED_UI_URL)
 
     with open(temp_directory_name + 'index.html', "w", encoding='utf8') as w:
         w.write(index_html)

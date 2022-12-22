@@ -1,5 +1,10 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, {useEffect, useState} from "react";
-import { Auth } from "aws-amplify";
+import {Auth, Hub} from "aws-amplify";
 import AuthRoutes from "./AuthenticatedRoutes";
 import PreAuthRoutes from "./PreAuthRoutes";
 import AppDialog from "./components/AppDialog";
@@ -25,6 +30,7 @@ import {deepEqual} from "./resources/main.js"
 import ToolHelp from "./components/ToolHelp";
 
 import { useNavigate } from "react-router-dom";
+
 
 var websocket = null;
 let activityTimerID = null;
@@ -159,9 +165,9 @@ const App = (props) => {
         //   }
         // }
         setNotifications(newNotify);
-        break;
-
+        return null;
       default:
+        return null;
     }
   }
 
@@ -572,7 +578,6 @@ const App = (props) => {
           } catch (e) {
             if (cancelledRequest) return;
             if (e !== 'No current user') {
-              alert(e);
               userHasAuthenticated(false);
               setIsAuthenticating(true);
               //navigate("/login");
@@ -590,12 +595,14 @@ const App = (props) => {
             apiAdmin = await new Admin(session);
             if (cancelledRequest) return;
             let lJwt = decodeJwt(token);
-
             const userGroups = lJwt['cognito:groups'];
             //Set username to email address
             if (lJwt.email) {
               setUserName(lJwt.email);
-            } else {
+            } else if (lJwt['cognito:username']) {
+              setUserName(lJwt['cognito:username'])
+            }
+            else {
               setUserName('Profile');
             }
             if (userGroups == undefined) {
@@ -691,6 +698,37 @@ const App = (props) => {
       :
         undefined
   ];
+
+  // Effect detects changes in sign-in state, this is used to detect sign-in via a non-Cognito IDP.
+  useEffect(() => {
+    Hub.listen('auth', ({ payload: { event, data } }) => {
+      switch (event) {
+        case 'signIn':
+          console.debug('Sign-in normal');
+          userHasAuthenticated(true);
+          break;
+        case 'cognitoHostedUI':
+          console.debug('Sign-in Hosted');
+          userHasAuthenticated(true);
+          break;
+        case 'signOut':
+          userHasAuthenticated(false);
+          break;
+        case 'signIn_failure':
+          console.debug('Sign-in failure', data);
+          break;
+        case 'cognitoHostedUI_failure':
+          console.debug('Sign-in failure Hosted', data);
+          break;
+      }
+    });
+  }, []);
+
+  function getUser() {
+    return Auth.currentAuthenticatedUser()
+      .then(userData => userData)
+      .catch(() => console.debug('Not signed in'));
+  }
 
   return (
     !isAuthenticating &&

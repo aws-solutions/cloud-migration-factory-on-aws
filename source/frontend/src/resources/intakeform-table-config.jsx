@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React from 'react';
 import {ExpandableSection, SpaceBetween, StatusIndicator} from "@awsui/components-react";
 import { getNestedValuePath } from "./main";

@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, {useState} from "react";
 import { Auth } from "aws-amplify";
 import {useLocation, useNavigate, useParams} from "react-router-dom";
@@ -6,9 +11,8 @@ import {
   FormField,
   Input,
   Button, Header, SpaceBetween, Grid,
-  Link, Form, Container
+  Link, Form, Container, TextContent
 } from '@awsui/components-react';
-import {getNestedValuePath} from "../resources/main";
 
 const Login = (props) => {
   let location = useLocation()
@@ -22,28 +26,6 @@ const Login = (props) => {
   const [userChallenge, setUserChallenge] = useState(null);
   const [getMFACode, setGetMFACode] = useState(false);
   const [loginError, setLoginError] = useState(null);
-
-  function validateForm() {
-    return email.length > 0 && password.length > 0;
-  }
-
-  const handleChange = event => {
-    switch(event.target.id) {
-      case 'email': {
-        setEmail(event.target.value)
-        break;
-      }
-      case 'password': {
-        setPassword(event.target.value)
-        break;
-      }
-    }
-  }
-
-  function getCodeFromUserInput(){
-    const code = prompt("One Time Access Code?");
-    return code
-  }
 
   const handleSubmit = async event => {
     event.preventDefault();
@@ -155,95 +137,104 @@ const Login = (props) => {
   }
 
   const handleForgotPassword = async () => {
-    //event.preventDefault();
-
-    setIsLoading(true);
-
-    try {
-      if(email) {
-        await Auth.forgotPassword(email);
-      } else {
-        navigate("/forgot/pwd");
-      }
-    } catch (e) {
-      alert(e.message);
-      setIsLoading(false);
-    }
+    navigate("/forgot/pwd");
   }
 
   return (
     <Grid
     gridDefinition={[
-      { colspan: { default: 12, xxs: 6 }, offset: { xxs: 3 } }
+      { colspan: { default: 12, s: 5} },
     ]}
-  >
-    <Box margin="xxl" padding="xxl">
-      <Container>
-        <Form
-          header={<Header variant="h1">{'AWS Cloud Migration Factory'}</Header>}
-          actions={
-            // located at the bottom of the form
-            <SpaceBetween direction="horizontal" size="xs">
-              <Button onClick={resetScreen} disabled={email && password ? false : true}>
-                Clear
-              </Button>
-              {getMFACode
-                ?
-                  <Button onClick={handleSubmitCode} disabled={mfaCode ? false : true} variant="primary">
-                    Confirm Code
-                  </Button>
-                :
-                <Button onClick={handleSubmit} disabled={email && password ? false : true} variant="primary">
-                  Login
-                </Button>
-              }
-            </SpaceBetween>
-          }
-          errorText={loginError ? loginError : null}
-        >
-              <SpaceBetween size={'xl'} direction={'vertical'}>
-                <SpaceBetween size={'xxs'} direction={'vertical'}>
-                  <FormField
-                    key={'username'}
-                    label={'Username'}
-                  >
-                    <Input
-                      value={email}
-                      onChange={event => setEmail(event.detail.value)}
-                      disabled={getMFACode}
-                    />
-                  </FormField>
+    >
+      <div></div>
+      <Box margin="xxl" padding="xxl" >
+        <Container header={<Header variant="h1">{'AWS Cloud Migration Factory'}</Header>}>
+          <SpaceBetween size={'xs'} direction={'vertical'}>
+            <Container>
+            <Form
+              actions={
+                // located at the bottom of the form
+                <SpaceBetween direction="horizontal" size="xs">
 
-                  <FormField
-                    key={'password'}
-                    label={'Password'}
-                  >
-                    <Input
-                      value={password}
-                      onChange={event => setPassword(event.detail.value)}
-                      type="password"
-                      disabled={getMFACode}
-                    />
-                  </FormField>
-                  {getMFACode ?
-                    <FormField
-                      key={'mfaCode'}
-                      label={'MFA Code'}
-                    >
-                      <Input
-                        value={mfaCode}
-                        onChange={event => setMFACode(event.detail.value)}
-                      />
-                    </FormField>
+                  <Button onClick={resetScreen} disabled={email && password ? false : true}>
+                    Clear
+                  </Button>
+                  {getMFACode
+                    ?
+                      <Button onClick={handleSubmitCode} disabled={mfaCode ? false : true} variant="primary">
+                        Confirm Code
+                      </Button>
                     :
-                    null
+                    <Button onClick={handleSubmit} disabled={email && password ? false : true} variant="primary">
+                      Login
+                    </Button>
                   }
                 </SpaceBetween>
-                <Link onFollow={handleForgotPassword}>Forgot your password?</Link>
-              </SpaceBetween>
-        </Form>
-      </Container>
-    </Box>
+              }
+              errorText={loginError ? loginError : null}
+            >
+                  <SpaceBetween size={'xl'} direction={'vertical'}>
+                    <SpaceBetween size={'xxs'} direction={'vertical'}>
+                      <FormField
+                        key={'username'}
+                        label={'Username'}
+                      >
+                        <Input
+                          value={email}
+                          onChange={event => setEmail(event.detail.value)}
+                          disabled={getMFACode}
+                        />
+                      </FormField>
+
+                      <FormField
+                        key={'password'}
+                        label={'Password'}
+                      >
+                        <Input
+                          value={password}
+                          onChange={event => setPassword(event.detail.value)}
+                          type="password"
+                          disabled={getMFACode}
+                        />
+                      </FormField>
+                      {getMFACode ?
+                        <FormField
+                          key={'mfaCode'}
+                          label={'MFA Code'}
+                        >
+                          <Input
+                            value={mfaCode}
+                            onChange={event => setMFACode(event.detail.value)}
+                          />
+                        </FormField>
+                        :
+                        null
+                      }
+                    </SpaceBetween>
+                    <Link onFollow={handleForgotPassword}>Forgot your password?</Link>
+                  </SpaceBetween>
+            </Form>
+          </Container>
+            {window.env.COGNITO_HOSTED_UI_URL ?
+              <center>
+                <SpaceBetween size={'xs'} direction={'vertical'}>
+                  <Box textAlign={'center'}>
+                    <TextContent>
+                      <center>
+                        <h3>Or</h3>
+                      </center>
+                    </TextContent>
+                  </Box>
+                  <Button disabled={email || password ? true : false} onClick={() => Auth.federatedSignIn()}>Sign in with your corporate ID</Button>
+                </SpaceBetween>
+              </center>
+            :
+              null
+            }
+          </SpaceBetween>
+        </Container>
+      </Box>
+      <div></div>
     </Grid>
 
   )

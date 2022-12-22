@@ -52,7 +52,7 @@ ServerTableName = application.lower() + "-" + environment.lower() + \
     "-server-extract-table"
 print(ServerTableName)
 print("*** Query ***")
-query = 'CREATE \
+query = 'CREATE \  # nosec B608
         OR REPLACE VIEW "{}" AS \
         SELECT "a"."cloudendure_projectname" , \
         "a"."app_name" , \

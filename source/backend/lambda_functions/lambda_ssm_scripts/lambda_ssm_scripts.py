@@ -8,6 +8,7 @@ import yaml
 import uuid
 import shutil
 import logging
+import tempfile
 
 logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.DEBUG)
 logger = logging.getLogger()
@@ -101,11 +102,11 @@ def process_schema_extensions(script, update=False):
 
 def cleanup_temp(packageUUID):
     # Delete temp package files in /tmp/ to ensure that large files are not left hanging around for longer than required.
-    if os.path.exists("/tmp/" + packageUUID + ".zip"):
-        os.remove("/tmp/" + packageUUID + ".zip")
+    if os.path.exists(tempfile.gettempdir() + "/" + packageUUID + ".zip"):
+        os.remove(tempfile.gettempdir() + "/" + packageUUID + ".zip")
 
-    if os.path.exists("/tmp/" + packageUUID):
-        shutil.rmtree("/tmp/" + packageUUID, ignore_errors=True)
+    if os.path.exists(tempfile.gettempdir() + "/" + packageUUID):
+        shutil.rmtree(tempfile.gettempdir() + "/" + packageUUID, ignore_errors=True)
 
 
 def get_all_default_scripts():
@@ -227,7 +228,7 @@ def lambda_handler(event, context):
             if event['pathParameters']['action'] == 'download':
                 logger.info('Invocation: %s, download script requested.', logging_context)
                 temp_uuid = str(uuid.uuid4())
-                temp_path = "/tmp/" + temp_uuid + ".zip"
+                temp_path = tempfile.gettempdir() + "/" + temp_uuid + ".zip"
 
                 package_uuid = event['pathParameters']['scriptid']
 
@@ -292,7 +293,7 @@ def lambda_handler(event, context):
         # Set variables
         body = json.loads(event.get('body'))
 
-        tempPath = "/tmp/" + packageUUID + ".zip"
+        tempPath = tempfile.gettempdir() + "/" + packageUUID + ".zip"
         s3Path = f'scripts/{packageUUID}.zip'
 
         # Package path to save the uploaded file
@@ -327,7 +328,7 @@ def lambda_handler(event, context):
                              logging_context)
                 return {'headers': {**default_http_headers},
                         'statusCode': 400, 'body': errorMsg}
-            zip.extractall("/tmp/" + packageUUID)
+            zip.extractall(tempfile.gettempdir() + "/" + packageUUID)
         except (IOError, zipfile.BadZipfile) as e:
             cleanup_temp(packageUUID)
             errorMsg = 'Invalid zip file.'
@@ -337,9 +338,9 @@ def lambda_handler(event, context):
                     'statusCode': 400, 'body': errorMsg}
 
         # Check if yaml file exist
-        if os.path.isfile('/tmp/' + packageUUID + '/Package-Structure.yml'):
+        if os.path.isfile(tempfile.gettempdir() + '/' + packageUUID + '/Package-Structure.yml'):
             # Get and load the configuration file from the extracted zip
-            configFilePath = "/tmp/" + packageUUID + "/Package-Structure.yml"
+            configFilePath = tempfile.gettempdir() + "/" + packageUUID + "/Package-Structure.yml"
             configFile = open(configFilePath)
             parsedYamlFile = yaml.full_load(configFile)
 
@@ -380,7 +381,7 @@ def lambda_handler(event, context):
             if (dependencies):
                 missingFiles = []
                 for dependency in dependencies:
-                    if os.path.isfile('/tmp/' + packageUUID + '/' + dependency["FileName"]) is False:
+                    if os.path.isfile(tempfile.gettempdir() + '/' + packageUUID + '/' + dependency["FileName"]) is False:
                         missingFiles.append(dependency["FileName"])
 
                 if len(missingFiles) > 0:
@@ -487,7 +488,7 @@ def lambda_handler(event, context):
 
         body = json.loads(event.get('body'))
 
-        tempPath = "/tmp/" + packageUUID + ".zip"
+        tempPath = tempfile.gettempdir() + "/" + packageUUID + ".zip"
         s3Path = f'scripts/{packageUUID}.zip'
 
         if body['action'] == 'update_package':
@@ -525,7 +526,7 @@ def lambda_handler(event, context):
                                  logging_context)
                     return {'headers': {**default_http_headers},
                             'statusCode': 400, 'body': errorMsg}
-                zip.extractall("/tmp/" + packageUUID)
+                zip.extractall(tempfile.gettempdir() + "/" + packageUUID)
             except (IOError, zipfile.BadZipfile) as e:
                 cleanup_temp(packageUUID)
                 errorMsg = 'Invalid zip file.'
@@ -535,9 +536,9 @@ def lambda_handler(event, context):
                         'statusCode': 400, 'body': errorMsg}
 
             # Check if yaml file exist,
-            if os.path.isfile('/tmp/' + packageUUID + '/Package-Structure.yml'):
+            if os.path.isfile(tempfile.gettempdir() + '/' + packageUUID + '/Package-Structure.yml'):
                 # Get and load the configuration file from the extracted zip
-                configFilePath = "/tmp/" + packageUUID + "/Package-Structure.yml"
+                configFilePath = tempfile.gettempdir() + "/" + packageUUID + "/Package-Structure.yml"
                 configFile = open(configFilePath)
                 parsedYamlFile = yaml.full_load(configFile)
 
@@ -582,7 +583,7 @@ def lambda_handler(event, context):
                 if (dependencies):
                     missingFiles = []
                     for dependency in dependencies:
-                        if os.path.isfile('/tmp/' + packageUUID + '/' + dependency["FileName"]) is False:
+                        if os.path.isfile(tempfile.gettempdir() + '/' + packageUUID + '/' + dependency["FileName"]) is False:
                             missingFiles.append(dependency["FileName"])
 
                     if len(missingFiles) > 0:
