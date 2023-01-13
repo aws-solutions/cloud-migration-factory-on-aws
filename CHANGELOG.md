@@ -3,6 +3,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.2.1] - 2023-01-12
+### Fixed
+- Updated python requests to 2.28.1 due to security patch required for certifi module which is a dependency. Using the latest requests version 2.28.1 installs the latest patched version of certifi v2022.12.07. For details please refer to https://nvd.nist.gov/vuln/detail/cve-2022-23491.
 ## [3.2.0] - 2022-12-22
 ### Added
 - Security: Allowed customers to use corporate credentials/SSO to login to the CMF web interface; this ability enables federated sign in using any SAML identity provider that can be integrated with Cognito.
