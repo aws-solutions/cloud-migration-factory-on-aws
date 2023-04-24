@@ -6,7 +6,7 @@
     "@awsui/components-react": "^3.0.693",
     "@awsui/global-styles": "^1.0.19",
     "ace-builds": "^1.5.1",
-    "aws-amplify": "^4.3.23",
+    "aws-amplify": "^4.3.46",
     "jquery": "^3.6.0",
     "jquery-csv": "^1.0.21",
     "react": "^17.0.2",

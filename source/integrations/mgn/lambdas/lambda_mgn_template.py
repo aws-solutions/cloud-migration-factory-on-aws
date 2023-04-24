@@ -548,9 +548,9 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
 
         if 'instance_metadata_options_http_tokens' in factoryserver:
             if factoryserver['instance_metadata_options_http_tokens']:
-                metadata_options['HttpTokens'] = 'enabled'
+                metadata_options['HttpTokens'] = 'required'
             else:
-                metadata_options['HttpTokens'] = 'disabled'
+                metadata_options['HttpTokens'] = 'optional'
 
         if metadata_options:
             new_launch_template['MetadataOptions'] = metadata_options

@@ -234,8 +234,6 @@ def GetServerList(waveid, servers_table):
                     applist.append(app['app_id'])
                     appnamelist.append(app['app_name'])
 
-        serverlist = []
-
         apptotal = int(len(applist))
         appnumb = 0
 
@@ -249,15 +247,17 @@ def GetServerList(waveid, servers_table):
             template.set_version("2010-09-09")
             template.set_description("Builds stack for EC2 Servers for the Application " + str(appnamelist[appnumb]))
 
-            # Pull Server List and Attributes
+            serverlist = []
 
+            # Gather servers for this application that are Replatform.
             for server in servers:
                 if "app_id" in server and "r_type" in server:
-                    addvolcount = 0
-                    print(server['r_type'].upper())
                     if applist[appnumb] == server['app_id'] and server['r_type'].upper() == 'REPLATFORM':
                         serverlist.append(server)
 
+            # Process all servers that required Replatform.
+            for server in serverlist:
+                addvolcount = 0
                 # Call Generate Cloud Formation Template Function for each Server
                 if "add_vols_size" not in server:
                     server['add_vols_size'] = ''
@@ -280,29 +280,28 @@ def GetServerList(waveid, servers_table):
 
                 print('Input Values Going to be Passed for CFT Generation:')
                 print(server)
-                if "r_type" in server and server['r_type'].upper() == 'REPLATFORM':
-                    tags = []
-                    if 'tags' in server:
-                        tags = server['tags']
-                    server_name_short = server['server_name'].lower().split(".")[0]
-                    templategen = generate_cft(apptotal, applist[appnumb], appnamelist[appnumb], template, addvolcount,
-                                               server_name_short, server['instanceType'].lower(),
-                                               server['securitygroup_IDs'],
-                                               server['subnet_IDs'], server['tenancy'], server['add_vols_size'],
-                                               server['add_vols_name'], server['add_vols_type'],
-                                               server['root_vol_size'], server['root_vol_name'],
-                                               server['root_vol_type'], server['ebs_kmskey_id'],
-                                               server['availabilityzone']
-                                               , server['ami_id'], server['ebs_optimized'],
-                                               server['detailed_monitoring'], server['iamRole'], tags,
-                                               server['server_os_family'])
-                    templategenlist.append(templategen)
+                tags = []
+                if 'tags' in server:
+                    tags = server['tags']
+                server_name_short = server['server_name'].lower().split(".")[0]
+                templategen = generate_cft(apptotal, applist[appnumb], appnamelist[appnumb], template, addvolcount,
+                                           server_name_short, server['instanceType'].lower(),
+                                           server['securitygroup_IDs'],
+                                           server['subnet_IDs'], server['tenancy'], server['add_vols_size'],
+                                           server['add_vols_name'], server['add_vols_type'],
+                                           server['root_vol_size'], server['root_vol_name'],
+                                           server['root_vol_type'], server['ebs_kmskey_id'],
+                                           server['availabilityzone']
+                                           , server['ami_id'], server['ebs_optimized'],
+                                           server['detailed_monitoring'], server['iamRole'], tags,
+                                           server['server_os_family'])
+                templategenlist.append(templategen)
 
-                    # update
-                    serverresponse = servers_table.get_item(Key={'server_id': server['server_id']})
-                    serveritem = serverresponse['Item']
-                    serveritem['migration_status'] = 'CF Template Generated'
-                    servers_table.put_item(Item=serveritem)
+                # update
+                serverresponse = servers_table.get_item(Key={'server_id': server['server_id']})
+                serveritem = serverresponse['Item']
+                serveritem['migration_status'] = 'CF Template Generated'
+                servers_table.put_item(Item=serveritem)
 
             appnumb = appnumb + 1
 
