@@ -153,6 +153,9 @@ Resources:
     Properties:
       BucketName: !Sub ${Application}-${Environment}-${AWS::AccountId}-access-logs
       AccessControl: LogDeliveryWrite
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: ObjectWriter
       PublicAccessBlockConfiguration:
         BlockPublicAcls: TRUE
         BlockPublicPolicy: TRUE
@@ -707,10 +710,7 @@ Resources:
       ServiceName: !Sub 'com.amazonaws.${AWS::Region}.execute-api'
       VpcId: !Ref EndpointVPCId
       VpcEndpointType: Interface
-      SubnetIds:
-        - !Join
-          - ','
-          - !Ref PrivateEndpointSubnets
+      SubnetIds: !Ref PrivateEndpointSubnets
       PrivateDnsEnabled: true
       SecurityGroupIds:
         - !Ref APIGatewayEndpointSG
@@ -5137,10 +5137,10 @@ Resources:
         !Ref WAFFEStack
       ResourceType: CFN_STACK
 
-  DefaultApplicationAttributes:
+  DefaultApplicationAttributeGroup:
     Type: AWS::ServiceCatalogAppRegistry::AttributeGroup
     Properties:
-      Name: !Sub '${AWS::Region}-${AWS::StackName}'
+      Name: !Sub 'AttrGrp-${AWS::Region}-${AWS::StackName}'
       Description: Attribute group for solution information.
       Attributes:
         { "ApplicationType" : 'AWS-Solutions',
@@ -5153,7 +5153,7 @@ Resources:
     Type: AWS::ServiceCatalogAppRegistry::AttributeGroupAssociation
     Properties:
       Application: !GetAtt AppRegistryApplication.Id
-      AttributeGroup: !GetAtt DefaultApplicationAttributes.Id
+      AttributeGroup: !GetAtt DefaultApplicationAttributeGroup.Id
 
 Outputs:
   MigrationFactoryURL:

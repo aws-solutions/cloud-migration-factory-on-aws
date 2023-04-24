@@ -3,6 +3,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.2.2] - 2023-04-24
+### Fixed
+- Resolved issue caused by S3 changes to new bucket permissions described in the following release notes https://aws.amazon.com/about-aws/whats-new/2022/12/amazon-s3-automatically-enable-block-public-access-disable-access-control-lists-buckets-april-2023/. This change is now being rolled out across all regions and causes a failure in the stack deployment if this new setting is not applied.
+- Updated AWS Amplify to the latest in order to resolve dependency and upgrade @sideway/formula module to 3.0.1 to protect against vulnerability described here https://nvd.nist.gov/vuln/detail/CVE-2023-25166.
+- Simplejson python library updated from 3.18.0 to 3.19.1 (Used by in all CMF Lambda functions).
+- Troposphere python library updated from 4.2.0 to 4.3.2 (Used by EC2 Platform functions).
+- Coverage python library updated from 7.0.0 to 7.2.2 (Used only for unit testing).
+- Application Registry - Update to logicalId for the Attribute group to fix CFN error "AttributeGroup name update feature has been deprecated. (Service: ServiceCatalogAppRegistry, Status Code: 400)". This error would occur when a stack update is performed and caused by changes to the AppRegistry service.
+- MGN Rehost - IMDSv2 settings on EC2 launch profile were incorrectly setting the values to enabled and disabled, the only options now are optional and required.
+- EC2 Replatform - resolved issue where Build template incorrectly including all servers with the Replatform r_type without verifying that the application was within the wave selected.
+- Fixed issue when deploying CMF stack with the optional private deployment, and specifying multiple subnet IDs to the PrivateEndpointSubnets parameter. When multiple subnets were provided the VPC endpoint would fail to create as the list was provided as a string and not a list as expected.
 ## [3.2.1] - 2023-01-12
 ### Fixed
 - Updated python requests to 2.28.1 due to security patch required for certifi module which is a dependency. Using the latest requests version 2.28.1 installs the latest patched version of certifi v2022.12.07. For details please refer to https://nvd.nist.gov/vuln/detail/cve-2022-23491.
