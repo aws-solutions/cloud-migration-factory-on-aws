@@ -142,7 +142,8 @@ def respond(event, context, responseStatus, responseData, physicalResourceId):
     try:
         response = requests.put(responseUrl,
         data=json_responseBody,
-        headers=headers)
+        headers=headers,
+        timeout=30)
         log.info('Status code: {}'.format(str(response.reason)))
         return 'SUCCESS'
 

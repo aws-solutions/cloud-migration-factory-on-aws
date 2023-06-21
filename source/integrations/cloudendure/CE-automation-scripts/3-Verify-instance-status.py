@@ -43,7 +43,10 @@ with open('FactoryEndpoints.json') as json_file:
 UserHOST = endpoints['UserApiUrl']
 
 def GetCEProject(projectname, session, headers, endpoint, HOST):
-    r = requests.get(HOST + endpoint.format('projects'), headers=headers, cookies=session)
+    r = requests.get(HOST + endpoint.format('projects'),
+                     headers=headers,
+                     cookies=session,
+                     timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
     if r.status_code != 200:
         print("ERROR: Failed to fetch the project....")
         sys.exit(2)
@@ -66,9 +69,15 @@ def GetCEProject(projectname, session, headers, endpoint, HOST):
 
 def GetRegion(project_id):
     region_ids = []
-    rep = requests.get(HOST + endpoint.format('projects/{}/replicationConfigurations').format(project_id), headers=headers, cookies=session)
+    rep = requests.get(HOST + endpoint.format('projects/{}/replicationConfigurations').format(project_id),
+                       headers=headers,
+                       cookies=session,
+                       timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
     for item in json.loads(rep.text)['items']:
-        region = requests.get(HOST + endpoint.format('cloudCredentials/{}/regions/{}').format(item['cloudCredentials'], item['region']), headers=headers, cookies=session)
+        region = requests.get(HOST + endpoint.format('cloudCredentials/{}/regions/{}').format(item['cloudCredentials'], item['region']),
+                              headers=headers,
+                              cookies=session,
+                              timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
         name = json.loads(region.text)['name']
         region_code = ""
         if "Northern Virginia" in name:
@@ -120,8 +129,12 @@ def GetServerList(projectname, waveid, token):
     try:
         # Get all Apps and servers from migration factory
         auth = {"Authorization": token}
-        servers = json.loads(requests.get(UserHOST + serverendpoint, headers=auth).text)
-        apps = json.loads(requests.get(UserHOST + appendpoint, headers=auth).text)
+        servers = json.loads(requests.get(UserHOST + serverendpoint,
+                                          headers=auth,
+                                          timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT).text)
+        apps = json.loads(requests.get(UserHOST + appendpoint,
+                                       headers=auth,
+                                       timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT).text)
 
         # Get App list
         applist = []
@@ -146,7 +159,10 @@ def GetServerList(projectname, waveid, token):
 
 def GetInstanceId(project_id, serverlist, session, headers, endpoint, HOST, token):
         # Get Machine List from CloudEndure
-        m = requests.get(HOST + endpoint.format('projects/{}/machines').format(project_id), headers=headers, cookies=session)
+        m = requests.get(HOST + endpoint.format('projects/{}/machines').format(project_id),
+                         headers=headers,
+                         cookies=session,
+                         timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
         if "sourceProperties" not in m.text:
             print("ERROR: Failed to fetch the machines....")
             sys.exit(11)
@@ -158,7 +174,10 @@ def GetInstanceId(project_id, serverlist, session, headers, endpoint, HOST, toke
                         if machine['replica'] != '':
                             InstanceInfo = {}
                             # print(machine['replica'])
-                            target_replica = requests.get(HOST + endpoint.format('projects/{}/replicas').format(project_id) + '/' + machine['replica'], headers=headers, cookies=session)
+                            target_replica = requests.get(HOST + endpoint.format('projects/{}/replicas').format(project_id) + '/' + machine['replica'],
+                                                          headers=headers,
+                                                          cookies=session,
+                                                          timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
                             # print(json.loads(target_replica.text))
                             InstanceInfo['InstanceName'] = machine['sourceProperties']['name'].lower()
                             InstanceInfo['InstanceId'] = json.loads(target_replica.text)['machineCloudId']
@@ -269,7 +288,10 @@ def verify_instance_status(InstanceList, serverlist, token, access_key_id, secre
                 serverattr = {"migration_status": lifeCycle + "2/2 status checks : Failed"}
             for s in serverlist:
                 if s['server_name'].lower() == instance['InstanceName'].lower():
-                    updateserver = requests.put(UserHOST + serverendpoint + '/' + s['server_id'], headers=auth, data=json.dumps(serverattr))
+                    updateserver = requests.put(UserHOST + serverendpoint + '/' + s['server_id'],
+                                                headers=auth,
+                                                data=json.dumps(serverattr),
+                                                timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
             if updateserver.status_code == 401:
                print("Error: Access to migration_status attribute is denied")
                sys.exit(9)

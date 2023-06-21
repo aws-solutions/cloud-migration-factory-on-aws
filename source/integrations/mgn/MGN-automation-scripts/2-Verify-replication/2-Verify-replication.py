@@ -31,18 +31,19 @@ import mfcommon
 
 serverendpoint = mfcommon.serverendpoint
 appendpoint = mfcommon.appendpoint
-timeout = 60*60
+timeout = 60 * 60
 
 with open('FactoryEndpoints.json') as json_file:
     endpoints = json.load(json_file)
+
 
 def unix_time_millis(dt):
     epoch = datetime.utcfromtimestamp(0)
     return (dt - epoch).total_seconds()
 
-def assume_role(account_id, region):
 
-    sts_client = boto3.client('sts')
+def assume_role(account_id, region):
+    sts_client = boto3.client('sts', region_name=region)
     role_arn = 'arn:aws:iam::' + account_id + ':role/CMF-MGNAutomation'
     # Call the assume_role method of the STSConnection object and pass the role
     # ARN and a role session name.
@@ -52,7 +53,7 @@ def assume_role(account_id, region):
         response = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=sessionname)
         credentials = response['Credentials']
         session = boto3.Session(
-            region_name = region,
+            region_name=region,
             aws_access_key_id=credentials['AccessKeyId'],
             aws_secret_access_key=credentials['SecretAccessKey'],
             aws_session_token=credentials['SessionToken']
@@ -61,15 +62,16 @@ def assume_role(account_id, region):
     except botocore.exceptions.ClientError as e:
         print(str(e))
 
-#Pagination for describe MGN source servers
+
+# Pagination for describe MGN source servers
 def get_mgn_source_servers(mgn_client_base):
     token = None
     source_server_data = []
     paginator = mgn_client_base.get_paginator('describe_source_servers')
     while True:
-        response = paginator.paginate(filters={}, 
-            PaginationConfig={
-                'StartingToken': token})
+        response = paginator.paginate(filters={},
+                                      PaginationConfig={
+                                          'StartingToken': token})
         for page in response:
             source_server_data.extend(page['items'])
         try:
@@ -77,6 +79,7 @@ def get_mgn_source_servers(mgn_client_base):
             print(token)
         except KeyError:
             return source_server_data
+
 
 def verify_replication(serverlist, UserHOST):
     Not_finished = True
@@ -95,13 +98,14 @@ def verify_replication(serverlist, UserHOST):
             mgn_sourceservers = get_mgn_source_servers(mgn_client)
             print("")
             print("##########################################################################")
-            print("#### Replication Status for Account: " + account['aws_accountid'], ", region: " + account['aws_region'] + " ####")
-            print("##########################################################################", flush = True)
+            print("#### Replication Status for Account: " + account['aws_accountid'],
+                  ", region: " + account['aws_region'] + " ####")
+            print("##########################################################################", flush=True)
             machine_status = {}
             for factoryserver in account['servers']:
                 replication_not_finished = False
                 if 'server_fqdn' not in factoryserver:
-                    print("ERROR: server_fqdn does not exist for server: " + factoryserver['server_name'], flush = True)
+                    print("ERROR: server_fqdn does not exist for server: " + factoryserver['server_name'], flush=True)
                 else:
 
                     sourceserver = mfcommon.get_MGN_Source_Server(factoryserver, mgn_sourceservers)
@@ -116,70 +120,78 @@ def verify_replication(serverlist, UserHOST):
                                     if step['status'] == 'SUCCEEDED':
                                         laststep = step['name']
                                         break
-                                if  replication_state == 'INITIAL_SYNC' or replication_state == 'RESCAN':
+                                if replication_state == 'INITIAL_SYNC' or replication_state == 'RESCAN':
                                     # Return message
                                     msg = ""
                                     if replication_state == 'INITIAL_SYNC':
-                                       msg = "Initial sync, ETA "
+                                        msg = "Initial sync, ETA "
                                     elif replication_state == 'RESCAN':
-                                       msg = "Rescanning, ETA "
+                                        msg = "Rescanning, ETA "
                                     # Calculate ETA
                                     if laststep == "START_DATA_TRANSFER":
                                         if 'etaDateTime' in sourceserver['dataReplicationInfo']:
-                                                a = int(sourceserver['dataReplicationInfo']['etaDateTime'][11:13])
-                                                b = int(sourceserver['dataReplicationInfo']['etaDateTime'][14:16])
-                                                x = int(datetime.utcnow().isoformat()[11:13])
-                                                y = int(datetime.utcnow().isoformat()[14:16])
-                                                result = (a - x) * 60 + (b - y)
-                                                if result < 60:
-                                                    machine_status[factoryserver["server_name"]] = msg + str(result) + " Minutes"
-                                                else:
-                                                    hours = int(result / 60)
-                                                    machine_status[factoryserver["server_name"]] = msg + str(hours) + " Hours"
+                                            a = int(sourceserver['dataReplicationInfo']['etaDateTime'][11:13])
+                                            b = int(sourceserver['dataReplicationInfo']['etaDateTime'][14:16])
+                                            x = int(datetime.utcnow().isoformat()[11:13])
+                                            y = int(datetime.utcnow().isoformat()[14:16])
+                                            result = (a - x) * 60 + (b - y)
+                                            if result < 60:
+                                                machine_status[factoryserver["server_name"]] = msg + str(
+                                                    result) + " Minutes"
+                                            else:
+                                                hours = int(result / 60)
+                                                machine_status[factoryserver["server_name"]] = msg + str(
+                                                    hours) + " Hours"
                                         else:
-                                                machine_status[factoryserver["server_name"]] = msg + "not available"
+                                            machine_status[factoryserver["server_name"]] = msg + "not available"
                                     else:
                                         msg = msg + "not available"
                                         if laststep != '':
-                                           machine_status[factoryserver["server_name"]] = laststep
+                                            machine_status[factoryserver["server_name"]] = laststep
                                         else:
-                                           machine_status[factoryserver["server_name"]] = msg
+                                            machine_status[factoryserver["server_name"]] = msg
                                 elif replication_state.lower() == 'initiating':
-                                     machine_status[factoryserver["server_name"]] = 'Initiating - ' + laststep
+                                    machine_status[factoryserver["server_name"]] = 'Initiating - ' + laststep
                                 elif replication_state.lower() == 'continuous':
-                                     machine_status[factoryserver["server_name"]] = 'Healthy'
+                                    machine_status[factoryserver["server_name"]] = 'Healthy'
                                 elif replication_state.lower() == 'disconnected':
-                                     machine_status[factoryserver["server_name"]] = 'Disconnected - Please reinstall agent'
+                                    machine_status[
+                                        factoryserver["server_name"]] = 'Disconnected - Please reinstall agent'
                                 else:
-                                     machine_status[factoryserver["server_name"]] = replication_state.lower().capitalize()
+                                    machine_status[
+                                        factoryserver["server_name"]] = replication_state.lower().capitalize()
                             else:
                                 machine_status[factoryserver["server_name"]] = 'Replication info not Available'
                         else:
                             machine_status[factoryserver["server_name"]] = 'Archived - Please reinstall agent'
                             count_fail += 1
                         # print replication status and update replication_status in migration factory
-                        print ("Server " + factoryserver["server_name"] + " replication status: " + machine_status[factoryserver["server_name"]], flush = True)
+                        print("Server " + factoryserver["server_name"] + " replication status: " + machine_status[
+                            factoryserver["server_name"]], flush=True)
                         serverattr = {"replication_status": machine_status[factoryserver["server_name"]]}
                         if machine_status[factoryserver["server_name"]] != "Healthy":
                             replication_not_finished = True
-                        updateserver = requests.put(UserHOST + serverendpoint + '/' + factoryserver['server_id'], headers=auth, data=json.dumps(serverattr))
+                        updateserver = requests.put(UserHOST + serverendpoint + '/' + factoryserver['server_id'],
+                                                    headers=auth,
+                                                    data=json.dumps(serverattr),
+                                                    timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
                         if updateserver.status_code == 401:
-                            print("Error: Access to replication_status attribute is denied", flush = True)
+                            print("Error: Access to replication_status attribute is denied", flush=True)
                             sys.exit(1)
                         elif updateserver.status_code != 200:
-                            print("Error: Update replication_status attribute failed", flush = True)
+                            print("Error: Update replication_status attribute failed", flush=True)
                             sys.exit(1)
                         replication_status.append(replication_not_finished)
                     # else:
 
         for status in replication_status:
             if status == True:
-               Not_finished = True
+                Not_finished = True
         if Not_finished:
             print("")
             print("***************************************************")
             print("* Replication in progress - retry after 1 minute *")
-            print("***************************************************", flush = True)
+            print("***************************************************", flush=True)
             time.sleep(60)
         print("")
         newTime = datetime.utcnow()
@@ -190,12 +202,14 @@ def verify_replication(serverlist, UserHOST):
             return -1
     return count_fail
 
+
 def main(arguments):
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--Waveid', required=True)
-    parser.add_argument('--NoPrompts', default=False, type=bool, help='Specify if user prompts for passwords are allowed. Default = False')
+    parser.add_argument('--NoPrompts', default=False, type=bool,
+                        help='Specify if user prompts for passwords are allowed. Default = False')
     args = parser.parse_args(arguments)
 
     UserHOST = ""
@@ -209,29 +223,31 @@ def main(arguments):
     print("")
     print("****************************")
     print("*Login to Migration factory*")
-    print("****************************", flush = True)
+    print("****************************", flush=True)
     token = mfcommon.Factorylogin()
 
     print("****************************")
     print("*** Getting Server List ****")
-    print("****************************", flush = True)
+    print("****************************", flush=True)
     get_servers = mfcommon.get_factory_servers(args.Waveid, token, UserHOST, False, 'Rehost')
 
     print("")
     print("*****************************")
     print("* Verify replication status *")
-    print("*****************************", flush = True)
+    print("*****************************", flush=True)
     failure_count = verify_replication(get_servers, UserHOST)
 
     if (failure_count == -1):
-        print("The script has been running for more than 60 minutes, please verify the status and run this again as needed")
+        print(
+            "The script has been running for more than 60 minutes, please verify the status and run this again as needed")
         return 1
     elif (failure_count > 0):
-        print( str(failure_count) + " servers have had replication issues. Check log for details.")
+        print(str(failure_count) + " servers have had replication issues. Check log for details.")
         return 1
     else:
         print("All servers have had replication completed successfully.")
         return 0
+
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))

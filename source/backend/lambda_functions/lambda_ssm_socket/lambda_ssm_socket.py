@@ -8,7 +8,7 @@ from jose import jwk, jwt
 from jose.utils import base64url_decode
 import logging
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level = logging.DEBUG)
+logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -19,7 +19,7 @@ keys_url = 'https://cognito-idp.{}.amazonaws.com/{}/.well-known/jwks.json'.forma
 # instead of re-downloading the public keys every time
 # we download them only on cold start
 # https://aws.amazon.com/blogs/compute/container-reuse-in-lambda/
-response = urllib.request.urlopen(keys_url) # nosec B310
+response = urllib.request.urlopen(keys_url)  # nosec B310
 keys = json.loads(response.read())['keys']
 
 application = os.environ["application"]
@@ -27,10 +27,12 @@ environment = os.environ["environment"]
 dynamodb = boto3.resource("dynamodb")
 connectionIds_table_name = '{}-{}-ssm-connectionIds'.format(application, environment)
 
+
 def _get_response(status_code, body):
     if not isinstance(body, str):
         body = json.dumps(body)
     return {"statusCode": status_code, "body": body}
+
 
 def verify_token(token):
     # get the kid from the headers prior to verification
@@ -73,6 +75,7 @@ def verify_token(token):
     logger.info('Token verified.')
     return claims
 
+
 def lambda_handler(event, context):
     logger.debug(event)
     if event["requestContext"]["eventType"] == "CONNECT":
@@ -112,7 +115,8 @@ def lambda_handler(event, context):
                 info_message = "Authentication successful"
                 connectionId = event["requestContext"].get("connectionId")
                 table = dynamodb.Table(connectionIds_table_name)
-                table.put_item(Item={"connectionId": connectionId, "date/time": datetime.datetime.now().strftime("%c"), "email": claims['email'], "topics": []}   )
+                table.put_item(Item={"connectionId": connectionId, "date/time": datetime.datetime.now().strftime("%c"),
+                                     "email": claims['email'], "topics": []})
                 logger.info('MESSAGE: %s' + ' - ' + info_message, event["requestContext"].get("connectionId"))
                 return _get_response(200, info_message)
 

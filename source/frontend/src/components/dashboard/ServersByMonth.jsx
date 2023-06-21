@@ -48,17 +48,16 @@ const WaveServersByMonth = (props) => {
   }
 
   function dateRange(startDate, endDate) {
-      var startYear  = startDate.getFullYear();
-      var endYear    = endDate.getFullYear();
-      var dates      = [];
+      let startYear  = startDate.getFullYear();
+      let endYear    = endDate.getFullYear();
+      let dates      = [];
 
-      for(var i = startYear; i <= endYear; i++) {
-        var endMonth = i != endYear ? 11 : parseInt(endDate.getMonth());
-        var startMon = i === startYear ? parseInt(startDate.getMonth()) : 0;
-        for(var j = startMon; j <= endMonth; j = j > 12 ? j % 12 || 11 : j+1) {
-          var month = j+1;
-          var displayMonth = month;
-          dates.push({x: [i, displayMonth].join('-'), y: 0});
+      for(let i = startYear; i <= endYear; i++) {
+        let endMonth = i != endYear ? 11 : parseInt(endDate.getMonth());
+        let startMon = i === startYear ? parseInt(startDate.getMonth()) : 0;
+        for(let j = startMon; j <= endMonth; j = j > 12 ? j % 12 || 11 : j+1) {
+          let month = j+1;
+          dates.push({x: [i, month].join('-'), y: 0});
         }
       }
       return dates;
@@ -100,7 +99,6 @@ const WaveServersByMonth = (props) => {
 
   //Pre-populate chart_data with all months between the earliest and latest dates for the waves.
   if (waveStatus !== undefined && waveStatus.length > 0){
-    let numWaves = waveStatus.length;
     chart_data = dateRange(waveStatus[0].x, waveStatus[waveStatus.length-1].x);
 
     //Map each wave into the chart_data array and combine waves server totals where occurring the same month.

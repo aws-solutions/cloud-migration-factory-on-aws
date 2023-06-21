@@ -1,0 +1,202 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Builds stack for EC2 Servers for the Application Wordpress
+Outputs:
+  wordpresswebAZ:
+    Description: Availability Zone of the newly created EC2 instance
+    Value: !GetAtt 'wordpresswebEc2Instance.AvailabilityZone'
+  wordpresswebInstanceId:
+    Description: InstanceId of the newly created EC2 instance
+    Value: !Ref 'wordpresswebEc2Instance'
+  wordpresswebPrivateDNS:
+    Description: Private DNSName of the newly created EC2 instance
+    Value: !GetAtt 'wordpresswebEc2Instance.PrivateDnsName'
+  wordpresswebPrivateIP:
+    Description: Private IP address of the newly created EC2 instance
+    Value: !GetAtt 'wordpresswebEc2Instance.PrivateIp'
+  wordpresswebPublicDNS:
+    Description: Public DNSName of the newly created EC2 instance
+    Value: !GetAtt 'wordpresswebEc2Instance.PublicDnsName'
+  wordpresswebPublicIP:
+    Description: Public IP address of the newly created EC2 instance
+    Value: !GetAtt 'wordpresswebEc2Instance.PublicIp'
+Parameters:
+  wordpresswebAMIId:
+    Default: amzn-linux-2022
+    Description: The ID of the AMI to deploy the instance with.
+    Type: AWS::EC2::Image::Id
+  wordpresswebAZName:
+    Default: us-east-1a
+    Description: The Availability Zone that you want to launch the instance and volumes
+    Type: String
+  wordpresswebEbsKmsKeyId:
+    AllowedPattern: ^(arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key/){0,1}[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$|^$
+    Default: ''
+    Description: ID or ARN of the KMS master key to be used to encrypt EBS Volumes
+    Type: String
+  wordpresswebEbsOptimized:
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'false'
+    Description: True for the instance to be optimized for Amazon Elastic Block Store I/O. False for it to not be. If you set this to true, choose an InstanceType that supports EBS optimization.
+    Type: String
+  wordpresswebInstanceType:
+    Default: t3.medium
+    Description: The EC2 instance type. Choose an InstanceType that supports EBS optimization if InstanceEBSOptimized = true.
+    Type: String
+  wordpresswebSubnetId:
+    Default: subnet-02ee1e6b9543b81c9
+    Description: The subnet that you want to launch the instance into, in the form subnet-0123abcd or subnet-01234567890abcdef
+    Type: String
+  wordpresswebdetailedmonitoring:
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'false'
+    Description: True to enable detailed monitoring on the instance, false to use only basic monitoring.
+    Type: String
+  wordpresswebinstanceprofile:
+    Default: ''
+    Description: An IAM instance profile defined in your account. The default is an AWS-provided role.
+    Type: String
+  wordpresswebrootvolumename:
+    AllowedValues:
+      - /dev/sda1
+      - /dev/xvda
+    Default: /dev/xvda
+    Description: The device name of the root volume (for example /dev/xvda or /dev/sda1).
+    Type: String
+  wordpresswebrootvolumesize:
+    Default: '8'
+    Description: The size of the root volume for the instance in GiB.
+    MaxValue: 16384
+    MinValue: 8
+    Type: Number
+  wordpresswebrootvolumetype:
+    AllowedValues:
+      - standard
+      - io1
+      - io2
+      - gp2
+      - gp3
+    Default: gp3
+    Description: >-
+      The volume type for root volume. Choose io1, io2, gp2 or gp3 for SSD-backed volumes optimized for transactional workloads. Choose standard for HDD-backed volumes suitable for workloads where data
+      is infrequently accessed.
+    Type: String
+  wordpresswebsecuritygroupids:
+    Default: sg-0485cd66e0f74adf3
+    Description: Comma-separated list of up to three security group (SG) identifiers. These control access to the EC2 instance
+    Type: CommaDelimitedList
+  wordpresswebvolume1name:
+    Default: /dev/sdf
+    Description: The device name for additional Volumes ( example, /dev/sdf through /dev/sdp for Linux or xvdf through xvdp for Windows).
+    Type: String
+  wordpresswebvolume1size:
+    Default: '16'
+    Description: The size of the additional volume in GiB.
+    MaxValue: 16384
+    MinValue: 1
+    Type: Number
+  wordpresswebvolume1type:
+    AllowedValues:
+      - standard
+      - io1
+      - io2
+      - gp2
+      - gp3
+    Default: gp3
+    Description: >-
+      The volume type for additional volume. Choose io1, io2, gp2 or gp3 for SSD-backed volumes optimized for transactional workloads. Choose standard for HDD-backed volumes suitable for workloads where
+      data is infrequently accessed.
+    Type: String
+  wordpresswebvolume2name:
+    Default: /dev/sdg
+    Description: The device name for additional Volumes ( example, /dev/sdf through /dev/sdp for Linux or xvdf through xvdp for Windows).
+    Type: String
+  wordpresswebvolume2size:
+    Default: '32'
+    Description: The size of the additional volume in GiB.
+    MaxValue: 16384
+    MinValue: 1
+    Type: Number
+  wordpresswebvolume2type:
+    AllowedValues:
+      - standard
+      - io1
+      - io2
+      - gp2
+      - gp3
+    Default: gp3
+    Description: >-
+      The volume type for additional volume. Choose io1, io2, gp2 or gp3 for SSD-backed volumes optimized for transactional workloads. Choose standard for HDD-backed volumes suitable for workloads where
+      data is infrequently accessed.
+    Type: String
+Resources:
+  wordpresswebEc2Instance:
+    Properties:
+      AvailabilityZone: !Ref 'wordpresswebAZName'
+      BlockDeviceMappings:
+        - DeviceName: !Ref 'wordpresswebrootvolumename'
+          Ebs:
+            Encrypted: true
+            VolumeSize: !Ref 'wordpresswebrootvolumesize'
+            VolumeType: !Ref 'wordpresswebrootvolumetype'
+      EbsOptimized: !Ref 'wordpresswebEbsOptimized'
+      IamInstanceProfile: !Ref 'wordpresswebinstanceprofile'
+      ImageId: !Ref 'wordpresswebAMIId'
+      InstanceType: !Ref 'wordpresswebInstanceType'
+      Monitoring: !Ref 'wordpresswebdetailedmonitoring'
+      SecurityGroupIds: !Ref 'wordpresswebsecuritygroupids'
+      SubnetId: !Ref 'wordpresswebSubnetId'
+      Tags:
+        - Key: CostCenter
+          Value: '123'
+        - Key: BU
+          Value: IT
+        - Key: Location
+          Value: US
+        - Key: Name
+          Value: wordpress-web
+      Tenancy: default
+    Type: AWS::EC2::Instance
+  wordpresswebVolume1:
+    Properties:
+      AvailabilityZone: !Ref 'wordpresswebAZName'
+      Encrypted: true
+      Size: !Ref 'wordpresswebvolume1size'
+      Tags:
+        - key: CostCenter
+          value: '123'
+        - key: BU
+          value: IT
+        - key: Location
+          value: US
+      VolumeType: !Ref 'wordpresswebvolume1type'
+    Type: AWS::EC2::Volume
+  wordpresswebVolume1Attachment:
+    Properties:
+      Device: !Ref 'wordpresswebvolume1name'
+      InstanceId: !Ref 'wordpresswebEc2Instance'
+      VolumeId: !Ref 'wordpresswebVolume1'
+    Type: AWS::EC2::VolumeAttachment
+  wordpresswebVolume2:
+    Properties:
+      AvailabilityZone: !Ref 'wordpresswebAZName'
+      Encrypted: true
+      Size: !Ref 'wordpresswebvolume2size'
+      Tags:
+        - key: CostCenter
+          value: '123'
+        - key: BU
+          value: IT
+        - key: Location
+          value: US
+      VolumeType: !Ref 'wordpresswebvolume2type'
+    Type: AWS::EC2::Volume
+  wordpresswebVolume2Attachment:
+    Properties:
+      Device: !Ref 'wordpresswebvolume2name'
+      InstanceId: !Ref 'wordpresswebEc2Instance'
+      VolumeId: !Ref 'wordpresswebVolume2'
+    Type: AWS::EC2::VolumeAttachment

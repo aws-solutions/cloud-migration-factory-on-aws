@@ -14,7 +14,7 @@ import IntakeFormTable from "./IntakeFormTable";
 afterEach(cleanup);
 
 test('IntakeFormTable displays the empty items table with header Import', () => {
-  const {} = render(
+  render(
     <IntakeFormTable
       schema={[]}
       items={[]}

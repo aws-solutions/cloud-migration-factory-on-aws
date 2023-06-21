@@ -11,12 +11,6 @@ const RESET_REQUEST = 'RESET_REQUEST';
 export const reducer = (state, action) => {
   // we check the type of each action and return an updated state object accordingly
   switch (action.type) {
-    case REQUEST_STARTED:
-      return {
-        error: null,
-        isLoading: true,
-        data: {"policies": [], "roles": [], "groups": []},
-      };
     case REQUEST_SUCCESSFUL:
       return {
         isLoading: false,
@@ -29,7 +23,6 @@ export const reducer = (state, action) => {
         isLoading: false,
         error: action.error,
       };
-
     default:
       return {
         error: null,

@@ -720,7 +720,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_ssm.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-ssm
       Timeout: '300'
       Code:
@@ -776,7 +776,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_ssm_jobs.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-ssm-jobs
       Timeout: '120'
       Code:
@@ -799,6 +799,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-ssm-jobs
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -820,7 +822,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_ssm_scripts.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-ssm-scripts
       Timeout: '300'
       Code:
@@ -872,7 +874,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_ssm_socket.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-ssm-socket
       Timeout: '300'
       Code:
@@ -898,6 +900,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-ssm-socket
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -917,7 +921,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_ssm_output.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-ssm-output
       Timeout: '300'
       Code:
@@ -941,6 +945,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-ssm-output
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -962,7 +968,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_ssm_load_scripts.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-ssm-load-scripts
       Timeout: '300'
       Code:
@@ -1016,7 +1022,8 @@ Resources:
             reason: "SSE is currently not supported, CMK is not ideal for this solution"
 
   # RunCMFAutomationPackageSSMDocuments Log Subscription Filter
-  SubscriptionFilter: 
+  SubscriptionFilter:
+    DependsOn: LambdaPermissionSSMOutput
     Type: AWS::Logs::SubscriptionFilter
     Properties: 
       LogGroupName: !Ref RunCMFAutomationPackageSSMDocumentLogGroup
@@ -1362,6 +1369,7 @@ Resources:
                   InstanceIds:
                     - '{{package_download.instance_ids}}'
                   Parameters:
+                    executionTimeout: '43200'
                     commands:
                       - "if (\"{{ verify_script.result }}\" -Match \"Success\") {"
                       - "    $Env:CMF_SCRIPTS_BUCKET = \"{{ package_download.bucket_name }}\""

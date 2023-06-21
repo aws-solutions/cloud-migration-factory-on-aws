@@ -42,7 +42,7 @@ def unix_time_millis(dt):
 
 def assume_role(account_id, region):
 
-    sts_client = boto3.client('sts')
+    sts_client = boto3.client('sts', region_name=region)
     role_arn = 'arn:aws:iam::' + account_id + ':role/CMF-MGNAutomation'
     # Call the assume_role method of the STSConnection object and pass the role
     # ARN and a role session name.
@@ -227,7 +227,10 @@ def verify_instance_status(get_servers, token, UserHOST):
                     serverattr = {"migration_status": "2/2 status checks : Server not in MGN"}
                 elif instance['Status'] == "impaired":
                     serverattr = {"migration_status": "2/2 status checks : Failed"}
-                updateserver = requests.put(UserHOST + serverendpoint + '/' + instance['server_id'], headers=auth, data=json.dumps(serverattr))
+                updateserver = requests.put(UserHOST + serverendpoint + '/' + instance['server_id'],
+                                            headers=auth,
+                                            data=json.dumps(serverattr),
+                                            timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
                 if updateserver.status_code == 401:
                     print("Error: Access to migration_status attribute is denied")
                     sys.exit(1)

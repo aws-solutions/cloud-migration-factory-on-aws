@@ -4,20 +4,16 @@
  */
 
 import React, {useEffect, useState} from "react";
-import {Auth, Hub} from "aws-amplify";
+import {Auth} from "@aws-amplify/auth";
+import {Hub} from "@aws-amplify/core";
 import AuthRoutes from "./AuthenticatedRoutes";
 import PreAuthRoutes from "./PreAuthRoutes";
-import AppDialog from "./components/AppDialog";
 import Admin from "./actions/admin";
 import User from "./actions/user";
 import { v4 as uuidv4 } from 'uuid';
 import {
   AppLayout,
   Button,
-  BreadcrumbGroup,
-  HelpPanel,
-  SpaceBetween,
-  Link,
   StatusIndicator,
   Alert,
   TopNavigation
@@ -32,7 +28,7 @@ import ToolHelp from "./components/ToolHelp";
 import { useNavigate } from "react-router-dom";
 
 
-var websocket = null;
+let websocket = null;
 let activityTimerID = null;
 let notificationTimerID = null;
 //User activity tracking and auto logout.
@@ -46,14 +42,7 @@ const App = (props) => {
   }
 
   let autoLogout = 30;
-  // Change default if configuration exists
-  // if ('application' in config){
-  //   if (config.application.AUTO_LOGOUT !== undefined){
-  //     autoLogout = config.application.AUTO_LOGOUT
-  //   }
-  // }
 
-  let apiAdmin = null;
   const locaStorageKeys = {
     groups: 'user_groups',
     isAuthenticated: 'isAuthenticated',
@@ -78,9 +67,6 @@ const App = (props) => {
   //App Layout content.
   const [toolsHelpContent, setToolsHelpContent] = useState({header: 'None provided', footer: undefined, content: undefined});
 
-  const [showDialog, setShowDialog] = useState(false);
-  const [msg, setSMsg] = useState('');
-  const [jwt, setJwt] = useState({});
   const [entityAccess, setEntityAccess] = useState({});
   const [userGroups, setUserGroups] = useState(localStorage[locaStorageKeys.groups] ? JSON.parse(localStorage.getItem(locaStorageKeys.groups)) : []);
   const [userName, setUserName] = useState(localStorage[locaStorageKeys.userName] ? JSON.parse(localStorage.getItem(locaStorageKeys.userName)) : null);
@@ -89,8 +75,8 @@ const App = (props) => {
   const [lastCentralNotificationDateTime, setLastCentralNotificationDateTime] = useState(localStorage[locaStorageKeys.lastCentralNotificationDateTime] ? JSON.parse(localStorage.getItem(locaStorageKeys.lastCentralNotificationDateTime)) : null);
 
   const [{ isLoading: schemaIsLoading, schema: schemaLocal, schemaMetadata, error: schemaError}, { update: schemaUpdate }] = useSchema();
-  const [{ isLoading: permissionsIsLoading, data: permissionsData, error: permissionsError}, { update: permissionsUpdate }] = useAdminPermissions();
-  var locallastCentralNotificationDateTime = null;
+  const [{ data: permissionsData}, { update: permissionsUpdate }] = useAdminPermissions();
+  let locallastCentralNotificationDateTime = null;
 
 
   React.useEffect(() => {
@@ -125,16 +111,9 @@ const App = (props) => {
     localStorage.setItem(locaStorageKeys.lastCentralNotificationDateTime, JSON.stringify(lastCentralNotificationDateTime));
   }, [lastCentralNotificationDateTime]);
 
-  //TODO verify this function is required.
-  const addNotification = (notification) => {
-
-    setLastCentralNotificationDateTime([notification]);
-  };
-
   //Add or delete notifications across the application.
   //This function is share across all components.
   const updateNotification = (action, notification) => {
-    var i;
     let newNotify = []
 
     switch(action) {
@@ -159,11 +138,6 @@ const App = (props) => {
         newNotify = notifications.filter(function (item){
           return item.id !== notification.id;
         })
-        // for (i in this.state.notifications) {
-        //   if (notification.id !== this.state.notifications[i].id) {
-        //     newNotify.push(this.state.notifications[i]);
-        //   }
-        // }
         setNotifications(newNotify);
         return null;
       default:
@@ -175,7 +149,6 @@ const App = (props) => {
     const base64Url = token.split('.')[1];
     const base64 = base64Url.replace('-', '+').replace('_', '/');
     const decodedJwt = JSON.parse(window.atob(base64));
-    setJwt(decodedJwt);
     return decodedJwt;
   }
 
@@ -368,7 +341,7 @@ const App = (props) => {
 
         // Get list of policies user is authorized for, apply the most priv access over others.
 
-        var entity_access = {};
+        let entity_access = {};
         for (const role of permissionsData.roles) {
           for (const group of role.groups) {
             if (userGroups.includes(group.group_name)) { //Check if this user has this group membership.
@@ -446,12 +419,6 @@ const App = (props) => {
     await schemaUpdate();
   }
 
-  const onLoadMenu = async event => {
-    const session = await Auth.currentSession();
-    const token = session.idToken.jwtToken;
-    apiAdmin = await new Admin(session);
-  }
-
   const onClickMenu = async event => {
     event.preventDefault();
     const action = event.detail.id;
@@ -472,26 +439,6 @@ const App = (props) => {
       default:
         break;
     }
-  }
-
-  const openInNewTab = (url) => {
-    const newWindow = window.open(url, '_blank', 'noopener,noreferrer')
-    if (newWindow) newWindow.opener = null
-  }
-
-  const signOutUser = async () => {
-    try {
-      await Auth.signOut({global: true});
-    } catch (e) {
-      console.log('error signing out: ', e);
-    }
-    userHasAuthenticated(false);
-    await closeUserSession();
-    navigate("/login");
-  }
-
-  const onClickUpdate = event => {
-    setShowDialog(false);
   }
 
   const hideError = event => {
@@ -580,7 +527,6 @@ const App = (props) => {
             if (e !== 'No current user') {
               userHasAuthenticated(false);
               setIsAuthenticating(true);
-              //navigate("/login");
               return;
             }
           }
@@ -592,7 +538,7 @@ const App = (props) => {
             if (cancelledRequest) return;
           } else {
             const token = session.idToken.jwtToken;
-            apiAdmin = await new Admin(session);
+            await new Admin(session);
             if (cancelledRequest) return;
             let lJwt = decodeJwt(token);
             const userGroups = lJwt['cognito:groups'];
@@ -612,9 +558,7 @@ const App = (props) => {
               await permissionsUpdate()
             }
 
-            //await schemaUpdate();
             await openUserSession();
-            //setIsReady(true);
           }
       })();
     } else if(!isAuthenticated) {
@@ -650,55 +594,6 @@ const App = (props) => {
     setHelpPanelContent: handleHelpContentChange,
   };
 
-  // Breadcrumb content
-  const Breadcrumbs = () => (
-    <BreadcrumbGroup
-      items={[
-        {
-          text: 'Migration Management',
-          href: '/applications'
-        },
-        {
-          text: 'Applications',
-          href: '/applications'
-        }
-      ]}
-    />
-  );
-
-  // Help (right) panel content
-  const Tools = [
-    toolsHelpContent
-      ?
-        <HelpPanel
-          header={<h2>{toolsHelpContent.header}</h2>}
-          footer={
-            <div>
-              <h3>
-                Learn more
-              </h3>
-              <SpaceBetween>
-                {toolsHelpContent.content_links ? toolsHelpContent.content_links.map(item => {return (
-                    <Link
-                      external
-                      externalIconAriaLabel="Opens in a new tab"
-                      href={item['value']}
-                    >
-                      {item['key']}
-                    </Link>
-                  )}
-                ) : undefined}
-              </SpaceBetween>
-            </div>}
-        >
-          {toolsHelpContent.content_html ? <div dangerouslySetInnerHTML={{ __html: toolsHelpContent.content_html.replaceAll('\n', '<br>') }} /> : undefined}
-          {toolsHelpContent.content_text ? toolsHelpContent.content_text.replaceAll('\n', '<br>') : undefined}
-          {toolsHelpContent.content_md ? toolsHelpContent.content_md : undefined}
-        </HelpPanel>
-      :
-        undefined
-  ];
-
   // Effect detects changes in sign-in state, this is used to detect sign-in via a non-Cognito IDP.
   useEffect(() => {
     Hub.listen('auth', ({ payload: { event, data } }) => {
@@ -724,22 +619,52 @@ const App = (props) => {
     });
   }, []);
 
-  function getUser() {
-    return Auth.currentAuthenticatedUser()
-      .then(userData => userData)
-      .catch(() => console.debug('Not signed in'));
+  function displayAuthenticatedMainUI(){
+    if (isReady && schemaLocal && schemaError == null) {
+      return <AppLayout
+        headerSelector="#h"
+        navigation={<ServiceNavigation
+          userGroups={userGroups}
+          schemaMetadata={schemaMetadata}
+          open={false}
+        />}
+        notifications={<FlashMessage
+          notifications={notifications}/>}
+        //breadcrumbs={<Breadcrumbs/>} TODO Implement new dynamic breadcrumbs functions in future.
+        content={<AuthRoutes childProps={childProps}/>}
+        contentType="table"
+        tools={<ToolHelp
+          helpContent={toolsHelpContent}
+        />}
+        toolsHide={toolsHelpContent ? false : true}
+        disableBodyScroll={true}
+        onToolsChange={({detail}) => setToolsOpen(detail.open)}
+        toolsOpen={toolsOpen}
+      />
+    } else {
+      return <center>
+        {error == null
+          ?
+          <StatusIndicator type="loading">
+            Loading
+          </StatusIndicator>
+          :
+          <Alert
+            visible={true}
+            type="error"
+            header="Application Error"
+          >
+            {error}
+          </Alert>
+        }
+      </center>
+    }
+
   }
 
   return (
     !isAuthenticating &&
     <div onMouseMove={onMouseMove}>
-      {showDialog &&
-        <AppDialog
-          showDialog={showDialog}
-          msg={msg}
-          onClickUpdate={onClickUpdate}
-        />
-      }
       {isError?<div className="alert-box alert alert-danger">{error}<span onClick={hideError} className="alert-box-close btn">X</span></div>:null}
       <TopNavigation id='h' style={myHeaderStyle}
                      identity={{
@@ -786,52 +711,14 @@ const App = (props) => {
                        overflowMenuTriggerText: "More"
                      }}
       />
-      <SpaceBetween direction={'vertical'}>
-
+      <>
       {!isAuthenticated
         ?
-        <PreAuthRoutes childProps={childProps}/>
+          <PreAuthRoutes childProps={childProps}/>
         :
-        isReady && schemaLocal && schemaError == null?
-            <AppLayout
-              headerSelector="#h"
-              navigation={<ServiceNavigation
-                userGroups={userGroups}
-                schemaMetadata={schemaMetadata}
-                open={false}
-              />}
-              notifications={<FlashMessage
-                notifications={notifications}/>}
-              //breadcrumbs={<Breadcrumbs/>} TODO Implement new dynamic breadcrumbs functions in future.
-              content={<AuthRoutes childProps={childProps}/>}
-              contentType="table"
-              tools={<ToolHelp
-                      helpContent={toolsHelpContent}
-                      />}
-              toolsHide={toolsHelpContent ? false : true}
-              disableBodyScroll={true}
-              onToolsChange={({detail}) => setToolsOpen(detail.open)}
-              toolsOpen={toolsOpen}
-            />
-          :
-            <center>
-              {error == null
-                ?
-                <StatusIndicator type="loading">
-                  Loading
-                </StatusIndicator>
-                :
-                <Alert
-                  visible={true}
-                  type="error"
-                  header="Application Error"
-                >
-                  {error}
-                </Alert>
-              }
-            </center>
+          displayAuthenticatedMainUI()
       }
-      </SpaceBetween>
+      </>
 
       <div id='modal-root' />
     </div>

@@ -3,31 +3,27 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, {useState} from 'react';
 import {
   SpaceBetween,
   Form,
   Container,
   Header,
   Button
- } from '@awsui/components-react';
+} from '@awsui/components-react';
 import AllAttributes from './ui_attributes/AllAttributes.jsx'
 
-import { useModal } from '../actions/Modal.js';
-import { setNestedValuePath } from '../resources/main';
-import { useState } from 'react';
+import {useModal} from '../actions/Modal.js';
+import {setNestedValuePath} from '../resources/main';
 
 const AutomationTools = (props) => {
 
   const [localTool, setLocalTool] = useState(props.selectedItems ? populateTool(props.selectedItems) : {});
   const [dataChanged, setDataChanged] = useState(false);
   const [validForm, setFormValidation] = useState(true);
-  //const [preformingAction, setPreformingAction] = useState(false);
-
-  const [formErrors, setFormErrors] = useState([]);
 
   //Modals
-  const { show: showUnsavedConfirmaton, hide: hideUnsavedConfirmaton, RenderModal: UnSavedModal } = useModal()
+  const { show: showUnsavedConfirmaton, RenderModal: UnSavedModal } = useModal()
 
 
   function populateTool (items) {
@@ -43,9 +39,9 @@ const AutomationTools = (props) => {
     if (relationshipAttributes.length > 0){
       //some values to prepopulate.
       let newTool = {};
-      for (let attrIdx = 0; attrIdx < relationshipAttributes.length; attrIdx++){
-        if(items[0][relationshipAttributes[attrIdx].rel_key]){
-          newTool[relationshipAttributes[attrIdx].name] = items[0][relationshipAttributes[attrIdx].rel_key];
+      for (const relAttribute of relationshipAttributes){
+        if(items[0][relAttribute.rel_key]){
+          newTool[relAttribute.name] = items[0][relAttribute.rel_key];
         }
       }
       return newTool;
@@ -68,17 +64,6 @@ const AutomationTools = (props) => {
       setNestedValuePath(newItem, value.field, value.value);
     }
 
-    //newItem[value.field] = value.value;
-    // if (value.validationError){
-    //   if (value.validationError !== null){
-    //     setFormValidation(false)
-    //   } else {
-    //     setFormValidation(true)
-    //   }
-    // } else {
-    //   setFormValidation(true)
-    // }
-
     setLocalTool(newItem);
     setDataChanged(true);
 
@@ -92,9 +77,6 @@ const AutomationTools = (props) => {
   }
 
   function handleUpdateFormErrors (newErrors){
-
-    setFormErrors(newErrors);
-
     if (newErrors.length > 0){
       setFormValidation(false);
     } else {
@@ -114,14 +96,13 @@ const AutomationTools = (props) => {
 
   function getActionButtons() {
 
-    let allActions = props.schema.actions.map((action, indx) => {
+    return props.schema.actions.map((action, indx) => {
       return (
-        <Button id={action.id} onClick={e => handleAction(e, action.id)} disabled={!validForm} variant={action.awsuiStyle} loading={props.performingAction}>
+        <Button key={action.id} id={action.id} onClick={e => handleAction(e, action.id)} disabled={!validForm} variant={action.awsuiStyle} loading={props.performingAction}>
           {action.name}
         </Button>
       )
     });
-    return allActions;
   }
 
   return (

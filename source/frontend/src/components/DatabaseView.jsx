@@ -57,13 +57,6 @@ const DatabaseView = (props) => {
                     </SpaceBetween>
                   </ColumnLayout>
                 </Container>
-
-
-        // <ColumnLayout columns={3}>
-        //   <SpaceBetween size="l">
-        //     <TextAttribute name="Server Name" value={props.server.server_name}/>
-        //   </SpaceBetween>
-        // </ColumnLayout>
       },
       {
         label: "All attributes",

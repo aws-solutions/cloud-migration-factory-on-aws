@@ -35,7 +35,7 @@ with open('FactoryEndpoints.json') as json_file:
 
 def assume_role(account_id, region):
 
-    sts_client = boto3.client('sts')
+    sts_client = boto3.client('sts', region_name=region)
     role_arn = 'arn:aws:iam::' + account_id + ':role/CMF-MGNAutomation'
     # Call the assume_role method of the STSConnection object and pass the role
     # ARN and a role session name.

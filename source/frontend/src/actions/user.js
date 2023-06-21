@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { API } from "aws-amplify";
+import { API } from "@aws-amplify/api";
 
 export default class User {
   constructor(session) {

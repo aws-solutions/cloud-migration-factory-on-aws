@@ -108,6 +108,25 @@ Resources:
       Path: /
       Policies:
         -
+          PolicyName: MGNSSMAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'ssm:GetAutomationExecution'
+                  - 'ssm:StartAutomationExecution'
+                  - 'ssm:DescribeDocument'
+                Resource:
+                  - 'arn:aws:ssm:*:*:document/*'
+                  - 'arn:aws:ssm:*:*:automation-definition/*:*'
+                  - 'arn:aws:ssm:*:*:automation-execution/*'
+              - Effect: Allow
+                Action:
+                  - 'ssm:DescribeInstanceInformation'
+                Resource: '*'
+        -
           PolicyName: LambdaRolePolicy
           PolicyDocument:
             Version: '2012-10-17'
@@ -338,6 +357,8 @@ Resources:
             Action:
               - 'sts:AssumeRole'
       Path: /
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AWSApplicationMigrationAgentInstallationPolicy"
       Policies:
         -
           PolicyName: LambdaRolePolicy

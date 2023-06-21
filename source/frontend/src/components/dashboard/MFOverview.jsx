@@ -13,8 +13,6 @@ import {
   ColumnLayout
 } from '@awsui/components-react';
 
-// import { withRouter } from "react-router";
-
 // Attribute Display message content
 const MFOverview = (props) => {
 

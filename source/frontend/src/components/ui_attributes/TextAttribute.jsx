@@ -11,24 +11,25 @@ Spinner
 
 // Attribute Display message content
 const TextAttribute = ({label, children, loading, loadingText}) => {
+
+  function getBodyContent() {
+    if (typeof children === 'string' || children instanceof String) {
+      if (loading){
+        return <Spinner size="normal" />;
+      } else {
+        return children;
+      }
+    } else {
+      return JSON.stringify(children);
+    }
+  }
   return <div>
 
             <Box margin={{ bottom: 'xxxs' }} color="text-label">
               {label}
             </Box>
-            <div>{
-              typeof children === 'string' || children instanceof String
-              ?
-                (loading && loading !== undefined)
-                ?
-                  (
-                    <Spinner size="normal" />
-                  )
-                :
-                  children
-              :
-                JSON.stringify(children)
-             }
+            <div>
+              {getBodyContent()}
             </div>
           </div>;
 };

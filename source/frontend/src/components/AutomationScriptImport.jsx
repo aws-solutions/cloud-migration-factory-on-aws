@@ -46,6 +46,16 @@ const AutomationScriptImport = (props) => {
     setScriptDetails(tempUpdate);
   }
 
+  function getImportedFileStatusMessage(selectedFile, errorFile){
+    if (selectedFile && errorFile){
+      return errorFile;
+    } else if (!selectedFile){
+      return 'No file selected';
+    } else {
+      return null;
+    }
+  }
+
     async function handleUploadChange(e) {
       e.preventDefault();
 
@@ -97,10 +107,6 @@ const AutomationScriptImport = (props) => {
 
             switch (detail.requestedStepIndex) {
               case 0:
-                if (!(selectedFile && errorFile)) {
-                  setActiveStepIndex(detail.requestedStepIndex)
-                }
-                break;
               case 1:
                 if (!(selectedFile && errorFile)) {
                   setActiveStepIndex(detail.requestedStepIndex)
@@ -137,7 +143,7 @@ const AutomationScriptImport = (props) => {
                     <FormField
                         label={'Script package'}
                         description={'Upload your script package.'}
-                        errorText={selectedFile && errorFile ? errorFile : !selectedFile ? 'No file selected' : null}
+                        errorText={getImportedFileStatusMessage(selectedFile, errorFile)}
                     >
                       <SpaceBetween direction="vertical" size="xs">
                         <input ref={hiddenFileInput} accept=".zip" type="file" name="file" onChange={handleUploadChange} style={{ display: 'none' }}/>

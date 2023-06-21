@@ -33,6 +33,7 @@ import tempfile
 with open('FactoryEndpoints.json') as json_file:
     endpoints = json.load(json_file)
 
+
 def check_windows(Servers_Windows, CEServerIP, Domain_User):
     if Domain_User != "":
         Domain_Password = mfcommon.GetWindowsPassword()
@@ -45,10 +46,14 @@ def check_windows(Servers_Windows, CEServerIP, Domain_User):
         print("")
         s_result = {}
         final = ""
-        command = "Invoke-Command -ComputerName " + s["server_fqdn"] + " -FilePath 0-Prerequisites-Windows.ps1 -ArgumentList " + CEServerIP
+        command = "Invoke-Command -ComputerName " + s[
+            "server_fqdn"] + " -FilePath 0-Prerequisites-Windows.ps1 -ArgumentList " + CEServerIP
         if Domain_User != "":
             command += " -Credential (New-Object System.Management.Automation.PSCredential('" + Domain_User + "', (ConvertTo-SecureString '" + Domain_Password + "' -AsPlainText -Force)))"
-            p_trustedhosts = subprocess.Popen(["powershell.exe", "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '" + s["server_fqdn"] + "' -Concatenate -Force"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p_trustedhosts = subprocess.Popen(["powershell.exe",
+                                               "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '" + s[
+                                                   "server_fqdn"] + "' -Concatenate -Force"], stdout=subprocess.PIPE,
+                                              stderr=subprocess.PIPE)
         p = subprocess.Popen(["powershell.exe", command], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         output, error = p.communicate()
@@ -78,6 +83,7 @@ def check_windows(Servers_Windows, CEServerIP, Domain_User):
             print(s_result['error'])
         windows_results.append(s_result)
     return windows_results
+
 
 def check_ssh_connectivity(ip, user_name, pass_key, is_key, s_result):
     ssh, error = open_ssh(ip, user_name, pass_key, is_key)
@@ -112,16 +118,17 @@ def check_sudo_permissions(ssh, s_result):
         for err in stderr.readlines():
             ssh_err = ssh_err + err
     if 'password is required' in ssh_err:
-            s_result["error"] = ssh_err
-            s_result["SUDO"] = "Fail"
-            if "final_result" in s_result:
-                s_result["final_result"] = s_result["final_result"] + "SUDO,"
-            else:
-                s_result["final_result"] = "SUDO,"
-            print(" SUDO permission         : Fail")
+        s_result["error"] = ssh_err
+        s_result["SUDO"] = "Fail"
+        if "final_result" in s_result:
+            s_result["final_result"] = s_result["final_result"] + "SUDO,"
+        else:
+            s_result["final_result"] = "SUDO,"
+        print(" SUDO permission         : Fail")
     else:
         s_result["SUDO"] = "Pass"
         print(" SUDO permission         : Pass")
+
 
 def check_tcp_connectivity(ssh, host, port, s_result):
     stderr = None
@@ -178,7 +185,8 @@ def check_tcp_connectivity(ssh, host, port, s_result):
             s_result["final_result"] = check + ","
         print(message + "Fail")
 
-def check_freespace(ssh, dir, min,  s_result):
+
+def check_freespace(ssh, dir, min, s_result):
     stderr = None
     stdout = None
     ssh_err = ''
@@ -212,17 +220,17 @@ def check_freespace(ssh, dir, min,  s_result):
     if stderr:
         for err in stderr.readlines():
             ssh_err = ssh_err + err
-    if len(ssh_err) > 0 :
-            s_result["error"] = ssh_err
-            s_result["FreeSpace"] = "Fail"
-            if "final_result" in s_result:
-                s_result["final_result"] = s_result["final_result"] + "FreeSpace" + str(min) + ","
-            else:
-                s_result["final_result"] = "FreeSpace" + str(min) + ","
-            if min == 2.0:
-                print(" " + str(min) + " GB " + dir + " FreeSpace      : Fail")
-            else:
-                print(" " + str(min) + " GB " + dir + " FreeSpace   : Fail")
+    if len(ssh_err) > 0:
+        s_result["error"] = ssh_err
+        s_result["FreeSpace"] = "Fail"
+        if "final_result" in s_result:
+            s_result["final_result"] = s_result["final_result"] + "FreeSpace" + str(min) + ","
+        else:
+            s_result["final_result"] = "FreeSpace" + str(min) + ","
+        if min == 2.0:
+            print(" " + str(min) + " GB " + dir + " FreeSpace      : Fail")
+        else:
+            print(" " + str(min) + " GB " + dir + " FreeSpace   : Fail")
     else:
         s_result["FreeSpace"] = "Pass"
         if min == 2.0:
@@ -247,13 +255,13 @@ def check_dhclient(ssh, s_result):
         for err in stderr.readlines():
             ssh_err = ssh_err + err
     if len(ssh_err) > 0 and 'not found' in ssh_err:
-            s_result["error"] = ssh_err
-            s_result["DHCLIENT"] = "Fail"
-            if "final_result" in s_result:
-                s_result["final_result"] = s_result["final_result"] + "DHCLIENT,"
-            else:
-                s_result["final_result"] = "DHCLIENT,"
-            print(" DHCLIENT Package        : Fail")
+        s_result["error"] = ssh_err
+        s_result["DHCLIENT"] = "Fail"
+        if "final_result" in s_result:
+            s_result["final_result"] = s_result["final_result"] + "DHCLIENT,"
+        else:
+            s_result["final_result"] = "DHCLIENT,"
+        print(" DHCLIENT Package        : Fail")
     else:
         s_result["DHCLIENT"] = "Pass"
         print(" DHCLIENT Package        : Pass")
@@ -272,7 +280,7 @@ def check_linux(Servers_Linux, CEServerIP):
         else:
             pass_key_first = getpass.getpass('Linux Password: ')
             pass_key_second = getpass.getpass('Re-enter Password: ')
-            while(pass_key_first != pass_key_second):
+            while (pass_key_first != pass_key_second):
                 print("Password mismatch, please try again!")
                 pass_key_first = getpass.getpass('Linux Password: ')
                 pass_key_second = getpass.getpass('Re-enter Password: ')
@@ -290,7 +298,7 @@ def check_linux(Servers_Linux, CEServerIP):
 
         # This checks network connectivity, if we can SSH to the source machine
         ssh = check_ssh_connectivity(s["server_fqdn"], user_name, pass_key,
-                               has_key.lower() in 'y', s_result)
+                                     has_key.lower() in 'y', s_result)
         if "SSH22" not in s_result["final_result"]:
             # Check if the given user has sudo permissions
             check_sudo_permissions(ssh, s_result)
@@ -350,7 +358,7 @@ def open_ssh(host, username, key_pwd, using_key):
 
 def print_results(label, results, UserHOST, token):
     print("------------------------------------------------------------")
-    print("-- " + label +" server passed all Pre-requisites checks --")
+    print("-- " + label + " server passed all Pre-requisites checks --")
     print("------------------------------------------------------------")
     print("")
     for result in results:
@@ -360,8 +368,10 @@ def print_results(label, results, UserHOST, token):
                     print("     " + result['server_name'])
                     serverattr = {"migration_status": "Pre-requisites check : Passed"}
                     update = requests.put(UserHOST + mfcommon.serverendpoint + '/' +
-                                        result['server_id'], headers={
-                        "Authorization": token}, data=json.dumps(serverattr))
+                                          result['server_id'],
+                                          headers={"Authorization": token},
+                                          data=json.dumps(serverattr),
+                                          timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
 
     print("")
     print("-------------------------------------------------------------")
@@ -373,26 +383,27 @@ def print_results(label, results, UserHOST, token):
             print("     " + result[
                 'server_name'] + " : Unexpected error, please check error details")
             serverattr = {"migration_status": "Pre-requisites check : Failed - Unexpected error"}
-            update = requests.put(
-                UserHOST + mfcommon.serverendpoint + '/' + result['server_id'],
-                headers={"Authorization": token},
-                data=json.dumps(serverattr))
+            update = requests.put(UserHOST + mfcommon.serverendpoint + '/' + result['server_id'],
+                                  headers={"Authorization": token},
+                                  data=json.dumps(serverattr),
+                                  timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
         else:
             if 'error' in result and result['final_result'] == "":
                 print("     " + result[
                     'server_name'] + " : Unexpected error, please check error details")
                 serverattr = {"migration_status": "Pre-requisites check : Failed - Unexpected error"}
-                update = requests.put(
-                    UserHOST + mfcommon.serverendpoint + '/' + result['server_id'],
-                    headers={"Authorization": token},
-                    data=json.dumps(serverattr))
+                update = requests.put(UserHOST + mfcommon.serverendpoint + '/' + result['server_id'],
+                                      headers={"Authorization": token},
+                                      data=json.dumps(serverattr),
+                                      timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
             if result['final_result'] != "":
                 print("     " + result['server_name'] + " : " + result['final_result'])
                 serverattr = {
                     "migration_status": "Pre-requisites check : Failed - " + result['final_result']}
-                update = requests.put(
-                    UserHOST + mfcommon.serverendpoint + '/' + result['server_id'],
-                    headers={"Authorization": token}, data=json.dumps(serverattr))
+                update = requests.put(UserHOST + mfcommon.serverendpoint + '/' + result['server_id'],
+                                      headers={"Authorization": token},
+                                      data=json.dumps(serverattr),
+                                      timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
     print("")
 
 
@@ -443,6 +454,7 @@ def main(arguments):
     print("")
     print_results("Windows", windows_results, UserHOST, token)
     print_results("Linux", linux_results, UserHOST, token)
+
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))

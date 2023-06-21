@@ -26,6 +26,7 @@ import json
 import subprocess
 import getpass
 import time
+
 linuxpkg = __import__("1-Install-Linux")
 import mfcommon
 
@@ -37,10 +38,13 @@ endpoint = mfcommon.ce_endpoint
 with open('FactoryEndpoints.json') as json_file:
     endpoints = json.load(json_file)
 
+
 def CElogin(userapitoken, endpoint):
     login_data = {'userApiToken': userapitoken}
     r = requests.post(HOST + endpoint.format('login'),
-                  data=json.dumps(login_data), headers=headers)
+                      data=json.dumps(login_data),
+                      headers=headers,
+                      timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
     if r.status_code == 200:
         print("CloudEndure : You have successfully logged in")
         print("")
@@ -50,22 +54,29 @@ def CElogin(userapitoken, endpoint):
         elif r.status_code == 402:
             print('ERROR: There is no active license configured for this CloudEndure account....')
         elif r.status_code == 429:
-            print('ERROR: CloudEndure Authentication failure limit has been reached. The service will become available for additional requests after a timeout....')
+            print(
+                'ERROR: CloudEndure Authentication failure limit has been reached. The service will become available for additional requests after a timeout....')
 
     # check if need to use a different API entry point
     if r.history:
         endpoint = '/' + '/'.join(r.url.split('/')[3:-1]) + '/{}'
         r = requests.post(HOST + endpoint.format('login'),
-                      data=json.dumps(login_data), headers=headers)
+                          data=json.dumps(login_data),
+                          headers=headers,
+                          timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
 
     session['session'] = r.cookies['session']
     try:
-       headers['X-XSRF-TOKEN'] = r.cookies['XSRF-TOKEN']
+        headers['X-XSRF-TOKEN'] = r.cookies['XSRF-TOKEN']
     except:
-       pass
+        pass
+
 
 def GetCEProject(projectname):
-    r = requests.get(HOST + endpoint.format('projects'), headers=headers, cookies=session)
+    r = requests.get(HOST + endpoint.format('projects'),
+                     headers=headers,
+                     cookies=session,
+                     timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
     if r.status_code != 200:
         print("ERROR: Failed to fetch the project....")
         sys.exit(2)
@@ -76,8 +87,8 @@ def GetCEProject(projectname):
         project_exist = False
         for project in projects:
             if project["name"] == projectname:
-               project_id = project["id"]
-               project_exist = True
+                project_id = project["id"]
+                project_exist = True
         if project_exist == False:
             print("ERROR: Project Name: " + projectname + " does not exist in CloudEndure....")
             sys.exit(3)
@@ -86,19 +97,28 @@ def GetCEProject(projectname):
         print("ERROR: Failed to fetch the project....")
         sys.exit(4)
 
+
 def GetInstallToken(project_id):
-        # Get Machine List from CloudEndure
-        project = requests.get(HOST + endpoint.format('projects/{}').format(project_id), headers=headers, cookies=session)
-        InstallToken = json.loads(project.text)['agentInstallationToken']
-        return InstallToken
+    # Get Machine List from CloudEndure
+    project = requests.get(HOST + endpoint.format('projects/{}').format(project_id),
+                           headers=headers,
+                           cookies=session,
+                           timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
+    InstallToken = json.loads(project.text)['agentInstallationToken']
+    return InstallToken
+
 
 def ProjectList(waveid, token, UserHOST, serverendpoint, appendpoint):
-# Get all Apps and servers from migration factory
+    # Get all Apps and servers from migration factory
     auth = {"Authorization": token}
-    servers = json.loads(requests.get(UserHOST + serverendpoint, headers=auth).text)
-    #print(servers)
-    apps = json.loads(requests.get(UserHOST + appendpoint, headers=auth).text)
-    #print(apps)
+    servers = json.loads(requests.get(UserHOST + serverendpoint,
+                                      headers=auth,
+                                      timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT).text)
+    # print(servers)
+    apps = json.loads(requests.get(UserHOST + appendpoint,
+                                   headers=auth,
+                                   timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT).text)
+    # print(apps)
     newapps = []
 
     CEProjects = []
@@ -122,6 +142,7 @@ def ProjectList(waveid, token, UserHOST, serverendpoint, appendpoint):
     Projects = ServerList(newapps, servers, CEProjects, waveid)
     return Projects
 
+
 def ServerList(apps, servers, CEProjects, waveid):
     servercount = 0
     Projects = CEProjects
@@ -133,16 +154,17 @@ def ServerList(apps, servers, CEProjects, waveid):
                 for server in servers:
                     if app['app_id'] == server['app_id']:
                         if 'server_os_family' in server:
-                                if 'server_fqdn' in server:
-                                    if server['server_os_family'].lower() == "windows":
-                                        Windows.append(server)
-                                    elif server['server_os_family'].lower() == "linux":
-                                        Linux.append(server)
-                                else:
-                                    print("ERROR: server_fqdn for server: " + server['server_name'] + " doesn't exist")
-                                    sys.exit(4)
+                            if 'server_fqdn' in server:
+                                if server['server_os_family'].lower() == "windows":
+                                    Windows.append(server)
+                                elif server['server_os_family'].lower() == "linux":
+                                    Linux.append(server)
+                            else:
+                                print("ERROR: server_fqdn for server: " + server['server_name'] + " doesn't exist")
+                                sys.exit(4)
                         else:
-                            print ('server_os_family attribute does not exist for server: ' + server['server_name'] + ", please update this attribute")
+                            print('server_os_family attribute does not exist for server: ' + server[
+                                'server_name'] + ", please update this attribute")
                             sys.exit(2)
         Project['Windows'] = Windows
         Project['Linux'] = Linux
@@ -154,19 +176,24 @@ def ServerList(apps, servers, CEProjects, waveid):
     else:
         return Projects
 
+
 def AgentCheck(projects, token, UserHOST):
     auth = {"Authorization": token}
     success_servers = []
     failed_servers = []
     for project in projects:
         project_id = GetCEProject(project['ProjectName'])
-        m = requests.get(HOST + endpoint.format('projects/{}/machines').format(project_id), headers=headers, cookies=session)
+        m = requests.get(HOST + endpoint.format('projects/{}/machines').format(project_id),
+                         headers=headers,
+                         cookies=session,
+                         timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
         if len(project['Windows']) > 0:
             for w in project['Windows']:
                 machine_exist = False
                 serverattr = {}
                 for machine in json.loads(m.text)["items"]:
-                    if w["server_name"].lower() == machine['sourceProperties']['name'].lower() or w["server_fqdn"].lower() == machine['sourceProperties']['name'].lower():
+                    if w["server_name"].lower() == machine['sourceProperties']['name'].lower() or w[
+                        "server_fqdn"].lower() == machine['sourceProperties']['name'].lower():
                         machine_exist = True
                 if machine_exist == True:
                     success_servers.append(w['server_fqdn'])
@@ -174,14 +201,18 @@ def AgentCheck(projects, token, UserHOST):
                 else:
                     failed_servers.append(w['server_fqdn'])
                     serverattr = {"migration_status": "CE Agent Install - Failed"}
-                update_w = requests.put(UserHOST + mfcommon.serverendpoint + '/' + w['server_id'], headers=auth, data=json.dumps(serverattr))
+                update_w = requests.put(UserHOST + mfcommon.serverendpoint + '/' + w['server_id'],
+                                        headers=auth,
+                                        data=json.dumps(serverattr),
+                                        timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
         if len(project['Linux']) > 0:
             for li in project['Linux']:
                 serverattr = {}
                 machine_exist = False
                 serverattr = {}
                 for machine in json.loads(m.text)["items"]:
-                    if li["server_name"].lower() == machine['sourceProperties']['name'].lower() or li["server_fqdn"].lower() == machine['sourceProperties']['name'].lower():
+                    if li["server_name"].lower() == machine['sourceProperties']['name'].lower() or li[
+                        "server_fqdn"].lower() == machine['sourceProperties']['name'].lower():
                         machine_exist = True
                 if machine_exist == True:
                     success_servers.append(li['server_fqdn'])
@@ -189,7 +220,10 @@ def AgentCheck(projects, token, UserHOST):
                 else:
                     failed_servers.append(li['server_fqdn'])
                     serverattr = {"migration_status": "CE Agent Install - Failed"}
-                update_l = requests.put(UserHOST + mfcommon.serverendpoint + '/' + li['server_id'], headers=auth, data=json.dumps(serverattr))
+                update_l = requests.put(UserHOST + mfcommon.serverendpoint + '/' + li['server_id'],
+                                        headers=auth,
+                                        data=json.dumps(serverattr),
+                                        timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
     if len(success_servers) > 0:
         print("***** CE Agent installed successfully on the following servers *****")
         for s in success_servers:
@@ -199,6 +233,7 @@ def AgentCheck(projects, token, UserHOST):
         print("##### CE Agent install failed on the following servers #####")
         for s in failed_servers:
             print("  " + s)
+
 
 def main(arguments):
     parser = argparse.ArgumentParser(
@@ -235,7 +270,7 @@ def main(arguments):
             if len(project['Windows']) > 0:
                 print("   # Windows Server List #: ")
                 for s in project['Windows']:
-                   print("       " + s['server_fqdn'])
+                    print("       " + s['server_fqdn'])
             if len(project['Linux']) > 0:
                 linux_machines = True
                 try:
@@ -262,7 +297,7 @@ def main(arguments):
         else:
             pass_key_first = getpass.getpass('Linux Password: ')
             pass_key_second = getpass.getpass('Re-enter Password: ')
-            while(pass_key_first != pass_key_second):
+            while (pass_key_first != pass_key_second):
                 print("Password mismatch, please try again!")
                 pass_key_first = getpass.getpass('Linux Password: ')
                 pass_key_second = getpass.getpass('Re-enter Password: ')
@@ -288,20 +323,24 @@ def main(arguments):
             server_string = server_string[:-1]
 
             if args.WindowsUser != "":
-                p_trustedhosts = subprocess.Popen(["powershell.exe", "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '" + server['server_fqdn'] + "' -Concatenate -Force"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                p_trustedhosts = subprocess.Popen(["powershell.exe",
+                                                   "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '" + server[
+                                                       'server_fqdn'] + "' -Concatenate -Force"],
+                                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 p = subprocess.Popen(["powershell.exe",
-                        ".\\1-Install-Windows.ps1", "No", project['InstallToken'], server_string, args.WindowsUser, windows_password],
-                        stdout=sys.stdout)
+                                      ".\\1-Install-Windows.ps1", "No", project['InstallToken'], server_string,
+                                      args.WindowsUser, windows_password],
+                                     stdout=sys.stdout)
             else:
                 p = subprocess.Popen(["powershell.exe",
-                        ".\\1-Install-Windows.ps1", "No", project['InstallToken'], server_string],
-                        stdout=sys.stdout)
+                                      ".\\1-Install-Windows.ps1", "No", project['InstallToken'], server_string],
+                                     stdout=sys.stdout)
             p.communicate()
         if len(project['Linux']) > 0:
             for server in project['Linux']:
                 status = linuxpkg.install_cloud_endure(server['server_fqdn'], user_name,
-                                                     pass_key,
-                                              has_key.lower() in 'y', project['InstallToken'])
+                                                       pass_key,
+                                                       has_key.lower() in 'y', project['InstallToken'])
                 server_status.update({server['server_fqdn']: status})
         print("")
 
@@ -312,7 +351,8 @@ def main(arguments):
     print("")
 
     time.sleep(5)
-    AgentCheck(Projects,token, UserHOST)
+    AgentCheck(Projects, token, UserHOST)
+
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))

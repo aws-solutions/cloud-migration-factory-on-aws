@@ -15,90 +15,27 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE        #
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
 #########################################################################################
+import multiprocessing
 import sys
+import mfcommon
+
 if not sys.warnoptions:
     import warnings
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", category=Warning)
     import paramiko
 
-def execute_cmd(host, username, key, cmd, using_key):
-    output = ''
-    error = ''
-    ssh = None
-    try:
-        ssh = open_ssh(host, username, key, using_key)
-        if ssh is None:
-            error = "Not able to get the SSH connection for the host " + host
-            print(error, flush = True)
-        else:
-            stdin, stdout, stderr = ssh.exec_command(cmd)  # nosec B601
-            for line in stdout.readlines():
-                output = output + line
-            for line in stderr.readlines():
-                error = error + line
-    except IOError as io_error:
-        error = "Unable to execute the command " + cmd + " due to " + \
-                str(io_error)
-        print(error, flush = True)
-    except paramiko.SSHException as ssh_exception:
-        error = "Unable to execute the command " + cmd + " due to " + \
-                str(ssh_exception)
-        print(error, flush = True)
-    finally:
-        if ssh is not None:
-            ssh.close()
-    return output, error
 
-
-def open_ssh(host, username, key_pwd, using_key):
-    ssh = None
-    try:
-        if using_key:
-            from io import StringIO
-            private_key = paramiko.RSAKey.from_private_key(StringIO(key_pwd))
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(hostname=host, username=username, pkey=private_key)
-        else:
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(hostname=host, username=username, password=key_pwd)
-    except IOError as io_error:
-        error = "Unable to connect to host " + host + " with username " + \
-                username + " due to " + str(io_error)
-        print(error)
-    except paramiko.SSHException as ssh_exception:
-        error = "Unable to connect to host " + host + " with username " + \
-                username + " due to " + str(ssh_exception)
-        print(error)
-    return ssh
-
-
-def find_distribution(host, username, key_pwd, using_key):
-    distribution = "linux"
-    output, error = execute_cmd(host, username, key_pwd, "cat /etc/*release",
-                                using_key)
-    if "ubuntu" in output:
-        distribution = "ubuntu"
-    elif "fedora" in output:
-        distribution = "fedora"
-    elif "suse" in output:
-        distribution = "suse"
-    return distribution
-
-
-def install_wget(host, username, key_pwd, using_key):
+def install_wget(host, username, key_pwd, using_key, final_output):
     ssh = None
     try:
         # Find the distribution
-        distribution = find_distribution(host, username, key_pwd, using_key)
-        print("")
-        print("***** Installing wget *****")
-        ssh = open_ssh(host, username, key_pwd, using_key)
+        distribution = mfcommon.find_distribution(host, username, key_pwd, using_key)
+        final_output['messages'].append("***** Installing wget *****")
+        ssh = mfcommon.open_ssh(host, username, key_pwd, using_key)
         if distribution == "ubuntu":
             ssh.exec_command("sudo apt-get update")  # nosec B601
-            stdin, stdout, stderr = ssh.exec_command(   # nosec B601
+            stdin, stdout, stderr = ssh.exec_command(  # nosec B601
                 "sudo DEBIAN_FRONTEND=noninteractive apt-get install wget")
         elif distribution == "suse":
             stdin, stdout, stderr = ssh.exec_command("sudo zypper install wget")  # nosec B601
@@ -113,25 +50,24 @@ def install_wget(host, username, key_pwd, using_key):
         for line in stderr.readlines():
             error = error + line
         if not error:
-            print("wget got installed successfully")
+            final_output['messages'].append("wget got installed successfully")
             # Execute the command wget and check if it got configured correctly
             stdin, stdout, stderr = ssh.exec_command("wget")  # nosec B601
             error = ''
             for line in stderr.readlines():
                 error = error + line
             if "not found" in error or "command-not-found" in error:
-                print(
-                    "wget is not recognized, unable to proceed! due to " + error)
+                final_output['messages'].append("wget is not recognized, unable to proceed! due to " + error)
         else:
-            print("something went wrong while installing wget ", error)
+            final_output['messages'].append("something went wrong while installing wget ", error)
     finally:
         if ssh is not None:
             ssh.close()
 
 
 def check_python(host, username, key_pwd, using_key):
-    output, error = execute_cmd(host, username, key_pwd, "python --version",
-                                using_key)
+    output, error = mfcommon.execute_cmd_via_ssh(host, username, key_pwd, "python --version",
+                                                 using_key)
     if error:
         if "Python 2" in error:
             return True
@@ -142,8 +78,8 @@ def check_python(host, username, key_pwd, using_key):
 
 
 def check_python3(host, username, key_pwd, using_key):
-    output, error = execute_cmd(host, username, key_pwd, "python3 --version",
-                                using_key)
+    output, error = mfcommon.execute_cmd_via_ssh(host, username, key_pwd, "python3 --version",
+                                                 using_key)
     if error:
         if "Python 3" in error:
             return True
@@ -153,14 +89,13 @@ def check_python3(host, username, key_pwd, using_key):
         return True
 
 
-def install_python3(host, username, key_pwd, using_key):
+def install_python3(host, username, key_pwd, using_key, final_output):
     ssh = None
     try:
-        print("")
-        print("***** Installing python3 *****")
-        ssh = open_ssh(host, username, key_pwd, using_key)
+        final_output['messages'].append("***** Installing python3 *****")
+        ssh = mfcommon.open_ssh(host, username, key_pwd, using_key)
         # Find the distribution
-        distribution = find_distribution(host, username, key_pwd, using_key)
+        distribution = mfcommon.find_distribution(host, username, key_pwd, using_key)
         if distribution == "ubuntu":
             ssh.exec_command("sudo apt-get update")  # nosec B601
             command = "sudo DEBIAN_FRONTEND=noninteractive apt-get install " \
@@ -176,7 +111,7 @@ def install_python3(host, username, key_pwd, using_key):
             stdin, stdout, stderr = ssh.exec_command("sudo dnf install python3")  # nosec B601
             stdin.write('Y\n')
             stdin.flush()
-        else: #This installs on centos
+        else:  # This installs on centos
             # ssh.exec_command("sudo yum update")  # nosec B601
             ssh.exec_command("sudo yum install centos-release-scl")  # nosec B601
             ssh.exec_command("sudo yum install rh-python36")  # nosec B601
@@ -186,61 +121,100 @@ def install_python3(host, username, key_pwd, using_key):
         for line in stderr.readlines():
             error = error + line
         if not error:
-            print("python got installed successfully")
+            final_output['messages'].append("python was installed successfully.")
+            return True
         else:
-            print(error)
+            final_output['messages'].append(error)
+            return False
     finally:
         if ssh is not None:
             ssh.close()
 
 
-def install_mgn(agent_linux_download_url, region, host, username, key_pwd, using_key, AccessKeyId, SecretAccessKey):
+def install_mgn(agent_linux_download_url, region, host, username, key_pwd, using_key,
+                aws_access_key, aws_secret_access_key, session_token=None, s3_endpoint=None, mgn_endpoint=None):
+    final_output = {'messages': []}
+    pid = multiprocessing.current_process()
+    final_output['pid'] = str(pid)
+    final_output['host'] = host
+    final_output['messages'].append("Installing Application Migration Service Agent on:  " + host)
 
-    console_output = ""
-    console_output = console_output + "\n" + "--------------------------------------------------------------------"
-    console_output = console_output + "\n" + "- Installing Application Migration Service Agent for:  "+ host + " -"
-    console_output = console_output + "\n" + "--------------------------------------------------------------------"
     output = None
     error = None
+
     try:
         command = "wget -O ./aws-replication-installer-init.py " + agent_linux_download_url
-        output, error = execute_cmd(host=host, username=username, key=key_pwd,
-                                cmd=command, using_key=using_key)
-        console_output = console_output + "\n" + output
+        if s3_endpoint:
+            # S3 Endpoints use certificates based on the parent S3 domain excluding the vpc endpoint name, this means
+            # the certificate name and the dns name used do not match and causes errors in verification of cert auth
+            # we disable wget checks for cert auth when using s3 endpoints only.
+            command += "  --no-check-certificate"
+        output, error = mfcommon.execute_cmd_via_ssh(host=host, username=username, key=key_pwd,
+                                                     cmd=command, using_key=using_key)
+        final_output['messages'].append(output)
+        final_output['messages'].append(error)
         if "not found" in error or "No such file or directory" in error:
             install_wget(host, username, key_pwd, using_key)
-            output, error = execute_cmd(host=host, username=username, key=key_pwd,
-                                    cmd=command, using_key=using_key)
-            console_output = console_output + "\n" +output
+            output, error = mfcommon.execute_cmd_via_ssh(host=host, username=username, key=key_pwd,
+                                                         cmd=command, using_key=using_key)
+            final_output['messages'].append(output)
         # Check if python is already installed if not install python3
         python_str = "python"
         if not check_python(host, username, key_pwd, using_key):
             if not check_python3(host, username, key_pwd, using_key):
-                install_python3(host, username, key_pwd, using_key)
+                if not install_python3(host, username, key_pwd, using_key):
+                    # Python installation failed cancel agent installation.
+                    final_output['return_code'] = 1
+                    return final_output
                 python_str = "python3"
             else:
                 python_str = "python3"
         # Step 2 - execute linux installer
-        command = "sudo " + python_str + " ./aws-replication-installer-init.py --region " + \
-              region + " --aws-access-key-id " + AccessKeyId + " --aws-secret-access-key " + SecretAccessKey + " --no-prompt"
-        display_command = "sudo " + python_str + " ./aws-replication-installer-init.py --region " + \
-              region + " --aws-access-key-id " + AccessKeyId + " --aws-secret-access-key ************* --no-prompt"
-        console_output = console_output + "\n" + "Executing " + display_command
+        if session_token:
+            command = "sudo " + python_str + " ./aws-replication-installer-init.py --region " + region + \
+                      " --aws-access-key-id " + aws_access_key + \
+                      " --aws-secret-access-key " + aws_secret_access_key + \
+                      " --aws-session-token " + session_token + \
+                      " --no-prompt"
+            display_command = "sudo " + python_str + " ./aws-replication-installer-init.py --region " + region + \
+                              " --aws-access-key-id " + aws_access_key + \
+                              " --aws-secret-access-key *****" + \
+                              " --aws-session-token *****" + \
+                              " --no-prompt"
+        else:
+            command = "sudo " + python_str + " ./aws-replication-installer-init.py --region " + region + \
+                      " --aws-access-key-id " + aws_access_key + \
+                      " --aws-secret-access-key " + aws_secret_access_key + \
+                      " --no-prompt"
+            display_command = "sudo " + python_str + " ./aws-replication-installer-init.py --region " + region + \
+                              " --aws-access-key-id " + aws_access_key + \
+                              " --aws-secret-access-key *****" + \
+                              " --no-prompt"
+        # Add s3 endpoint if specified in parameters.
+        if s3_endpoint:
+            command += " --s3-endpoint " + s3_endpoint
+            display_command += " --s3-endpoint " + s3_endpoint
 
-        output, error = execute_cmd(host=host, username=username, key=key_pwd,
-                                cmd=command, using_key=using_key)
-        console_output = console_output + "\n" +output
+        # Add mgn endpoint if specified in parameters.
+        if mgn_endpoint:
+            command += " --endpoint " + mgn_endpoint
+            display_command += " --endpoint " + mgn_endpoint
+
+        final_output['messages'].append("Executing " + display_command)
+
+        output, error = mfcommon.execute_cmd_via_ssh(host=host, username=username, key=key_pwd,
+                                                     cmd=command, using_key=using_key)
+        final_output['messages'].append(output)
     except Exception as e:
         error = 'Got exception! ' + str(e)
-    if not error and 'Error: Installation failed' not in output:
-        console_output = console_output + "\n" + "***** Agent installation completed successfully on "+host+ "*****"
-        return host,console_output
+    if not error and 'Installation failed' not in output and 'Error details:' not in output:
+        final_output['messages'].append("***** Agent installation completed successfully on " + host + "*****")
+        final_output['return_code'] = 0
+        return final_output
     else:
-        console_output = console_output + "\n" + "--------------------------------------------"
-        console_output = console_output + "\n" + "Error: Installation Failed. Unable to install Agent on "+host+" due to: "
-        console_output = console_output + "\n" + ""
+        final_output['messages'].append("Error: Installation Failed. Unable to install Agent on " + host + " due to: ")
         if output:
-            console_output = console_output + "\n" + output
-        console_output = console_output + "\n" + error
-        console_output = console_output + "\n" + "--------------------------------------------"
-        return host,console_output
+            final_output['messages'].append(output)
+        final_output['messages'].append(error)
+        final_output['return_code'] = 1
+        return final_output

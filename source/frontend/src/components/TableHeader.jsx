@@ -17,6 +17,14 @@ const TableHeader = ({ title, description, selectedItems, counter, handleRefresh
 
   const disableActionsButton = actionsButtonDisabled !== undefined ? actionsButtonDisabled : !isOnlyOneSelected
 
+  function isButtonDisabled(buttonName){
+    if (disabledButtons && disabledButtons[buttonName]){
+      return disabledButtons[buttonName];
+    } else {
+      return false;
+    }
+  }
+
   return (
     <Header
       variant="h2"
@@ -33,9 +41,9 @@ const TableHeader = ({ title, description, selectedItems, counter, handleRefresh
             expandableGroups
             >Actions
             </ButtonDropdown> : null}
-          {handleEditClick ? <Button onClick={handleEditClick} disabled={!isOnlyOneSelected || (disabledButtons ? disabledButtons.edit ? disabledButtons.edit : false : false)}> Edit</Button> : null}
-          {handleDeleteClick ? <Button onClick={handleDeleteClick} disabled={selectedItems.length === 0  || (disabledButtons ? disabledButtons.delete ? disabledButtons.delete: false : false)}> Delete</Button> : null}
-          {handleAddClick ? <Button onClick={handleAddClick} disabled={disabledButtons ? disabledButtons.add ? disabledButtons.add : false : false} variant="primary"> Add</Button> : null}
+          {handleEditClick ? <Button onClick={handleEditClick} disabled={!isOnlyOneSelected || (isButtonDisabled('edit'))}> Edit</Button> : null}
+          {handleDeleteClick ? <Button onClick={handleDeleteClick} disabled={selectedItems.length === 0  || (isButtonDisabled('delete'))}> Delete</Button> : null}
+          {handleAddClick ? <Button onClick={handleAddClick} disabled={isButtonDisabled('add')} variant="primary"> Add</Button> : null}
           {handleDownload ? <Button onClick={handleDownload} iconName="download" variant="icon"/> : null}
         </SpaceBetween>
       }

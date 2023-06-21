@@ -11,16 +11,11 @@ import {
   CollectionPreferences,
   Pagination,
   TextFilter,
-  Table,
-  FormField,
-  RadioGroup,
+  Table
 } from '@awsui/components-react';
 
  import {
-   COLUMN_DEFINITIONS,
-   CONTENT_SELECTOR_OPTIONS,
    PAGE_SELECTOR_OPTIONS,
-   CUSTOM_PREFERENCE_OPTIONS,
    DEFAULT_PREFERENCES,
    getColumnDefinitions,
    getContentSelectorOptions
@@ -33,7 +28,7 @@ import TableHeader from './TableHeader.jsx';
 const SchemaAttributesTable = (props) => {
 
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
-  const [contentAttributes, setContentAttributes] = useState(getContentSelectorOptions());
+  const [contentAttributes, ] = useState(getContentSelectorOptions());
 
     const { items, actions, collectionProps, filterProps, paginationProps, filteredItemsCount } = useCollection(
     props.items,

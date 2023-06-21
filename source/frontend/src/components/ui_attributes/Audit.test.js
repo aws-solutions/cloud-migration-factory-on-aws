@@ -31,7 +31,7 @@ test('Audit displays all valid creations and modified information provided', () 
     }
   }
 
-  const {queryByLabelText, getByLabelText} = render(
+  render(
     <Audit item={props.item}/>
   );
 
@@ -47,7 +47,7 @@ test('Audit displays all valid creations and modified information provided', () 
 
 test('Audit displays labels for items with no audit data.', () => {
   const props = {item: {}};
-  const {} = render(
+  render(
     <Audit item={props.item}/>
   );
 
@@ -66,7 +66,7 @@ test('Audit displays labels for items with no audit data but has _history.', () 
       }
     }
   }
-  const {} = render(
+  render(
     <Audit item={props.item}/>
   );
 
@@ -91,7 +91,7 @@ test('Audit displays labels for items with no createdBy or lastModifiedBY email 
       }
     }
   }
-  const {} = render(
+  render(
     <Audit item={props.item}/>
   );
 

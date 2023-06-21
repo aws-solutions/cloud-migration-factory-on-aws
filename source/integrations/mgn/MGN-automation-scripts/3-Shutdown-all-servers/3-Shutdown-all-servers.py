@@ -23,6 +23,7 @@ import sys
 import argparse
 import json
 import subprocess
+
 if not sys.warnoptions:
     import warnings
 with warnings.catch_warnings():
@@ -38,6 +39,7 @@ appendpoint = mfcommon.appendpoint
 
 with open('FactoryEndpoints.json') as json_file:
     endpoints = json.load(json_file)
+
 
 def open_ssh(host, username, key_pwd, using_key):
     ssh = None
@@ -62,6 +64,7 @@ def open_ssh(host, username, key_pwd, using_key):
         print(error)
     return ssh
 
+
 def execute_cmd(host, username, key, cmd, using_key):
     output = ''
     error = ''
@@ -78,15 +81,15 @@ def execute_cmd(host, username, key, cmd, using_key):
             for line in stderr.readlines():
                 error = error + line
     except IOError as io_error:
-        error = "Unable to execute the command " + cmd + " on " +host+ " due to " + \
+        error = "Unable to execute the command " + cmd + " on " + host + " due to " + \
                 str(io_error)
         print(error)
     except paramiko.SSHException as ssh_exception:
-        error = "Unable to execute the command " + cmd + " on " +host+ " due to " + \
+        error = "Unable to execute the command " + cmd + " on " + host + " due to " + \
                 str(ssh_exception)
         print(error)
     except Exception as e:
-        error = "Unable to execute the command " + cmd + " on " +host+ " due to " + str(e)
+        error = "Unable to execute the command " + cmd + " on " + host + " due to " + str(e)
         print(error)
     finally:
         if ssh is not None:
@@ -99,7 +102,8 @@ def main(arguments):
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--Waveid', required=True)
-    parser.add_argument('--NoPrompts', default=False, type=bool, help='Specify if user prompts for passwords are allowed. Default = False')
+    parser.add_argument('--NoPrompts', default=False, type=bool,
+                        help='Specify if user prompts for passwords are allowed. Default = False')
     parser.add_argument('--SecretWindows', default=None)
     parser.add_argument('--SecretLinux', default=None)
     args = parser.parse_args(arguments)
@@ -128,45 +132,56 @@ def main(arguments):
     if windows_exist:
         print("****************************")
         print("*Shutting down Windows servers*")
-        print("****************************", flush = True)
+        print("****************************", flush=True)
 
         for account in get_servers:
             if len(account["servers_windows"]) > 0:
                 for server in account["servers_windows"]:
-                    windows_credentials = mfcommon.getServerCredentials('', '', server, args.SecretWindows, args.NoPrompts)
+                    windows_credentials = mfcommon.getServerCredentials('', '', server, args.SecretWindows,
+                                                                        args.NoPrompts)
                     if windows_credentials['username'] != "":
                         if "\\" not in windows_credentials['username'] and "@" not in windows_credentials['username']:
-                            #Assume local account provided, prepend server name to user ID.
+                            # Assume local account provided, prepend server name to user ID.
                             server_name_only = server["server_fqdn"].split(".")[0]
                             windows_credentials['username'] = server_name_only + "\\" + windows_credentials['username']
                             print("INFO: Using local account to connect: " + windows_credentials['username'])
                     else:
                         print("INFO: Using domain account to connect: " + windows_credentials['username'])
-                    command = "Stop-Computer -ComputerName " + server['server_fqdn'] + " -Force"
-                    command += " -Credential (New-Object System.Management.Automation.PSCredential('" + windows_credentials['username'] + "', (ConvertTo-SecureString '" + windows_credentials['password'] + "' -AsPlainText -Force)))"
-                    print("Shutting down server: " + server['server_fqdn'], flush = True)
-                    p = subprocess.Popen(["powershell.exe", command],  stdout=subprocess.PIPE,stderr = subprocess.PIPE)
+                    command = "Stop-Computer -Force"
+                    print("Shutting down server: " + server['server_fqdn'], flush=True)
+
+                    invoke_command = "Invoke-Command -ComputerName %s -ScriptBlock{%s}" % (server['server_fqdn'],
+                                                                                           command)
+                    invoke_command += " -Credential (New-Object System.Management.Automation.PSCredential('" + \
+                                      windows_credentials['username'] + "', (ConvertTo-SecureString '" + \
+                                      windows_credentials['password'] + "' -AsPlainText -Force)))"
+
+                    p = subprocess.Popen(["powershell.exe", invoke_command], stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE)
                     stdout, stderr = p.communicate()
-                    if 'ErrorId' in  str(stderr):
-                        print(str(stderr), flush = True)
+                    if 'ErrorId' in str(stderr):
+                        print(str(stderr), flush=True)
                         failures = True
                     else:
-                        print("Shutdown completed for server: " + server['server_fqdn'], flush = True)
+                        print("Shutdown completed for server: " + server['server_fqdn'], flush=True)
     if linux_exist:
         print("")
         print("****************************")
         print("*Shutting down Linux servers*")
         print("****************************")
-        print("", flush = True)
+        print("", flush=True)
         for account in get_servers:
             if len(account["servers_linux"]) > 0:
                 for server in account["servers_linux"]:
-                    linux_credentials = mfcommon.getServerCredentials(user_name, pass_key, server, args.SecretLinux, args.NoPrompts)
-                    output, error = execute_cmd(server['server_fqdn'], linux_credentials['username'], linux_credentials['password'], "sudo shutdown now", linux_credentials['private_key'])
+                    linux_credentials = mfcommon.getServerCredentials(user_name, pass_key, server, args.SecretLinux,
+                                                                      args.NoPrompts)
+                    output, error = execute_cmd(server['server_fqdn'], linux_credentials['username'],
+                                                linux_credentials['password'], "sudo shutdown now",
+                                                linux_credentials['private_key'])
                     if not error:
-                        print("Shutdown successful on " + server['server_fqdn'], flush = True)
+                        print("Shutdown successful on " + server['server_fqdn'], flush=True)
                     else:
-                        print("unable to shutdown server " + server['server_fqdn'] + " due to " + error, flush = True)
+                        print("unable to shutdown server " + server['server_fqdn'] + " due to " + error, flush=True)
                         failures = True
     if failures:
         print("One or more servers failed to shutdown. Check log for details.")
@@ -174,5 +189,7 @@ def main(arguments):
     else:
         print("All servers have had shutdown completed successfully.")
         return 0
+
+
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))

@@ -33,10 +33,15 @@ apps_table_name = '{}-{}-apps'.format(application, environment)
 servers_table = boto3.resource('dynamodb').Table(servers_table_name)
 apps_table = boto3.resource('dynamodb').Table(apps_table_name)
 
+REQUESTS_DEFAULT_TIMEOUT = 60
+
 def check(launchtype, session, headers, endpoint, HOST, projectname, waveid):
     serverlist = []
     applist = []
-    r = requests.get(HOST + endpoint.format('projects'), headers=headers, cookies=session)
+    r = requests.get(HOST + endpoint.format('projects'),
+                     headers=headers,
+                     cookies=session,
+                     timeout=REQUESTS_DEFAULT_TIMEOUT)
     if r.status_code != 200:
         return "ERROR: Failed to fetch the project...."
     try:
@@ -76,7 +81,10 @@ def check(launchtype, session, headers, endpoint, HOST, projectname, waveid):
         sys.exit(6)
 
     machine_status = 0
-    m = requests.get(HOST + endpoint.format('projects/{}/machines').format(project_id), headers=headers, cookies=session)
+    m = requests.get(HOST + endpoint.format('projects/{}/machines').format(project_id),
+                     headers=headers,
+                     cookies=session,
+                     timeout=REQUESTS_DEFAULT_TIMEOUT)
     for server in serverlist:
         machine_exist = False
         for machine in json.loads(m.text)["items"]:

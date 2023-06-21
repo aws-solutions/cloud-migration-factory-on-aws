@@ -518,7 +518,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_gfbuild.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-gfbuild
       Timeout: '300'
       Code:
@@ -543,6 +543,7 @@ Resources:
           Key: Name
           Value: !Sub ${Application}-${Environment}-gfbuild
       Layers:
+        - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
     Metadata:
       cfn_nag:
@@ -556,7 +557,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_gfdeploy.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-gfdeploy
       Timeout: '300'
       Code:
@@ -581,6 +582,7 @@ Resources:
           Key: Name
           Value: !Sub ${Application}-${Environment}-gfdeploy
       Layers:
+        - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
     Metadata:
       cfn_nag:
@@ -594,7 +596,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_gfvalidation.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-gfvalidation
       Timeout: '300'
       Code:
@@ -619,6 +621,7 @@ Resources:
           Key: Name
           Value: !Sub ${Application}-${Environment}-gfvalidate
       Layers:
+        - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
     Metadata:
       cfn_nag:
@@ -705,7 +708,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_replatformec2schema.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-replatform-ec2-schema
       Timeout: 120
       Code:
@@ -726,6 +729,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-default-schema
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:

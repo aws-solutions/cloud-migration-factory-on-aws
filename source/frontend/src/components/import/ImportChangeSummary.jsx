@@ -5,11 +5,7 @@
 
 import React from 'react';
 import {
-  Tabs,
   SpaceBetween,
-  ColumnLayout,
-  Container,
-  Header,
   ExpandableSection
  } from '@awsui/components-react';
 

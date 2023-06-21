@@ -142,9 +142,7 @@ export function getColumnDefinitions(schemaName, schema){
         return ({
             id: attr.name,
             header: attr.description,
-            cell: item => getNestedValuePath(item, lattr.import_raw_header) ? getNestedValuePath(item, lattr.import_raw_header).map((tag, index) => {
-              return tag.key + '=' + tag.value
-            }).join(';') : getNestedValuePath(item, lattr.import_raw_header),
+            cell: item => getNestedValuePath(item, lattr.import_raw_header),
             minWidth: 180,
             sortingField: attr.name
           }
@@ -168,19 +166,25 @@ export function getColumnDefinitions(schemaName, schema){
             id: attr.name,
             header: attr.description,
             cell: item => getNestedValuePath(item, lattr.import_raw_header) ? getNestedValuePath(item, lattr.import_raw_header).map((policy, index) => {
-              let createmsg = '';
-              let readmsg = '';
-              let updatemsg = '';
-              let deletemsg = '';
+              let finalMsg = [];
 
-              policy.create ? createmsg = 'C': createmsg = ''
-              policy.read ? readmsg = 'R': readmsg = ''
-              policy.update ? updatemsg = 'U': updatemsg = ''
-              policy.delete ? deletemsg = 'D': deletemsg = ''
+              if (policy.create) {
+                finalMsg.push('C')
+              }
 
-              let finalmsg = createmsg + readmsg + updatemsg + deletemsg
+              if (policy.read) {
+                finalMsg.push('R')
+              }
 
-              return <div>{policy.friendly_name ? policy.friendly_name : policy.schema_name + ' ['+ finalmsg +']'}</div>}) : getNestedValuePath(item, lattr.import_raw_header),
+              if (policy.update) {
+                finalMsg.push('U')
+              }
+
+              if (policy.delete) {
+                finalMsg.push('D')
+              }
+
+              return <div key={policy.schema_name}>{policy.friendly_name ? policy.friendly_name : policy.schema_name + ' ['+ finalMsg.join('') +']'}</div>}) : getNestedValuePath(item, lattr.import_raw_header),
             minWidth: 180,
             sortingField: attr.name
           }

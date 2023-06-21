@@ -4,8 +4,8 @@
  */
 
 import React, {useState} from "react";
-import { Auth } from "aws-amplify";
-import {useLocation, useNavigate, useParams} from "react-router-dom";
+import { Auth } from "@aws-amplify/auth";
+import {useLocation, useNavigate} from "react-router-dom";
 import {
   Box,
   FormField,
@@ -17,9 +17,6 @@ import {
 const Login = (props) => {
   let location = useLocation()
   let navigate = useNavigate();
-  let params = useParams();
-
-  const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfaCode, setMFACode] = useState('');
@@ -30,7 +27,6 @@ const Login = (props) => {
   const handleSubmit = async event => {
     event.preventDefault();
 
-    setIsLoading(true);
     setLoginError(null);
     let userAuthenticated = false;
 
@@ -46,7 +42,6 @@ const Login = (props) => {
           setGetMFACode(true);
         } else if (user.challengeName === 'NEW_PASSWORD_REQUIRED') {
           navigate("/change/pwd");
-          userAuthenticated = false;
         } else {
           userAuthenticated = true;
         }
@@ -68,14 +63,12 @@ const Login = (props) => {
       else {
         setLoginError(e.message);
       }
-      setIsLoading(false);
     }
   }
 
   const handleSubmitCode = async event => {
     event.preventDefault();
 
-    setIsLoading(true);
     let userAuthenticated = false;
     setLoginError(null);
 
@@ -87,7 +80,7 @@ const Login = (props) => {
 
         if (userChallenge.challengeName === 'SMS_MFA' || userChallenge.challengeName === 'SOFTWARE_TOKEN_MFA') {
           // If MFA is enabled, sign-in should be confirmed with the confirmation code
-          const loggedUser = await Auth.confirmSignIn(
+          await Auth.confirmSignIn(
             userChallenge,   // Return object from Auth.signIn()
             mfaCode,   // Confirmation code
             userChallenge.challengeName
@@ -96,7 +89,6 @@ const Login = (props) => {
 
         } else if (userChallenge.challengeName === 'NEW_PASSWORD_REQUIRED') {
           navigate("/change/pwd");
-          userAuthenticated = false;
         } else {
           userAuthenticated = true;
         }
@@ -120,14 +112,10 @@ const Login = (props) => {
       else {
         setLoginError(e.message);
       }
-      setIsLoading(false);
     }
   }
 
   const resetScreen = async () => {
-    //event.preventDefault();
-
-    setIsLoading(true);
     setUserChallenge(null);
     setEmail('')
     setPassword('');

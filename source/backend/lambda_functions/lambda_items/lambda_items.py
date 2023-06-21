@@ -27,7 +27,7 @@ from policy import MFAuth
 import item_validation
 import logging
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level = logging.DEBUG)
+logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -39,7 +39,7 @@ else:
 default_http_headers = {
     'Access-Control-Allow-Origin': cors,
     'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy' : "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
+    'Content-Security-Policy': "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
 }
 application = os.environ['application']
 environment = os.environ['environment']
@@ -67,12 +67,12 @@ def lambda_handler(event, context):
             msg = 'Invalid schema provided :' + schema_name
             logger.error(msg)
             return {'headers': {**default_http_headers},
-            'statusCode': 400, 'body': msg}
+                    'statusCode': 400, 'body': msg}
 
     else:
         logger.error('No schema provided.')
         return {'headers': {**default_http_headers},
-        'statusCode': 400, 'body': 'No schema provided to function.'}
+                'statusCode': 400, 'body': 'No schema provided to function.'}
 
     data_table_name = '{}-{}-'.format(application, environment) + schema_name + 's'
     data_table = boto3.resource('dynamodb').Table(data_table_name)
@@ -104,12 +104,12 @@ def lambda_handler(event, context):
             logger.info('Invocation: %s, Starting PUT of ' + str(len(body)) + ' items.', logging_context)
             try:
                 for record in body:
-                    logger.debug('Invocation: %s, Checking '+ schema_name + '_name exists.',logging_context)
+                    logger.debug('Invocation: %s, Checking ' + schema_name + '_name exists.', logging_context)
                     if schema_name + '_name' not in record:
                         logger.error('Invocation: %s, attribute ' + schema_name + '_name is required', logging_context)
                         return {'headers': {**default_http_headers},
                                 'statusCode': 400, 'body': 'attribute ' + schema_name + '_name is required'}
-                    logger.debug('Invocation: %s, Checking '+ schema_name + '_id does not exist.', logging_context)
+                    logger.debug('Invocation: %s, Checking ' + schema_name + '_id does not exist.', logging_context)
                     if schema_name + '_id' in record:
                         logger.error('Invocation: %s, You cannot create ' + schema_name +
                                      '_id, this is managed by the system', logging_context)
@@ -174,13 +174,15 @@ def lambda_handler(event, context):
                 ts = TypeSerializer()
                 responses = []
 
-                logger.debug('Invocation: %s, Validated items to process: ' + json.dumps(items_validated), logging_context)
+                logger.debug('Invocation: %s, Validated items to process: ' + json.dumps(items_validated),
+                             logging_context)
 
                 # if there are valid items then process them only.
                 if items_validated:
                     start_indx = 0
 
-                    logger.info('Invocation: %s, Number of valid items to process: ' + str(len(items_validated)), logging_context)
+                    logger.info('Invocation: %s, Number of valid items to process: ' + str(len(items_validated)),
+                                logging_context)
                     while True:
                         itemlist = get_items(items_validated, start_indx, 25)
                         table_content = []
@@ -192,7 +194,8 @@ def lambda_handler(event, context):
                             RequestItems={data_table_name: table_content}
                         )
                         if len(resp['UnprocessedItems']) == 0:
-                            logger.debug('Invocation: %s, Successfully wrote ' + str(len(itemlist)) + ' items', logging_context)
+                            logger.debug('Invocation: %s, Successfully wrote ' + str(len(itemlist)) + ' items',
+                                         logging_context)
                         else:
                             # Hit the provisioned write limit
                             logger.info('Invocation: %s, Hit write limit, backing off then retrying', logging_context)
@@ -228,7 +231,9 @@ def lambda_handler(event, context):
                 has_errors = False
                 # If validation errors were found then report the list to calling function.
                 if items_validation_errors:
-                    logger.warning('Invocation: %s, Items with validation errors: ' + json.dumps(items_validation_errors), logging_context)
+                    logger.warning(
+                        'Invocation: %s, Items with validation errors: ' + json.dumps(items_validation_errors),
+                        logging_context)
                     return_messages['validation_errors'] = items_validation_errors
                     has_errors = True
 
@@ -255,7 +260,9 @@ def lambda_handler(event, context):
                     return_messages['unprocessed_items'] = unprocessed_items
 
                 if has_errors:
-                    logger.warning('Invocation: %s, ' + json.dumps({'newItems': items_validated, 'errors': return_messages}), logging_context)
+                    logger.warning(
+                        'Invocation: %s, ' + json.dumps({'newItems': items_validated, 'errors': return_messages}),
+                        logging_context)
                     return {'headers': {**default_http_headers},
                             'body': json.dumps({'newItems': items_validated, 'errors': return_messages})}
                 else:
@@ -266,8 +273,9 @@ def lambda_handler(event, context):
             except Exception as e:
                 logger.error('Invocation: %s, Unhandled exception: ' + str(e), logging_context)
                 return {'headers': {**default_http_headers},
-                                    'statusCode': 500,
-                                    'body': json.dumps({'errors': ['Unhandled API Exception: check logs for detailed error message.']})}
+                        'statusCode': 500,
+                        'body': json.dumps(
+                            {'errors': ['Unhandled API Exception: check logs for detailed error message.']})}
 
         else:
             logger.error('Invocation: %s, Authorisation failed: ' + json.dumps(authResponse), logging_context)

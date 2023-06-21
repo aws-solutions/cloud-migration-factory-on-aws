@@ -2,6 +2,7 @@ Name: "4-Get target Instance IP"
 Description: "This script will get IP details of the target instances in a specific wave"
 MasterFileName: "4-Get-instance-IP.py"
 UpdateUrl: ""
+Group: "Rehost-MGN"
 Arguments:
   -
     name: "Waveid"

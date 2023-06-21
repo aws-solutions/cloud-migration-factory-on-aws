@@ -1,0 +1,4 @@
+boto3==1.26.153
+botocore==1.29.153
+moto==4.1.11
+coverage==7.2.2

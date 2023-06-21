@@ -904,64 +904,6 @@ Resources:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionCloudEndure.Arn}/invocations'
 
-  APIResourceAMSWIG:
-    Type: 'AWS::ApiGateway::Resource'
-    Properties:
-      RestApiId: !Ref ToolsAPI
-      ParentId: !GetAtt ToolsAPI.RootResourceId
-      PathPart: "amswig"
-
-  APIMethodAMSWIGOPTIONS:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref ToolsAPI
-      ResourceId: !Ref APIResourceAMSWIG
-      HttpMethod: "OPTIONS"
-      AuthorizationType: "NONE"
-      MethodResponses:
-        - StatusCode: '200'
-          ResponseModels:
-            'application/json': 'Empty'
-          ResponseParameters:
-            'method.response.header.Access-Control-Allow-Origin': false
-            'method.response.header.Access-Control-Allow-Methods': false
-            'method.response.header.Access-Control-Allow-Headers': false
-      Integration:
-        Type: MOCK
-        IntegrationResponses:
-          - StatusCode: '200'
-            ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
-              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
-            ResponseTemplates:
-              'application/json': ''
-        RequestTemplates:
-          "application/json": "{\"statusCode\": 200}"
-
-  APIMethodeAMSWIGPost:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref ToolsAPI
-      ResourceId: !Ref APIResourceAMSWIG
-      HttpMethod: "POST"
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref ToolsAuthorizer
-      MethodResponses:
-        - StatusCode: '200'
-          ResponseModels:
-            'application/json': 'Empty'
-          ResponseParameters:
-            'method.response.header.Access-Control-Allow-Origin': false
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        IntegrationResponses:
-          - StatusCode: '200'
-            ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionAMSWIG.Arn}/invocations'
-
   APIResourceSSM:
     Type: 'AWS::ApiGateway::Resource'
     Properties:
@@ -3306,73 +3248,6 @@ Resources:
                   - !Join [ '', [ !GetAtt RoleDynamoDBTable.Arn, '*' ] ]
                   - !Join [ '', [ !GetAtt PolicyDynamoDBTable.Arn, '*' ] ]
 
-
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W11
-            reason: "The resources ARN is unknown, because it is depends on user input"
-          - id: W28
-            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
-
-  AMSWIGLambdaRole:
-    Type: 'AWS::IAM::Role'
-    Properties:
-      RoleName: !Sub ${Application}-${Environment}-amswig-lambda-role
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          -
-            Effect: Allow
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-            Action:
-              - 'sts:AssumeRole'
-      Path: /
-      Policies:
-        -
-          PolicyName: LambdaRolePolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              -
-                Effect: Allow
-                Action:
-                  - 'dynamodb:GetItem'
-                  - 'dynamodb:PutItem'
-                  - 'dynamodb:Query'
-                  - 'dynamodb:Scan'
-                  - 'dynamodb:UpdateItem'
-                  - 'dynamodb:DescribeTable'
-                Resource:
-                  - !Join ['', [!GetAtt ServersDynamoDBTable.Arn, '*']]
-                  - !Join ['', [!GetAtt AppsDynamoDBTable.Arn, '*']]
-              -
-                Effect: Allow
-                Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
-                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
-              -
-                Effect: Allow
-                Action:
-                  - 'dynamodb:GetItem'
-                  - 'dynamodb:Query'
-                  - 'dynamodb:Scan'
-                  - 'dynamodb:DescribeTable'
-                Resource:
-                  - !Join [ '', [ !GetAtt RoleDynamoDBTable.Arn, '*' ] ]
-                  - !Join [ '', [ !GetAtt PolicyDynamoDBTable.Arn, '*' ] ]
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W11
-            reason: "The resources ARN is unknown, because it is depends on user input"
-          - id: W28
-            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
-
   UserAdminLambdaRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -3839,11 +3714,11 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_role.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-role
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_role.zip"]]
       Role: !GetAtt RolesLambdaRole.Arn
       Environment:
@@ -3861,6 +3736,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-role
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3881,11 +3758,11 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_role_item.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-role-item
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_role_item.zip"]]
       Role: !GetAtt RolesLambdaRole.Arn
       Environment:
@@ -3903,6 +3780,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-role-item
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3923,11 +3802,11 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_schema.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-schema
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_schema.zip"]]
       Role: !GetAtt SchemaLambdaRole.Arn
       Environment:
@@ -3945,6 +3824,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-schema
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3965,11 +3846,11 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_policy.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-policy
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_policy.zip"]]
       Role: !GetAtt PolicyLambdaRole.Arn
       Environment:
@@ -3987,6 +3868,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-policy
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4007,11 +3890,11 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_policy_attr.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-policy-attr
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_policy_attr.zip"]]
       Role: !GetAtt PolicyLambdaRole.Arn
       Environment:
@@ -4029,6 +3912,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-policy-attr
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4049,12 +3934,12 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_items.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-items
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_items.zip"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_items.zip"]]
       Role: !GetAtt ItemsLambdaRole.Arn
       Environment:
         Variables:
@@ -4098,11 +3983,11 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_item.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-item
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_item.zip"]]
       Role: !GetAtt ItemsLambdaRole.Arn
       Environment:
@@ -4147,11 +4032,11 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_auth.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-auth
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_auth.zip"]]
       Role: !GetAtt AuthLambdaRole.Arn
       Environment:
@@ -4202,11 +4087,11 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_login.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-login
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_login.zip"]]
       Role: !GetAtt LoginResetLambdaRole.Arn
       Environment:
@@ -4224,6 +4109,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-login
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4244,11 +4131,11 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_reset.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-reset
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_reset.zip"]]
       Role: !GetAtt LoginResetLambdaRole.Arn
       Environment:
@@ -4267,6 +4154,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-reset
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4287,12 +4176,12 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: CloudEndure.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-cloudendure
       Timeout: 300
       MemorySize: '1024'
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_cloudendure.zip"]]
       Role: !GetAtt CloudEndureLambdaRole.Arn
       Environment:
@@ -4334,61 +4223,15 @@ Resources:
       Principal: 'apigateway.amazonaws.com'
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
 
-  LambdaFunctionAMSWIG:
-    Type: 'AWS::Lambda::Function'
-    Properties:
-      Handler: lambda_ams_wig.lambda_handler
-      Runtime: python3.8
-      FunctionName: !Sub ${Application}-${Environment}-ams-wig
-      Timeout: 300
-      Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_ams_wig.zip"]]
-      Role: !GetAtt AMSWIGLambdaRole.Arn
-      Environment:
-        Variables:
-          application: !Ref Application
-          environment: !Ref Environment
-          region: !Ref 'AWS::Region'
-          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
-      Tags:
-        -
-          Key: application
-          Value: !Ref Application
-        -
-          Key: environment
-          Value: !Ref Environment
-        -
-          Key: Name
-          Value: !Sub ${Application}-${Environment}-ams-wig
-      Layers:
-        - !Ref LambdaLayerStdPythonLibs
-        - !Ref LambdaLayerMFPolicyLib
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W89
-            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
-          - id: W92
-            reason: "Reserve Concurrent Execution is not needed for this solution"
-
-  LambdaPermissionAMSWIG:
-    Type: 'AWS::Lambda::Permission'
-    Properties:
-      FunctionName: !GetAtt LambdaFunctionAMSWIG.Arn
-      Action: 'lambda:InvokeFunction'
-      Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
-
   LambdaFunctionUserAdmin:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_user_admin.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-user-admin
       Timeout: 300
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_user_admin.zip"]]
       Role: !GetAtt UserAdminLambdaRole.Arn
       Environment:
@@ -4407,6 +4250,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-user-admin
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4427,11 +4272,11 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_cognitogroups.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-cognitogroups
       Timeout: 300
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_cognitogroups.zip"]]
       Role: !GetAtt CognitoGroupLambdaRole.Arn
       Environment:
@@ -4450,6 +4295,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-cognitogroups
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4470,11 +4317,11 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_defaultschema.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-default-schema
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_defaultschema.zip"]]
       Role: !GetAtt DefaultSchemaLambdaRole.Arn
       Environment:
@@ -4492,6 +4339,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-default-schema
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4504,12 +4353,12 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_notifications.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-notifications
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_notifications.zip"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_notifications.zip"]]
       Role: !GetAtt NotificationsLambdaRole.Arn
       Environment:
         Variables:
@@ -4568,8 +4417,10 @@ Resources:
       Handler: helper.lambda_handler
       FunctionName: !Sub ${Application}-${Environment}-helper
       Role: !GetAtt BuildRole.Arn
-      Runtime: python3.8
+      Runtime: python3.10
       Timeout: 300
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4587,7 +4438,7 @@ Resources:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_layer_py_pkgs.zip"]]
       CompatibleRuntimes:
-        - python3.8
+        - python3.10
 
   LambdaLayerMFPolicyLib:
     Type: AWS::Lambda::LayerVersion
@@ -4598,7 +4449,7 @@ Resources:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_layer_policy.zip"]]
       CompatibleRuntimes:
-        - python3.8
+        - python3.10
 
   LambdaLayerMFItemsLib:
     Type: AWS::Lambda::LayerVersion
@@ -4609,18 +4460,18 @@ Resources:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_layer_items.zip"]]
       CompatibleRuntimes:
-        - python3.8
+        - python3.10
 
   LambdaFunctionUserUpdate:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_cognito_user_update.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-user-update
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_cognito_user_update.zip"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_cognito_user_update.zip"]]
       Role: !GetAtt UserUpdateLambdaRole.Arn
       Environment:
         Variables:
@@ -4638,6 +4489,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-user-update
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4658,12 +4511,12 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_cognito_group_update.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-group-update
       Timeout: 120
       Code:
-        S3Bucket: !Join [ "-", [ !FindInMap [ "SourceCode", "General", "S3Bucket" ], Ref: "AWS::Region" ] ]
-        S3Key: !Join [ "/", [ !FindInMap [ "SourceCode", "General", "KeyPrefix" ],  "lambda_cognito_group_update.zip" ] ]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_cognito_group_update.zip"]]
       Role: !GetAtt GroupUpdateLambdaRole.Arn
       Environment:
         Variables:
@@ -4678,6 +4531,8 @@ Resources:
           Value: !Ref Environment
         - Key: Name
           Value: !Sub ${Application}-${Environment}-group-update
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4698,12 +4553,12 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_build.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-app-build
       Timeout: 120
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_build.zip"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_build.zip"]]
       Role: !GetAtt BuildRole.Arn
       Environment:
         Variables:
@@ -4716,7 +4571,7 @@ Resources:
           APP_CLIENT_ID: !Ref CognitoAppClient
           COGNITO_HOSTED_UI_URL: !If [ DeployFederation, !Sub "${CognitoUserPoolDomain}.auth.${AWS::Region}.amazoncognito.com", ""]
           FRONTEND_BUCKET: !Ref FrontEndBucket
-          SOURCE_BUCKET: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+          SOURCE_BUCKET: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
           SOURCE_KEY: !Join
             - /
             - - !FindInMap
@@ -4735,6 +4590,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-app-build
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4763,8 +4620,9 @@ Resources:
       Parameters:
         Application: !Ref Application
         Environment: !Ref Environment
-        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+        LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
 
   AppMigService:
     Type: AWS::CloudFormation::Stack
@@ -4777,7 +4635,7 @@ Resources:
         Application: !Ref Application
         Environment: !Ref Environment
         ServiceAccountEmail: !Ref ServiceAccountEmail
-        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
         ToolsAPI: !Ref ToolsAPI
         ToolsAuthorizer: !Ref ToolsAuthorizer
@@ -4814,7 +4672,7 @@ Resources:
         ToolsAPI: !Ref ToolsAPI
         ToolsAPIRootResourceId: !GetAtt ToolsAPI.RootResourceId
         ToolsAuthorizer: !Ref ToolsAuthorizer
-        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         KeyPrefix: !FindInMap [ "SourceCode", "General", "KeyPrefix" ]
         RoleDynamoDBTableArn: !GetAtt RoleDynamoDBTable.Arn
         PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
@@ -4842,7 +4700,7 @@ Resources:
         CognitoUserPoolId: !Ref CognitoUserPool
         CognitoAdminGroup: !Ref CognitoAdminGroup
         CognitoAppClientId: !Ref CognitoAppClient
-        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         APIGatewayLogGroup: !GetAtt APIGatewayLogGroup.Arn
         AccessLoggingBucket: !Ref AccessLoggingBucket
         RoleDynamoDBTableArn: !GetAtt RoleDynamoDBTable.Arn
@@ -4866,7 +4724,7 @@ Resources:
         Application: !Ref Application
         Environment: !Ref Environment
         ServiceAccountEmail: !Ref ServiceAccountEmail
-        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
         ToolsAPI: !Ref ToolsAPI
         ToolsAuthorizer: !Ref ToolsAuthorizer
@@ -4934,12 +4792,12 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_service_account.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.10
       FunctionName: !Sub ${Application}-${Environment}-service-account
       Timeout: 120
       Code:
-        S3Bucket: !Join [ "-", [ !FindInMap [ "SourceCode", "General", "S3Bucket" ], !Ref "AWS::Region" ] ]
-        S3Key: !Join [ "/", [ !FindInMap [ "SourceCode", "General", "KeyPrefix" ], "lambda_service_account.zip" ] ]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region" ]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_service_account.zip" ]]
       Role: !GetAtt ServiceAccountLambdaRole.Arn
       Environment:
         Variables:
@@ -4956,6 +4814,8 @@ Resources:
         -
           Key: Name
           Value: !Sub ${Application}-${Environment}-service-account
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -5209,10 +5069,3 @@ Outputs:
   FactoryUserName:
     Description: 'Factory Service account User name'
     Value: !Ref ServiceAccountEmail
-
-#  Factory password is only output when used with the migration workshop.
-#  FactoryPassword:
-#    Description: 'Factory Service account Password'
-#    Value: !GetAtt
-#      - AppMigService
-#      - Outputs.ServiceAccountPwd

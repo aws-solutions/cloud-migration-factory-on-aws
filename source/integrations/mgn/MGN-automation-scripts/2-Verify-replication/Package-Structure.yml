@@ -2,6 +2,7 @@ Name: "2-Verify Replication Status"
 Description: "This script will verify the replication status for all servers in all MGN AWS accounts in a specific wave"
 MasterFileName: "2-Verify-replication.py"
 UpdateUrl: ""
+Group: "Rehost-MGN"
 Arguments:
   -
     name: "Waveid"

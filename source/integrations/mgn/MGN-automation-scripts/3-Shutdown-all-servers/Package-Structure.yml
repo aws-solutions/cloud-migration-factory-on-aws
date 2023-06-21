@@ -2,6 +2,7 @@ Name: "3-Shutdown All Servers"
 Description: "This script will shutdown all the source instances in a specific wave"
 MasterFileName: "3-Shutdown-all-servers.py"
 UpdateUrl: ""
+Group: "General"
 Arguments:
   - name: "SecretWindows"
     long_desc: "Windows Secret to use for credentials."

@@ -259,7 +259,7 @@ Resources:
       FunctionName: !Sub ${Application}-${Environment}-MGN
       Handler: "lambda_mgn.lambda_handler"
       Role: !GetAtt MGNLambdaRole.Arn
-      Runtime: python3.8
+      Runtime: python3.10
       MemorySize: 2048
       Timeout: 720
       Tags:

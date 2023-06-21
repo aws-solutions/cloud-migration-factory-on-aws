@@ -80,7 +80,9 @@ def data_validation(data, servers):
 def uploading_data(data, token):
     keys = data[0].keys()
     auth = {"Authorization": token}
-    servers = json.loads(requests.get(UserHOST + mfcommon.serverendpoint, headers=auth).text)
+    servers = json.loads(requests.get(UserHOST + mfcommon.serverendpoint,
+                                      headers=auth,
+                                      timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT).text)
     data_validation(data, servers)
     for row in data:
         update_server_tags = {}
@@ -95,7 +97,10 @@ def uploading_data(data, token):
                     tag['value'] = row[key].strip()
                     tags.append(tag)
         update_server_tags['tags'] = tags
-        r = requests.put(UserHOST + mfcommon.serverendpoint + '/' + server_id, headers=auth, data=json.dumps(update_server_tags))
+        r = requests.put(UserHOST + mfcommon.serverendpoint + '/' + server_id,
+                         headers=auth,
+                         data=json.dumps(update_server_tags),
+                         timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
         if r.status_code == 200:
            print("Tags for server " + row['Name'] + " updated in the migration factory")
         else:

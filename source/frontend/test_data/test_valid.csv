@@ -1,0 +1,2 @@
+﻿server_name,server_os_family,server_os_version,server_fqdn,r_type,app_name,aws_accountid,aws_region,wave_name
+unittest1,linux,redhat,unittest1.testdomain.local,Rehost,Unit testing App 1,123456789012,us-east-1,Unittest Wave 1

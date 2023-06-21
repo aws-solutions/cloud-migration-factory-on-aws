@@ -18,7 +18,7 @@ let childText = 'TestTextValue'
 
 
 test('TextAttribute displays the label and text provided', () => {
-  const {} = render(
+  render(
     <TextAttribute
       key={'test-attribute'}
       label={labelName}

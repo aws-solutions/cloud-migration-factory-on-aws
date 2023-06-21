@@ -20,12 +20,11 @@ import {
   Alert,
   ExpandableSection,
   Link,
-  Textarea
+  Tabs
 } from '@awsui/components-react';
 import {getNestedValuePath, setNestedValuePath} from "../resources/main";
 import ToolHelpEdit from "./ToolHelpEdit";
 import ToolHelp from "./ToolHelp";
-import {Tabs} from "@awsui/components-react";
 import SchemaAttributeConditionsEdit from "./SchemaAttributeConditionsEdit";
 
 type Props = {
@@ -88,6 +87,13 @@ const SchemaAttributeAmendModal = React.memo(({ children, closeModal , confirmAc
     } catch (e) {
       return "Error in validation regular expression format: " + e.message;
 
+    }
+  }
+  function getErrorText(localAttr){
+    if (localAttr.group_order && isNaN(parseInt(localAttr.group_order))){
+      return 'Must be a whole number.';
+    } else {
+      return undefined;
     }
   }
 
@@ -490,7 +496,7 @@ const SchemaAttributeAmendModal = React.memo(({ children, closeModal , confirmAc
                         <FormField
                             label="Order in group"
                             description="Provide the order in the group. if not provided the order will be alphabetical based on the display name."
-                            errorText={localAttr.group_order ? isNaN(parseInt(localAttr.group_order)) ? 'Must be a whole number.' : undefined : undefined}
+                            errorText={getErrorText(localAttr)}
                         >
                             <Input
                                 value={localAttr.group_order}

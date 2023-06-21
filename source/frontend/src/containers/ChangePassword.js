@@ -4,16 +4,13 @@
  */
 
 import React, {useEffect, useState} from "react";
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 
-import {useLocation, useNavigate, useParams} from "react-router-dom";
+import {useNavigate} from "react-router-dom";
 import {Box, Button, Container, Form, FormField, Header, Input, SpaceBetween} from "@awsui/components-react";
 
 const ChangePassword = (props) => {
-  let location = useLocation()
   let navigate = useNavigate();
-  let params = useParams();
-
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [oldPassword, setOldPassword] = useState('');

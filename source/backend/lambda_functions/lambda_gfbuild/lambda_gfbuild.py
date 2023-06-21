@@ -75,7 +75,7 @@ def lambda_handler(event, context):
                 'statusCode': 400, 'body': 'malformed json input'}
     # Call Server List Function
     try:
-        Templategenlist = GetServerList(body['waveid'], servers_table)
+        Templategenlist = get_server_list(body['waveid'], servers_table)
         print(" Main Templategenlist:")
         print(Templategenlist)
         successfultempgen = 'Yes'
@@ -104,26 +104,7 @@ def lambda_handler(event, context):
 
         waves = sorted(getwave, key=lambda i: i['wave_name'])
 
-        for app in apps:
-            appname = ''
-            appid = ''
-            projectname = ''
-            accountid = ''
-
-            # Read App Name and App Id
-
-            if 'wave_id' in app:
-                if str(app['wave_id']) == body['waveid']:
-
-                    for character in app['app_name']:
-                        if character.isalnum():
-                            appname += character
-                    for character in app['app_id']:
-                        if character.isalnum():
-                            appid += character
-
         # Get Wave name
-
         wavename = ''
         for wave in waves:
             if str(wave['wave_id']) == body['waveid']:
@@ -138,51 +119,48 @@ def lambda_handler(event, context):
         for app in apps:
             appname = ''
             appid = ''
-            projectname = ''
-            accountid = ''
+            account_id = ''
 
-            if 'wave_id' in app:
-                if str(app['wave_id']) == body['waveid']:
+            if 'wave_id' in app and str(app['wave_id']) == body['waveid']:
+                for character in app['app_name']:
+                    if character.isalnum():
+                        appname += character
 
-                    for character in app['app_name']:
-                        if character.isalnum():
-                            appname += character
+                print('App Name :' + appname)
 
-                    print('App Name :' + appname)
+                for character in app['app_id']:
+                    if character.isalnum():
+                        appid += character
 
-                    for character in app['app_id']:
-                        if character.isalnum():
-                            appid += character
+                print('App Id :' + appid)
 
-                    print('App Id :' + appid)
+                for character in app['aws_accountid']:
+                    if character.isnumeric():
+                        account_id += character
 
-                    for character in app['aws_accountid']:
-                        if character.isnumeric():
-                            accountid += character
+                # AWS Account Id to Create S3 Path
+                aws_account_id = context.invoked_function_arn.split(":")[4]
 
-                    # AWS Account Id to Create S3 Path
-                    aws_account_id = context.invoked_function_arn.split(":")[4]
+                gfbuild_bucket = "{}-{}-{}-gfbuild-cftemplates".format(
+                    application, environment, aws_account_id)
 
-                    gfbuild_bucket = "{}-{}-{}-gfbuild-cftemplates".format(
-                        application, environment, aws_account_id)
+                print('S3 Bucket to Load Cloud formation Templates :' + gfbuild_bucket)
 
-                    print('S3 Bucket to Load Cloud formation Templates :' + gfbuild_bucket)
+                # lambda path and Json File
 
-                    # lambda path and Json File
+                lambda_path = tempfile.gettempdir() + '/CFN_Template_' + appid + '_' + appname + '.yaml'
 
-                    lambda_path = tempfile.gettempdir() + '/CFN_Template_' + appid + '_' + appname + '.yaml'
+                # S3 path and Json File
 
-                    # S3 path and Json File
+                s3_path = account_id + '/' + wavename + '/CFN_Template_' + appid + '_' + appname + '.yaml'
 
-                    s3_path = accountid + '/' + wavename + '/CFN_Template_' + appid + '_' + appname + '.yaml'
+                print('S3 Path Along with JSON File: ' + s3_path)
 
-                    print('S3 Path Along with JSON File: ' + s3_path)
+                # Upload Template into S3 Bucket
 
-                    # Upload Template into S3 Bucket
-
-                    s3 = boto3.resource('s3')
-                    s3.meta.client.upload_file(lambda_path, gfbuild_bucket.replace(" ", ""), s3_path)
-                    generated_template_uris.append('s3://' + gfbuild_bucket.replace(" ", "") + '/' + s3_path)
+                s3 = boto3.resource('s3')
+                s3.meta.client.upload_file(lambda_path, gfbuild_bucket.replace(" ", ""), s3_path)
+                generated_template_uris.append('s3://' + gfbuild_bucket.replace(" ", "") + '/' + s3_path)
 
         if successfultempgen == 'Yes':
             msg = 'EC2 Cloud Formation Template Generation Completed. ' + str(
@@ -199,7 +177,7 @@ def lambda_handler(event, context):
                 'statusCode': 400, 'body': 'Lambda Handler Main Function Failed with error : ' + str(e)}
 
 
-def GetServerList(waveid, servers_table):
+def get_server_list(waveid, servers_table):
     try:
 
         templategenlist = []
@@ -229,13 +207,13 @@ def GetServerList(waveid, servers_table):
         # Pull App Id and App Name from Apps Dynamo table
 
         for app in apps:
-            if 'wave_id' in app:
-                if str(app['wave_id']) == waveid:
-                    applist.append(app['app_id'])
-                    appnamelist.append(app['app_name'])
+            if 'wave_id' in app and str(app['wave_id']) == waveid:
+                applist.append(app['app_id'])
+                appnamelist.append(app['app_name'])
 
         apptotal = int(len(applist))
         appnumb = 0
+        serverlist_all = []
 
         # Read App by app and pull the server list
 
@@ -254,6 +232,7 @@ def GetServerList(waveid, servers_table):
                 if "app_id" in server and "r_type" in server:
                     if applist[appnumb] == server['app_id'] and server['r_type'].upper() == 'REPLATFORM':
                         serverlist.append(server)
+                        serverlist_all.append(server)
 
             # Process all servers that required Replatform.
             for server in serverlist:
@@ -305,7 +284,7 @@ def GetServerList(waveid, servers_table):
 
             appnumb = appnumb + 1
 
-        if len(serverlist) == 0:
+        if len(serverlist_all) == 0:
             templategenlist.append("ERROR: Server list for wave " + waveid + " in Migration Factory is empty....")
 
         print("templategenlist:")
@@ -652,13 +631,9 @@ def generate_cft(apptotal, app_id, app_name, template, addvolcount, server_name,
             if character.isalnum():
                 appid += character
 
-        original_stdout = sys.stdout
         with open(tempfile.gettempdir() + '/CFN_Template_' + app_id + '_' + app_name + '.yaml', 'w') as f:
-            sys.stdout = f
-            sys.stdout = print(template.to_yaml())
-
-        f.close()
-        sys.stdout = original_stdout
+            f.write(template.to_yaml())
+            f.close()
 
         print('CFN_Template_' + app_id + '_' + app_name + '.json' + ' Generated Successfully')
 

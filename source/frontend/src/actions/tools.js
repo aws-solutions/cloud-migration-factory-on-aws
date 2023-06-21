@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { API } from "aws-amplify";
+import { API } from "@aws-amplify/api";
 
 export default class Tools {
   constructor(session) {
@@ -64,14 +64,18 @@ export default class Tools {
     return API.get("tools", apiPath, options);
   }
 
-  getSSMJobs() {
+  getSSMJobs(maximumDays=undefined) {
     const token = this.session.idToken.jwtToken;
     const options = {
       headers: {
         Authorization: token
       }
     };
-    return API.get("tools", "/ssm/jobs", options);
+    let daysToReturn = ''
+    if (maximumDays !== undefined) {
+      daysToReturn = '?maximumdays=' + maximumDays
+    }
+    return API.get("tools", "/ssm/jobs" + daysToReturn, options);
   }
 
   deleteSSMJobs(ssmid) {

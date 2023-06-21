@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 import {
     SpaceBetween
 } from '@awsui/components-react';
@@ -196,98 +196,128 @@ const CredentialManager = (props) => {
         setFocusItem({});
     }
 
+    function getDeleteHandler(selectedItems){
+
+        if (selectedItems.length !== 0)
+        {
+            if (!selectedItems[0].system){
+                return handleDeleteItemClick;
+            } else {
+                return undefined;
+            }
+        } else {
+            return handleDeleteItemClick;
+        }
+    }
+
+    async function saveNewRecord(secretData){
+        try {
+            if (secretData.secretType === 'OS') {
+                if (secretData.isSSHKey)
+                  //base64 encode key
+                    secretData.password = btoa(secretData.password.replace(/\n/g, "\\n"))
+
+                const secretFormData = {
+                    secretName: secretData.secretName,
+                    user: secretData.userName,
+                    password: secretData.password,
+                    secretType: secretData.secretType,
+                    osType: secretData.osType,
+                    isSSHKey: secretData.isSSHKey,
+                    description: (secretData.description !== undefined && secretData.description.trim() !== '') ? secretData.description : 'Secret for Migration Factory'
+                }
+
+                await fetchApi('POST', secretFormData, window.env.API_ADMIN + '/admin/credentialmanager', 'Add', jwt);
+            } else if (secretData.secretType === 'keyValue') {
+                const secretFormData = {
+                    secretName: secretData.secretName,
+                    secretKey: secretData.secretKey,
+                    secretValue: secretData.secretValue,
+                    secretType: secretData.secretType,
+                    description: (secretData.description !== undefined && secretData.description.trim() !== '') ? secretData.description : 'Secret for Migration Factory'
+                }
+
+                await fetchApi('POST', secretFormData, window.env.API_ADMIN + '/admin/credentialmanager', 'Add', jwt);
+            } else if (secretData.secretType === "plainText") {
+                const secretFormData = {
+                    secretName: secretData.secretName,
+                    secretString: secretData.plainText,
+                    secretType: "plainText",
+                    description: (secretData.description !== undefined && secretData.description.trim() !== '') ? secretData.description : 'Secret for Migration Factory'
+                }
+
+                await fetchApi('POST', secretFormData, window.env.API_ADMIN + '/admin/credentialmanager', 'Add', jwt);
+            }
+        } catch (e) {
+            console.log(e);
+        }
+
+        //This is needed to ensure the item in selectApps reflects new updates
+        setSelectedItems([]);
+        setFocusItem({});
+    }
+
+    async function saveUpdatedRecord(secretData){
+        try {
+            if (secretData.secretType === 'OS') {
+
+                if (secretData.password === '*********') {
+                    // password not updated so do not include in update.
+                    delete secretData.password;
+                } else {
+                    if (secretData.isSSHKey) {
+                        //base64 encode key.
+                        secretData.password = btoa(secretData.password.replace(/\n/g, "\\n"))
+                    }
+                }
+
+                const secretFormData = {
+                    secretName: secretData.secretName,
+                    user: secretData.userName,
+                    password: secretData.password ? secretData.password : undefined,
+                    secretType: secretData.secretType,
+                    osType: secretData.osType,
+                    description: secretData.description,
+                    isSSHKey: secretData.isSSHKey
+                }
+
+                await fetchApi('PUT', secretFormData, window.env.API_ADMIN + '/admin/credentialmanager', 'Update', jwt);
+            } else if (secretData.secretType === 'keyValue') {
+                const secretFormData = {
+                    secretName: secretData.secretName,
+                    secretKey: secretData.secretKey,
+                    secretValue: secretData.secretValue,
+                    secretType: secretData.secretType,
+                    description: secretData.description
+                }
+
+                await fetchApi('PUT', secretFormData, window.env.API_ADMIN + '/admin/credentialmanager', 'Update', jwt);
+            } else if (secretData.secretType === "plainText") {
+                const secretFormData = {
+                    secretName: secretData.secretName,
+                    secretString: secretData.plainText,
+                    secretType: "plainText",
+                    description: secretData.description
+                }
+
+                await fetchApi('PUT', secretFormData, window.env.API_ADMIN + '/admin/credentialmanager', 'Update', jwt);
+            }
+        } catch (e) {
+            console.log(e);
+        }
+
+        setSelectedItems([]);
+        setFocusItem({});
+    }
+
     async function handleSave(secretData, action) {
         if (action === 'add') {
-            try {
-                if (secretData.secretType === 'OS') {
-                    if (secretData.isSSHKey)
-                      //base64 encode key
-                        secretData.password = btoa(secretData.password.replace(/\n/g, "\\n"))
-                    const secretFormData = {
-                        secretName: secretData.secretName,
-                        user: secretData.userName,
-                        password: secretData.password,
-                        secretType: secretData.secretType,
-                        osType: secretData.osType,
-                        isSSHKey: secretData.isSSHKey,
-                        description: (secretData.description !== undefined && secretData.description.trim() !== '') ? secretData.description : 'Secret for Migration Factory'
-                    }
-
-                    await fetchApi('POST', secretFormData, window.env.API_ADMIN + '/admin/credentialmanager', 'Add', jwt);
-                } else if (secretData.secretType === 'keyValue') {
-                    const secretFormData = {
-                        secretName: secretData.secretName,
-                        secretKey: secretData.secretKey,
-                        secretValue: secretData.secretValue,
-                        secretType: secretData.secretType,
-                        description: (secretData.description !== undefined && secretData.description.trim() !== '') ? secretData.description : 'Secret for Migration Factory'
-                    }
-
-                    await fetchApi('POST', secretFormData, window.env.API_ADMIN + '/admin/credentialmanager', 'Add', jwt);
-                } else if (secretData.secretType === "plainText") {
-                    const secretFormData = {
-                        secretName: secretData.secretName,
-                        secretString: secretData.plainText,
-                        secretType: "plainText",
-                        description: (secretData.description !== undefined && secretData.description.trim() !== '') ? secretData.description : 'Secret for Migration Factory'
-                    }
-
-                    await fetchApi('POST', secretFormData, window.env.API_ADMIN + '/admin/credentialmanager', 'Add', jwt);
-                }
-            } catch (e) {
-                console.log(e);
-            }
-
-            //This is needed to ensure the item in selectApps reflects new updates
-            setSelectedItems([]);
-            setFocusItem({});
+            await saveNewRecord(secretData);
         } else if (action === 'edit') {
-            try {
-                if (secretData.secretType === 'OS') {
-                    if (secretData.isSSHKey)
-                        //base64 encode key
-                        secretData.password = btoa(secretData.password.replace(/\n/g, "\\n"))
-                    const secretFormData = {
-                        secretName: secretData.secretName,
-                        user: secretData.userName,
-                        password: secretData.password,
-                        secretType: secretData.secretType,
-                        osType: secretData.osType,
-                        description: secretData.description,
-                        isSSHKey: secretData.isSSHKey
-                    }
-
-                    await fetchApi('PUT', secretFormData, window.env.API_ADMIN + '/admin/credentialmanager', 'Update', jwt);
-                } else if (secretData.secretType === 'keyValue') {
-                    const secretFormData = {
-                        secretName: secretData.secretName,
-                        secretKey: secretData.secretKey,
-                        secretValue: secretData.secretValue,
-                        secretType: secretData.secretType,
-                        description: secretData.description
-                    }
-
-                    await fetchApi('PUT', secretFormData, window.env.API_ADMIN + '/admin/credentialmanager', 'Update', jwt);
-                } else if (secretData.secretType === "plainText") {
-                    const secretFormData = {
-                        secretName: secretData.secretName,
-                        secretString: secretData.plainText,
-                        secretType: "plainText",
-                        description: secretData.description
-                    }
-
-                    await fetchApi('PUT', secretFormData, window.env.API_ADMIN + '/admin/credentialmanager', 'Update', jwt);
-                }
-            } catch (e) {
-                console.log(e);
-            }
-
-            setSelectedItems([]);
-            setFocusItem({});
+            await saveUpdatedRecord(secretData);
         }
 
         await getSecretList()
-
     }
 
     return (
@@ -301,7 +331,7 @@ const CredentialManager = (props) => {
                   selectedItems={selectedItems}
                   handleSelectionChange={handleItemSelectionChange}
                   handleAddItem={handleAddItem}
-                  handleDeleteItem={selectedItems.length !== 0 ? !selectedItems[0].system ? handleDeleteItemClick : undefined : handleDeleteItemClick}
+                  handleDeleteItem={getDeleteHandler(selectedItems)}
                   handleEditItem={handleEditItem}
                   handleRefresh={getSecretList}
                 />

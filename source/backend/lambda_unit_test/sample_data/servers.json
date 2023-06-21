@@ -1,0 +1,321 @@
+[
+  {
+    "server_id": {
+      "S": "1"
+    },
+    "app_id": {
+      "S": "1"
+    },
+    "instanceType": {
+      "S": "t3.medium"
+    },
+    "r_type": {
+      "S": "Replatform"
+    },
+    "availabilityzone": {
+      "S": "us-east-1a"
+    },
+    "root_vol_size": {
+      "S": "8"
+    },
+    "ami_id": {
+      "S": "amzn-linux-2022"
+    },
+    "add_vols_size": {
+      "L": [
+        {
+          "S": "16"
+        },
+        {
+          "S": "32"
+        }
+      ]
+    },
+    "securitygroup_IDs": {
+      "L": [
+        {
+          "S": "sg-0485cd66e0f74adf3"
+        }
+      ]
+    },
+    "securitygroup_IDs_test": {
+      "L": [
+        {
+          "S": "sg-0485cd66e0f74adf3"
+        }
+      ]
+    },
+    "server_environment": {
+      "S": "prod"
+    },
+    "server_fqdn": {
+      "S": "wordpress-web.onpremsim.env"
+    },
+    "server_name": {
+      "S": "wordpress-web.onpremsim.env"
+    },
+    "server_os_family": {
+      "S": "linux"
+    },
+    "server_os_version": {
+      "S": "Ubuntu"
+    },
+    "server_tier": {
+      "S": "web"
+    },
+    "subnet_IDs": {
+      "L": [
+        {
+          "S": "subnet-02ee1e6b9543b81c9"
+        }
+      ]
+    },
+    "subnet_IDs_test": {
+      "L": [
+        {
+          "S": "subnet-02ee1e6b9543b81c9"
+        }
+      ]
+    },
+    "tags": {
+      "L": [
+        {
+          "M": {
+            "key": {
+              "S": "CostCenter"
+            },
+            "value": {
+              "S": "123"
+            }
+          }
+        },
+        {
+          "M": {
+            "key": {
+              "S": "BU"
+            },
+            "value": {
+              "S": "IT"
+            }
+          }
+        },
+        {
+          "M": {
+            "key": {
+              "S": "Location"
+            },
+            "value": {
+              "S": "US"
+            }
+          }
+        }
+      ]
+    },
+    "tenancy": {
+      "S": "Shared"
+    }
+  },
+  {
+    "server_id": {
+      "S": "2"
+    },
+    "app_id": {
+      "S": "2"
+    },
+    "instanceType": {
+      "S": "t3.medium"
+    },
+    "r_type": {
+      "S": "Replatform"
+    },
+    "availabilityzone": {
+      "S": "us-east-1a"
+    },
+    "root_vol_size": {
+      "S": "8"
+    },
+    "ami_id": {
+      "S": "amzn-linux-2022"
+    },
+    "securitygroup_IDs": {
+      "L": [
+        {
+          "S": "sg-0485cd66e0f74adf3"
+        }
+      ]
+    },
+    "securitygroup_IDs_test": {
+      "L": [
+        {
+          "S": "sg-0485cd66e0f74adf3"
+        }
+      ]
+    },
+    "server_environment": {
+      "S": "prod"
+    },
+    "server_fqdn": {
+      "S": "wordpress-db.onpremsim.env"
+    },
+    "server_name": {
+      "S": "wordpress-db.onpremsim.env"
+    },
+    "server_os_family": {
+      "S": "linux"
+    },
+    "server_os_version": {
+      "S": "Ubuntu"
+    },
+    "server_tier": {
+      "S": "db"
+    },
+    "subnet_IDs": {
+      "L": [
+        {
+          "S": "subnet-02ee1e6b9543b81c9"
+        }
+      ]
+    },
+    "subnet_IDs_test": {
+      "L": [
+        {
+          "S": "subnet-02ee1e6b9543b81c9"
+        }
+      ]
+    },
+    "tags": {
+      "L": [
+        {
+          "M": {
+            "key": {
+              "S": "CostCenter"
+            },
+            "value": {
+              "S": "123"
+            }
+          }
+        },
+        {
+          "M": {
+            "key": {
+              "S": "BU"
+            },
+            "value": {
+              "S": "IT"
+            }
+          }
+        },
+        {
+          "M": {
+            "key": {
+              "S": "Location"
+            },
+            "value": {
+              "S": "US"
+            }
+          }
+        }
+      ]
+    },
+    "tenancy": {
+      "S": "Shared"
+    }
+  },
+  {
+    "server_id": {
+      "S": "3"
+    },
+    "app_id": {
+      "S": "2"
+    },
+    "instanceType": {
+      "S": "t3.medium"
+    },
+    "r_type": {
+      "S": "Rehost"
+    },
+    "securitygroup_IDs": {
+      "L": [
+        {
+          "S": "sg-0485cd66e0f74adf3"
+        }
+      ]
+    },
+    "securitygroup_IDs_test": {
+      "L": [
+        {
+          "S": "sg-0485cd66e0f74adf3"
+        }
+      ]
+    },
+    "server_environment": {
+      "S": "prod"
+    },
+    "server_fqdn": {
+      "S": "ofbiz-web.onpremsim.env"
+    },
+    "server_name": {
+      "S": "ofbiz-web.onpremsim.env"
+    },
+    "server_os_family": {
+      "S": "linux"
+    },
+    "server_os_version": {
+      "S": "Ubuntu"
+    },
+    "server_tier": {
+      "S": "web"
+    },
+    "subnet_IDs": {
+      "L": [
+        {
+          "S": "subnet-02ee1e6b9543b81c9"
+        }
+      ]
+    },
+    "subnet_IDs_test": {
+      "L": [
+        {
+          "S": "subnet-02ee1e6b9543b81c9"
+        }
+      ]
+    },
+    "tags": {
+      "L": [
+        {
+          "M": {
+            "key": {
+              "S": "CostCenter"
+            },
+            "value": {
+              "S": "123"
+            }
+          }
+        },
+        {
+          "M": {
+            "key": {
+              "S": "BU"
+            },
+            "value": {
+              "S": "IT"
+            }
+          }
+        },
+        {
+          "M": {
+            "key": {
+              "S": "Location"
+            },
+            "value": {
+              "S": "US"
+            }
+          }
+        }
+      ]
+    },
+    "tenancy": {
+      "S": "Shared"
+    }
+  }
+]

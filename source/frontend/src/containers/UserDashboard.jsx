@@ -19,6 +19,7 @@ import ChartOSTypes from '../components/dashboard/ChartOSTypes.jsx'
 import ChartServerEnvTypes from '../components/dashboard/ChartServerEnvTypes.jsx'
 import WaveServersByMonth from '../components/dashboard/ServersByMonth.jsx'
 import MFOverview from '../components/dashboard/MFOverview.jsx'
+import ServerRepStatus from "../components/dashboard/ServerRepStatus";
 
 /**
  * React CMF user dashboard container REACT component.
@@ -28,10 +29,10 @@ import MFOverview from '../components/dashboard/MFOverview.jsx'
  */
 const UserDashboard = (props) => {
   //Data items for viewer and table.
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, { update: updateWaves }] = useMFWaves();
-  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }, { update: updateApps }] = useMFApps();
-  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }, { update: updateServers }] = useGetServers();
-  const [{ isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases }, { update: updateDatabases }] = useGetDatabases();
+  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, ] = useMFWaves();
+  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }, ] = useMFApps();
+  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }, ] = useGetServers();
+  const [{ isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases }, ] = useGetDatabases();
 
   /**
    * Returns the migrated items based on the Wave that they are linked to being in a Completed status.
@@ -139,6 +140,9 @@ const UserDashboard = (props) => {
                 data={{data: dataServers, isLoading: isLoadingServers, error: errorServers}}
               />
               <ChartServerEnvTypes
+                data={{data: dataServers, isLoading: isLoadingServers, error: errorServers}}
+              />
+              <ServerRepStatus
                 data={{data: dataServers, isLoading: isLoadingServers, error: errorServers}}
               />
 

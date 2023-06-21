@@ -7,7 +7,7 @@ import React, {useEffect, useState} from 'react';
 import User from "../actions/user";
 import {useLocation, useNavigate, useParams} from "react-router-dom";
 
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 import ItemAmend from "../components/ItemAmend";
 import {
   capitalize,
@@ -29,16 +29,38 @@ import ItemTable from '../components/ItemTable.jsx';
 import { useModal } from '../actions/Modal.js';
 import {parsePUTResponseErrors} from "../resources/recordFunctions";
 
+const ViewItem = (props) => {
+  const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
+  async function handleViewerTabChange(tabSelected)
+  {
+    setViewerCurrentTab(tabSelected);
+  }
+
+  if (props.selectedItems.length === 1) {
+
+    return (
+      <DatabaseView {...props}
+                    database={props.selectedItems[0]}
+                    handleTabChange={handleViewerTabChange}
+                    dataAll={props.dataAll}
+                    selectedTab={viewerCurrentTab}
+      />
+    );
+  } else {
+    return (null);
+  }
+}
+
 const UserDatabaseTable = (props) => {
   let location = useLocation()
   let navigate = useNavigate();
   let params = useParams();
 
   //Data items for viewer and table.
-  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }, { update: updateApps }] = useMFApps();
+  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }, ] = useMFApps();
   const [{ isLoading: isLoadingMain, data: dataMain, error: errorMain }, { update: updateMain }] = useGetDatabases();
-  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }, { update: updateServers }] = useGetServers();
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, { update: updateWaves }] = useMFWaves();
+  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }, ] = useGetServers();
+  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, ] = useMFWaves();
 
   const dataAll = {application: {data: dataApps, isLoading: isLoadingApps, error: errorApps}, database: {data: dataMain, isLoading: isLoadingMain, error: errorMain}, server: {data: dataServers, isLoading: isLoadingServers, error: errorServers}, wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}};
 
@@ -50,7 +72,6 @@ const UserDatabaseTable = (props) => {
   const [focusItem, setFocusItem] = useState([]);
 
   //Viewer pane state management.
-  const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
   const [action, setAction] = useState(['Add']);
 
   //Get base path from the URL, all actions will use this base path.
@@ -108,11 +129,6 @@ const UserDatabaseTable = (props) => {
 
   }
 
-  async function handleViewerTabChange(tabselected)
-  {
-      setViewerCurrentTab(tabselected);
-  }
-
   function handleResetScreen()
   {
     navigate({
@@ -137,21 +153,6 @@ const UserDatabaseTable = (props) => {
 
   }
 
-  function getCurrentServerApplication() {
-
-    if (selectedItems.length === 1) {
-      let apps = dataApps.filter(function (entry) {
-        return entry.app_id === selectedItems[0].app_id;
-      });
-
-      if ( apps.length > 0){
-        return apps;
-      } else {
-        return [];
-      }
-    }
-  }
-
   async function handleSave(editItem, action) {
 
     let newItem = Object.assign({}, editItem);
@@ -173,12 +174,12 @@ const UserDatabaseTable = (props) => {
           });
           return false;
         }
-        var result = await apiUser.putItem(item_id, newItem, schemaName);
+        let resultEdit = await apiUser.putItem(item_id, newItem, schemaName);
 
-        if (result['errors']) {
+        if (resultEdit['errors']) {
           console.debug("PUT " + schemaName + " errors");
-          console.debug(result['errors']);
-          let errorsReturned = parsePUTResponseErrors(result['errors']);
+          console.debug(resultEdit['errors']);
+          let errorsReturned = parsePUTResponseErrors(resultEdit['errors']);
           handleNotification({
             type: 'error',
             dismissible: true,
@@ -206,12 +207,12 @@ const UserDatabaseTable = (props) => {
         const session = await Auth.currentSession();
         const apiUser = new User(session);
         delete newItem[schemaName + '_id'];
-        var result = await apiUser.postItem(newItem, schemaName);
+        let resultAdd = await apiUser.postItem(newItem, schemaName);
 
-        if (result['errors']) {
+        if (resultAdd['errors']) {
           console.debug("PUT " + schemaName + " errors");
-          console.debug(result['errors']);
-          let errorsReturned = parsePUTResponseErrors(result['errors']);
+          console.debug(resultAdd['errors']);
+          let errorsReturned = parsePUTResponseErrors(resultAdd['errors']);
           handleNotification({
             type: 'error',
             dismissible: true,
@@ -334,22 +335,40 @@ const UserDatabaseTable = (props) => {
     }
   }
 
-  const ViewItem = (props) => {
+  function displayItemsViewScreen(){
+    return <SpaceBetween direction="vertical" size="xs">
+      <ItemTable
+        sendNotification={handleNotification}
+        schema={props.schema[schemaName]}
+        schemaKeyAttribute={itemIDKey}
+        schemaName={schemaName}
+        dataAll={dataAll}
+        items={dataMain}
+        selectedItems={selectedItems}
+        handleSelectionChange={handleItemSelectionChange}
+        isLoading={isLoadingMain}
+        errorLoading={errorMain}
+        handleRefreshClick={handleRefreshClick}
+        handleAddItem={handleAddItem}
+        handleDeleteItem={handleDeleteItemClick}
+        handleEditItem={handleEditItem}
+        handleDownloadItems={handleDownloadItems}
+        userAccess={props.userEntityAccess}
+        setHelpPanelContent={props.setHelpPanelContent}
+      />
+      <ViewItem
+        schema={props.schema}
+        selectedItems={selectedItems}
+        dataAll={dataAll}
+      />
+    </SpaceBetween>
+  }
 
-    const [selectedItemsViewer, lsetSelectedItemsViewer] = useState([]);
-
-    if (selectedItems.length === 1) {
-
-      return (
-        <DatabaseView {...props}
-            database={selectedItems[0]}
-            handleTabChange={handleViewerTabChange}
-            dataAll={dataAll}
-            selectedTab={viewerCurrentTab}
-        />
-      );
+  function displayItemsScreen(){
+    if (editingItem){
+      return <ItemAmend action={action} schemaName={schemaName} schemas={props.schema} userAccess={props.userEntityAccess} item={focusItem} handleSave={handleSave} handleCancel={handleResetScreen} updateNotification={handleNotification} setHelpPanelContent={props.setHelpPanelContent}/>;
     } else {
-      return (null);
+      return displayItemsViewScreen();
     }
   }
 
@@ -393,36 +412,8 @@ const UserDatabaseTable = (props) => {
          Loading schema...
        </StatusIndicator>
        :
-       !editingItem
-          ?
-          (
-            <SpaceBetween direction="vertical" size="xs">
-              <ItemTable
-                sendNotification={handleNotification}
-                schema={props.schema[schemaName]}
-                schemaKeyAttribute={itemIDKey}
-                schemaName={schemaName}
-                dataAll={dataAll}
-                items={dataMain}
-                selectedItems={selectedItems}
-                handleSelectionChange={handleItemSelectionChange}
-                isLoading={isLoadingMain}
-                errorLoading={errorMain}
-                handleRefreshClick={handleRefreshClick}
-                handleAddItem={handleAddItem}
-                handleDeleteItem={handleDeleteItemClick}
-                handleEditItem={handleEditItem}
-                handleDownloadItems={handleDownloadItems}
-                userAccess={props.userEntityAccess}
-                setHelpPanelContent={props.setHelpPanelContent}
-                />
-              <ViewItem
-                schema={props.schema}
-              />
-            </SpaceBetween>
-          )
-          : <ItemAmend action={action} schemaName={schemaName} schemas={props.schema} userAccess={props.userEntityAccess} item={focusItem} handleSave={handleSave} handleCancel={handleResetScreen} updateNotification={handleNotification} setHelpPanelContent={props.setHelpPanelContent}/>
-        }
+       displayItemsScreen()
+     }
       <DeleteModal title={'Delete ' + schemaName + 's'} onConfirmation={handleDeleteItem}>{selectedItems.length === 1 ? <p>{'Are you sure you wish to delete the selected ' + schemaName + '?'}</p> : <p>{'Are you sure you wish to delete the {selectedItems.length} selected ' + schemaName +'?'}</p>}</DeleteModal>
     </div>
   );

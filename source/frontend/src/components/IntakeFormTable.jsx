@@ -20,19 +20,15 @@ import {
   CollectionPreferences,
   Pagination,
   TextFilter,
-  Table,
-  FormField,
-  RadioGroup,
+  Table
 } from '@awsui/components-react';
 
  import {
   PAGE_SELECTOR_OPTIONS,
-  CUSTOM_PREFERENCE_OPTIONS,
   DEFAULT_PREFERENCES, getColumnDefinitions, getContentSelectorOptions
 } from '../resources/intakeform-table-config.jsx';
 
 import { useCollection } from '@awsui/collection-hooks';
-
 import TableHeader from './TableHeader.jsx';
 
 const IntakeFormTable = (props) => {
@@ -41,9 +37,7 @@ const IntakeFormTable = (props) => {
     tablePrefs: "Intake_Import_Table_Prefs",
     tableAttributes: "Intake_Import_Table_Atrributes"
   }
-
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
-  const [contentAttributes, setContentAttributes] = useState(getContentSelectorOptions(props.schema));
 
   React.useEffect(() => {
     localStorage.setItem(locaStorageKeys.tablePrefs, JSON.stringify(preferences));
@@ -75,35 +69,9 @@ const IntakeFormTable = (props) => {
       : `(${applications.length})`;
   }
 
-
-  // function getContentSelectionOptions () {
-  //   var lContentSelectionOptions = Object.assign({}, CONTENT_SELECTOR_OPTIONS);;
-  //   let loptions = [];
-  //
-  //   for (let attribute in props.schema)
-  //   {
-  //       loptions.push({id: attribute.name, label: attribute.description});
-  //   }
-  //
-  //   lContentSelectionOptions.push({
-  //         label: 'All Application Attributes',
-  //         options: loptions
-  //       });
-  //
-  //       setContentAttributes(lContentSelectionOptions);
-  //
-  //   return;
-  // }
-
   function filterCounter(count) {
     return `${count} ${count === 1 ? 'match' : 'matches'}`;
   }
-
-  //moved up to handler
-  // function handleSelectionChange(detail) {
-  //   detail.preventDefault();
-  //   props.handleSelectionChange(detail.selectedItems);
-  // }
 
   async function handleOnRowClick(detail) {
 
@@ -122,16 +90,6 @@ const IntakeFormTable = (props) => {
 
     setPreferences(lPreferences);
   }
-
-  // function handleAddApp(e) {
-  //   if (!e.detail.ctrlKey && !e.detail.metaKey) {
-  //     e.preventDefault();
-  //     history.push({
-  //                   pathname: '/apps/add',
-  //                   //update: update()
-  //                 });
-  //   }
-  // }
 
   return (
       <Table
@@ -173,15 +131,6 @@ const IntakeFormTable = (props) => {
               label: 'Wrap lines',
               description: 'Check to see all the text and wrap the lines'
             }}
-            customPreference={(value, setValue) => (
-              <FormField stretch={true} label="View as">
-                <RadioGroup
-                  value={value}
-                  onChange={({ detail }) => setValue(detail.value)}
-                  items={CUSTOM_PREFERENCE_OPTIONS}
-                />
-              </FormField>
-            )}
           />
         }
         wrapLines={preferences.wrapLines}

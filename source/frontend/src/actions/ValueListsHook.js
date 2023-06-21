@@ -6,12 +6,11 @@
 import {
   requestStarted,
   requestSuccessful,
-  requestFailed,
   reducer } from '../resources/reducer.js';
 
 import { useReducer, useEffect, useState } from 'react';
 
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 import Tools from "../actions/tools";
 import Login from "../actions/login";
 
@@ -60,12 +59,6 @@ export const useValueLists = () => {
 
         } catch (e) {
           console.log(e);
-          result = {
-            values: [],
-            errorMessage: e.message
-          }
-
-          // dispatch(requestFailed({ error: e.message }));
 
           return () => {
             myAbortController.abort();
@@ -87,12 +80,6 @@ export const useValueLists = () => {
           if (e.message !== 'Request aborted') {
             console.error('Value Lists Hook', e);
           }
-          result = {
-            values: [],
-            errorMessage: e.message
-          }
-
-          // dispatch(requestFailed({ error: e.message }));
 
           return () => {
             myAbortController.abort();

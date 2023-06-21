@@ -7,7 +7,7 @@ import React, {useEffect, useState} from 'react';
 import User from "../actions/user";
 import {useLocation, useNavigate, useParams} from "react-router-dom";
 
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 import ItemAmend from "../components/ItemAmend";
 import {
   capitalize,
@@ -28,15 +28,53 @@ import ItemTable from '../components/ItemTable.jsx';
 import { useModal } from '../actions/Modal.js';
 import {parsePUTResponseErrors} from "../resources/recordFunctions";
 
+const ViewServer = (props) => {
+  const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
+
+  async function handleViewerTabChange(tabSelected)
+  {
+    setViewerCurrentTab(tabSelected);
+  }
+
+  function getCurrentServerApplication() {
+
+    if (props.selectedItems.length === 1) {
+      let apps = props.dataAll.application.data.filter(function (entry) {
+        return entry.app_id === props.selectedItems[0].app_id;
+      });
+
+      if ( apps.length > 0){
+        return apps;
+      } else {
+        return [];
+      }
+    }
+  }
+
+  if (props.selectedItems.length === 1) {
+
+    return (
+      <ServerView {...props}
+                  server={props.selectedItems[0]}
+                  app={{items: getCurrentServerApplication(), isLoading: props.isLoadingApps, error: props.errorApps}}
+                  handleTabChange={handleViewerTabChange}
+                  dataAll={props.dataAll}
+                  selectedTab={viewerCurrentTab}/>
+    );
+  } else {
+    return null;
+  }
+}
+
 const UserServerTable = (props) => {
   let location = useLocation()
   let navigate = useNavigate();
   let params = useParams();
 
   //Data items for viewer and table.
-  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }, { update: updateApps }] = useMFApps();
+  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }, ] = useMFApps();
   const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }, { update: updateServers }] = useGetServers();
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, { update: updateWaves }] = useMFWaves();
+  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, ] = useMFWaves();
 
   const dataAll = {application: {data: dataApps, isLoading: isLoadingApps, error: errorApps}, server: {data: dataServers, isLoading: isLoadingServers, error: errorServers}, wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}};
 
@@ -48,7 +86,6 @@ const UserServerTable = (props) => {
   const [focusItem, setFocusItem] = useState([]);
 
   //Viewer pane state management.
-  const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
   const [action, setAction] = useState(['Add']);
 
   //Get base path from the URL, all actions will use this base path.
@@ -107,11 +144,6 @@ const UserServerTable = (props) => {
 
   }
 
-  async function handleViewerTabChange(tabselected)
-  {
-      setViewerCurrentTab(tabselected);
-  }
-
   function handleResetScreen()
   {
     navigate({
@@ -136,21 +168,6 @@ const UserServerTable = (props) => {
 
   }
 
-  function getCurrentServerApplication() {
-
-    if (selectedItems.length === 1) {
-      let apps = dataApps.filter(function (entry) {
-        return entry.app_id === selectedItems[0].app_id;
-      });
-
-      if ( apps.length > 0){
-        return apps;
-      } else {
-        return [];
-      }
-    }
-  }
-
   async function handleSave(editItem, action) {
 
     let newItem = Object.assign({}, editItem);
@@ -172,12 +189,12 @@ const UserServerTable = (props) => {
           });
           return false;
         }
-        var result = await apiUser.putItem(server_id, newItem, 'server');
+        const resultEdit = await apiUser.putItem(server_id, newItem, 'server');
 
-        if (result['errors']) {
+        if (resultEdit['errors']) {
           console.debug("PUT " + schemaName + " errors");
-          console.debug(result['errors']);
-          let errorsReturned = parsePUTResponseErrors(result['errors']);
+          console.debug(resultEdit['errors']);
+          let errorsReturned = parsePUTResponseErrors(resultEdit['errors']);
           handleNotification({
             type: 'error',
             dismissible: true,
@@ -204,12 +221,12 @@ const UserServerTable = (props) => {
         const session = await Auth.currentSession();
         const apiUser = new User(session);
         delete newItem.server_id;
-        var result = await apiUser.postItem(newItem, 'server');
+        const resultAdd = await apiUser.postItem(newItem, 'server');
 
-        if (result['errors']) {
+        if (resultAdd['errors']) {
           console.debug("PUT " + schemaName + " errors");
-          console.debug(result['errors']);
-          let errorsReturned = parsePUTResponseErrors(result['errors']);
+          console.debug(resultAdd['errors']);
+          let errorsReturned = parsePUTResponseErrors(resultAdd['errors']);
           handleNotification({
             type: 'error',
             dismissible: true,
@@ -330,22 +347,42 @@ const UserServerTable = (props) => {
     }
   }
 
-  const ViewServer = (props) => {
+  function displayItemsViewScreen(){
+    return <SpaceBetween direction="vertical" size="xs">
+      <ItemTable
+        sendNotification={handleNotification}
+        schema={props.schema[schemaName]}
+        schemaKeyAttribute={itemIDKey}
+        schemaName={schemaName}
+        dataAll={dataAll}
+        items={dataServers}
+        selectedItems={selectedItems}
+        handleSelectionChange={handleItemSelectionChange}
+        isLoading={isLoadingServers}
+        errorLoading={errorServers}
+        handleRefreshClick={handleRefreshClick}
+        handleAddItem={handleAddItem}
+        handleDeleteItem={handleDeleteItemClick}
+        handleEditItem={handleEditItem}
+        handleDownloadItems={handleDownloadItems}
+        userAccess={props.userEntityAccess}
+        setHelpPanelContent={props.setHelpPanelContent}
+      />
+      <ViewServer
+        schema={props.schema}
+        dataAll={dataAll}
+        selectedItems={selectedItems}
+        isLoadingApps={isLoadingApps}
+        errorApps={errorApps}
+      />
+    </SpaceBetween>;
+  }
 
-    const [selectedItemsViewer, lsetSelectedItemsViewer] = useState([]);
-
-    if (selectedItems.length === 1) {
-
-      return (
-        <ServerView {...props}
-            server={selectedItems[0]}
-            app={{items: getCurrentServerApplication(), isLoading: isLoadingApps, error: errorApps}}
-            handleTabChange={handleViewerTabChange}
-            dataAll={dataAll}
-            selectedTab={viewerCurrentTab}/>
-      );
+  function displayItemsScreen(){
+    if (editingItem){
+      return <ItemAmend action={action} schemaName={schemaName} schemas={props.schema} userAccess={props.userEntityAccess}  item={focusItem} handleSave={handleSave} handleCancel={handleResetScreen} updateNotification={handleNotification} setHelpPanelContent={props.setHelpPanelContent}/>
     } else {
-      return (null);
+      return displayItemsViewScreen();
     }
   }
 
@@ -391,33 +428,8 @@ const UserServerTable = (props) => {
         <StatusIndicator type="loading">
           Loading schema...
         </StatusIndicator>
-        :!editingItem
-          ?
-          (
-            <SpaceBetween direction="vertical" size="xs">
-              <ItemTable
-                sendNotification={handleNotification}
-                schema={props.schema[schemaName]}
-                schemaKeyAttribute={itemIDKey}
-                schemaName={schemaName}
-                dataAll={dataAll}
-                items={dataServers}
-                selectedItems={selectedItems}
-                handleSelectionChange={handleItemSelectionChange}
-                isLoading={isLoadingServers}
-                errorLoading={errorServers}
-                handleRefreshClick={handleRefreshClick}
-                handleAddItem={handleAddItem}
-                handleDeleteItem={handleDeleteItemClick}
-                handleEditItem={handleEditItem}
-                handleDownloadItems={handleDownloadItems}
-                userAccess={props.userEntityAccess}
-                setHelpPanelContent={props.setHelpPanelContent}
-                />
-              <ViewServer schema={props.schema}/>
-            </SpaceBetween>
-          )
-          : <ItemAmend action={action} schemaName={schemaName} schemas={props.schema} userAccess={props.userEntityAccess}  item={focusItem} handleSave={handleSave} handleCancel={handleResetScreen} updateNotification={handleNotification} setHelpPanelContent={props.setHelpPanelContent}/>
+        :
+        displayItemsScreen()
         }
       <DeleteModal title={'Delete servers'} onConfirmation={handleDeleteItem}>{selectedItems.length === 1 ? <p>Are you sure you wish to delete the selected server?</p> : <p>Are you sure you wish to delete the {selectedItems.length} selected servers?</p>}</DeleteModal>
     </div>

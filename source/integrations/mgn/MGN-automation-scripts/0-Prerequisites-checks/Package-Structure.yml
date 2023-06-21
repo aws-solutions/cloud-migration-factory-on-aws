@@ -2,6 +2,7 @@ Name: "0-Check MGN Prerequisites"
 Description: "This script will verify the source servers meet the basic requirements for AWS MGN agent installation."
 MasterFileName: "0-Prerequisites-checks.py"
 UpdateUrl: ""
+Group: "Rehost-MGN"
 Arguments:
   -
     name: "ReplicationServerIP"
@@ -9,6 +10,7 @@ Arguments:
     long_desc: "IP Address of an AWS MGN Replication EC2 Instance."
     type: "standard"
     required: true
+    group_order: "2"
   -
     name: "SecretWindows"
     long_desc: "Windows Secret to use for credentials."
@@ -17,6 +19,7 @@ Arguments:
     rel_display_attribute: "Name"
     rel_entity: "secret"
     rel_key: "Name"
+    group_order: "4"
   -
     name: "SecretLinux"
     long_desc: "Linux Secret to use for credentials."
@@ -25,6 +28,7 @@ Arguments:
     rel_display_attribute: "Name"
     rel_entity: "secret"
     rel_key: "Name"
+    group_order: "3"
   -
     name: "Waveid"
     description: "Wave Name"
@@ -35,3 +39,18 @@ Arguments:
     validation_regex: "^(?!\\s*$).+"
     validation_regex_msg: "Wave must be provided."
     required: true
+    group_order: "1"
+  -
+    name: "S3Endpoint"
+    description: "Optional - S3 Endpoint"
+    long_desc: "S3 VPC Endpoint DNS name; used for private agent connectivity - see https://docs.aws.amazon.com/mgn/latest/ug/installing-agent-blocked.html"
+    type: "standard"
+    required: false
+    group_order: "5"
+  -
+    name: "MGNEndpoint"
+    description: "Optional - MGN Endpoint"
+    long_desc: "MGN VPC Endpoint DNS name; used for private agent connectivity - see https://docs.aws.amazon.com/mgn/latest/ug/installing-agent-blocked.html"
+    type: "standard"
+    required: false
+    group_order: "6"

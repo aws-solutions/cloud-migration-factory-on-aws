@@ -23,10 +23,15 @@ import json
 import os
 import multiprocessing
 
+REQUESTS_DEFAULT_TIMEOUT = 60
+
 def update(launchtype, session, headers, endpoint, HOST, projectId, machinelist, dryrun, serverlist):
     if launchtype == "test" or launchtype == "cutover":
         try:
-            b = requests.get(HOST + endpoint.format('projects/{}/blueprints').format(projectId), headers=headers, cookies=session)
+            b = requests.get(HOST + endpoint.format('projects/{}/blueprints').format(projectId),
+                             headers=headers,
+                             cookies=session,
+                             timeout=REQUESTS_DEFAULT_TIMEOUT)
             processes = []
             manager = multiprocessing.Manager()
             status_list = manager.list()
@@ -131,7 +136,11 @@ def multiprocessing_ce_update(launchtype, session, headers, endpoint, HOST, proj
                         tags.append(tag)
                     existing_tag = blueprint["tags"]
                     blueprint["tags"] = tags
-                result = requests.patch(HOST + url, data=json.dumps(blueprint), headers=headers, cookies=session)
+                result = requests.patch(HOST + url,
+                                        data=json.dumps(blueprint),
+                                        headers=headers,
+                                        cookies=session,
+                                        timeout=REQUESTS_DEFAULT_TIMEOUT)
                 if result.status_code != 200:
                     message = "ERROR: Updating blueprint failed for machine: " + machineName +", invalid blueprint config "
                     if 'message' in result.text:
@@ -148,7 +157,11 @@ def multiprocessing_ce_update(launchtype, session, headers, endpoint, HOST, proj
                     blueprint["privateIPs"] = existing_privateIPs
                     if len(existing_tag) > 0:
                         blueprint["tags"] = existing_tag
-                    result = requests.patch(HOST + url, data=json.dumps(blueprint), headers=headers, cookies=session)
+                    result = requests.patch(HOST + url,
+                                            data=json.dumps(blueprint),
+                                            headers=headers,
+                                            cookies=session,
+                                            timeout=REQUESTS_DEFAULT_TIMEOUT)
                     if result.status_code != 200:
                         print(result.text)
                         return "ERROR: Failed to roll back subnet,SG and tags for machine: " + machineName +"...."

@@ -11,9 +11,8 @@ import {
 
 import { useReducer, useEffect } from 'react';
 
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 import Tools from "../actions/tools";
-import User from "./user";
 
 export const useAutomationJobs = () => {
   const [state, dispatch] = useReducer(reducer, {
@@ -22,48 +21,7 @@ export const useAutomationJobs = () => {
     error: null
   });
 
-  function localDataRemoveItem(id) {
-    return state.data.filter(function (entry) {
-      return entry.SSMId !== id;
-    });
-  }
-
-  async function deleteItems(deleteItems) {
-    let apiTools = null;
-
-    try {
-      const session = await Auth.currentSession();
-      apiTools = new Tools(session);
-    } catch (e) {
-      console.log(e);
-    }
-
-    for(let item in deleteItems) {
-      try {
-        await apiTools.deleteApp(deleteItems[item].app_id);
-        const lUpdatedData = localDataRemoveItem(deleteItems[item].app_id);
-        dispatch(requestSuccessful({data: lUpdatedData}));
-      } catch (err) {
-        //Error deleting application.
-      }
-
-      // handleNotification({
-      //       type: 'success',
-      //       dismissible: true,
-      //       header: 'Application deleted successfully',
-      //       content: deleteItems[item].app_name + ' was deleted.'
-      //     });
-
-    }
-
-    //If successful then no need to get all data again.
-    //await update();
-
-
-  }
-
-
-  async function update() {
+  async function update(maximumDays = undefined) {
     const myAbortController = new AbortController();
 
     dispatch(requestStarted());
@@ -72,7 +30,7 @@ export const useAutomationJobs = () => {
 
       const session = await Auth.currentSession();
       let apiAutomation = await new Tools(session);
-      const response = await apiAutomation.getSSMJobs({ signal: myAbortController.signal });
+      const response = await apiAutomation.getSSMJobs(maximumDays ,{ signal: myAbortController.signal });
 
       dispatch(requestSuccessful({data: response}));
 
@@ -85,11 +43,6 @@ export const useAutomationJobs = () => {
       return () => {
         myAbortController.abort();
       };
-      // if ('response' in e && 'data' in e.response) {
-      //   this.props.showError(e.response.data);
-      // } else{
-      //   this.props.showError('Unknown error occured')
-      // }
     }
 
     return () => {
@@ -101,7 +54,7 @@ export const useAutomationJobs = () => {
     let cancelledRequest;
 
     (async () => {
-      await update();
+      await update(30);
       if (cancelledRequest) return;
     })();
 

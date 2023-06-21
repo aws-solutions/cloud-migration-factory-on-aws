@@ -14,7 +14,7 @@ import FlashMessage from "./FlashMessage";
 afterEach(cleanup);
 
 test('FlashMessage Displays current notifications', () => {
-  const {} = render(
+  render(
     <FlashMessage
       notifications={[{
         type: 'error',

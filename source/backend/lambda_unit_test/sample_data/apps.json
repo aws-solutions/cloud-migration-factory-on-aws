@@ -1,0 +1,36 @@
+[
+  {
+    "app_id": {
+      "S": "1"
+    },
+    "app_name": {
+      "S": "Wordpress"
+    },
+    "aws_accountid": {
+      "S": "111111111111"
+    },
+    "aws_region": {
+      "S": "us-east-1"
+    },
+    "wave_id": {
+      "S": "1"
+    }
+  },
+  {
+    "app_id": {
+      "S": "2"
+    },
+    "app_name": {
+      "S": "OFBiz"
+    },
+    "aws_accountid": {
+      "S": "111111111111"
+    },
+    "aws_region": {
+      "S": "us-east-1"
+    },
+    "wave_id": {
+      "S": "1"
+    }
+  }
+]
