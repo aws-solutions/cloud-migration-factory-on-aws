@@ -2,6 +2,7 @@ Name: "2-Remove local user"
 Description: "This script will remove local admin user on the source servers for the wave."
 MasterFileName: "2-RemoveUser.py"
 UpdateUrl: ""
+Group: "Rehost-General"
 Arguments:
   -
     name: "SecretWindows"

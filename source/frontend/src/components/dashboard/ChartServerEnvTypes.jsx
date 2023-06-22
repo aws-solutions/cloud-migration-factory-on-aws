@@ -17,7 +17,7 @@ const ChartServerEnvTypes = ({data, children}) => {
 
   let waveStatus = data.data.map(function(value, index) {return value['server_environment']});
 
-  var wave_count = [];
+  let wave_count = [];
   waveStatus.forEach(function(value, index) {
       let lvalue = value;
 

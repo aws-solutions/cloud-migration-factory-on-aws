@@ -72,8 +72,12 @@ def data_validation(data, app_list_csv):
 def uploading_data(data, token):
     auth = {"Authorization": token}
     try:
-        waves = json.loads(requests.get(UserHOST + mfcommon.waveendpoint, headers=auth).text)
-        apps = json.loads(requests.get(UserHOST + mfcommon.appendpoint, headers=auth).text)
+        waves = json.loads(requests.get(UserHOST + mfcommon.waveendpoint,
+                                        headers=auth,
+                                        timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT).text)
+        apps = json.loads(requests.get(UserHOST + mfcommon.appendpoint,
+                                       headers=auth,
+                                       timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT).text)
     except requests.exceptions.ConnectionError as e:
             raise SystemExit("ERROR: Connecting to User API failed, please check User API in FactoryEndpoints.json file. "
                             "If the API endpoint is correct, please close cmd and open a new cmd to run the script again")
@@ -121,7 +125,10 @@ def uploading_data(data, token):
             wave_name = {}
             wave_name['wave_name'] = "Wave " + wave
             try:
-                r = requests.post(UserHOST + mfcommon.waveendpoint, headers=auth, data=json.dumps(wave_name))
+                r = requests.post(UserHOST + mfcommon.waveendpoint,
+                                  headers=auth,
+                                  data=json.dumps(wave_name),
+                                  timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
                 if r.status_code == 200:
                     print("Wave " + wave + " created in the migration factory")
                 else:
@@ -136,7 +143,9 @@ def uploading_data(data, token):
     # Get Unique new App Name, add to the resource list if App Name doesn't exist in the factory
     for app_csv in app_list_csv:
         try:
-            new_waves = json.loads(requests.get(UserHOST + mfcommon.waveendpoint, headers=auth).text)
+            new_waves = json.loads(requests.get(UserHOST + mfcommon.waveendpoint,
+                                                headers=auth,
+                                                timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT).text)
         except requests.exceptions.ConnectionError as e:
                 raise SystemExit("ERROR: Connecting to User API failed, please check User API in FactoryEndpoints.json file. "
                                 "If the API endpoint is correct, please close cmd and open a new cmd to run the script again")
@@ -169,7 +178,10 @@ def uploading_data(data, token):
         # Creating new Apps in the migration factory
         for app in app_list:
             try:
-                r = requests.post(UserHOST + mfcommon.appendpoint, headers=auth, data=json.dumps(app))
+                r = requests.post(UserHOST + mfcommon.appendpoint,
+                                  headers=auth,
+                                  data=json.dumps(app),
+                                  timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
                 if r.status_code == 200:
                     print("App " + app['app_name'] + " created in the migration factory")
                 else:
@@ -182,7 +194,9 @@ def uploading_data(data, token):
         print("")
     # Get Unique server names, add to the resource list if Server Name doesn't exist in the factory
     try:
-        newapps = json.loads(requests.get(UserHOST + mfcommon.appendpoint, headers=auth).text)
+        newapps = json.loads(requests.get(UserHOST + mfcommon.appendpoint,
+                                          headers=auth,
+                                          timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT).text)
     except requests.exceptions.ConnectionError as e:
             raise SystemExit("ERROR: Connecting to User API failed, please check User API in FactoryEndpoints.json file. "
                             "If the API endpoint is correct, please close cmd and open a new cmd to run the script again")
@@ -220,7 +234,10 @@ def uploading_data(data, token):
         # Creating new Apps in the migration factory
         for server in server_list:
             try:
-                r = requests.post(UserHOST + mfcommon.serverendpoint, headers=auth, data=json.dumps(server))
+                r = requests.post(UserHOST + mfcommon.serverendpoint,
+                                  headers=auth,
+                                  data=json.dumps(server),
+                                  timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
                 if r.status_code == 200:
                     print("Server " + server['server_name'] + " created in the migration factory")
                 else:

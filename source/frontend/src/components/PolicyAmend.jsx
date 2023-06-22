@@ -6,18 +6,16 @@
 //Component used for providing generic edit record/item screen.
 // All schema entities use this component.
 
-import React from 'react';
+import React, {useState} from 'react';
 import {
   SpaceBetween,
   Form,
   Header,
   Button
- } from '@awsui/components-react';
+} from '@awsui/components-react';
 
-import { useModal } from '../actions/Modal.js';
+import {useModal} from '../actions/Modal.js';
 import AllAttributes from './ui_attributes/AllAttributes.jsx'
-
-import { useState } from 'react';
 import {setNestedValuePath} from "../resources/main";
 
 const PolicyAmend = (props) => {
@@ -25,11 +23,10 @@ const PolicyAmend = (props) => {
   const [localItem, setLocalItem] = useState(props.item);
   const [dataChanged, setDataChanged] = useState(false);
   const [validForm, setFormValidation] = useState(false);
-  const [formErrors, setFormErrors] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
 
   //Modals
-  const { show: showUnsavedConfirmaton, hide: hideUnsavedConfirmaton, RenderModal: UnSavedModal } = useModal()
+  const { show: showUnsavedConfirmation, RenderModal: UnSavedModal } = useModal()
 
   async function handleUserInput (value){
     let valueArray = [];
@@ -63,18 +60,15 @@ const PolicyAmend = (props) => {
 
             });
 
-            //newRecord[value.field] = updatedTags;
             setNestedValuePath(newRecord, valueItem.field, updatedTags);
 
           } else {
             //Not a tag field just an array.
-            //newRecord[value.field] = value.value;
             setNestedValuePath(newRecord, valueItem.field, valueItem.value);
           }
         }
       }
       else {
-        //newRecord[value.field] = value.value;
         setNestedValuePath(newRecord, valueItem.field, valueItem.value);
       }
 
@@ -103,14 +97,13 @@ const PolicyAmend = (props) => {
     e.preventDefault();
 
     if (dataChanged){
-      showUnsavedConfirmaton();
+      showUnsavedConfirmation();
     } else {
       props.handleCancel(e);
     }
   }
 
   function handleUpdateFormErrors (newErrors){
-    setFormErrors(newErrors);
 
     if (newErrors.length > 0){
       setFormValidation(false);

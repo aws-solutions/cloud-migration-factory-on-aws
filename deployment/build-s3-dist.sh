@@ -121,7 +121,7 @@ for d in */ ; do
     mkdir ./.build
     cp -r ./[!.]* ./.build
     cd $source_dir/backend/lambda_layers/$d/.build/python
-    pip install -r ./requirements.txt -t ./lib/python3.8/site-packages/
+    pip install -r ./requirements.txt -t ./lib/python3.10/site-packages/
     cd ../
     d1=${d%?}
     zip -r $build_dist_dir/$d1.zip .
@@ -155,9 +155,11 @@ cd $source_dir/integrations/mgn/MGN-automation-scripts/
 for d in */ ; do
     echo "$d"
     cd $source_dir/integrations/mgn/MGN-automation-scripts/$d
-    cp $source_dir/integrations/mgn/MGN-automation-scripts/common/* ./
+    cp $source_dir/integrations/common/* ./
     d1=${d%?}
     zip -r $build_dist_dir/script_mgn_$d1.zip .
+    # Clean-up duplicated common libraries to reduce duplicate code reports in SonarQube
+    rm -f ./mfcommon.py
 done
 
 cd $build_dist_dir/
@@ -173,9 +175,11 @@ for d in */ ; do
     cd $source_dir/integrations/automation_packages/$d
     for p in */ ; do
       cd $source_dir/integrations/automation_packages/$d/$p
-      cp $source_dir/integrations/mgn/MGN-automation-scripts/common/* ./
+      cp $source_dir/integrations/common/* ./
       p1=${p%?}
       zip -r $build_dist_dir/script_$d_$p1.zip .
+          # Clean-up duplicated common libraries to reduce duplicate code reports in SonarQube
+      rm -f ./mfcommon.py
     done
 done
 

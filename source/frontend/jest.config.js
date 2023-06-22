@@ -16,7 +16,8 @@ const config = {
     '/node_modules/(?!@awsui/).+\\.js$'
   ],
   "moduleNameMapper": {
-    "ace-builds": "<rootDir>/node_modules/ace-builds"
+    "ace-builds": "<rootDir>/node_modules/ace-builds",
+    '^uuid$': require.resolve('uuid'),
   }
 };
 console.log(config)

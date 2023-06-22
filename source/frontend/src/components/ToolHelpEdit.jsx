@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {FormField, HelpPanel, Input, Link, SpaceBetween, TagEditor, Textarea} from "@awsui/components-react";
+import {FormField, Input, SpaceBetween, TagEditor, Textarea} from "@awsui/components-react";
 import React from "react";
 
 const ToolHelpEdit = ({editingSchemaInfoHelpTemp, handleUserInputEditSchemaHelp}) => {

@@ -18,7 +18,7 @@ import * as XLSX from "xlsx";
  */
 export function getChanges (newItem, dataArray, key, keepCalculated = false){
 
-  var update = {};
+  let update = {};
 
   let currentItem = dataArray.find(item => {
       if (item[key].toLowerCase() === newItem[key].toLowerCase()){
@@ -29,7 +29,7 @@ export function getChanges (newItem, dataArray, key, keepCalculated = false){
 
   // Compare the selected server to the original server list and extract key values that are different
   const keys = Object.keys(newItem);
-  for (var i in keys){
+  for (const i in keys){
     const curkey = keys[i];
     //Ignore any system calculated values as these are never stored in database.
     if (!curkey.startsWith("_") ) {
@@ -44,7 +44,6 @@ export function getChanges (newItem, dataArray, key, keepCalculated = false){
   if (Object.keys(update).length === 0) {
     return null;
   } else {
-    //update[key] = currentItem[key];
     return update;
   }
 }
@@ -60,7 +59,7 @@ export function mergeKeys (oldObject, newObject){
   let update = {};
 
   const keys = Object.keys(newObject);
-  for (var i in keys){
+  for (const i in keys){
     const curkey = keys[i];
     const compare = deepEqualKeysOnly(oldObject[curkey],newObject[curkey]);
     if (compare !== undefined){
@@ -88,7 +87,6 @@ function deepEqualKeysOnly(object1, object2) {
     return undefined;
   }
   const keys1 = Object.keys(object1);
-  const keys2 = Object.keys(object2);
 
   for (const key of keys1) {
     const val1 = object1[key];
@@ -291,15 +289,7 @@ function getRelationshipValue (relatedData, attribute, value) {
 export function validateValue(value, attribute) {
 
   const stdError = "Error in validation, please check entered value.";
-  var errorMsg = null;
-
-  // if(attribute.required && !(value !== '' || value !== undefined || value !== null)) {
-  //   //Value is empty and required. provide error.
-  //   errorMsg = 'You must specify a value.';
-  //   console.log('here');
-  //   return errorMsg;
-  //
-  // }
+  let errorMsg = null;
 
   //Validate valuelist.
   if(attribute.type === 'list' && (value !== '' && value !== undefined && value !== null)) {
@@ -535,7 +525,7 @@ export function exportTable(items, type, fileName){
     return item;
   });
 
-  var wb = XLSX.utils.book_new(); // create new workbook
+  let wb = XLSX.utils.book_new(); // create new workbook
   wb.SheetNames.push(type); // create new worksheet
   wb.Sheets[type] = XLSX.utils.json_to_sheet(updatedItems); // load headers array into worksheet
 
@@ -552,7 +542,7 @@ export function exportTable(items, type, fileName){
  */
 export function exportAll(items, fileName){
 
-  var wb = XLSX.utils.book_new(); // create new workbook
+  let wb = XLSX.utils.book_new(); // create new workbook
 
   for (const itemType in items){
     let updatedItems = JSON.parse(JSON.stringify(items[itemType]))

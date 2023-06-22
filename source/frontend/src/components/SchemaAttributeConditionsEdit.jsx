@@ -13,7 +13,6 @@ import {
   Button, Multiselect
 } from "@awsui/components-react";
 import React from "react";
-import {capitalize} from "../resources/main";
 
 const SchemaAttributeConditionsEdit = ({editingSchemaConditionsTemp, handleUserInputEditSchemaConditions, schemaAttributes, editDisabled}) => {
 
@@ -47,6 +46,35 @@ const SchemaAttributeConditionsEdit = ({editingSchemaConditionsTemp, handleUserI
 
   let conditions = [];
   let outcomes = [];
+
+  function getSelectedOutcomeOptions(outcome){
+    if (editingSchemaConditionsTemp?.outcomes && editingSchemaConditionsTemp.outcomes[outcome]){
+      return editingSchemaConditionsTemp.outcomes[outcome].map((item) => {
+        return {label: item, value: item}
+      });
+    } else {
+      return [];
+    }
+  }
+
+  function getPlaceHolder(outcome){
+    if (editingSchemaConditionsTemp?.outcomes && editingSchemaConditionsTemp.outcomes[outcome] && editingSchemaConditionsTemp.outcomes[outcome].length > 0){
+      return editingSchemaConditionsTemp.outcomes[outcome].join(', ') + ' selected';
+    } else {
+      return messages.selectOutcomePlaceholder;
+    }
+  }
+
+  function displayConditions() {
+
+    if (editingSchemaConditionsTemp?.queries && editingSchemaConditionsTemp.queries.length > 0){
+      return <SpaceBetween direction={'vertical'} size={'xs'}>
+        {outcomes}
+      </SpaceBetween>
+    } else {
+      return undefined;
+    }
+  }
 
   if (editingSchemaConditionsTemp.queries) {
     conditions = editingSchemaConditionsTemp.queries.map((query, index) => {
@@ -125,16 +153,14 @@ const SchemaAttributeConditionsEdit = ({editingSchemaConditionsTemp, handleUserI
           label={messages.thenFieldNameLabel}
         >
           <Multiselect
-            selectedOptions={editingSchemaConditionsTemp.outcomes ? editingSchemaConditionsTemp.outcomes[trueOutcomeKey] ? editingSchemaConditionsTemp.outcomes[trueOutcomeKey].map((item) => {
-              return {label: item, value: item}
-            }) : [] : []}
+            selectedOptions={getSelectedOutcomeOptions(trueOutcomeKey)}
             onChange={event => handleUserInputEditSchemaConditions(outcomesKey + '.' + trueOutcomeKey, event.detail.selectedOptions ? event.detail.selectedOptions.map(item => {
               return item.value
             }) : [])}
             options={outcomeValues}
             selectedAriaLabel={'selected'}
             disabled={editDisabled}
-            placeholder={editingSchemaConditionsTemp.outcomes ? editingSchemaConditionsTemp.outcomes[trueOutcomeKey] ? editingSchemaConditionsTemp.outcomes[trueOutcomeKey].length > 0 ? editingSchemaConditionsTemp.outcomes[trueOutcomeKey].join(', ') + ' selected' : messages.selectOutcomePlaceholder : messages.selectOutcomePlaceholder : messages.selectOutcomePlaceholder}
+            placeholder={getPlaceHolder(trueOutcomeKey)}
           />
         </FormField>
         </Container>
@@ -156,16 +182,14 @@ const SchemaAttributeConditionsEdit = ({editingSchemaConditionsTemp, handleUserI
           label={messages.elseFieldNameLabel}
         >
           <Multiselect
-            selectedOptions={editingSchemaConditionsTemp.outcomes ? editingSchemaConditionsTemp.outcomes[falseOutcomeKey] ? editingSchemaConditionsTemp.outcomes[falseOutcomeKey].map((item) => {
-              return {label: item, value: item}
-            }) : [] : []}
+            selectedOptions={getSelectedOutcomeOptions(falseOutcomeKey)}
             onChange={event => handleUserInputEditSchemaConditions(outcomesKey + '.' + falseOutcomeKey, event.detail.selectedOptions ? event.detail.selectedOptions.map(item => {
               return item.value
             }) : [])}
             options={outcomeValues}
             selectedAriaLabel={'selected'}
             disabled={editDisabled}
-            placeholder={editingSchemaConditionsTemp.outcomes ? editingSchemaConditionsTemp.outcomes[falseOutcomeKey] ? editingSchemaConditionsTemp.outcomes[falseOutcomeKey].length > 0 ? editingSchemaConditionsTemp.outcomes[falseOutcomeKey].join(', ') + ' selected' : messages.selectOutcomePlaceholder : messages.selectOutcomePlaceholder : messages.selectOutcomePlaceholder}
+            placeholder={getPlaceHolder(falseOutcomeKey)}
           />
         </FormField>
         </Container>
@@ -201,14 +225,7 @@ const SchemaAttributeConditionsEdit = ({editingSchemaConditionsTemp, handleUserI
           {conditions}
         </SpaceBetween>
       </Container>
-      {editingSchemaConditionsTemp.queries
-        ? editingSchemaConditionsTemp.queries.length > 0
-          ?
-              <SpaceBetween direction={'vertical'} size={'xs'}>
-                {outcomes}
-              </SpaceBetween>
-          : undefined
-        : undefined
+      {displayConditions()
       }
     </SpaceBetween>
     </Container>);

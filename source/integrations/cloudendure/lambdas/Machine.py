@@ -36,9 +36,15 @@ apps_table_name = '{}-{}-apps'.format(application, environment)
 servers_table = boto3.resource('dynamodb').Table(servers_table_name)
 apps_table = boto3.resource('dynamodb').Table(apps_table_name)
 
+REQUESTS_DEFAULT_TIMEOUT = 60
+
+
 def execute(launchtype, session, headers, endpoint, HOST, projectname, dryrun, waveid, relaunch):
 
-    r = requests.get(HOST + endpoint.format('projects'), headers=headers, cookies=session)
+    r = requests.get(HOST + endpoint.format('projects'),
+                     headers=headers,
+                     cookies=session,
+                     timeout=REQUESTS_DEFAULT_TIMEOUT)
     if r.status_code != 200:
         return "ERROR: Failed to fetch the project...."
     try:
@@ -53,7 +59,10 @@ def execute(launchtype, session, headers, endpoint, HOST, projectname, dryrun, w
             return "ERROR: Project Name does not exist in CloudEndure...."
         
         # Get Machine List from CloudEndure
-        m = requests.get(HOST + endpoint.format('projects/{}/machines').format(project_id), headers=headers, cookies=session)
+        m = requests.get(HOST + endpoint.format('projects/{}/machines').format(project_id),
+                         headers=headers,
+                         cookies=session,
+                         timeout=REQUESTS_DEFAULT_TIMEOUT)
         if "sourceProperties" not in m.text:
             return "ERROR: Failed to fetch the machines...."
         machinelist = {}

@@ -2,6 +2,7 @@ Name: "1-Copy Post Launch Scripts"
 Description: "This script copy post launch scripts to source servers in a specific wave."
 MasterFileName: "1-FileCopy.py"
 UpdateUrl: ""
+Group: "Rehost-MGN"
 Arguments:
   -
     name: "SecretWindows"

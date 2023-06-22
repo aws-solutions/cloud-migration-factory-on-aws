@@ -13,7 +13,7 @@ import {
   TextFilter,
   Table,
   Link,
-  SpaceBetween
+  Checkbox
 } from '@awsui/components-react';
 
  import {
@@ -40,7 +40,7 @@ const ItemTable = (props) => {
   }
 
   const [preferences, setPreferences] = useState(localStorage[locaStorageKeys.tablePrefs] ? JSON.parse(localStorage.getItem(locaStorageKeys.tablePrefs)) : getDefaultPreferences(props.schema, props.schemaKeyAttribute));
-  const [contentAttributes, setContentAttributes] = useState(getContentSelectorOptions(props.schema));
+  const [contentAttributes, ] = useState(getContentSelectorOptions(props.schema));
 
   React.useEffect(() => {
     localStorage.setItem(locaStorageKeys.tablePrefs, JSON.stringify(preferences));
@@ -80,10 +80,6 @@ const ItemTable = (props) => {
     return `${count} ${count === 1 ? 'match' : 'matches'}`;
   }
 
-  async function handleSelectionChange(detail) {
-    props.setSelectedItems(detail);
-  }
-
   async function handleRefresh(e) {
     e.preventDefault();
     await props.handleRefreshClick(e);
@@ -117,6 +113,10 @@ const ItemTable = (props) => {
     let defaults = getDefaultPreferences(props.schema, props.schemaKeyAttribute);
 
     lPreferences.trackBy = defaults.trackBy;
+
+    if (props.handleDaysFilterChange){
+      props.handleDaysFilterChange(lPreferences.custom)
+    }
 
     setPreferences(lPreferences);
   }
@@ -173,6 +173,17 @@ const ItemTable = (props) => {
     return <Link variant="info" onFollow={() => props.setHelpPanelContent(props.schema.help_content, false)}>Info</Link>
   }
 
+  function getSelectionType(){
+
+    if (props.selectedItems && props.selectionType){
+      return props.selectionType;
+    } else if (props.selectedItems) {
+      return 'multi';
+    } else {
+      return undefined;
+    }
+  }
+
   return (
       <Table
         {...collectionProps}
@@ -222,6 +233,10 @@ const ItemTable = (props) => {
             cancelLabel="Cancel"
             preferences={preferences}
             onConfirm={({ detail }) => handleConfirmPreferences(detail)}
+            customPreference={props.handleDaysFilterChange ?
+              (customValue, setCustomValue) => (<Checkbox checked={customValue} onChange={({ detail }) => setCustomValue(detail.checked)}>Display all jobs [default is last 30 days]</Checkbox>)
+              : undefined
+          }
             pageSizePreference={{
               title: 'Page size',
               options: getPageSelectorOptions(props.schemaName)
@@ -240,7 +255,7 @@ const ItemTable = (props) => {
         selectedItems={props.selectedItems ? props.selectedItems : []}
         onSelectionChange={props.handleSelectionChange ? ({ detail }) => props.handleSelectionChange(detail.selectedItems) : null}
         onRowClick={({ detail }) => handleOnRowClick(detail)}
-        selectionType={props.selectedItems ? props.selectionType ? props.selectionType : 'multi' : undefined} //If selectionItems not provided then selection disabled for table. Default to multi select if selectionType not provided.
+        selectionType={getSelectionType()} //If selectionItems not provided then selection disabled for table. Default to multi select if selectionType not provided.
         pagination={<Pagination {...paginationProps} />}
         filter={
           <TextFilter

@@ -2,6 +2,7 @@ Name: "4-Verify Target Server Connection"
 Description: "This script will verify all the target server connection for a specific wave"
 MasterFileName: "4-Verify-server-connection.py"
 UpdateUrl: ""
+Group: "Rehost-MGN"
 Arguments:
   - name: "SecretLinux"
     long_desc: "Linux Secret to use for credentials."

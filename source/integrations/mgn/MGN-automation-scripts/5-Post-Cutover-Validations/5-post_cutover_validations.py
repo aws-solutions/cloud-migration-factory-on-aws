@@ -73,7 +73,7 @@ if "CMF_SCRIPTS_BUCKET" in os.environ:
 
 def assume_role(account_id, region):
 
-    sts_client = boto3.client('sts')
+    sts_client = boto3.client('sts', region_name=region)
     role_arn = 'arn:aws:iam::' + account_id + ':role/CMF-AutomationServer'
     # Call the assume_role method of the STSConnection object and pass the role
     # ARN and a role session name.
@@ -132,11 +132,11 @@ def GetInstanceId(serverlist):
                                 print(factoryserver['server_name'] + " : " + factoryserver['target_ec2InstanceID'])
                             else:
                                 factoryserver['target_ec2InstanceID'] = ''
-                                print("ERROR: target instance Id does not exist for server: " + factoryserver['server_name'] + ", please wait for a few minutes")
+                                print("ERROR: target instance Id does not exist for server: " + factoryserver['server_name'] + ", please wait for a few minutes and then rerun the task")
                                 error = True
                         else:
                             factoryserver['target_ec2InstanceID'] = ''
-                            print("ERROR: target instance does not exist for server: " + factoryserver['server_name'] + ", please wait for a few minutes")
+                            print("ERROR: target instance does not exist for server: " + factoryserver['server_name'] + ", please wait for a few minutes and then rerun the task")
                             error = True
                     else:
                         print("ERROR: Server: " + factoryserver['server_name'] + " is archived in Application Migration Service (Account: " + account['aws_accountid'] + ", Region: " + account['aws_region'] + "), Please install the agent")
@@ -343,10 +343,14 @@ def validate_software_services(args, server_details, report):
 
             credentials = mfcommon.getServerCredentials(Domain_User, Domain_Password, server_details["server_name"],
                                                         args.SecretWindows, args.NoPrompts)
-            #creds = " -Credential (New-Object System.Management.Automation.PSCredential('" + credentials['username'] + \
-            #        "\", (ConvertTo-SecureString '" + credentials['password'] + "' -AsPlainText -Force)))"
-
-
+            if credentials['username'] != "":
+                if "\\" not in credentials['username'] and "@" not in credentials['username']:
+                    # Assume local account provided, prepend server name to user ID.
+                    server_name_only = server_details["server_fqdn"].split(".")[0]
+                    credentials['username'] = server_name_only + "\\" + credentials['username']
+                    print("INFO: Using local account to connect: " + credentials['username'])
+            else:
+                print("INFO: Using domain account to connect: " + credentials['username'])
             report["serverType"] = "Windows"
             report["Windows_Apps"] = "Windows_Apps"
             report["Win_Wanted_Apps"] = "Win_Wanted_Apps ->"
@@ -356,12 +360,14 @@ def validate_software_services(args, server_details, report):
             # Add the target host to the trusted list
             subprocess.Popen(["powershell.exe", "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '" +
                               server + "' -Concatenate -Force"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            command = "./Run-Remote-Validation.ps1 -Username " + \
-                      credentials['username'] + " -Password " + "'" + credentials['password'] + "'" + " -Server " + server \
-                      + " -wantedApplications " + "'" + wantedApplications + "'" + " -unwantedApplications " + "'" + \
-                      unwantedApplications+ "'" + " -runningApplications " + runningApplications #+ creds
+            command = f"Invoke-Command -ComputerName {server} " \
+                      f"-FilePath ./Software-Validation-Windows.ps1 -ArgumentList " \
+                      f"'{wantedApplications}','{unwantedApplications}','{runningApplications}'"
+            command += f" -Credential (New-Object System.Management.Automation.PSCredential(" \
+                       f"'{credentials['username']}', (ConvertTo-SecureString '{credentials['password']}'" \
+                       f" -AsPlainText -Force)))"
             parameters["command"] = command
-            return(validate_windows_servers(parameters))
+            return validate_windows_servers(parameters)
 
         except Exception as e:
             print("Unable to connect or Error while parsing the report "+ server +  "\n" + e)

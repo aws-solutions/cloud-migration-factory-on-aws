@@ -3,7 +3,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [3.2.2] - 2023-04-24
+## [3.3.0] - 2023-06/22
+### Changed
+- FEATURE-RETIRED: AMS WIG feature code has now been retired from CMF. Creation of RFC for onboarding instances to AMS is now managed directly via RFCs to the AMS team and not possible through CMF.
+- MGN: Added ability to specify tags for test and live launched instances that are appended to the master tags for a server record.
+- MGN: Launch templates updates to allow clearing of private IP address and also termination protection, if the server was set and user required to remove them.
+- Added private IP address to be set during the validation action as this was not done previously. This caused checking for a valid IP address was not being performed.
+- MGN: Automation scripts for MGN pre-requisites checking and agent installation now support private endpoints; agent installation now by default uses temporary credentials to install MGN agents; instead of using the IAM User credentials.
+- Migration Tracker: Athena Engine version moved to version 3. This is due to version 2 being deprecated on October 16, 2023 in US-EAST-1 region.
+- Automation>Jobs table now by default displays only the last 30 days of logs. This is to reduce the amount of data requested and also speed up the load time. This option can be changed in the table settings to display all logs. In future releases we will update the APIS to support pagination.
+- All Lambda function using Python as their runtime have been updated to use version 3.10.
+### Added
+- Improved unit test coverage for backend and frontend codebase through additional test creation.
+- REHOST-MGN added the ability to set the server boot mode from a new CMF attribute server_boot_mode_uefi defined as a checkbox in the server schema; this will be passed to the launch template in EC2 by CMF and allow UEFI servers to be migrated without manually updating MGN.
+- New dashboard to display replication status attribute for all servers, this is used with the MGN automation scripts that update the replication status attribute when run.
+### Fixed
+- SSM Automation jobs were timing out after 1 hour as it was using the default timeout for the AWS-RunPowerShellScript document. Updated step to provide/override executionTimeout for this step to 43200(12 Hours as per other SSM timeout values).
+- Frontend: Updated JS module xlsx to 0.19.3 to resolve security issue described here https://github.com/advisories/GHSA-4r6h-8v6p-xvw6. With this release of the xlsx module they have also moved to their own CDN from NPM so added the module source into local repo.
+- SSO logins performing Admin functions for some providers were providing a Capitalized header key name. Policy now supports both lowercase and capitalized checking for authorization-access token header.
+- Added validation of script arguments within uploaded script packages to ensure they are formatted correctly before upload. This was causing errors in the script run as they were not validated before use. UI update allows user to see errors found in the flash bar.
+- SCRIPTS-FIX: Updated MGN agent installation download to force using TLS1.2 for download as it was failing for some customers where they do not allow anything below tls 1.2 to be used.
+- Updated python modules requests, boto3, botocore and coverage to latest versions.
+- Resolve bug in Migration Tracker that was causing the Athena tables to be missing on deployment. This issue was introduced in version 3.2.1.
+- Import errors created after committing to the API were not being displayed in a readable format in the UI, this has now been resolved.
+- When importing boolean/checkbox values from a CSV it was incorrectly assigning the key a string value instead of boolean. Corrected import script to parse string boolean of true, 1 or on to boolean.
+## [3.2.2] - 2023-04-20
 ### Fixed
 - Resolved issue caused by S3 changes to new bucket permissions described in the following release notes https://aws.amazon.com/about-aws/whats-new/2022/12/amazon-s3-automatically-enable-block-public-access-disable-access-control-lists-buckets-april-2023/. This change is now being rolled out across all regions and causes a failure in the stack deployment if this new setting is not applied.
 - Updated AWS Amplify to the latest in order to resolve dependency and upgrade @sideway/formula module to 3.0.1 to protect against vulnerability described here https://nvd.nist.gov/vuln/detail/CVE-2023-25166.

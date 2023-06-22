@@ -6,7 +6,6 @@
 import React, { useState, useEffect } from 'react';
 import {
 FormField,
-Textarea,
 CodeEditor
 } from '@awsui/components-react';
 
@@ -18,14 +17,24 @@ const JsonAttribute = ({attribute, item, handleUserInput, errorText}) => {
   const locaStorageKeys = {
     codePrefs: "Code_Editor_Preferences",
   }
-  const [localJson, setLocalJson] = useState(item instanceof Object ? JSON.stringify(item, undefined, 4) : item ? item : "");
+  const [localJson, setLocalJson] = useState(convertObjectToString(item));
   const [jsonError, setJsonError] = useState(errorText ? errorText : null);
   const [preferences, setPreferences] = useState(localStorage[locaStorageKeys.codePrefs] ? JSON.parse(localStorage.getItem(locaStorageKeys.codePrefs)) : {});
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(locaStorageKeys.codePrefs, JSON.stringify(preferences));
   }, [preferences]);
+
+  function convertObjectToString(jsonObject){
+
+    if (jsonObject instanceof Object){
+      return JSON.stringify(jsonObject, undefined, 4);
+    } else if (jsonObject) {
+      return jsonObject;
+    } else {
+      return ""
+    }
+  }
 
   function handleUpdate(event){
     setLocalJson(event.detail.value);
@@ -46,11 +55,12 @@ const JsonAttribute = ({attribute, item, handleUserInput, errorText}) => {
       <CodeEditor
       ace={ace}
       language='json'
+      ariaLabel={attribute.name}
       value={localJson}
       onChange={event => handleUpdate(event)}
       preferences={preferences}
       onPreferencesChange={e => setPreferences(e.detail)}
-      loading={loading}
+      loading={false}
       i18nStrings={{
         loadingState: "Loading code editor",
         errorState:

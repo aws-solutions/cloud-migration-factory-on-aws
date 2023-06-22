@@ -94,8 +94,8 @@ def update(event):
                         else:
                             iskey = output.get("isSSHKey")
 
-                    data = "{\"USERNAME\": \"%s\", \"PASSWORD\": \"%s\", \"SECRET_TYPE\": \"%s\", \"OS_TYPE\": \"%s\", \"IS_SSH_KEY\": \"%s\"}" % (
-                    username, password, secret_type, os_type, iskey)
+                        data = "{\"USERNAME\": \"%s\", \"PASSWORD\": \"%s\", \"SECRET_TYPE\": \"%s\", \"OS_TYPE\": \"%s\", \"IS_SSH_KEY\": \"%s\"}" % (
+                        username, password, secret_type, os_type, iskey)
 
                     client.update_secret(SecretId=secret_name, Description=description, SecretString=data)
                     updated = True

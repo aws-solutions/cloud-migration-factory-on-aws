@@ -37,7 +37,7 @@ const AutomationJobsTable = (props) => {
   }
 
   const [preferences, setPreferences] = useState(localStorage[locaStorageKeys.tablePrefs] ? JSON.parse(localStorage.getItem(locaStorageKeys.tablePrefs)) : DEFAULT_PREFERENCES);
-  const [contentAttributes, setContentAttributes] = useState(getContentSelectorOptions(props.schema));
+  const [contentAttributes,] = useState(getContentSelectorOptions(props.schema));
 
   useEffect(() => {
     localStorage.setItem(locaStorageKeys.tablePrefs, JSON.stringify(preferences));

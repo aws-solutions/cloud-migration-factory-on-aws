@@ -11,7 +11,7 @@ import {
 
 import { useReducer, useEffect } from 'react';
 
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 import User from "../actions/user";
 
 export const useMFApps = () => {
@@ -29,7 +29,6 @@ export const useMFApps = () => {
   }
 
   async function deleteApplications(deleteItems) {
-    let currentApp = 0;
     let apiUser = null;
 
     try {
@@ -37,17 +36,9 @@ export const useMFApps = () => {
       apiUser = new User(session);
     } catch (e) {
       console.log(e);
-        //Error with user session.
-        // handleNotification({
-        //     type: 'error',
-        //     dismissible: true,
-        //     header: 'Application deletion failed',
-        //     content: selectedApplications[currentApp].app_name + ' failed to delete.'
-        //   });
     }
 
       for(let item in deleteItems) {
-        currentApp = item;
         try {
           await apiUser.deleteApp(deleteItems[item].app_id);
           const lUpdatedData = localDataRemoveItem(deleteItems[item].app_id);
@@ -56,19 +47,7 @@ export const useMFApps = () => {
           //Error deleting application.
         }
 
-        // handleNotification({
-        //       type: 'success',
-        //       dismissible: true,
-        //       header: 'Application deleted successfully',
-        //       content: deleteItems[item].app_name + ' was deleted.'
-        //     });
-
       }
-
-      //If successful then no need to get all data again.
-      //await update();
-
-
   }
 
 

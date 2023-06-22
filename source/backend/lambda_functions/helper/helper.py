@@ -23,9 +23,10 @@ import uuid
 
 from urllib import request
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level = logging.INFO)
+logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
 
 # Send response function
 def send_response(event, context, response_status, response_data):
@@ -53,18 +54,18 @@ def send_response(event, context, response_status, response_data):
     except Exception as e:
         logger.error('Custom resource send_response error: {}'.format(e))
 
+
 def lambda_handler(event, context):
     logger.info('Received event: {}'.format(json.dumps(event)))
     response_data = {
         "Message": "Return UUID"
     }
-    properties = event['ResourceProperties']
 
     try:
         if event['RequestType'] == 'Create':
-                response_data = {
-                    "UUID": str(uuid.uuid4())
-                }
+            response_data = {
+                "UUID": str(uuid.uuid4())
+            }
 
         send_response(event, context, 'SUCCESS', response_data)
     except Exception as e:

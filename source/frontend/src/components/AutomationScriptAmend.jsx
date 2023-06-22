@@ -3,30 +3,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, {useState} from 'react';
 import {
   SpaceBetween,
   Form,
-  Container,
   Header,
   Button
- } from '@awsui/components-react';
+} from '@awsui/components-react';
 import AllAttributes from './ui_attributes/AllAttributes.jsx'
 
-import { useModal } from '../actions/Modal.js';
-
-
-import { useState } from 'react';
+import {useModal} from '../actions/Modal.js';
 
 const AutomationScriptAmend = (props) => {
 
   const [localItem, setLocalItem] = useState(props.item);
   const [dataChanged, setDataChanged] = useState(false);
   const [validForm, setFormValidation] = useState(false);
-  const [formErrors, setFormErrors] = useState([]);
 
   //Modals
-  const { show: showUnsavedConfirmaton, hide: hideUnsavedConfirmaton, RenderModal: UnSavedModal } = useModal()
+  const { show: showUnsavedConfirmaton, RenderModal: UnSavedModal } = useModal()
 
   function handleUserInput (value){
 
@@ -92,8 +87,6 @@ const AutomationScriptAmend = (props) => {
   }
 
   function handleUpdateFormErrors (newErrors){
-    setFormErrors(newErrors);
-
     if (newErrors.length > 0){
       setFormValidation(false);
     } else {

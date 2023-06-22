@@ -258,11 +258,19 @@ class MFAuth(object):
             token = event['authorizationToken']
         else:
             # support for REQUEST based authentication request from API GW.
-            token = event['headers']['Authorization']
+            if 'Authorization' in event['headers']:
+                token = event['headers']['Authorization']
+            elif 'authorization' in event['headers']:
+                token = event['headers']['authorization']
+            else:
+                token = None
 
         # Check to see if an access token has been provided and extract.
+        # Checking for both capitalized and lower-case header is required in some environments.
         if 'authorization-access' in event['headers']:
             access = event['headers']['authorization-access']
+        elif 'Authorization-Access' in event['headers']:
+            access = event['headers']['Authorization-Access']
         else:
             access = None
 
@@ -342,7 +350,8 @@ class MFAuth(object):
     def aws_key_dict(self, aws_region, aws_user_pool):
 
         aws_data = requests.get(
-            self.pool_url(aws_region, aws_user_pool) + '/.well-known/jwks.json'
+            self.pool_url(aws_region, aws_user_pool) + '/.well-known/jwks.json',
+            timeout=30
         )
         aws_jwt = json.loads(aws_data.text)
         result = {}

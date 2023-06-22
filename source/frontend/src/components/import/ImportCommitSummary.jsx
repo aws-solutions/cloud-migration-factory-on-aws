@@ -5,11 +5,6 @@
 
 import React from 'react';
 import {
-  Tabs,
-  SpaceBetween,
-  ColumnLayout,
-  Container,
-  Header,
   ExpandableSection
  } from '@awsui/components-react';
 
@@ -22,7 +17,7 @@ const ImportCommitSummary = (props) => {
     let allErrors = [];
 
     allErrors = props.items.map((errorItem, indx) => {
-      return <ExpandableSection header={errorItem.itemType + " - " + errorItem.error}>{".   Data sent: " + errorItem.newItem}</ExpandableSection>
+      return <ExpandableSection key={errorItem.itemType + " - " + errorItem.error} header={errorItem.itemType + " - " + errorItem.error}>{".   Data sent: " + errorItem.newItem}</ExpandableSection>
     });
 
     return allErrors;

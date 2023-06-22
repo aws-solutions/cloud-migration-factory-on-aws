@@ -7,20 +7,16 @@ import React, {useEffect, useState} from 'react';
 import {useLocation, useNavigate, useParams} from "react-router-dom";
 
 import {
-  Button,
   SpaceBetween,
   StatusIndicator
 } from '@awsui/components-react';
 
 import AutomationJobView from '../components/AutomationJobView.jsx'
 import { useAutomationJobs } from "../actions/AutomationJobsHook.js";
-import { useGetServers } from "../actions/ServersHook.js";
 import { useMFWaves } from "../actions/WavesHook.js";
 import ItemTable from '../components/ItemTable.jsx';
-import { useModal } from '../actions/Modal.js';
-import {useMFApps} from "../actions/ApplicationsHook";
 import AutomationTools from '../components/AutomationTools.jsx'
-import {Auth} from "aws-amplify";
+import {Auth} from "@aws-amplify/auth";
 import ToolsAPI from "../actions/tools";
 import {userAutomationActionsMenuItems} from "../resources/main";
 import {useAutomationScripts} from "../actions/AutomationScriptsHook";
@@ -33,20 +29,16 @@ const AutomationJobs = (props) => {
   //Data items for viewer and table.
   //Main table content hook. When duplicating just create a new hook and change the hook function at the end to populate table.
   const [{ isLoading: isLoadingMain, data: dataMain, error: errorMain }, {update: updateMain } ] = useAutomationJobs();
-  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }, {update: updateApps, deleteApplications: deleteApp} ] = useMFApps();
-  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }, {update: updateServers} ] = useGetServers();
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, { update: updateWaves }] = useMFWaves();
-  const [{ isLoading: isLoadingScripts, data: dataScripts, error: errorScripts }, {update: updateScripts } ] = useAutomationScripts();
-  const [{ isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets }, { updateSecrets }] = useCredentialManager();
+  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, ] = useMFWaves();
+  const [{ isLoading: isLoadingScripts, data: dataScripts, error: errorScripts },  ] = useAutomationScripts();
+  const [{ isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets }, ] = useCredentialManager();
 
   const dataAll = {secret: {data: dataSecrets, isLoading: isLoadingSecrets, error: errorSecrets},script: {data: dataScripts, isLoading: isLoadingScripts, error: errorScripts},jobs: {data: dataMain, isLoading: isLoadingMain, error: errorMain},wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}};
-
-  //Layout state management.
-  const [editingItem, setEditingItem] = useState(false);
 
   //Main table state management.
   const [selectedItems, setSelectedItems] = useState([]);
   const [focusItem, setFocusItem] = useState([]);
+  const [filterJobsShowAll, setFilterJobsShowAll] = useState(false);
 
   //Add Job/Action state management.
   const [automationAction, setAutomationAction] = useState(undefined);
@@ -63,23 +55,6 @@ const AutomationJobs = (props) => {
   const itemIDKey = 'uuid';
   const schemaName = 'job';
 
-  //Get schema for Automation jobs.
-  // let schemaSSMAttribs = undefined;
-  // let schemaSSM = [];
-
-  // if (!props.schemaIsLoading) {
-  //   schemaSSM = props.schema.automation.filter(function (entry) {
-  //     return entry.schema_name === schemaName;
-  //   });
-  // }
-  //
-  // if (schemaSSM.length === 1) {
-  //   schemaSSMAttribs = schemaSSM[0].attributes;
-  // }
-
-  //Modals
-  const { show: showDeleteConfirmaton, hide: hideDeleteConfirmaton, RenderModal: DeleteModal } = useModal()
-
   function handleNotification(notification)
   {
     return props.updateNotification('add', notification)
@@ -87,7 +62,7 @@ const AutomationJobs = (props) => {
 
   async function handleRefreshClick(e) {
     e.preventDefault();
-    await updateMain();
+    await updateMain(filterJobsShowAll ? undefined : 30);
   }
 
   function handleAddItem()
@@ -97,8 +72,6 @@ const AutomationJobs = (props) => {
     })
     setAction('Add')
     setFocusItem({});
-    setEditingItem(true);
-
   }
 
   function handleEditItem(selection = null)
@@ -109,14 +82,12 @@ const AutomationJobs = (props) => {
       })
       setAction('Edit')
       setFocusItem(selectedItems[0]);
-      setEditingItem(true);
     } else if ( selection ) {
       navigate({
         pathname: basePath + '/edit/' + selection[itemIDKey]
       })
       setAction('Edit');
       setFocusItem(selection);
-      setEditingItem(true);
     }
 
   }
@@ -133,8 +104,6 @@ const AutomationJobs = (props) => {
     });
 
     setAction('View');
-
-    setEditingItem(false);
   }
 
   function handleItemSelectionChange(selection) {
@@ -145,26 +114,6 @@ const AutomationJobs = (props) => {
     navigate({
       pathname: basePath
     })
-
-  }
-
-  function getCurrentApplicationWave() {
-
-    if (selectedItems[0].wave_id) {
-      if (selectedItems.length === 1) {
-        let waves = dataWaves.filter(function (entry) {
-          return entry.wave_id === selectedItems[0].wave_id;
-        });
-
-        if (waves.length === 1) {
-          return waves[0];
-        } else {
-          return {};
-        }
-      }
-    } else {
-      return {};
-    }
 
   }
 
@@ -221,7 +170,7 @@ const AutomationJobs = (props) => {
 
         if (apiAction[0].additionalData){
           const keys = Object.keys(apiAction[0].additionalData);
-          for (var i in keys){
+          for (const i in keys){
             newItem[keys[i]] = apiAction[0].additionalData[keys[i]]
           }
         }
@@ -268,7 +217,7 @@ const AutomationJobs = (props) => {
 
 
 
-        await updateMain();
+        await updateMain(filterJobsShowAll ? undefined : 30);
 
       } catch (e) {
         console.log(e);
@@ -306,6 +255,12 @@ const AutomationJobs = (props) => {
 
     setPreformingAction(false);
 
+  }
+
+  async function handleFilterDaysChange(flag){
+    setFilterJobsShowAll(flag);
+
+    await updateMain(flag ? undefined : 30);
   }
 
   //Update actions button options on schema change.
@@ -389,6 +344,7 @@ const AutomationJobs = (props) => {
         return <SpaceBetween direction="vertical" size="xs">
           <ItemTable
             sendNotification={handleNotification}
+            description={filterJobsShowAll ? "Displaying all jobs." : "Displaying only the last 30 days of jobs."}
             schema={props.schema['job']}
             schemaKeyAttribute={itemIDKey}
             schemaName={schemaName}
@@ -404,6 +360,7 @@ const AutomationJobs = (props) => {
             errorLoading={errorMain}
             handleRefreshClick={handleRefreshClick}
             userAccess={props.userEntityAccess}
+            handleDaysFilterChange={handleFilterDaysChange}
           />
           <ViewAutomationJob {...props}/>
         </SpaceBetween>

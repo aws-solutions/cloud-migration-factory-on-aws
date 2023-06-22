@@ -20,7 +20,7 @@ props.item = {}
 let attribute = {name: 'test', type: 'json', description: 'testjsonattribute'}
 
 test('TextAttribute displays the label and text provided', () => {
-  const {} = render(
+  render(
     <JsonAttribute
       key={'jsonattribute'}
       attribute={attribute}

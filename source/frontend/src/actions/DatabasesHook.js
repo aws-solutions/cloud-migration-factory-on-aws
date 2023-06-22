@@ -6,12 +6,11 @@
 import {
   requestStarted,
   requestSuccessful,
-  requestFailed,
   reducer } from '../resources/reducer.js';
 
 import { useReducer, useEffect } from 'react';
 
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 import User from "../actions/user";
 
 export const useGetDatabases = () => {

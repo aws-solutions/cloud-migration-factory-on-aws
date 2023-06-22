@@ -41,7 +41,10 @@ with open('FactoryEndpoints.json') as json_file:
 UserHOST = endpoints['UserApiUrl']
 
 def GetCEProject(projectname):
-    r = requests.get(HOST + endpoint.format('projects'), headers=headers, cookies=session)
+    r = requests.get(HOST + endpoint.format('projects'),
+                     headers=headers,
+                     cookies=session,
+                     timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
     if r.status_code != 200:
         print("ERROR: Failed to fetch the project....")
         sys.exit(2)
@@ -65,9 +68,13 @@ def GetCEProject(projectname):
 def ProjectList(waveid, token, UserHOST):
 # Get all Apps and servers from migration factory
     auth = {"Authorization": token}
-    servers = json.loads(requests.get(UserHOST + serverendpoint, headers=auth).text)
+    servers = json.loads(requests.get(UserHOST + serverendpoint,
+                                      headers=auth,
+                                      timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT).text)
     #print(servers)
-    apps = json.loads(requests.get(UserHOST + appendpoint, headers=auth).text)
+    apps = json.loads(requests.get(UserHOST + appendpoint,
+                                   headers=auth,
+                                   timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT).text)
     #print(apps)
     newapps = []
 
@@ -97,7 +104,10 @@ def GetServerList(apps, servers, CEProjects, waveid):
         serverlist = servers
         for project in CEProjects:
             # Get Machine List from CloudEndure
-            m = requests.get(HOST + endpoint.format('projects/{}/machines').format(project['ProjectId']), headers=headers, cookies=session)
+            m = requests.get(HOST + endpoint.format('projects/{}/machines').format(project['ProjectId']),
+                             headers=headers,
+                             cookies=session,
+                             timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
             if "sourceProperties" not in m.text:
                 print("ERROR: Failed to fetch the machines in Project: " + project['ProjectName'])
                 sys.exit(3)
@@ -143,7 +153,11 @@ def terminate_instances(Projects):
         if len(project['ReplicaIdList'].keys()) > 0:
             machine_data = {'replicaIDs': list(project['ReplicaIdList'].values())}
             machine_names = list(project['ReplicaIdList'].keys())
-            r = requests.delete(HOST + endpoint.format('projects/{}/replicas').format(project['ProjectId']), data = json.dumps(machine_data), headers=headers, cookies=session)
+            r = requests.delete(HOST + endpoint.format('projects/{}/replicas').format(project['ProjectId']),
+                                data = json.dumps(machine_data),
+                                headers=headers,
+                                cookies=session,
+                                timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
             if r.status_code == 202:
                 print("Cleanup Job created for the following machines in Project: " + project['ProjectName'])
                 for machine in machine_names:

@@ -45,42 +45,38 @@ ViewName = newapp + "_" + newenv + "_" + "tracker_general_view"
 print(ViewName)
 print("*** App Table Name ***")
 AppTableName = application.lower() + "-" + environment.lower() + \
-    "-app-extract-table"
+               "-app-extract-table"
 print(AppTableName)
 print("*** Server Table Name ***")
 ServerTableName = application.lower() + "-" + environment.lower() + \
-    "-server-extract-table"
+                  "-server-extract-table"
 print(ServerTableName)
 print("*** Query ***")
-query = 'CREATE \  # nosec B608
-        OR REPLACE VIEW "{}" AS \
-        SELECT "a"."cloudendure_projectname" , \
-        "a"."app_name" , \
-        "a"."wave_id" ,\
-        "a"."app_id", \
-        "b"."server_name" , \
-        "b"."instancetype" , \
-        "b"."migration_status" , \
-        "b"."server_id" , \
-        "b"."server_fqdn" , \
-        "b"."server_os_family" , \
-        "b"."server_os_version" , \
-        "b"."replication_status" , \
-        "b"."server_environment" \
-        FROM "{}" b \
-        LEFT JOIN "{}" a \
-        ON "b"."app_id" = "a"."app_id"'.format(ViewName, ServerTableName, AppTableName)
-print(query)
+query_columns = '"a"."cloudendure_projectname" , "a"."app_name" , ' \
+                '"a"."wave_id" , '\
+                '"a"."app_id", '\
+                '"b"."server_name" , '\
+                '"b"."instancetype" , '\
+                '"b"."migration_status" , '\
+                '"b"."server_id" , '\
+                '"b"."server_fqdn" , '\
+                '"b"."server_os_family" , '\
+                '"b"."server_os_version" , '\
+                '"b"."replication_status" , '\
+                '"b"."server_environment" '
+query_join = ' LEFT JOIN "{}" a ON "b"."app_id" = "a"."app_id"'
+query_template = 'CREATE OR REPLACE VIEW "{}" AS SELECT ' + query_columns + ' FROM "{}" b' + query_join   # nosec B608
+query = query_template.format(ViewName, ServerTableName, AppTableName)
 
 def lambda_handler(event, context):
     log.info('Function Starting')
-    log.info(f'Incoming Event:\n{json.dumps(event,indent=2)}')
+    log.info(f'Incoming Event:\n{json.dumps(event, indent=2)}')
     log.info(f'Context Object:\n{vars(context)}')
     aws_account_id = context.invoked_function_arn.split(":")[4]
     athena_result_bucket = "s3://{}-{}-{}-athena-results/".format(
         application, environment, aws_account_id)
     athena_client = boto3.client("athena")
-    response = athena_client.start_query_execution(
+    athena_client.start_query_execution(
         QueryString=query,
         QueryExecutionContext={'Database': database,
                                'Catalog': 'AwsDataCatalog'},

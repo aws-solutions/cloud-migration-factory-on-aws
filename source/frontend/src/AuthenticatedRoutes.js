@@ -18,7 +18,6 @@ import NotFound from "./containers/NotFound";
 import Login from "./containers/Login";
 import AdminPolicy from "./containers/AdminPolicy";
 import AdminSchemaMgmt from "./containers/AdminSchemaMgmt"
-import ForgotPassword from "./containers/ForgotPassword";
 import ChangePassword from "./containers/ChangePassword";
 import CredentialManager from "./containers/CredentialManager";
 import Secrets from "./containers/Secrets";

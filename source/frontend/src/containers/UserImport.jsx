@@ -6,10 +6,10 @@
 import React, {useEffect, useState} from 'react';
 import User from "../actions/user";
 import ImportOverview from '../components/import/ImportOverview.jsx';
-import {capitalize, getChanges, validateValue} from '../resources/main.js';
+import { getChanges, validateValue} from '../resources/main.js';
 import * as XLSX from "xlsx";
 
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 
 import {
   SpaceBetween,
@@ -37,16 +37,16 @@ import {useCredentialManager} from "../actions/CredentialManagerHook";
 const UserImport = (props) => {
 
   //Data items for viewer and table.
-  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }, { update: updateApps }] = useMFApps();
-  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }, { update: updateServers }] = useGetServers();
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, { update: updateWaves }] = useMFWaves();
-  const [{ isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases }, { update: updateDatabases }] = useGetDatabases();
-  const [{ isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets }, { updateSecrets }] = useCredentialManager();
+  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps },] = useMFApps();
+  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers },] = useGetServers();
+  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, ] = useMFWaves();
+  const [{ isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases }, ] = useGetDatabases();
+  const [{ isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets }, ] = useCredentialManager();
 
   const dataAll = {secret: {data: dataSecrets, isLoading: isLoadingSecrets, error: errorSecrets}, database: {data: dataDatabases, isLoading: isLoadingDatabases, error: errorDatabases}, server: {data: dataServers, isLoading: isLoadingServers, error: errorServers}, application: {data: dataApps, isLoading: isLoadingApps, error: errorApps}, wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}};
 
   //Modals
-  const { show: showCommitProgress, hide: hideCommitProgress, setProgress: setImportProgress, RenderModal: CommitProgressModel } = useProgressModal()
+  const { hide: hideCommitProgress, RenderModal: CommitProgressModel } = useProgressModal()
 
   const { show: showNoCommitConfirmaton, hide: hideNoCommitConfirmaton, RenderModal: NoCommitModel } = useModal()
 
@@ -116,14 +116,14 @@ const UserImport = (props) => {
     const rel_attributes = props.schema[related_schema_name].attributes.filter(attr => {return attr.type === 'relationship' && attr.rel_entity === new_item_schema_name})
 
     //Update items with new items ids for created item.
-    for (let itemIdx = 0; itemIdx < related_items.length; itemIdx++)
+    for (let item of related_items)
     {
       for (const attr of rel_attributes){
         if (attr.listMultiSelect){
           //Deal with multiple related items. This only currently supports names not IDs.
-          if (related_items[itemIdx]["__" + attr.name] && (!related_items[itemIdx][attr.name] || related_items[itemIdx][attr.name].includes('tbc'))) {
-            let relatedNamesIDs = related_items[itemIdx][attr.name];
-            let relatedNames = related_items[itemIdx]["__" + attr.name];
+          if (item["__" + attr.name] && (!item[attr.name] || item[attr.name].includes('tbc'))) {
+            let relatedNamesIDs = item[attr.name];
+            let relatedNames = item["__" + attr.name];
 
             //For each related name update the tbc values with new items ID.
             for (let relNameIdx = 0; relNameIdx < relatedNamesIDs.length; relNameIdx++) {
@@ -135,19 +135,53 @@ const UserImport = (props) => {
               }
             }
 
-            related_items[itemIdx][attr.name] = relatedNamesIDs;
+            item[attr.name] = relatedNamesIDs;
 
           }
         } else {
           //Update single select items.
-          if ((!related_items[itemIdx][attr.name] || related_items[itemIdx][attr.name] === 'tbc') && related_items[itemIdx]["__" + attr.name]) {
-            if (related_items[itemIdx]["__" + attr.name].toLowerCase() === newItem[attr.rel_display_attribute].toLowerCase()) {
-              related_items[itemIdx][attr.rel_key] = newItem[attr.rel_key];
-              delete related_items[itemIdx]["__" + attr.name];
+          if ((!item[attr.name] || item[attr.name] === 'tbc') && item["__" + attr.name]) {
+            if (item["__" + attr.name].toLowerCase() === newItem[attr.rel_display_attribute].toLowerCase()) {
+              item[attr.rel_key] = newItem[attr.rel_key];
+              delete item["__" + attr.name];
             }
           }
         }
       }
+    }
+  }
+
+  function removeCalculatedKeyValues(item){
+    for (const key in item){
+      if (key.startsWith('__')){
+        delete item[key]
+      }
+    }
+  }
+
+  function buildCommitExceptionNotification(exception, schema, schema_shortname, currentItem){
+    if ('response' in exception && 'data' in exception.response) {
+      if (typeof exception.response.data === 'object' && 'cause' in exception.response.data){
+        return ({
+          itemType: schema,
+          error: currentItem[schema_shortname + '_name'] ? currentItem[schema_shortname + '_name'] + " - " + exception.response.data.cause : exception.response.data.cause,
+          item: currentItem
+        });
+      } else if ('errors' in exception.response.data){
+          return ({
+            itemType: schema,
+            error: currentItem[schema_shortname + '_name'] ? currentItem[schema_shortname + '_name'] + " - " + JSON.stringify(exception.response.data.errors) : JSON.stringify(exception.response.data.errors),
+            item: currentItem
+          });
+      } else {
+        return ({
+          itemType: schema,
+          error: currentItem[schema_shortname + '_name'] ? currentItem[schema_shortname + '_name'] + " - " + JSON.stringify(exception.response.data) : JSON.stringify(exception.response.data),
+          item: currentItem
+        });
+      }
+    } else{
+      return ({itemType: schema, error: currentItem[schema_shortname + '_name'] ? currentItem[schema_shortname + '_name'] + ' - Unknown error occurred' : 'Unknown error occurred', item: currentItem})
     }
   }
 
@@ -170,18 +204,13 @@ const UserImport = (props) => {
     const session = await Auth.currentSession();
     const apiUser = new User(session);
 
-    for (let itemIdx = 0; itemIdx < items.length; itemIdx++)
+    for (let item of items)
     {
-      let newItem = Object.assign({}, items[itemIdx]);
+      let newItem = Object.assign({}, item);
 
-      currentItem = items[itemIdx];
+      currentItem = item;
 
-      //Remove any calculated keys from object.
-      for (const key in newItem){
-        if (key.startsWith('__')){
-          delete newItem[key]
-        }
-      }
+      removeCalculatedKeyValues(newItem);
 
       commitItems.push(currentItem);
 
@@ -189,37 +218,21 @@ const UserImport = (props) => {
         if (action === 'Update') {
           let item_id = newItem[schema_shortname + '_id'];
           delete newItem[schema_shortname + '_id'];
-          const result = await apiUser.putItem(item_id, newItem, schema_shortname);
+          await apiUser.putItem(item_id, newItem, schema_shortname);
           updateUploadStatus(notification, action + " " + schema + " records...");
         }
 
       } catch (e) {
         updateUploadStatus(notification, action + " " + schema + " records...");
         console.error(e);
-        if ('response' in e && 'data' in e.response) {
-          if (typeof e.response.data === 'object' && 'cause' in e.response.data){
-            loutputCommit.push({
-              itemType: schema,
-              error: currentItem[schema_shortname + '_name'] ? currentItem[schema_shortname + '_name'] + " - " + e.response.data.cause : e.response.data.cause,
-              item: currentItem
-            });
-          } else {
-            loutputCommit.push({
-              itemType: schema,
-              error: currentItem[schema_shortname + '_name'] ? currentItem[schema_shortname + '_name'] + " - " + e.response.data : e.response.data,
-              item: currentItem
-            });
-          }
-        } else{
-          loutputCommit.push({itemType: schema, error: currentItem[schema_shortname + '_name'] ? currentItem[schema_shortname + '_name'] + ' - Unknown error occurred' : 'Unknown error occurred', item: currentItem})
-        }
+        loutputCommit.push(buildCommitExceptionNotification(e,schema,schema_shortname,currentItem));
       }
 
     }
 
     try {
       if (action === 'Create') {
-        for (const item in commitItems){
+        for (let item of commitItems){
           delete item[schema_shortname + '_id'];
         }
 
@@ -287,7 +300,7 @@ const UserImport = (props) => {
 
   function readCSVFile(file){
     if (typeof (FileReader) !== "undefined") {
-      var reader = new FileReader();
+      let reader = new FileReader();
 
       return new Promise((resolve, reject) => {
         reader.onerror = () => {
@@ -307,7 +320,7 @@ const UserImport = (props) => {
 
   function readXLSXFile(file){
     if (typeof (FileReader) !== "undefined") {
-      var reader = new FileReader();
+      let reader = new FileReader();
 
       return new Promise((resolve, reject) => {
         reader.onerror = () => {
@@ -345,7 +358,7 @@ const UserImport = (props) => {
 
   function exportTemplate(){
 
-    var ws_data = {}
+    let ws_data = {}
 
     let attributes = getRequiredAttributesAllSchemas(props.schema); // get all required attributes from all schemas
 
@@ -359,10 +372,10 @@ const UserImport = (props) => {
     }
     const json_output = [headers] // Create single item array with empty values to populate headers fdr intake form.
 
-    var range = { s: { c: 0, r: 0 }, e: { c: attributes.length, r: 1 } }; // set worksheet cell range
+    let range = { s: { c: 0, r: 0 }, e: { c: attributes.length, r: 1 } }; // set worksheet cell range
     ws_data['!ref'] = XLSX.utils.encode_range(range);
 
-    var wb = XLSX.utils.book_new(); // create new workbook
+    let wb = XLSX.utils.book_new(); // create new workbook
     wb.SheetNames.push('mf_intake'); // create new worksheet
     wb.Sheets['mf_intake'] = XLSX.utils.json_to_sheet(json_output); // load headers array into worksheet
 
@@ -373,7 +386,7 @@ const UserImport = (props) => {
 
   function exportAllTemplate(){
 
-    var ws_data = {}
+    let ws_data = {}
 
     let attributes = getAllAttributes(props.schema); // get all required attributes from all schemas
 
@@ -388,10 +401,10 @@ const UserImport = (props) => {
 
     const json_output = [headers] // Create single item array with empty values to populate headers fdr intake form.
 
-    var range = { s: { c: 0, r: 0 }, e: { c: attributes.length, r: 1 } }; // set worksheet cell range
+    let range = { s: { c: 0, r: 0 }, e: { c: attributes.length, r: 1 } }; // set worksheet cell range
     ws_data['!ref'] = XLSX.utils.encode_range(range);
 
-    var wb = XLSX.utils.book_new(); // create new workbook
+    let wb = XLSX.utils.book_new(); // create new workbook
     wb.SheetNames.push('mf_intake'); // create new worksheet
     wb.Sheets['mf_intake'] = XLSX.utils.json_to_sheet(json_output); // load headers array into worksheet
 
@@ -444,16 +457,14 @@ const UserImport = (props) => {
   }
 
   function performDataValidation (csvData){
-    let objArray = [];
     let attributeMappings = [];
     let schemas = [];
 
-    for (var itemIdx = 0; itemIdx < csvData.length; itemIdx++) {
-      //let item = {};
+    for (let [itemIdx, item] of csvData.entries()) {
       let itemErrors = [];
       let itemWarnings = [];
       let itemInformational = [];
-      for (const key in csvData[itemIdx]) {
+      for (const key in item) {
         let attr = [];
         let schema_name = null;
         if (key.startsWith('[')) {
@@ -487,12 +498,7 @@ const UserImport = (props) => {
 
           let filterMappings = attributeMappings.filter(item => {
             if (item['import_raw_header'] === key) {
-              if (item['schema_name'] === foundAttr.schema_name){
-                return true;
-              } else {
-                return false;
-              }
-
+              return (item['schema_name'] === foundAttr.schema_name)
             } else {
               return false;
             }
@@ -507,7 +513,7 @@ const UserImport = (props) => {
             schemas.push(foundAttr.schema_name);
           }
 
-          let msgError = performValueValidation(foundAttr, csvData[itemIdx][key])
+          let msgError = performValueValidation(foundAttr, item[key])
           if (msgError){
             if (msgError.type === 'error') {
               itemErrors.push({attribute: key, error: msgError.message});
@@ -516,15 +522,13 @@ const UserImport = (props) => {
             }
           }
         }
-
-        //}
       }
 
-      csvData[itemIdx]['__import_row'] = itemIdx;
-      csvData[itemIdx]['__validation'] = {};
-      csvData[itemIdx]['__validation']['errors'] = itemErrors;
-      csvData[itemIdx]['__validation']['warnings'] = itemWarnings;
-      csvData[itemIdx]['__validation']['informational'] = itemInformational
+      item['__import_row'] = itemIdx;
+      item['__validation'] = {};
+      item['__validation']['errors'] = itemErrors;
+      item['__validation']['warnings'] = itemWarnings;
+      item['__validation']['informational'] = itemInformational
     }
 
     return {'data': csvData, 'attributeMappings': attributeMappings, 'schema_names': schemas};
@@ -548,28 +552,24 @@ const UserImport = (props) => {
 
     setSelectedFile(e.target.files[0])
 
-    let dataJson = []
     if (e.target.files[0].type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
       let data = await readXLSXFile(e.target.files[0])
       let workbook = XLSX.read(data)
-      let sheet = workbook.Sheets[workbook.SheetNames[0]];
       //Set first sheet as default import source.
       setSelectedSheet(workbook.SheetNames[0]);
       if (workbook.SheetNames.length > 1) {
         setSheetNames(workbook.SheetNames);
         setSelectedSheet(workbook.SheetNames[0]);
       }
-    } else {
-      //Supported format of file.
     }
   }
 
   function getSchemaAttribute(attributeName, schema) {
     let attr = null;
 
-    for (var row = 0; row < schema.attributes.length; row++) {
-      if (schema.attributes[row].name === attributeName){
-        attr = schema.attributes[row];
+    for (let attribute of schema.attributes){
+      if (attribute.name === attributeName){
+        attr = attribute;
         break;
       }
     }
@@ -580,11 +580,11 @@ const UserImport = (props) => {
   function getSchemaRelationshipAttributes(attributeName, schema) {
     let attributes = [];
 
-    for (var row = 0; row < schema.attributes.length; row++) {
-      if (schema.attributes[row].type === 'relationship'){
-        if (schema.attributes[row].rel_display_attribute === attributeName){
+    for (let attribute of schema.attributes) {
+      if (attribute.type === 'relationship'){
+        if (attribute.rel_display_attribute === attributeName){
           //We've got a live one!!
-          attributes.push(schema.attributes[row]);
+          attributes.push(attribute);
           break;
         }
       }
@@ -714,9 +714,281 @@ const UserImport = (props) => {
     }
   }
 
+  function extractImportedRecordKeysForSchema(importData, schemaName){
+    let tempSchemaName = schemaName === 'application' ? 'app' : schemaName;
+    //Populate distinct records from data import for each schema, referenced by _name or _id attribute.
+    const tempDistinct = [...new Set(importData.map(x => {
+     if (tempSchemaName + '_id' in x){
+        return x[tempSchemaName + '_id'];
+      } else if ('[' + schemaName + ']' + tempSchemaName + '_id' in x) {
+        return x['[' + schemaName + ']' + tempSchemaName + '_id'];
+      } else  if (tempSchemaName + '_name' in x){
+       return x[tempSchemaName + '_name'];
+     } else if ('[' + schemaName + ']' + tempSchemaName + '_name' in x) {
+       return x['[' + schemaName + ']' + tempSchemaName + '_name'];
+     }
+    }))];
 
+    let cleanRecords = tempDistinct.filter(item => {return item !== undefined && item !== ''});
 
-  function getSummary(items) {
+    if (cleanRecords === undefined) { //If nothing returned then continue to next schema.
+      cleanRecords = []
+    }
+
+    return cleanRecords
+  }
+
+  function addImportedRecordCreateToSummary(schemaName, keyAttribute, keyAttributeValue, importedRecord, summaryResults, importDataRow){
+    //1. Get required schema attributes for this entity type.
+    //2. check returned required attributes against the list of attributes supplied in attributeMappings.
+    //3. if there are missing required attributes add an error to the record/row.
+    //4. recheck that values have been provided for all required attributes. Add errors to record/row if they do not have values.
+    //5. Do not add to Create array.
+    // Note: this check might need to be done with updates to once the ability to clear values is implemented.
+
+    //Check the entity is valid, i.e. it has the user key defined, if not, do not add as this is not something the user is looking to create.
+
+    if (keyAttribute.attribute.name in importedRecord && importedRecord[keyAttribute.attribute.name] !== '') {
+      let check = checkValidItemCreate(importedRecord, props.schema[schemaName])
+
+      if (check === null) {
+        //No errors on item add to create array.
+        summaryResults.entities[schemaName].Create.push(importedRecord);
+        summaryResults.hasUpdates = true;
+      } else {
+        //Errors found on requirements check, log errors against data row.
+        for (const error of check) {
+          importDataRow['__validation']['errors'].push({
+            attribute: error.name,
+            error: "Missing required " + schemaName + " attribute: " + error.name
+          });
+        }
+      }
+    } else {
+      //Name not provided.
+      console.log('_name not provided.')
+
+    }
+  }
+
+  function addImportedRecordExistingToSummary(schemaName, keyAttribute, keyAttributeValue, importedRecord, summaryResults, importDataRow){
+    const tempSchemaName = schemaName === 'application' ? 'app' : schemaName;
+
+    let item_id = -1;
+    let item_name = null;
+    let item = dataAll[schemaName].data.find(dataItem => {
+        if (dataItem[keyAttribute.attribute.name]) {
+          if (dataItem[keyAttribute.attribute.name].toLowerCase() === keyAttributeValue.toLowerCase()) {
+            return true;
+          }
+        }
+      }
+    )
+
+    if (item) {
+      item_id = item[tempSchemaName + '_id'];
+      item_name = item[tempSchemaName + '_name'];
+    }
+
+    let changesItemWithCalc = getChanges(importedRecord, dataAll[schemaName].data, keyAttribute.attribute.name, true)
+    let changesItem = getChanges(importedRecord, dataAll[schemaName].data, keyAttribute.attribute.name, false)
+
+    if (changesItem) {
+      //Create a temporary item that has all updates and validate.
+      let newItem = Object.assign({}, item);
+
+      //Update temp object with changes.
+      const keys = Object.keys(changesItem);
+      for (let key of keys){
+        newItem[key] = changesItem[key];
+      }
+      let check = checkValidItemCreate(newItem, props.schema[schemaName])
+
+      //Add appid to item.
+      if (check === null) {
+        changesItemWithCalc[tempSchemaName + '_id'] = item_id;
+        if (!changesItemWithCalc.hasOwnProperty(tempSchemaName + '_name')) {
+          changesItemWithCalc[tempSchemaName + '_name'] = item_name;
+        }
+        summaryResults.entities[schemaName].Update.push(changesItemWithCalc);
+        summaryResults.hasUpdates = true;
+      } else {
+        //Errors found on requirements check, log errors against data row.
+
+        for (const error of check) {
+          importDataRow['__validation']['errors'].push({
+            attribute: error.name,
+            error: "Missing required " + schemaName + " attribute: " + error.name
+          });
+        }
+      }
+    } else {
+      let NoChangeItem = {};
+      NoChangeItem[tempSchemaName + '_name'] = item_name
+      summaryResults.entities[schemaName].NoChange.push(NoChangeItem);
+    }
+  }
+
+  function addImportRowValuesToImportSummaryRecord(schemaName, attribute, importRow, importRecord){
+    if (importRow.hasOwnProperty(attribute.import_raw_header) && attribute.attribute.type !== 'relationship') {
+      switch (attribute.attribute.type) {
+        case 'list': {
+          if (attribute.attribute.listMultiSelect) {
+            //Build array for multiselect attribute.
+            let formattedText = importRow[attribute.import_raw_header];
+            formattedText = formattedText.split(';');
+
+            importRecord[attribute.attribute.name] = formattedText;
+          } else {
+            importRecord[attribute.attribute.name] = importRow[attribute.import_raw_header];
+          }
+          break;
+        }
+        case 'multivalue-string': {
+          let formattedText = importRow[attribute.import_raw_header];
+          formattedText = formattedText.split(';');
+
+          importRecord[attribute.attribute.name] = formattedText;
+          break;
+        }
+        case 'tag': {
+          let formattedTags = importRow[attribute.import_raw_header];
+
+          formattedTags = formattedTags.split(';');
+          formattedTags = formattedTags.map(tag => {
+            let key_value = tag.split('=');
+            return {key: key_value[0], value: key_value[1]}
+          });
+
+          importRecord[attribute.attribute.name] = formattedTags;
+          break;
+        }
+        case 'checkbox': {
+          const formattedText = importRow[attribute.import_raw_header];
+          const regex=/^\s*(true|1|on)\s*$/i
+          importRecord[attribute.attribute.name] = regex.test(formattedText);
+          break;
+        }
+        default: {
+          importRecord[attribute.attribute.name] = importRow[attribute.import_raw_header];
+        }
+      }
+    } else if (attribute.attribute.type === 'relationship') {
+      addRelationshipValueToImportSummaryRecord(attribute, schemaName, importRow, importRecord)
+    }
+  }
+
+  function getRelationshipValueType(importedAttribute, schemaName){
+    if (importedAttribute.import_raw_header === ('[' + schemaName + ']' + importedAttribute.attribute.rel_display_attribute).toLowerCase()){
+      return 'name';
+    } else if (importedAttribute.import_raw_header.toLowerCase() === importedAttribute.attribute.rel_display_attribute.toLowerCase()) {
+      return 'name';
+    } else if (importedAttribute.import_raw_header.toLowerCase() === importedAttribute.attribute.name.toLowerCase() && importedAttribute.attribute.listMultiSelect) {
+      return 'name';
+    } else if (importedAttribute.import_raw_header.toLowerCase() === ('[' + schemaName + ']' + importedAttribute.attribute.name).toLowerCase() && importedAttribute.attribute.listMultiSelect) {
+      return 'name';
+    } else if (importedAttribute.import_raw_header.toLowerCase() === importedAttribute.attribute.name.toLowerCase()){
+      return 'id';
+    } else if (importedAttribute.import_raw_header.toLowerCase() === ('[' + schemaName + ']' + importedAttribute.attribute.name).toLowerCase()) {
+      return 'id';
+    }
+  }
+
+  function extractRelationshipList(importValueDelimitedStringList, importedAttribute, importSummaryRecord) {
+    //Multiselect attribute.
+    // Nothing to process if importValueDelimitedStringList is empty string so return.
+    if (!importValueDelimitedStringList) {
+      return;
+    }
+    const valuesRaw = importValueDelimitedStringList.split(";");
+    let valuesID = [];
+    let valuesDisplay = [];
+
+    if (valuesRaw.length > 0) {
+      for (const itemValue of valuesRaw) {
+        let relatedItem = dataAll[importedAttribute.attribute.rel_entity].data.find(item => {
+            if (item[importedAttribute.attribute.rel_display_attribute] && itemValue) {
+              if (item[importedAttribute.attribute.rel_display_attribute].toLowerCase() === itemValue.toLowerCase()) {
+                return true;
+              }
+            }
+          }
+        )
+        if (relatedItem) {
+          valuesID.push(relatedItem[importedAttribute.attribute.rel_key]);
+          valuesDisplay.push(relatedItem[importedAttribute.attribute.rel_display_attribute]);
+        } else {
+          if (importValueDelimitedStringList !== '' && importValueDelimitedStringList !== undefined) {
+            //Item name does not exist so will be created if provided.
+            valuesID.push('tbc');
+            valuesDisplay.push(itemValue);
+          }
+        }
+      }
+
+      importSummaryRecord[importedAttribute.attribute.name] = valuesID;
+      importSummaryRecord['__' + importedAttribute.attribute.name] = valuesDisplay;
+    }else {
+      //No values provided.
+      importSummaryRecord[importedAttribute.attribute.name] = [];
+    }
+  }
+
+  function addRelationshipValueToImportSummaryRecord(importedAttribute, schemaName, importRow, importSummaryRecord) {
+    const relationshipValueType = getRelationshipValueType(importedAttribute, schemaName);
+
+    if (relationshipValueType === 'name') {
+      //relationship value is a name not ID, perform search to see if this item exists.
+      if (importedAttribute.attribute.listMultiSelect && importRow[importedAttribute.import_raw_header]) {
+        extractRelationshipList(importRow[importedAttribute.import_raw_header],importedAttribute,importSummaryRecord)
+      } else {
+        //Not a multiselect relational value.
+        let relatedItem = dataAll[importedAttribute.attribute.rel_entity].data.find(item => {
+            if (item[importedAttribute.attribute.rel_display_attribute] && importRow[importedAttribute.import_raw_header]) {
+              if (item[importedAttribute.attribute.rel_display_attribute].toLowerCase() === importRow[importedAttribute.import_raw_header].toLowerCase()) {
+                return true;
+              }
+            }
+          }
+        )
+        if (relatedItem) {
+          importSummaryRecord[importedAttribute.attribute.name] = relatedItem[importedAttribute.attribute.rel_key];
+        } else {
+          if (importRow[importedAttribute.import_raw_header] !== '' && importRow[importedAttribute.import_raw_header] !== undefined) {
+            //Item name does not exist, so will be created if provided. Setting ID to 'tbc', once the related
+            // record is created then this will be updated in the commit with the new records' ID.
+            importSummaryRecord[importedAttribute.attribute.name] = 'tbc'
+            importSummaryRecord['__' + importedAttribute.attribute.name] = importRow[importedAttribute.import_raw_header];
+          }
+        }
+      }
+    } else if (relationshipValueType === 'id') {
+      //related attribute display value not present in import, ID has been provided.
+
+      if (importRow[importedAttribute.import_raw_header] !== '' && importRow[importedAttribute.import_raw_header] !== undefined) {
+        //ID is being provided instead of display value.
+        if (importedAttribute.attribute.listMultiSelect) {
+          importSummaryRecord[importedAttribute.attribute.name] = importRow[importedAttribute.import_raw_header].split(";");
+        } else {
+          importSummaryRecord[importedAttribute.attribute.name] = importRow[importedAttribute.import_raw_header];
+        }
+      }
+    } else{
+      console.error('UNHANDLED: relationship type not found.')
+    }
+  }
+
+  function isValidKeyValue(importItem, keyAttribute, importedRecordKeyValue){
+    if (importItem[keyAttribute.import_raw_header]) {
+      if (importItem[keyAttribute.import_raw_header].toLowerCase() === importedRecordKeyValue.toLowerCase()) {
+        return true;
+      }
+    } else {
+      return false;
+    }
+  }
+
+  function getSummary(dataJson) {
 
     let distinct = {};
 
@@ -728,7 +1000,6 @@ const UserImport = (props) => {
     for (const schema_name in props.schema){
       if (props.schema[schema_name].schema_type === 'user'){
         let temp_schema_name = schema_name === 'application' ? 'app' : schema_name;
-        let schema_reference = props.schema[schema_name].friendly_name ? props.schema[schema_name].friendly_name : capitalize(schema_name);
         result['entities'][schema_name] = {
           "Create": [],
           "Update": [],
@@ -736,300 +1007,47 @@ const UserImport = (props) => {
 
         };
 
-        //Populate distinct records from data import for each schema, referenced by _name or _id attribute.
-        const tempDistinct = [...new Set(items.data.map(x => {
-          if (temp_schema_name + '_name' in x){
-            return x[temp_schema_name + '_name'];
-          } else if ('[' + schema_name + ']' + temp_schema_name + '_name' in x) {
-            return x['[' + schema_name + ']' + temp_schema_name + '_name'];
-          } else if (temp_schema_name + '_id' in x){
-            return x[temp_schema_name + '_id'];
-          } else if ('[' + schema_name + ']' + temp_schema_name + '_id' in x) {
-            return x['[' + schema_name + ']' + temp_schema_name + '_id'];
-          }
-        }))];
+        distinct[schema_name] = extractImportedRecordKeysForSchema(dataJson.data, schema_name);
 
-        distinct[schema_name] = tempDistinct.filter(item => {return item !== undefined && item !== ''});
-
-        if (distinct[schema_name] === undefined) { //If nothing returned then continue to next schema.
-          distinct[schema_name] = []
+        if (distinct[schema_name].length === 0) { //If nothing returned then continue to next schema.
           continue;
         }
 
         let schemaAttributes = [];
 
-        schemaAttributes = items.attributeMappings.filter(attr => {
+        schemaAttributes = dataJson.attributeMappings.filter(attr => {
           return attr.schema_name === schema_name;
         });
 
         let keyAttribute = schemaAttributes.find(attr => { //Get schema key attribute.
-          if (attr.attribute.name === temp_schema_name + '_name'){ //check if _name key present in attributes
-            return attr;
-          } else if (attr.attribute.name === temp_schema_name + '_id'){//if no _name then check if _id key present in attributes
+          if (attr.attribute.name === temp_schema_name + '_name' || attr.attribute.name === temp_schema_name + '_id') { //check if _name key present in attributes
             return attr;
           }
         });
 
-        for (let itemIdx = 0; itemIdx < distinct[schema_name].length; itemIdx++) {
+        for (const importedRecordKeyValue of distinct[schema_name]) {
 
-          if (distinct[schema_name][itemIdx] === undefined){
+          if (importedRecordKeyValue === undefined){
             continue
           }
 
-          if (distinct[schema_name][itemIdx] !== undefined && distinct[schema_name][itemIdx].toLowerCase() !== '') { //Verify that the key has a value, if not ignore.
+          if (importedRecordKeyValue !== undefined && importedRecordKeyValue.toLowerCase() !== '') { //Verify that the key has a value, if not ignore.
 
-            let itemOrMismatch = isMismatchedItem(items.data, schemaAttributes, keyAttribute.import_raw_header, distinct[schema_name][itemIdx].toLowerCase());
+            let itemOrMismatch = isMismatchedItem(dataJson.data, schemaAttributes, keyAttribute.import_raw_header, importedRecordKeyValue.toLowerCase());
             if (itemOrMismatch !== null) {
-              let importrow = items.data.find(item => {
-                  if (item[keyAttribute.import_raw_header]) {
-                    if (item[keyAttribute.import_raw_header].toLowerCase() === distinct[schema_name][itemIdx].toLowerCase()) {
-                      return true;
-                    }
-                  } else {
-                    return false;
-                  }
-                }
-              )
+              let importRow = dataJson.data.find(importItem => isValidKeyValue(importItem,keyAttribute, importedRecordKeyValue))
 
-              let importApp = {};
-              importApp[keyAttribute.attribute.name] = distinct[schema_name][itemIdx];
+              let importRecord = {};
+              importRecord[keyAttribute.attribute.name] = importedRecordKeyValue;
 
               for (const attr of schemaAttributes) {
-                if (importrow[attr.import_raw_header] && attr.attribute.type !== 'relationship') {
-                  switch (attr.attribute.type) {
-                    case 'list': {
-                      if (attr.attribute.listMultiSelect) {
-                        //Build array for multiselect attribute.
-                        let formattedText = importrow[attr.import_raw_header];
-                        formattedText = formattedText.split(';');
-
-                        importApp[attr.attribute.name] = formattedText;
-                      } else {
-                        importApp[attr.attribute.name] = importrow[attr.import_raw_header];
-                      }
-                      break;
-                    }
-                    case 'multivalue-string': {
-                      let formattedText = importrow[attr.import_raw_header];
-                      formattedText = formattedText.split(';');
-
-                      importApp[attr.attribute.name] = formattedText;
-                      break;
-                    }
-                    case 'tag': {
-                      let formattedTags = importrow[attr.import_raw_header];
-
-                      formattedTags = formattedTags.split(';');
-                      formattedTags = formattedTags.map(tag => {
-                        let key_value = tag.split('=');
-                        return {key: key_value[0], value: key_value[1]}
-                      });
-
-                      importApp[attr.attribute.name] = formattedTags;
-                      break;
-                    }
-                    default: {
-                      importApp[attr.attribute.name] = importrow[attr.import_raw_header];
-                    }
-                  }
-                } else if (attr.attribute.type === 'relationship') {
-                  let relationshipValueType = ''
-
-                  //Determine how the import has provided the relationship, by name/display value or the ID of the related record.
-                  if (attr.import_raw_header === ('[' + schema_name + ']' + attr.attribute.rel_display_attribute).toLowerCase()){
-                    relationshipValueType = 'name';
-                  } else if (attr.import_raw_header.toLowerCase() === attr.attribute.rel_display_attribute.toLowerCase()) {
-                    relationshipValueType = 'name';
-                  } else if (attr.import_raw_header.toLowerCase() === attr.attribute.name.toLowerCase() && attr.attribute.listMultiSelect) {
-                    relationshipValueType = 'name';
-                  } else if (attr.import_raw_header.toLowerCase() === ('[' + schema_name + ']' + attr.attribute.name).toLowerCase() && attr.attribute.listMultiSelect) {
-                    relationshipValueType = 'name';
-                  } else if (attr.import_raw_header.toLowerCase() === attr.attribute.name.toLowerCase()){
-                    relationshipValueType = 'id';
-                  } else if (attr.import_raw_header.toLowerCase() === ('[' + schema_name + ']' + attr.attribute.name).toLowerCase()) {
-                    relationshipValueType = 'id';
-                  }
-
-                  if (relationshipValueType === 'name') {
-                    //relationship value is a name not ID, perform search to see if this item exists.
-                    if (attr.attribute.listMultiSelect) {
-                      //Multiselect attribute.
-                      const valuesRaw = importrow[attr.import_raw_header].split(";");
-                      let valuesID = [];
-                      let valuesDisplay = [];
-
-                      if (valuesRaw.length > 0){
-                        for (const itemValue of valuesRaw){
-                          let relatedItem = dataAll[attr.attribute.rel_entity].data.find(item => {
-                              if (item[attr.attribute.rel_display_attribute] && itemValue) {
-                                if (item[attr.attribute.rel_display_attribute].toLowerCase() === itemValue.toLowerCase()) {
-                                  return true;
-                                }
-                              }
-                            }
-                          )
-                          if (relatedItem) {
-                            valuesID.push(relatedItem[attr.attribute.rel_key]);
-                            valuesDisplay.push(relatedItem[attr.attribute.rel_display_attribute]);
-                          } else {
-                            if (importrow[attr.import_raw_header] !== '' && importrow[attr.import_raw_header] !== undefined) {
-                              //Item name does not exist so will be created if provided.
-                              valuesID.push('tbc');
-                              valuesDisplay.push(itemValue);
-                            }
-                          }
-                        }
-
-                        importApp[attr.attribute.name] = valuesID;
-                        importApp['__' + attr.attribute.name] = valuesDisplay;
-
-                      } else {
-                        //No values provided.
-                        importApp[attr.attribute.name] = [];
-                      }
-
-                    } else {
-                      //Not a multiselect relational value.
-                      let relatedItem = dataAll[attr.attribute.rel_entity].data.find(item => {
-                          if (item[attr.attribute.rel_display_attribute] && importrow[attr.import_raw_header]) {
-                            if (item[attr.attribute.rel_display_attribute].toLowerCase() === importrow[attr.import_raw_header].toLowerCase()) {
-                              return true;
-                            }
-                          }
-                        }
-                      )
-                      if (relatedItem) {
-                        importApp[attr.attribute.name] = relatedItem[attr.attribute.rel_key];
-                      } else {
-                        if (importrow[attr.import_raw_header] !== '' && importrow[attr.import_raw_header] !== undefined) {
-                          //Item name does not exist, so will be created if provided. Setting ID to 'tbc', once the related
-                          // record is created then this will be updated in the commit with the new records' ID.
-                          importApp[attr.attribute.name] = 'tbc'
-                          importApp['__' + attr.attribute.name] = importrow[attr.import_raw_header];
-                        }
-                      }
-                    }
-                  } else if (relationshipValueType === 'id') {
-                    //related attribute display value not present in import, ID has been provided.
-
-                    if (importrow[attr.import_raw_header] !== '' && importrow[attr.import_raw_header] !== undefined) {
-                      //ID is being provided instead of display value.
-                      if (attr.attribute.listMultiSelect) {
-                        importApp[attr.attribute.name] = importrow[attr.import_raw_header].split(";");
-                      } else {
-                        importApp[attr.attribute.name] = importrow[attr.import_raw_header];
-                      }
-                    }
-                  } else{
-                    console.log('UNHANDLED: relationship type not found.')
-                  }
-                }
+                addImportRowValuesToImportSummaryRecord(schema_name, attr, importRow, importRecord)
               }
 
-              if (dataAll[schema_name].data.some(item => item[keyAttribute.attribute.name].toLowerCase() === distinct[schema_name][itemIdx].toLowerCase())) {
-                //If [schema]_name is being imported then we get the item by name and then use the id from it.
-                let item_id = -1;
-                let item_name = null;
-                let item = dataAll[schema_name].data.find(item => {
-                    if (item[keyAttribute.attribute.name]) {
-                      if (item[keyAttribute.attribute.name].toLowerCase() === distinct[schema_name][itemIdx].toLowerCase()) {
-                        return true;
-                      }
-                    }
-                  }
-                )
-
-                if (item) {
-                  item_id = item[temp_schema_name + '_id'];
-                  item_name = item[temp_schema_name + '_name'];
-                }
-
-                let changesItemWithCalc = getChanges(importApp, dataAll[schema_name].data, keyAttribute.attribute.name, true)
-                let changesItem = getChanges(importApp, dataAll[schema_name].data, keyAttribute.attribute.name, false)
-
-                if (changesItem) {
-                  //Create a temporary item that has all updates and validate.
-                  let newItem = Object.assign({}, item);
-
-                  //Update temp object with changes.
-                  const keys = Object.keys(changesItem);
-                  for (let key of keys){
-                    newItem[key] = changesItem[key];
-                  }
-                  let check = checkValidItemCreate(newItem, props.schema[schema_name])
-
-                  //Add appid to item.
-                  if (check === null) {
-                    changesItemWithCalc[temp_schema_name + '_id'] = item_id;
-                    changesItemWithCalc[temp_schema_name + '_name'] = item_name;
-                    result.entities[schema_name].Update.push(changesItemWithCalc);
-                    result.hasUpdates = true;
-                  } else {
-                    //Errors found on requirements check, log errors against data row.
-
-                    let importRow = items.data.find(item => {
-                        if (item[keyAttribute.import_raw_header]) {
-                          if (item[keyAttribute.import_raw_header].toLowerCase() === distinct[schema_name][itemIdx].toLowerCase()) {
-                            return true;
-                          }
-                        }
-                      }
-                    )
-
-                    for (const error of check) {
-                      importRow['__validation']['errors'].push({
-                        attribute: error.name,
-                        error: "Missing required " + schema_name + " attribute: " + error.name
-                      });
-                    }
-                  }
-                } else {
-                  let NoChangeItem = {};
-                  NoChangeItem[temp_schema_name + '_name'] = item_name
-                  result.entities[schema_name].NoChange.push(NoChangeItem);
-                }
-
+              if (dataAll[schema_name].data.some(dataItem => dataItem[keyAttribute.attribute.name].toLowerCase() === importedRecordKeyValue.toLowerCase())) {
+                addImportedRecordExistingToSummary(schema_name,keyAttribute,importedRecordKeyValue,importRecord,result,importRow);
               } else {
-                //1. Get required schema attributes for this entity type.
-                //2. check returned required attributes against the list of attributes supplied in attributeMappings.
-                //3. if there are missing required attributes add an error to the record/row.
-                //4. recheck that values have been provided for all required attributes. Add errors to record/row if they do not have values.
-                //5. Do not add to Create array.
-                // Note: this check might need to be done with updates to once the ability to clear values is implemented.
-
-                //Check the entity is valid, i.e. it has the user key defined, if not, do not add as this is not something the user is looking to create.
-
-                if (keyAttribute.attribute.name in importApp && importApp[keyAttribute.attribute.name] !== '') {
-                  let check = checkValidItemCreate(importApp, props.schema[schema_name])
-
-                  if (check === null) {
-                    //No errors on item add to create array.
-                    result.entities[schema_name].Create.push(importApp);
-                    result.hasUpdates = true;
-                  } else {
-                    //Errors found on requirements check, log errors against data row.
-
-                    let importRow = items.data.find(item => {
-                        if (item[keyAttribute.import_raw_header]) {
-                          if (item[keyAttribute.import_raw_header].toLowerCase() === distinct[schema_name][itemIdx].toLowerCase()) {
-                            return true;
-                          }
-                        }
-                      }
-                    )
-
-                    for (const error of check) {
-                      importRow['__validation']['errors'].push({
-                        attribute: error.name,
-                        error: "Missing required " + schema_name + " attribute: " + error.name
-                      });
-                    }
-                  }
-                } else {
-                  //Name not provided.
-                  console.log('_name not provided.')
-
-                }
+                addImportedRecordCreateToSummary(schema_name,keyAttribute,importedRecordKeyValue,importRecord,result,importRow);
               }
             } else {
               //Not an issue as validation errors would have been recorded.
@@ -1040,7 +1058,7 @@ const UserImport = (props) => {
     }
 
     //Pass attribute mappings back as needed to build table columns and config.
-    result.attributeMappings = items.attributeMappings;
+    result.attributeMappings = dataJson.attributeMappings;
 
     return result;
   }
@@ -1086,7 +1104,6 @@ const UserImport = (props) => {
     } else {
       //Only a single entry with this item no need to check.
       finalItem = arrayItems[0];
-      misMatchFound = false;
     }
 
     if (misMatchFound) {
@@ -1203,7 +1220,10 @@ const UserImport = (props) => {
     if (outputCommitErrors.length > 0) {
       let errors = outputCommitErrors.map(errorItem => (
         <ExpandableSection
-          header={errorItem.itemType + " - " + errorItem.error}>{JSON.stringify(errorItem.item)}</ExpandableSection>
+          key={errorItem.itemType + " - " + errorItem.error}
+          headerText={errorItem.itemType + " - " + errorItem.error}>
+          {JSON.stringify(errorItem.item)}
+        </ExpandableSection>
       ))
 
       handleNotification({
@@ -1211,7 +1231,7 @@ const UserImport = (props) => {
         type: 'error',
         dismissible: true,
         header: "Import of file '" + importName + "' had " + outputCommitErrors.length + " errors.",
-        content: <ExpandableSection header='Error details'>{errors}</ExpandableSection>
+        content: <ExpandableSection headerText='Error details'>{errors}</ExpandableSection>
       });
     } else {
       handleNotification({
@@ -1223,9 +1243,18 @@ const UserImport = (props) => {
     }
   }
 
-  function performValueValidation (attribute, value) {
+  function getCurrentErrorMessage() {
 
-    const stdErrorMulti = "If multiple values supplied, they must be separated by a semi-colon, without spaces."
+    if (selectedFile && errorFile.length === 0){
+      return null;
+    } else if (errorFile.length > 0) {
+      return 'Error with file : ' + errorFile.join();
+    } else {
+      return 'No file selected'
+    }
+  }
+
+  function performValueValidation (attribute, value) {
 
     //Exit if attribute is not defined or null.
     if(!attribute.attribute && value !== '')
@@ -1250,18 +1279,11 @@ const UserImport = (props) => {
         break;
       case 'relationship':
         errorMsg = validateValue(value, attribute.attribute)
-
-        // if(value !== '' && value !== undefined && value !== null) {
-        //   let relatedRecord = getRelationshipRecord(attribute, value);
-        //   if (relatedRecord === null){
-        //     errorMsg = 'Related record not found based on value provided.';
-        //   }
-        // }
         break;
       case 'json':
         if (value) {
           try{
-            let testJSON = JSON.parse(value);
+            JSON.parse(value);
           } catch (objError) {
             if (objError instanceof SyntaxError) {
               console.error(objError.name);
@@ -1283,6 +1305,63 @@ const UserImport = (props) => {
       return null;
   }
 
+  async function convertExcelToJSON(selectedFile){
+    let data = await readXLSXFile(selectedFile)
+    let workbook = XLSX.read(data)
+    let sheet = null;
+    if (selectedSheet) {
+      if (workbook.Sheets[selectedSheet]) {
+        sheet = workbook.Sheets[selectedSheet];
+      } else {
+        sheet = workbook.Sheets[workbook.SheetNames[0]];
+      }
+    } else {
+      sheet = workbook.Sheets[workbook.SheetNames[0]];
+    }
+    //Convert all numbers to text.
+    Object.keys(sheet).forEach(function (s) {
+      if (sheet[s].t === 'n') {
+        delete sheet[s].w;
+        sheet[s].z = '0';
+        sheet[s].t = 's';
+        sheet[s].w = sheet[s].v.toString()
+        sheet[s].v = sheet[s].v.toString()
+      }
+    });
+
+    return XLSX.utils.sheet_to_json(sheet);
+  }
+
+
+//Function to remove null key values from json object array.
+  function removeNullKeys(dataJson) {
+    for (let i = 0; i < dataJson.length; i++) {
+      for (let key in dataJson[i]) {
+        if (dataJson[i][key] === null || dataJson[i][key] === "") {
+          delete dataJson[i][key];
+        }
+      }
+    }
+    return dataJson;
+  }
+
+  function updateProcessingResultCounts(dataJson){
+    let errorCount = dataJson.data.reduce((accumulator, currentValue, currentIndex, array) => {
+      return currentValue['__validation'].errors ? accumulator + currentValue['__validation'].errors.length : accumulator + 0
+    }, 0);
+    setErrors(errorCount);
+
+    let warningCount = dataJson.data.reduce((accumulator, currentValue, currentIndex, array) => {
+      return currentValue['__validation'].warnings ? accumulator + currentValue['__validation'].warnings.length : accumulator + 0
+    }, 0);
+    setWarnings(warningCount);
+
+    let infromationalCount = dataJson.data.reduce((accumulator, currentValue, currentIndex, array) => {
+      return currentValue['__validation'].informational ? accumulator + currentValue['__validation'].informational.length : accumulator + 0
+    }, 0);
+    setInformational(infromationalCount);
+  }
+
   useEffect( () => {
     let dataJson = []
 
@@ -1296,35 +1375,14 @@ const UserImport = (props) => {
 
           dataJson = csv.toObjects(data);
         } else if (selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls')) {
-          let data = await readXLSXFile(selectedFile)
-          let workbook = XLSX.read(data)
-          let sheet = null;
-          if (selectedSheet) {
-            if (workbook.Sheets[selectedSheet]) {
-              sheet = workbook.Sheets[selectedSheet];
-            } else {
-              sheet = workbook.Sheets[workbook.SheetNames[0]];
-            }
-          } else {
-            sheet = workbook.Sheets[workbook.SheetNames[0]];
-          }
-          //Convert all numbers to text.
-          Object.keys(sheet).forEach(function (s) {
-            if (sheet[s].t === 'n') {
-              delete sheet[s].w;
-              sheet[s].z = '0';
-              sheet[s].t = 's';
-              sheet[s].w = sheet[s].v.toString()
-              sheet[s].v = sheet[s].v.toString()
-            }
-          });
-
-          dataJson = XLSX.utils.sheet_to_json(sheet)
+          dataJson = await convertExcelToJSON(selectedFile);
         } else {
           //unsupported format of file.
-          console.log(selectedFile.name + " - Unsupported file type.")
+          console.error(selectedFile.name + " - Unsupported file type.")
           setErrorFile(['Unsupported file type.'])
         }
+
+        dataJson = removeNullKeys(dataJson);
 
         let columnsNotFound = []
 
@@ -1336,20 +1394,7 @@ const UserImport = (props) => {
 
           setSummary(getSummary(dataJson));
 
-          let errorCount = dataJson.data.reduce((accumulator, currentValue, currentIndex, array) => {
-            return currentValue['__validation'].errors ? accumulator + currentValue['__validation'].errors.length : accumulator + 0
-          }, 0);
-          setErrors(errorCount);
-
-          let warningCount = dataJson.data.reduce((accumulator, currentValue, currentIndex, array) => {
-            return currentValue['__validation'].warnings ? accumulator + currentValue['__validation'].warnings.length : accumulator + 0
-          }, 0);
-          setWarnings(warningCount);
-
-          let infromationalCount = dataJson.data.reduce((accumulator, currentValue, currentIndex, array) => {
-            return currentValue['__validation'].informational ? accumulator + currentValue['__validation'].informational.length : accumulator + 0
-          }, 0);
-          setInformational(infromationalCount);
+          updateProcessingResultCounts(dataJson);
 
           setItems(dataJson.data);
         }
@@ -1377,7 +1422,7 @@ const UserImport = (props) => {
         exportClick={handleDownloadTemplate}
         committed={committed}
         committing={committing}
-        errorMessage={selectedFile && errorFile.length === 0 ? null : errorFile.length > 0 ? 'Error with file : ' + errorFile.join() : 'No file selected'}
+        errorMessage={getCurrentErrorMessage()}
         selectedSheetName={selectedSheet}
         sheetNames={sheetNames}
         sheetChange={setSelectedSheet}
@@ -1447,7 +1492,11 @@ const ImportCompletion = (props) => {
             type="error"
             header={"Errors returned during upload of " + props.commitErrors.length + " records."}>
             {props.commitErrors.map(errorItem => (
-              <ExpandableSection header={errorItem.itemType + " - " + errorItem.error}>{JSON.stringify(errorItem.item)}</ExpandableSection>
+              <ExpandableSection
+                key={errorItem.itemType + " - " + errorItem.error}
+                header={errorItem.itemType + " - " + errorItem.error}>
+                {JSON.stringify(errorItem.item)}
+              </ExpandableSection>
             ))}
           </Alert>
           <Alert

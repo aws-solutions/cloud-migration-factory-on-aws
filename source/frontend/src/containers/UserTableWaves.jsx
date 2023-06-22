@@ -12,7 +12,7 @@ import {
   getChanges, getNestedValuePath, userAutomationActionsMenuItems
 } from '../resources/main.js'
 
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 
 
 import {
@@ -37,6 +37,91 @@ import AllViewerAttributes from "../components/ui_attributes/AllViewerAttributes
 import Audit from "../components/ui_attributes/Audit";
 import {parsePUTResponseErrors} from "../resources/recordFunctions";
 
+const Viewer = (props) => {
+  const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
+  function getCurrentWaveApplications() {
+
+    if (props.selectedItems.length === 1) {
+      let apps = props.dataAll.application.data.filter(function (entry) {
+        return entry.wave_id === props.selectedItems[0].wave_id;
+      });
+
+      if ( apps.length > 0){
+        return apps;
+      } else {
+        return [];
+      }
+    }
+  }
+
+  function getCurrentWaveServers() {
+
+    if (props.selectedItems.length === 1) {
+
+      let apps = getCurrentWaveApplications();
+      let servers = [];
+
+      for(let item in apps) {
+        let lservers = props.dataAll.server.data.filter(function (entry) {
+          return entry.app_id === apps[item].app_id;
+        });
+
+        servers = servers.concat(lservers);
+      }
+
+      if ( servers.length > 0){
+        return servers;
+      } else {
+        return [];
+      }
+    }
+  }
+
+  function getCurrentWaveJobs() {
+
+    if (props.selectedItems.length === 1) {
+      let jobs = props.dataAll.job.data.filter(function (entry) {
+        //Return only jobs that have an argument with a Waveid matching the currently selected wave_id.
+        if (entry.script.script_arguments) {
+          return entry.script.script_arguments.Waveid === props.selectedItems[0].wave_id;
+        } else
+        {
+          return false;
+        }
+      });
+
+      if ( jobs.length > 0){
+        return jobs;
+      } else {
+        return [];
+      }
+    }
+  }
+
+  async function handleViewerTabChange(tabselected)
+  {
+    setViewerCurrentTab(tabselected);
+  }
+
+  if (props.selectedItems.length === 1) {
+
+    return (
+      //<div></div>
+      <WaveView {...props}
+                wave={props.selectedItems[0]}
+                dataAll={props.dataAll}
+                apps={{items: getCurrentWaveApplications(), isLoading:  props.dataAll.application.isLoading, error: props.dataAll.application.error, handleSelectionChange: undefined}}
+                servers={{items: getCurrentWaveServers(), isLoading:  props.dataAll.server.isLoading, error: props.dataAll.server.error, handleSelectionChange: undefined}}
+                jobs={{items: getCurrentWaveJobs(), isLoading:  props.dataAll.job.isLoading, error: props.dataAll.job.error}}
+                handleTabChange={handleViewerTabChange}
+                selectedTab={viewerCurrentTab}
+      />
+    );
+  } else {
+    return (null);
+  }
+}
+
 const UserWaveTable = (props) => {
   let location = useLocation()
   let navigate = useNavigate();
@@ -44,20 +129,17 @@ const UserWaveTable = (props) => {
 
   //Data items for viewer and table.
   const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, { update: updateWaves }] = useMFWaves();
-  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }, { update: updateApps }] = useMFApps();
-  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }, { update: updateServers }] = useGetServers();
-  const [{ isLoading: isLoadingJobs, data: dataJobs, error: errorJobs }, {update: updateJobs } ] = useAutomationJobs();
+  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }, ] = useMFApps();
+  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }, ] = useGetServers();
+  const [{ isLoading: isLoadingJobs, data: dataJobs, error: errorJobs }, ] = useAutomationJobs();
 
-  const dataAll = { application: {data: dataApps, isLoading: isLoadingApps, error: errorApps}, server: {data: dataServers, isLoading: isLoadingServers, error: errorServers}, wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}};
+  const dataAll = { job: {data: dataJobs, isLoading: isLoadingJobs, error: errorJobs}, application: {data: dataApps, isLoading: isLoadingApps, error: errorApps}, server: {data: dataServers, isLoading: isLoadingServers, error: errorServers}, wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}};
 
-  //Layout state management.
-  const [editingItem, setEditingItem] = useState(false);
   //Main table state management.
   const [selectedItems, setSelectedItems] = useState([]);
   const [focusItem, setFocusItem] = useState([]);
 
   //Viewer pane state management.
-  const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
   const [action, setAction] = useState('View');
   const [actions, setActions] = useState([]); //Actions menu dropdown options.
   const [automationAction, setAutomationAction] = useState(undefined);
@@ -92,8 +174,6 @@ const UserWaveTable = (props) => {
     })
     setAction('Add')
     setFocusItem({});
-    setEditingItem(true);
-
   }
 
   function handleDownloadItems()
@@ -115,21 +195,14 @@ const UserWaveTable = (props) => {
       })
       setAction('Edit')
       setFocusItem(selectedItems[0]);
-      setEditingItem(true);
     } else if ( selection ) {
      navigate({
         pathname: basePath + '/edit/' + selection[itemIDKey]
       })
       setFocusItem(selection);
-      setAction('Edit')
-      setEditingItem(true);
+      setAction('Edit');
     }
 
-  }
-
-  async function handleViewerTabChange(tabselected)
-  {
-      setViewerCurrentTab(tabselected);
   }
 
   function handleResetScreen()
@@ -137,8 +210,7 @@ const UserWaveTable = (props) => {
    navigate({
       pathname: basePath
     })
-    setAction('View')
-    setEditingItem(false);
+    setAction('View');
   }
 
   function handleItemSelectionChange(selection) {
@@ -155,34 +227,6 @@ const UserWaveTable = (props) => {
       pathname: basePath
     })
 
-  }
-
-  async function handleItemSelectionChangeApps(selection) {
-
-    if (selection.length > 0) {
-
-      setFocusSubItem({item: selection[0], schema: "application", recordId: selection[0].app_id});
-
-      showLinkedRecord();
-    }
-    else
-    {
-      setFocusSubItem(undefined);
-    }
-  }
-
-  async function handleItemSelectionChangeServers(selection) {
-
-    if (selection.length > 0) {
-
-      setFocusSubItem({item: selection[0], schema: "server", recordId: selection[0].server_id});
-
-      showLinkedRecord();
-    }
-    else
-    {
-      setFocusSubItem(undefined);
-    }
   }
 
   async function handleAction(actionData, actionId) {
@@ -209,7 +253,7 @@ const UserWaveTable = (props) => {
 
         if (apiAction[0].additionalData){
           const keys = Object.keys(apiAction[0].additionalData);
-          for (var i in keys){
+          for (const i in keys){
             newItem[keys[i]] = apiAction[0].additionalData[keys[i]]
           }
         }
@@ -314,12 +358,12 @@ const UserWaveTable = (props) => {
         delete newItem.wave_id;
         const session = await Auth.currentSession();
         const apiUser = new User(session);
-        var result = await apiUser.putItem(wave_id, newItem, 'wave');
+        let resultEdit = await apiUser.putItem(wave_id, newItem, 'wave');
 
-        if (result['errors']) {
+        if (resultEdit['errors']) {
           console.debug("PUT " + schemaName + " errors");
-          console.debug(result['errors']);
-          let errorsReturned = parsePUTResponseErrors(result['errors']);
+          console.debug(resultEdit['errors']);
+          let errorsReturned = parsePUTResponseErrors(resultEdit['errors']);
           handleNotification({
             type: 'error',
             dismissible: true,
@@ -348,12 +392,12 @@ const UserWaveTable = (props) => {
         const session = await Auth.currentSession();
         const apiUser = new User(session);
         delete newItem.wave_id;
-        var result = await apiUser.postItem(newItem, 'wave');
+        let resultAdd = await apiUser.postItem(newItem, 'wave');
 
-        if (result['errors']) {
+        if (resultAdd['errors']) {
           console.debug("PUT " + schemaName + " errors");
-          console.debug(result['errors']);
-          let errorsReturned = parsePUTResponseErrors(result['errors']);
+          console.debug(resultAdd['errors']);
+          let errorsReturned = parsePUTResponseErrors(resultAdd['errors']);
           handleNotification({
             type: 'error',
             dismissible: true,
@@ -396,65 +440,6 @@ const UserWaveTable = (props) => {
         header: "Save " + schemaName,
         content: (response)
       });
-    }
-  }
-
-  function getCurrentWaveApplications() {
-
-    if (selectedItems.length === 1) {
-      let apps = dataApps.filter(function (entry) {
-        return entry.wave_id === selectedItems[0].wave_id;
-      });
-
-      if ( apps.length > 0){
-        return apps;
-      } else {
-        return [];
-      }
-    }
-  }
-
-  function getCurrentWaveServers() {
-
-    if (selectedItems.length === 1) {
-
-      let apps = getCurrentWaveApplications();
-      let servers = [];
-
-      for(let item in apps) {
-        let lservers = dataServers.filter(function (entry) {
-          return entry.app_id === apps[item].app_id;
-        });
-
-        servers = servers.concat(lservers);
-      }
-
-      if ( servers.length > 0){
-        return servers;
-      } else {
-        return [];
-      }
-    }
-  }
-
-  function getCurrentWaveJobs() {
-
-    if (selectedItems.length === 1) {
-      let jobs = dataJobs.filter(function (entry) {
-        //Return only jobs that have an argument with a Waveid matching the currently selected wave_id.
-        if (entry.script.script_arguments) {
-          return entry.script.script_arguments.Waveid === selectedItems[0].wave_id;
-        } else
-        {
-          return false;
-        }
-      });
-
-      if ( jobs.length > 0){
-        return jobs;
-      } else {
-        return [];
-      }
     }
   }
 
@@ -570,29 +555,6 @@ const UserWaveTable = (props) => {
     }
   }, [props.schema]);
 
-  const Viewer = (props) => {
-
-    const [selectedItemsViewer, lsetSelectedItemsViewer] = useState([]);
-
-    if (selectedItems.length === 1) {
-
-      return (
-        //<div></div>
-        <WaveView {...props}
-            wave={selectedItems[0]}
-            dataAll={dataAll}
-            apps={{items: getCurrentWaveApplications(), isLoading:  isLoadingApps, error: errorApps, handleSelectionChange: handleItemSelectionChangeApps}}
-            servers={{items: getCurrentWaveServers(), isLoading:  isLoadingServers, error: errorServers, handleSelectionChange: handleItemSelectionChangeServers}}
-            jobs={{items: getCurrentWaveJobs(), isLoading:  isLoadingJobs, error: errorJobs}}
-            handleTabChange={handleViewerTabChange}
-            selectedTab={viewerCurrentTab}
-          />
-      );
-    } else {
-      return (null);
-    }
-  }
-
   function provideContent(currentAction){
 
     if(props.schemaIsLoading || !props.isReady){
@@ -637,7 +599,11 @@ const UserWaveTable = (props) => {
               userAccess={props.userEntityAccess}
               setHelpPanelContent={props.setHelpPanelContent}
               />
-            <Viewer {...props}/>
+            <Viewer
+              {...props}
+              selectedItems={selectedItems}
+              dataAll={dataAll}
+            />
           </SpaceBetween>
         )
 

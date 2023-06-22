@@ -8,7 +8,7 @@ import {
   requestSuccessful,
   reducer
 } from '../resources/reducer';
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 import { useReducer, useEffect } from 'react';
 
 export const useCredentialManager = () => {
@@ -20,7 +20,7 @@ export const useCredentialManager = () => {
 
   async function getSecretList() {
     const myAbortController = new AbortController();
-    var credentialManagerData = [];
+    let credentialManagerData = [];
 
     dispatch(requestStarted());
 
@@ -35,7 +35,7 @@ export const useCredentialManager = () => {
         signal: myAbortController.signal
       };
 
-      var response = await fetch(window.env.API_TOOLS + "/credentialmanager", options);
+      let response = await fetch(window.env.API_TOOLS + "/credentialmanager", options);
       credentialManagerData = await response.json();
 
       dispatch(requestSuccessful({ data: credentialManagerData }));

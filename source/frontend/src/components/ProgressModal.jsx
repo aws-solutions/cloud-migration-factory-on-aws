@@ -3,22 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom'
 import {
   Modal,
   Button,
   SpaceBetween,
   Box,
-  Container,
-  Header,
-  FormField,
-  Input,
-  Select,
-  Checkbox,
-  Alert,
-  ExpandableSection,
-  Link,
   ProgressBar
 } from '@awsui/components-react';
 

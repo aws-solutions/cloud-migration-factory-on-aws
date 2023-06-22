@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useEffect, useState} from 'react';
+import React, {useEffect} from 'react';
 import { exportAll } from '../resources/main.js';
 
 import {
@@ -15,16 +15,15 @@ import { useMFApps } from "../actions/ApplicationsHook";
 import { useGetServers } from "../actions/ServersHook.js";
 import { useMFWaves } from "../actions/WavesHook.js";
 import { useGetDatabases} from "../actions/DatabasesHook";
-import { useProgressModal } from "../actions/ProgressModalHook.js";
 
 const UserExport = (props) => {
 
   //Data items for viewer and table.
-  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }, { update: updateApps }] = useMFApps();
-  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }, { update: updateServers }] = useGetServers();
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, { update: updateWaves }] = useMFWaves();
-  const [{ isLoading: isLoadingDBs, data: dataDBs, error: errorDbs }, { update: updateDBs }] = useGetDatabases();
-  const { show: showCommitProgress, hide: hideCommitProgress, setProgress: setImportProgress, RenderModal: CommitProgressModel } = useProgressModal()
+  const [{ isLoading: isLoadingApps, data: dataApps}, ] = useMFApps();
+  const [{ isLoading: isLoadingServers, data: dataServers}, ] = useGetServers();
+  const [{ isLoading: isLoadingWaves, data: dataWaves}, ] = useMFWaves();
+  const [{ isLoading: isLoadingDBs, data: dataDBs}, ] = useGetDatabases();
+
 
   function exportClick() {
 
@@ -39,7 +38,7 @@ const UserExport = (props) => {
   }
 
   //Check if any data is still loading and disable download button.
-  let dataLoading = isLoadingApps || isLoadingServers || isLoadingWaves
+  let dataLoading = isLoadingApps || isLoadingServers || isLoadingWaves || isLoadingDBs;
 
   //Update help tools panel.
   useEffect(() => {

@@ -12,7 +12,7 @@ import {
 
 import { useReducer, useEffect } from 'react';
 
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 import Admin from "../actions/admin";
 
 export const useSchema = () => {
@@ -37,8 +37,8 @@ export const useSchema = () => {
 
   async function update() {
     const myAbortController = new AbortController();
-    var schema = {};
-    var schemaMetadata = [];
+    let schema = {};
+    let schemaMetadata = [];
 
     if (state.schema !== null && state.schemaMetadata !== null ){
       console.log('schema refresh started');

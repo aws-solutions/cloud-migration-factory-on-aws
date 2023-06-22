@@ -114,7 +114,7 @@ export function checkAttributeRequiredConditions(item, conditions){
             break;
         }
       }
-  } else {
+  } else if (queryResult !== null){
     if ('false' in conditions.outcomes)
       for (const outcome of conditions.outcomes['false']) {
         switch (outcome) {
@@ -280,23 +280,23 @@ export function parsePUTResponseErrors(errors){
   let returnMessage = [];
   //Check for validation errors.
   if (errors.validation_errors && errors.validation_errors.length > 0){
-    for (var error of errors.validation_errors){
-      for (var error_detail in error){
+    for (const error of errors.validation_errors){
+      for (const error_detail in error){
         returnMessage.push(error_detail + ' : ' + error[error_detail].join());
       }
     }
   }
   //Check for duplication errors.
   if (errors.existing_name && errors.existing_name.length > 0){
-    for (var error of errors.existing_name){
+    for (const error of errors.existing_name){
         returnMessage.push(error +  " already exists.");
     }
   }
 
   //Check for unprocessed put errors.
   if (errors.unprocessed_items && errors.unprocessed_items.length > 0){
-    for (var error of errors.unprocessed_items){
-      for (var error_detail in error){
+    for (const error of errors.unprocessed_items){
+      for (const error_detail in error){
         returnMessage.push(error_detail + ' : ' + error[error_detail].join());
       }
     }
@@ -304,7 +304,7 @@ export function parsePUTResponseErrors(errors){
 
   // This is an array of errors,
   if (Array.isArray(errors)){
-    for (let error of errors){
+    for (const error of errors){
       if(error.cause){
         //If cause key exists populate with string.
         returnMessage.push(error.cause);

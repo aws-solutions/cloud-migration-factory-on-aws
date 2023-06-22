@@ -27,6 +27,9 @@ Parameters:
     AllowedPattern: "[-a-z0-9]*"
     ConstraintDescription: Application parameter must be all lower case characters
 
+  LambdaLayerStdPythonLibs:
+    Type: String
+
 Resources:
   MigrationTrackerBucket:
     Type: AWS::S3::Bucket
@@ -716,8 +719,8 @@ Resources:
       WorkGroupConfiguration:
         EnforceWorkGroupConfiguration: true
         EngineVersion:
-          EffectiveEngineVersion: "Athena engine version 2"
-          SelectedEngineVersion: "Athena engine version 2"
+          EffectiveEngineVersion: "Athena engine version 3"
+          SelectedEngineVersion: "Athena engine version 3"
         PublishCloudWatchMetricsEnabled: false
         ResultConfiguration:
           EncryptionConfiguration:
@@ -747,9 +750,11 @@ Resources:
       FunctionName: !Sub ${Application}-${Environment}-TrackerGlueExecute
       Handler: "lambda_migrationtracker_glue_execute.lambda_handler"
       Role: !GetAtt LambdaTrackerIAMRole.Arn
-      Runtime: python3.8
+      Runtime: python3.10
       MemorySize: 128
       Timeout: 720
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -781,9 +786,11 @@ Resources:
       FunctionName: !Sub ${Application}-${Environment}-TrackerGlueScriptCopy
       Handler: "lambda_migrationtracker_glue_scriptcopy.lambda_handler"
       Role: !GetAtt LambdaCopyGlueScriptS3IamRole.Arn
-      Runtime: python3.8
+      Runtime: python3.10
       MemorySize: 128
       Timeout: 720
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -809,9 +816,11 @@ Resources:
       FunctionName: !Sub ${Application}-${Environment}-RunAthenaSavedQuery
       Handler: "lambda_run_athena_savedquery.lambda_handler"
       Role: !GetAtt LambdaRunAthenaQueryIAMRole.Arn
-      Runtime: python3.8
+      Runtime: python3.10
       MemorySize: 128
       Timeout: 720
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
     Metadata:
       cfn_nag:
         rules_to_suppress:

@@ -42,10 +42,15 @@ headers = {'Content-Type': 'application/json'}
 session = {}
 endpoint = '/api/latest/{}'
 
+REQUESTS_DEFAULT_TIMEOUT = 60
+
+
 def login(userapitoken, endpoint):
     login_data = {'userApiToken': userapitoken}
     r = requests.post(HOST + endpoint.format('login'),
-                  data=json.dumps(login_data), headers=headers)
+                      data=json.dumps(login_data),
+                      headers=headers,
+                      timeout=REQUESTS_DEFAULT_TIMEOUT)
     if r.status_code == 200:
         print("CloudEndure : You have successfully logged in")
         print("")
@@ -61,7 +66,9 @@ def login(userapitoken, endpoint):
     if r.history:
         endpoint = '/' + '/'.join(r.url.split('/')[3:-1]) + '/{}'
         r = requests.post(HOST + endpoint.format('login'),
-                      data=json.dumps(login_data), headers=headers)
+                          data=json.dumps(login_data),
+                          headers=headers,
+                          timeout=REQUESTS_DEFAULT_TIMEOUT)
                       
     session['session'] = r.cookies['session']
     try:

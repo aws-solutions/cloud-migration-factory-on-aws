@@ -479,12 +479,16 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
         # ebs_encrypted as checkbox
         # ebs_kms_key_id as string
         # termination_protection as checkbox
+        # termination_protection_test as checkbox
         # ebs_optimized as checkbox
         # instance_metadata_options_tags as checkbox
         # instance_metadata_options_http_endpoint as checkbox
         # instance_metadata_options_http_v6 as checkbox
         # instance_metadata_options_http_hop_limit as string
         # instance_metadata_options_http_tokens as checkbox
+        # tags_live as tag (these are combined with the tags attribute)
+        # tags_test as tag (these are combined with the tags attribute)
+        # server_boot_mode_uefi as checkbox
 
         # Update disk type
         ebs_volume_type = "gp3"
@@ -555,10 +559,6 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
         if metadata_options:
             new_launch_template['MetadataOptions'] = metadata_options
 
-        ## Update termination protection
-        if 'termination_protection' in factoryserver:
-            new_launch_template['DisableApiTermination'] = factoryserver['termination_protection']
-
         ## Enable EBS Optimization
         if 'ebs_optimized' in factoryserver:
             new_launch_template['EbsOptimized'] = factoryserver['ebs_optimized']
@@ -572,9 +572,15 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
             factoryserver['network_interface_id'] != '':
             live_eni_used = True
 
-        if 'network_interface_id_test' in factoryserver and factoryserver['network_interface_id'] is not None and \
+        if 'network_interface_id_test' in factoryserver and factoryserver['network_interface_id_test'] is not None and \
             factoryserver['network_interface_id_test'] != '':
             test_eni_used = True
+
+        if 'server_boot_mode_uefi' in factoryserver and factoryserver['server_boot_mode_uefi']:
+            mgn_client.update_launch_configuration(bootMode='UEFI', sourceServerID=factoryserver['source_server_id'])
+        else:
+            mgn_client.update_launch_configuration(bootMode='LEGACY_BIOS',
+                                                   sourceServerID=factoryserver['source_server_id'])
 
         ## update tenancy
         p_tenancy = {}
@@ -622,53 +628,22 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
             instance_profile_name = {}
             instance_profile_name['Arn'] = verify_instance_profile['InstanceProfile']['Arn']
             new_launch_template['IamInstanceProfile'] = instance_profile_name
-        ## update tags
-        if 'tags' in factoryserver:
-            for tags in new_launch_template['TagSpecifications']:
-                if tags['ResourceType'] == 'instance' or tags['ResourceType'] == 'volume':
-                    for item in factoryserver['tags']:
-                        if 'key' in item:
-                            item['Key'] = item['key']
-                            del item['key']
-                        if 'value' in item:
-                            item['Value'] = item['value']
-                            del item['value']
-                        TagExist = False
-                        for tag in tags['Tags']:
-                            if item['Key'].lower() == tag['Key'].lower():
-                                tag['Value'] = item['Value']
-                                TagExist = True
-                                log.info("Pid: " + str(os.getpid()) + " - Replaced existing value for tag: " + tag[
-                                    'Key'] + " on server: " + factoryserver['server_name'])
-                        if TagExist == False:
-                            tags['Tags'].append(item)
 
         ## Update Launch template with Test SG and subnet
         if action.strip() == "Launch Test Instances":
-            if test_eni_used:
-                ## update ENI if provided, removes other interfaces and replaces with ENI provided, this will use subnet and SGs defined for ENI.
-                network_interfaces = []
-                network_interface = {}
-                network_interface['NetworkInterfaceId'] = factoryserver['network_interface_id_test']
-                network_interface['DeviceIndex'] = 0
-                network_interfaces.append(network_interface)
-                new_launch_template['NetworkInterfaces'] = network_interfaces
-            else:
-                ## Update Subnet Id and security group Ids if no ENI provided.
-                for nic in new_launch_template['NetworkInterfaces']:
-                    if 'private_ip' in factoryserver:
-                        if factoryserver['private_ip'] is not None and factoryserver['private_ip'].strip() != '':
-                            ipaddrs = []
-                            ip = {}
-                            ip['Primary'] = True
-                            ip['PrivateIpAddress'] = factoryserver['private_ip']
-                            ipaddrs.append(ip)
-                            nic['PrivateIpAddresses'] = ipaddrs
 
-            if not test_eni_used:
-                for nic in new_launch_template['NetworkInterfaces']:
-                    nic['Groups'] = factoryserver['securitygroup_IDs_test']
-                    nic['SubnetId'] = factoryserver['subnet_IDs_test'][0]
+            # update tags into template
+            add_tags_to_launch_template(factoryserver, new_launch_template, 'test')
+
+            ## Update termination protection
+            if 'termination_protection_test' in factoryserver:
+                new_launch_template['DisableApiTermination'] = factoryserver['termination_protection_test']
+            else:
+                if 'DisableApiTermination' in new_launch_template:
+                    del new_launch_template['DisableApiTermination']
+
+            add_network_interfaces_to_launch_template(factoryserver, new_launch_template, True)
+
             log.info("Pid: " + str(os.getpid()) + " - *** Create New Test Launch Template data: ***")
             print(new_launch_template)
             new_template = ec2_client.create_launch_template_version(
@@ -687,32 +662,21 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
             set_default_ver = ec2_client.modify_launch_template(LaunchTemplateId=factoryserver['launch_template_id'],
                                                                 DefaultVersion=str(new_template_ver))
 
-        ## Update Launch template with Cutover SG and subnet
+        # Update Launch template with Cutover SG and subnet
         elif action.strip() == "Launch Cutover Instances":
-            if live_eni_used:
-                ## update ENI if provided, removes other interfaces and replaces with ENI provided, this will use subnet and SGs defined for ENI.
-                network_interfaces = []
-                network_interface = {}
-                network_interface['NetworkInterfaceId'] = factoryserver['network_interface_id']
-                network_interface['DeviceIndex'] = 0
-                network_interfaces.append(network_interface)
-                new_launch_template['NetworkInterfaces'] = network_interfaces
-            else:
-                ## Update Subnet Id and security group Ids if no ENI provided.
-                for nic in new_launch_template['NetworkInterfaces']:
-                    if 'private_ip' in factoryserver:
-                        if factoryserver['private_ip'] is not None and factoryserver['private_ip'].strip() != '':
-                            ipaddrs = []
-                            ip = {}
-                            ip['Primary'] = True
-                            ip['PrivateIpAddress'] = factoryserver['private_ip']
-                            ipaddrs.append(ip)
-                            nic['PrivateIpAddresses'] = ipaddrs
 
-            if not live_eni_used:
-                for nic in new_launch_template['NetworkInterfaces']:
-                    nic['Groups'] = factoryserver['securitygroup_IDs']
-                    nic['SubnetId'] = factoryserver['subnet_IDs'][0]
+            # update tags into template
+            add_tags_to_launch_template(factoryserver, new_launch_template, 'live')
+
+            ## Update termination protection
+            if 'termination_protection' in factoryserver:
+                new_launch_template['DisableApiTermination'] = factoryserver['termination_protection']
+            else:
+                if 'DisableApiTermination' in new_launch_template:
+                    del new_launch_template['DisableApiTermination']
+
+            add_network_interfaces_to_launch_template(factoryserver, new_launch_template, False)
+
             log.info("Pid: " + str(os.getpid()) + " - *** Create New Cutover Launch Template data: ***")
             print(new_launch_template)
             new_template = ec2_client.create_launch_template_version(
@@ -734,6 +698,18 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
         ## Validating Launch template with both test and cutover info
         elif action.strip() == "Validate Launch Template":
             status = False
+
+            # update tags into template
+            add_tags_to_launch_template(factoryserver, new_launch_template, 'test')
+
+            ## Update termination protection
+            if 'termination_protection_test' in factoryserver:
+                new_launch_template['DisableApiTermination'] = factoryserver['termination_protection_test']
+            else:
+                if 'DisableApiTermination' in new_launch_template:
+                    del new_launch_template['DisableApiTermination']
+
+            # Validate that the server does not have both ENI and Subnet specified.
             if test_eni_used and (
                 ('securitygroup_IDs_test' in factoryserver and factoryserver['securitygroup_IDs_test'] != '') or (
                 'subnet_IDs_test' in factoryserver and factoryserver['subnet_IDs_test'][0] != '')):
@@ -744,11 +720,8 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
                 log.error("Pid: " + str(os.getpid()) + " - " + msg)
                 return msg
 
-            if not test_eni_used:
-                ### Update Launch template with test SG and subnet
-                for nic in new_launch_template['NetworkInterfaces']:
-                    nic['Groups'] = factoryserver['securitygroup_IDs_test']
-                    nic['SubnetId'] = factoryserver['subnet_IDs_test'][0]
+            add_network_interfaces_to_launch_template(factoryserver, new_launch_template, True)
+
             log.info("Pid: " + str(os.getpid()) + " - *** Validate New Test Launch Template data: ***")
             print(new_launch_template)
             new_template_test = ec2_client.create_launch_template_version(
@@ -770,6 +743,16 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
             set_default_ver_test = ec2_client.modify_launch_template(
                 LaunchTemplateId=factoryserver['launch_template_id'], DefaultVersion=str(new_template_ver_test))
 
+            # update tags into template
+            add_tags_to_launch_template(factoryserver, new_launch_template, 'live')
+
+            ## Update termination protection
+            if 'termination_protection' in factoryserver:
+                new_launch_template['DisableApiTermination'] = factoryserver['termination_protection']
+            else:
+                if 'DisableApiTermination' in new_launch_template:
+                    del new_launch_template['DisableApiTermination']
+
             if live_eni_used and (
                 ('securitygroup_IDs' in factoryserver and factoryserver['securitygroup_IDs'] != '') or (
                 'subnet_IDs' in factoryserver and factoryserver['subnet_IDs'][0] != '')):
@@ -780,11 +763,8 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
                 log.error("Pid: " + str(os.getpid()) + " - " + msg)
                 return msg
 
-            if not live_eni_used:
-                ### Update Launch template with cutover SG and subnet
-                for nic in new_launch_template['NetworkInterfaces']:
-                    nic['Groups'] = factoryserver['securitygroup_IDs']
-                    nic['SubnetId'] = factoryserver['subnet_IDs'][0]
+            add_network_interfaces_to_launch_template(factoryserver, new_launch_template, False)
+
             log.info("Pid: " + str(os.getpid()) + " - *** Validate New Cutover Launch Template data: ***")
             print(new_launch_template)
             new_template_cutover = ec2_client.create_launch_template_version(
@@ -850,3 +830,92 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
 def chunks(l, n):
     for i in range(0, n):
         yield l[i::n]
+
+
+def add_tags_to_launch_template(factory_server, new_launch_template, additional_tags=None):
+    base_tags_key = 'tags'
+    factory_server_all_tags = []
+
+    # Add base tags to be added.
+    if base_tags_key in factory_server:
+        factory_server_all_tags.extend(factory_server[base_tags_key])
+
+    if additional_tags is not None:
+        cmf_tags_key = 'tags_' + additional_tags
+        if cmf_tags_key in factory_server:
+            factory_server_all_tags.extend(factory_server[cmf_tags_key])
+
+    # clear existing tags in template except AWS automatic tags.
+    for tags in new_launch_template['TagSpecifications']:
+        if tags['ResourceType'] == 'instance' or tags['ResourceType'] == 'volume':
+            remaining_tags = []
+            for tag in tags['Tags']:
+                log.debug("Pid: " + str(os.getpid()) + " - checking tag " + tag['Key'] + " on server: "
+                          + factory_server['server_name'])
+                if tag['Key'].lower().startswith('aws') or tag['Key'].lower() == 'name':
+                    # Removed tag as it is not AWS provided or called name
+                    log.debug("Pid: " + str(os.getpid()) + " - keeping tag " + tag['Key'] + " on server: "
+                              + factory_server['server_name'])
+                    remaining_tags.append(tag)
+            tags['Tags'] = remaining_tags
+
+    # add tags to template Tags
+    for tags in new_launch_template['TagSpecifications']:
+        if tags['ResourceType'] == 'instance' or tags['ResourceType'] == 'volume':
+            for item in factory_server_all_tags:
+                if 'key' in item:
+                    item['Key'] = item['key']
+                    del item['key']
+                if 'value' in item:
+                    item['Value'] = item['value']
+                    del item['value']
+                log.debug("Pid: " + str(os.getpid()) + " - checking tag: " + item['Value'] + " on server: "
+                          + factory_server['server_name'])
+                TagExist = False
+                for tag in tags['Tags']:
+                    if item['Key'].lower() == tag['Key'].lower():
+                        tag['Value'] = item['Value']
+                        TagExist = True
+                        log.info("Pid: " + str(os.getpid()) + " - Replaced existing value for tag: " + tag[
+                            'Key'] + " on server: " + factory_server['server_name'])
+                if TagExist == False:
+                    tags['Tags'].append(item)
+
+
+def add_network_interfaces_to_launch_template(factory_server, new_launch_template, use_test_nic_configuration=False):
+    eni_used = False
+    test_attribute_suffix = ''
+
+    if use_test_nic_configuration:
+        test_attribute_suffix = '_test'
+
+    # check if ENIs provided
+    if 'network_interface_id' + test_attribute_suffix in factory_server and factory_server['network_interface_id' + test_attribute_suffix] is not None and factory_server['network_interface_id' + test_attribute_suffix] != '':
+        eni_used = True
+
+    if eni_used:
+        # update ENI if provided, removes other interfaces and replaces with ENI provided, this will use subnet and SGs defined for ENI.
+        network_interfaces = []
+        network_interface = {}
+        network_interface['NetworkInterfaceId'] = factory_server['network_interface_id' + test_attribute_suffix]
+        network_interface['DeviceIndex'] = 0
+        network_interfaces.append(network_interface)
+        new_launch_template['NetworkInterfaces'] = network_interfaces
+    else:
+        # Update network interfaces with subnet, security groups and private IP addresses if specified.
+        for nic in new_launch_template['NetworkInterfaces']:
+            # Update private IP address if specified.
+            if 'private_ip' + test_attribute_suffix in factory_server and factory_server['private_ip' + test_attribute_suffix] is not None and factory_server['private_ip' + test_attribute_suffix].strip() != '':
+                ipaddrs = []
+                ip = {}
+                ip['Primary'] = True
+                ip['PrivateIpAddress'] = factory_server['private_ip' + test_attribute_suffix]
+                ipaddrs.append(ip)
+                nic['PrivateIpAddresses'] = ipaddrs
+            else:
+                if 'PrivateIpAddresses' in nic:
+                    del nic['PrivateIpAddresses']
+
+            # Update Subnet Id and security group Ids if no ENI provided.
+            nic['Groups'] = factory_server['securitygroup_IDs' + test_attribute_suffix]
+            nic['SubnetId'] = factory_server['subnet_IDs' + test_attribute_suffix][0]

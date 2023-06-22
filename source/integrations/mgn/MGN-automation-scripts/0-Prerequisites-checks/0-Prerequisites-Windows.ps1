@@ -1,18 +1,20 @@
-param ($MGNRepServerIP, $MGNEndpoint)
+param ($MGNRepServerIP, $MGNEndpoint, $S3Endpoint)
 
 function Get-TCPPort443
 {
     Param
     (
          [Parameter(Mandatory=$true)]
-         [string] $Ipaddress
+         [string] $Ipaddress,
+         [Parameter(Mandatory=$true)]
+         [string] $name
     )
     $Port= 443
 
     $t = New-Object Net.Sockets.TcpClient
     try {
     $t.Connect($Ipaddress,$Port)
-    write-output 'TCP443:Pass'
+    write-output "$name TCP443:Pass"
     }
     catch {
     $env_proxy = [Environment]::GetEnvironmentVariable('https_proxy')
@@ -28,10 +30,10 @@ function Get-TCPPort443
     Try {
     $url = "https://" + $Ipaddress
     $content=$WebClient.DownloadString($url)
-    write-output 'TCP443:Pass'
+    write-output "$name TCP443:Pass"
     } 
     catch {
-        write-output 'TCP443:Fail'
+        write-output "$name TCP443:Fail"
     }
     }
 }
@@ -69,6 +71,7 @@ function Get-DiskSpace
 
 }
 
-Get-TCPPort443 $MGNEndpoint
+Get-TCPPort443 $MGNEndpoint "MGNEndpoint"
+Get-TCPPort443 $S3Endpoint "S3Endpoint"
 Get-TCPPort1500 $MGNRepServerIP
 Get-DiskSpace

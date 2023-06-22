@@ -24,6 +24,7 @@ import argparse
 import requests
 import json
 import subprocess
+
 if not sys.warnoptions:
     import warnings
 with warnings.catch_warnings():
@@ -46,18 +47,47 @@ with open('FactoryEndpoints.json') as json_file:
 serverendpoint = mfcommon.serverendpoint
 appendpoint = mfcommon.appendpoint
 
+
 def get_factory_servers(waveid, token, UserHOST):
     try:
         linux_exist = False
         windows_exist = False
         auth = {"Authorization": token}
         # Get all Apps and servers from migration factory
-        getservers = json.loads(requests.get(UserHOST + serverendpoint, headers=auth).text)
-        #print(servers)
-        getapps = json.loads(requests.get(UserHOST + appendpoint, headers=auth).text)
-        #print(apps)
-        servers = sorted(getservers, key = lambda i: i['server_name'])
-        apps = sorted(getapps, key = lambda i: i['app_name'])
+        try:
+            servers_response = requests.get(UserHOST + serverendpoint,
+                                            headers=auth,
+                                            timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
+        except requests.exceptions.ConnectionError:
+            msg = f"ERROR: Could not connect to API endpoint {UserHOST}{serverendpoint}."
+            print(msg)
+            sys.exit()
+
+        if servers_response.status_code != 200:
+            msg = f"ERROR: Bad response from API {UserHOST}{serverendpoint}. {servers_response.text}"
+            print(msg)
+            sys.exit()
+
+        getservers = json.loads(servers_response.text)
+
+        try:
+            apps_response = requests.get(UserHOST + appendpoint,
+                                         headers=auth,
+                                         timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
+        except requests.exceptions.ConnectionError:
+            msg = f"ERROR: Could not connect to API endpoint {UserHOST}{appendpoint}."
+            print(msg)
+            sys.exit()
+
+        if apps_response.status_code != 200:
+            msg = f"ERROR: Bad response from API {UserHOST}{appendpoint}. {apps_response.text}"
+            print(msg)
+            sys.exit()
+
+        getapps = json.loads(apps_response.text)
+
+        servers = sorted(getservers, key=lambda i: i['server_name'])
+        apps = sorted(getapps, key=lambda i: i['app_name'])
 
         # Get Unique target AWS account and region
         aws_accounts = []
@@ -83,7 +113,8 @@ def get_factory_servers(waveid, token, UserHOST):
 
         # Get server list
         for account in aws_accounts:
-            print("### Servers in Target Account: " + account['aws_accountid'] + " , region: " + account['aws_region'] + " ###")
+            print("### Servers in Target Account: " + account['aws_accountid'] + " , region: " + account[
+                'aws_region'] + " ###")
             for app in apps:
                 if 'wave_id' in app and 'aws_accountid' in app and 'aws_region' in app:
                     if str(app['wave_id']) == str(waveid):
@@ -102,19 +133,23 @@ def get_factory_servers(waveid, token, UserHOST):
                                                         elif server['server_os_family'].lower() == 'linux':
                                                             account['servers_linux'].append(server)
                                                         else:
-                                                            print("ERROR: Invalid server_os_family for: " + server['server_name'] + ", please select either Windows or Linux")
+                                                            print("ERROR: Invalid server_os_family for: " + server[
+                                                                'server_name'] + ", please select either Windows or Linux")
                                                             sys.exit()
                                                         print(server['server_fqdn'])
                                                     else:
-                                                        print("ERROR: server_fqdn for server: " + server['server_name'] + " doesn't exist")
+                                                        print("ERROR: server_fqdn for server: " + server[
+                                                            'server_name'] + " doesn't exist")
                                                         sys.exit()
                                                 else:
-                                                    print("ERROR: server_os_family does not exist for: " + server['server_name'])
+                                                    print("ERROR: server_os_family does not exist for: " + server[
+                                                        'server_name'])
                                                     sys.exit()
             print("")
             # Check if the server list is empty for both Windows and Linux
             if len(account['servers_windows']) == 0 and len(account['servers_linux']) == 0:
-                msg = "ERROR: Server list for wave " + waveid + " and account: " + account['aws_accountid'] + " region: " + account['aws_region'] + " is empty...."
+                msg = "ERROR: Server list for wave " + waveid + " and account: " + account[
+                    'aws_accountid'] + " region: " + account['aws_region'] + " is empty...."
                 print(msg)
                 sys.exit()
             if len(account['servers_linux']) > 0:
@@ -136,9 +171,10 @@ def get_factory_servers(waveid, token, UserHOST):
             print(msg)
             sys.exit()
 
-def check_windows(parameters):
 
+def check_windows(parameters):
     MGNEndpoint = parameters["MGNEndpoint"]
+    S3Endpoint = parameters["S3Endpoint"]
     s = parameters["s"]
     MGNServerIP = parameters["MGNServerIP"]
     Domain_User = parameters["user_name"]
@@ -150,24 +186,26 @@ def check_windows(parameters):
     print("")
     windows_results = []
 
-    credentials = mfcommon.getServerCredentials(Domain_User, Domain_Password, s,secret_name, no_user_prompts)
-    #logger.debug("---------------------------------------------------------")
-    #logger.debug("-- Windows Server result for " + s['server_name'] + " --")
-    #logger.debug("---------------------------------------------------------")
+    credentials = mfcommon.getServerCredentials(Domain_User, Domain_Password, s, secret_name, no_user_prompts)
+    # logger.debug("---------------------------------------------------------")
+    # logger.debug("-- Windows Server result for " + s['server_name'] + " --")
+    # logger.debug("---------------------------------------------------------")
 
     s_result = {}
     final = ""
-    command = "Invoke-Command -ComputerName " + s["server_fqdn"] + " -FilePath 0-Prerequisites-Windows.ps1 -ArgumentList " + MGNServerIP + "," + MGNEndpoint
+    command = "Invoke-Command -ComputerName " + s["server_fqdn"] + \
+              " -FilePath 0-Prerequisites-Windows.ps1 -ArgumentList " + \
+              MGNServerIP + "," + MGNEndpoint + "," + S3Endpoint
     if credentials['username'] != "":
         if "\\" not in credentials['username'] and "@" not in credentials['username']:
-            #Assume local account provided, prepend server name to user ID.
+            # Assume local account provided, prepend server name to user ID.
             server_name_only = s["server_fqdn"].split(".")[0]
             credentials['username'] = server_name_only + "\\" + credentials['username']
-            #logger.debug("INFO: Using local account to connect: " + credentials['username'])
+            # logger.debug("INFO: Using local account to connect: " + credentials['username'])
         else:
             print("INFO: Using domain account to connect: " + credentials['username'])
-        command += " -Credential (New-Object System.Management.Automation.PSCredential('" + credentials['username'] + "', (ConvertTo-SecureString '" + credentials['password'] + "' -AsPlainText -Force)))"
-        #p_trustedhosts = subprocess.Popen(["powershell.exe", "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '" + s["server_fqdn"] + "' -Concatenate -Force"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        command += " -Credential (New-Object System.Management.Automation.PSCredential('" + credentials[
+            'username'] + "', (ConvertTo-SecureString '" + credentials['password'] + "' -AsPlainText -Force)))"
     p = subprocess.Popen(["powershell.exe", command], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = p.communicate()
     if output != "":
@@ -175,7 +213,7 @@ def check_windows(parameters):
         for r in returnlist:
             if r.strip() != "":
                 result = r.split(":")
-                s_result[result[0]] = result[1].replace("\r","")
+                s_result[result[0]] = result[1].replace("\r", "")
                 if "Pass" not in result[1]:
                     windows_fail = True
                     final = final + result[0] + ","
@@ -201,6 +239,7 @@ def check_windows(parameters):
     windows_results.append(s_result)
     return windows_results, windows_fail
 
+
 def check_ssh_connectivity(ip, user_name, pass_key, is_key, s_result):
     ssh, error = open_ssh(ip, user_name, pass_key, is_key)
     if ssh is None or len(error) > 0:
@@ -214,7 +253,7 @@ def check_ssh_connectivity(ip, user_name, pass_key, is_key, s_result):
         return None
     else:
         s_result["SSH 22 to source server"] = "Pass"
-        #logger.debug(" SSH 22 to source server : Pass")
+        # logger.debug(" SSH 22 to source server : Pass")
         return ssh
 
 
@@ -243,12 +282,16 @@ def check_sudo_permissions(ssh, s_result):
         print(" SUDO permission         : Fail")
     else:
         s_result["SUDO permission"] = "Pass"
-        #logger.debug(" SUDO permission         : Pass")
+        # logger.debug(" SUDO permission         : Pass")
 
-def check_tcp_connectivity(ssh, host, port, s_result):
+
+def check_tcp_connectivity(ssh, host, port, s_result, friendly_name=None):
     stderr = None
     stdout = None
-    check = "TCP" + str(port)
+    if friendly_name:
+        check = "%s-%s" % (friendly_name, str(port))
+    else:
+        check = "TCP" + str(port)
     ssh_err = ''
     if ssh is not None:
         cmd = "sudo timeout 2 bash -c '</dev/tcp/" + host + "/" + port + " && echo port is open || echo port is closed' || echo connection timeout"
@@ -274,7 +317,7 @@ def check_tcp_connectivity(ssh, host, port, s_result):
     if port == '1500':
         message = " TCP 1500 to Rep Server  : "
     elif port == '443':
-        message = " TCP 443 to MGN Endpoint : "
+        message = " TCP 443 to Endpoint : "
     else:
         message = "Incorrect port! "
 
@@ -284,7 +327,7 @@ def check_tcp_connectivity(ssh, host, port, s_result):
     if "refused" in ssh_err:
         s_result[check] = "Pass"
     if check in s_result:
-        #logger.debug(message + s_result[check])
+        # logger.debug(message + s_result[check])
         if s_result[check] == "Fail":
             if "final_result" in s_result:
                 s_result["final_result"] = s_result["final_result"] + check + ","
@@ -298,9 +341,10 @@ def check_tcp_connectivity(ssh, host, port, s_result):
             s_result["final_result"] = s_result["final_result"] + check + ","
         else:
             s_result["final_result"] = check + ","
-        print(message + "Fail", flush = True)
+        print(message + "Fail", flush=True)
 
-def check_freespace(ssh, dir, min,  s_result):
+
+def check_freespace(ssh, dir, min, s_result):
     stderr = None
     stdout = None
     ssh_err = ''
@@ -334,7 +378,7 @@ def check_freespace(ssh, dir, min,  s_result):
     if stderr:
         for err in stderr.readlines():
             ssh_err = ssh_err + err
-    if len(ssh_err) > 0 :
+    if len(ssh_err) > 0:
         s_result["error"] = ssh_err
         s_result[str(min) + " GB " + dir + " FreeSpace"] = "Fail"
         if "final_result" in s_result:
@@ -380,12 +424,12 @@ def check_dhclient(ssh, s_result):
         print(" DHCLIENT Package        : Fail")
     else:
         s_result["DHCLIENT Package"] = "Pass"
-        #logger.debug(" DHCLIENT Package        : Pass")
+        # logger.debug(" DHCLIENT Package        : Pass")
 
 
 def check_linux(parameters):
-
     MGNEndpoint = parameters["MGNEndpoint"]
+    S3Endpoint = parameters["S3Endpoint"]
     Servers_Linux = parameters["Servers_Linux"]
     MGNServerIP = parameters["MGNServerIP"]
     user_name = parameters["user_name"]
@@ -398,11 +442,11 @@ def check_linux(parameters):
     linux_fail = False
     linux_results = []
 
-    #logger.debug("")
-    #logger.debug("---------------------------------------------------------")
-    #logger.debug("-- Linux Server result for " + s['server_name'] + " --")
-    #logger.debug("---------------------------------------------------------")
-    #logger.debug("")
+    # logger.debug("")
+    # logger.debug("---------------------------------------------------------")
+    # logger.debug("-- Linux Server result for " + s['server_name'] + " --")
+    # logger.debug("---------------------------------------------------------")
+    # logger.debug("")
     s_result = {}
     s_result["server_id"] = s["server_id"]
     s_result["server_name"] = s["server_fqdn"]
@@ -418,8 +462,12 @@ def check_linux(parameters):
         check_sudo_permissions(ssh, s_result)
         if "SUDO permission" not in s_result["final_result"]:
             # Check if user is able to access Internet and
-            # connect to MGN Service Endpoint
-            check_tcp_connectivity(ssh, MGNEndpoint, '443', s_result)
+            # connect to MGN Service Endpoint, or private endpoint
+            check_tcp_connectivity(ssh, MGNEndpoint, '443', s_result, "MGNEndpoint")
+
+            # Check if user is able to access Internet and
+            # connect to S3 Endpoint, or private endpoint
+            check_tcp_connectivity(ssh, S3Endpoint, '443', s_result, "S3Endpoint")
 
             # Check if user is able to connect to TCP 1500
             # for a specific IP (user provide IP address)
@@ -434,7 +482,7 @@ def check_linux(parameters):
             # Check if dhclient package is installed.
             check_dhclient(ssh, s_result)
     if "error" in s_result:
-        print(s_result['error'], flush = True)
+        print(s_result['error'], flush=True)
         linux_fail = True
     # Closing ssh connection
     if ssh is not None:
@@ -480,25 +528,25 @@ def print_results(label, results, UserHOST, token, status):
     for result in results:
         print("")
         print("---------------------------------------------------------")
-        print("-- " + label +" Server result for " + result['server_name'] + " --")
+        print("-- " + label + " Server result for " + result['server_name'] + " --")
         print("---------------------------------------------------------")
         print("")
-        if result.get("error","") != "":
+        if result.get("error", "") != "":
             print(result["error"])
         else:
             output = ""
-            for k,v in result.items():
+            for k, v in result.items():
                 if k != None:
                     while len(k) < 35:
                         k = k + "."
-                    output = output + "\n" + k +": "+v
-            print(output, flush = True)
+                    output = output + "\n" + k + ": " + v
+            print(output, flush=True)
 
     print("")
     print("")
     print("")
     print("------------------------------------------------------------")
-    print("-- " + label +" server passed all Pre-requisites checks --")
+    print("-- " + label + " server passed all Pre-requisites checks --")
     print("------------------------------------------------------------")
     isEmpty = 0
     for result in results:
@@ -508,46 +556,50 @@ def print_results(label, results, UserHOST, token, status):
                     print("     " + result['server_name'])
                     serverattr = {"migration_status": "Pre-requisites check : Passed"}
                     update = requests.put(UserHOST + serverendpoint + '/' +
-                                          result['server_id'], headers={
-                        "Authorization": token}, data=json.dumps(serverattr))
+                                          result['server_id'],
+                                          headers={"Authorization": token},
+                                          data=json.dumps(serverattr),
+                                          timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
             else:
                 isEmpty = isEmpty + 1
     if len(results) == isEmpty:
         print("     No Server Passed")
-    print("", flush = True)
+    print("", flush=True)
 
     if status:
         print("")
         print("-------------------------------------------------------------")
         print("-- " + label + " server failed one or more Pre-requisites checks --")
         print("-------------------------------------------------------------")
-        print("", flush = True)
+        print("", flush=True)
         for result in results:
             if 'final_result' not in result:
                 print("     " + result[
                     'server_name'] + " : Unexpected error, please check error details")
                 serverattr = {"migration_status": "Pre-requisites check : Failed - Unexpected error"}
-                update = requests.put(
-                    UserHOST + serverendpoint + '/' + result['server_id'],
-                    headers={"Authorization": token},
-                    data=json.dumps(serverattr))
+                update = requests.put(UserHOST + serverendpoint + '/' + result['server_id'],
+                                      headers={"Authorization": token},
+                                      data=json.dumps(serverattr),
+                                      timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
             else:
                 if 'error' in result and result['final_result'] == "":
                     print("     " + result[
                         'server_name'] + " : Unexpected error, please check error details")
                     serverattr = {"migration_status": "Pre-requisites check : Failed - Unexpected error"}
-                    update = requests.put(
-                        UserHOST + serverendpoint + '/' + result['server_id'],
-                        headers={"Authorization": token},
-                        data=json.dumps(serverattr))
+                    update = requests.put(UserHOST + serverendpoint + '/' + result['server_id'],
+                                          headers={"Authorization": token},
+                                          data=json.dumps(serverattr),
+                                          timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
                 if result['final_result'] != "":
                     print("     " + result['server_name'] + " : " + result['final_result'])
                     serverattr = {
                         "migration_status": "Pre-requisites check : Failed - " + result['final_result']}
-                    update = requests.put(
-                        UserHOST + serverendpoint + '/' + result['server_id'],
-                        headers={"Authorization": token}, data=json.dumps(serverattr))
-    print("", flush = True)
+                    update = requests.put(UserHOST + serverendpoint + '/' + result['server_id'],
+                                          headers={"Authorization": token},
+                                          data=json.dumps(serverattr),
+                                          timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
+    print("", flush=True)
+
 
 def parse_arguments(arguments):
     parser = argparse.ArgumentParser(
@@ -555,16 +607,19 @@ def parse_arguments(arguments):
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--Waveid', required=True)
     parser.add_argument('--ReplicationServerIP', required=True)
-    #Removed as new credentials function deals with this parser.add_argument('--WindowsUser', default="")
-    parser.add_argument('--NoPrompts', default=False, type=bool, help='Specify if user prompts for passwords are allowed. Default = False')
+    # Removed as new credentials function deals with this parser.add_argument('--WindowsUser', default="")
+    parser.add_argument('--NoPrompts', default=False, type=bool,
+                        help='Specify if user prompts for passwords are allowed. Default = False')
     parser.add_argument('--SecretWindows', default=None)
     parser.add_argument('--SecretLinux', default=None)
-    #parser.add_argument('--Verbose', default=False, type=bool, help='For detailed logging, use True')
+    parser.add_argument('--S3Endpoint', default=None)
+    parser.add_argument('--MGNEndpoint', default=None)
+    # parser.add_argument('--Verbose', default=False, type=bool, help='For detailed logging, use True')
     args = parser.parse_args(arguments)
     return args
 
-def main(args):
 
+def main(args):
     UserHOST = ""
 
     if 'UserApiUrl' in endpoints:
@@ -577,13 +632,13 @@ def main(args):
     print("****************************")
     print("* Login to Migration factory *")
     print("****************************")
-    print("", flush = True)
+    print("", flush=True)
     token = mfcommon.Factorylogin()
 
     print("****************************")
     print("*** Getting Server List ****")
     print("****************************")
-    print("", flush = True)
+    print("", flush=True)
     get_servers, linux_exist, windows_exist = get_factory_servers(args.Waveid, token, UserHOST)
     user_name = ''
     pass_key = ''
@@ -601,46 +656,55 @@ def main(args):
         print("*********************************************")
         print("*Checking Pre-requisites for Windows servers*")
         print("*********************************************")
-        print("", flush = True)
+        print("", flush=True)
 
         threadList = list()
         que = Queue()
 
         for account in get_servers:
             if len(account["servers_windows"]) > 0:
-                #Parameters to be passed to the thread
+                # Parameters to be passed to the thread
                 parameters = {}
-                parameters["MGNEndpoint"] = "mgn.{}.amazonaws.com".format(account['aws_region'])
+                if args.MGNEndpoint:
+                    parameters["MGNEndpoint"] = args.MGNEndpoint
+                else:
+                    parameters["MGNEndpoint"] = "mgn.{}.amazonaws.com".format(account['aws_region'])
+                if args.S3Endpoint:
+                    parameters["S3Endpoint"] = args.S3Endpoint
+                else:
+                    parameters["S3Endpoint"] = "aws-application-migration-service-{}.s3.amazonaws.com" \
+                        .format(account['aws_region'])
                 parameters["servers_windows"] = account["servers_windows"]
                 parameters["MGNServerIP"] = args.ReplicationServerIP
                 parameters["user_name"] = ""
                 parameters["windows_password"] = ""
                 parameters["secret_name"] = args.SecretWindows
                 parameters["no_user_prompts"] = args.NoPrompts
-                #Get all servers FQDNs into csv for trusted hosts update.
+                # Get all servers FQDNs into csv for trusted hosts update.
                 server_string = ""
                 for s in account['servers_windows']:
                     server_string = server_string + s["server_fqdn"] + ','
                 server_string = server_string[:-1]
-                #Add servers to local trusted hosts to allow authentication if different domain.
+                # Add servers to local trusted hosts to allow authentication if different domain.
                 subprocess.Popen(["powershell.exe", "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '"
-                                                   + server_string + "' -Concatenate -Force"], stdout=subprocess.PIPE,
-                                                  stderr=subprocess.PIPE)
+                                  + server_string + "' -Concatenate -Force"], stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
                 # Creating multiple threads to connect to source servers in parallel
                 for s in account["servers_windows"]:
                     parameters["s"] = s
-                    x = threading.Thread(target=lambda q, parameters: q.put(check_windows(parameters)), args=(que, parameters), name=s["server_fqdn"])
+                    x = threading.Thread(target=lambda q, parameters: q.put(check_windows(parameters)),
+                                         args=(que, parameters), name=s["server_fqdn"])
                     x.start()
                     threadList.append(x)
 
         print("Waiting for all threads to finish...")
-        print("", flush = True)
+        print("", flush=True)
         for thread in threadList:
             thread.join()
 
         while not que.empty():
             # Get the results from all the threads and save it in windows_results
-            result, windows_fail=que.get()
+            result, windows_fail = que.get()
             windows_results = windows_results + result
             if windows_fail:
                 windows_status = True
@@ -650,16 +714,24 @@ def main(args):
         print("********************************************")
         print("*Checking Pre-requisites for Linux servers*")
         print("********************************************")
-        print("", flush = True)
+        print("", flush=True)
 
-        count = 0 # For counting number of threads
-        threadList = list() # for storing the details of each thread
-        que = Queue() # for storing the output messages from each thread
+        count = 0  # For counting number of threads
+        threadList = list()  # for storing the details of each thread
+        que = Queue()  # for storing the output messages from each thread
 
         for account in get_servers:
-            if len(account["servers_linux"]) > 0 :
+            if len(account["servers_linux"]) > 0:
                 parameters = {}
-                parameters["MGNEndpoint"] = "mgn.{}.amazonaws.com".format(account['aws_region'])
+                if args.MGNEndpoint:
+                    parameters["MGNEndpoint"] = args.MGNEndpoint
+                else:
+                    parameters["MGNEndpoint"] = "mgn.{}.amazonaws.com".format(account['aws_region'])
+                if args.S3Endpoint:
+                    parameters["S3Endpoint"] = args.S3Endpoint
+                else:
+                    parameters["S3Endpoint"] = "aws-application-migration-service-{}.s3.amazonaws.com" \
+                        .format(account['aws_region'])
                 parameters["Servers_Linux"] = account["servers_linux"]
                 parameters["MGNServerIP"] = args.ReplicationServerIP
                 parameters["user_name"] = user_name
@@ -670,18 +742,19 @@ def main(args):
 
                 for s in account["servers_linux"]:
                     parameters["s"] = s
-                    x = threading.Thread(target=lambda q, parameters: q.put(check_linux(parameters)), args=(que, parameters), name=s["server_fqdn"])
+                    x = threading.Thread(target=lambda q, parameters: q.put(check_linux(parameters)),
+                                         args=(que, parameters), name=s["server_fqdn"])
                     x.start()
                     count = count + 1
                     threadList.append(x)
 
         print("Waiting for all checks to finish...")
-        print("", flush = True)
+        print("", flush=True)
         for thread in threadList:
             thread.join()
 
         while not que.empty():
-            result, linux_fail=que.get()
+            result, linux_fail = que.get()
             linux_results = linux_results + result
             if linux_fail:
                 linux_status = True
@@ -690,7 +763,7 @@ def main(args):
     print("********************************************")
     print("***** Final results for all servers *****")
     print("********************************************")
-    print("", flush = True)
+    print("", flush=True)
     if windows_exist:
         print_results("Windows", windows_results, UserHOST, token, windows_status)
     if linux_exist:
@@ -702,6 +775,7 @@ def main(args):
     else:
         print("All servers passed pre-requisites checks.")
         return 0
+
 
 if __name__ == '__main__':
     args = parse_arguments(sys.argv[1:])

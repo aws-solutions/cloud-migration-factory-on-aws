@@ -17,7 +17,7 @@ const ChartOSTypes = ({data, children}) => {
 
   let waveStatus = data.data.map(function(value, index) {return value['server_os_family']});
 
-  var wave_count = [];
+  let wave_count = [];
   waveStatus.forEach(function(value, index) {
       let lvalue = value;
 

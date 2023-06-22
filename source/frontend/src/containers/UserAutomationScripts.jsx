@@ -4,10 +4,9 @@
  */
 
 import React, {useEffect, useState} from 'react';
-import User from "../actions/user";
 import {useLocation, useNavigate, useParams} from "react-router-dom";
 
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 import {
   toBase64
 } from '../resources/main.js'
@@ -28,9 +27,31 @@ import {
 import AutomationScriptView from '../components/AutomationScriptView.jsx'
 import { useAutomationScripts } from "../actions/AutomationScriptsHook.js";
 import AutomationScriptsTable from '../components/AutomationScriptsTable.jsx';
-import { useModal } from '../actions/Modal.js';
 import AutomationScriptImport from "../components/AutomationScriptImport";
 import ToolsAPI from "../actions/tools";
+
+const ViewAutomationScript = (props) => {
+
+  const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
+  async function handleViewerTabChange(tabselected)
+  {
+    setViewerCurrentTab(tabselected);
+  }
+
+  if (props.selectedItems.length === 1) {
+
+    return (
+      <AutomationScriptView {...props}
+                            item={props.selectedItems[0]}
+                            dataAll={props.dataAll}
+                            handleTabChange={handleViewerTabChange}
+                            selectedTab={viewerCurrentTab}
+      />
+    );
+  } else {
+    return (null);
+  }
+}
 
 const AutomationScripts = (props) => {
   let location = useLocation()
@@ -50,7 +71,7 @@ const AutomationScripts = (props) => {
   const [focusItem, setFocusItem] = useState([]);
 
   //Viewer pane state management.
-  const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
+
   const [action, setAction] = useState('Add');
 
   const [newDefaultVersion, setNewDefaultVersion] = useState('');
@@ -59,9 +80,6 @@ const AutomationScripts = (props) => {
   const basePath = '/automation/scripts'
   //Key for main item displayed in table.
   const itemIDKey = 'package_uuid';
-
-  //Modals
-  const { show: showDeleteConfirmaton, hide: hideDeleteConfirmaton, RenderModal: DeleteModal } = useModal()
 
   function handleNotification(notification)
   {
@@ -160,18 +178,12 @@ const AutomationScripts = (props) => {
       const session = await Auth.currentSession();
       const apiTools = await new ToolsAPI(session);
       if (action === 'Add') {
-        const response = await apiTools.postSSMScripts(newItem);
+        await apiTools.postSSMScripts(newItem);
       } else if (action === 'Update'){
         newItem.action = 'update_package';
         newItem.package_uuid = details.package_uuid;
         newItem.__make_default = details.__make_default;
         const response = await apiTools.putSSMScripts(newItem);
-        // if (details.__make_default){
-        //   newItem.action = 'update_default';
-        //   delete newItem.script_file;
-        //   newItem.default = details.latest + 1;
-        //   const response = await apiTools.putSSMScripts(newItem);
-        // }
 
         console.log(response)
       } else if (action === 'ChangeDefault'){
@@ -179,7 +191,7 @@ const AutomationScripts = (props) => {
           newItem.action = 'update_default';
           delete newItem.script_file;
           newItem.default = details.default
-          const response = await apiTools.putSSMScripts(newItem);
+          await apiTools.putSSMScripts(newItem);
         }
       } else {
         handleNotification({
@@ -211,7 +223,7 @@ const AutomationScripts = (props) => {
               type: 'error',
               dismissible: true,
               header: "Uploading script",
-              content: selectedFile.name + ' script upload failed: ' + e.response.data
+              content: selectedFile.name + ' script upload failed: ' + JSON.stringify(e.response.data)
             });
           }
         } else {
@@ -263,7 +275,7 @@ const AutomationScripts = (props) => {
       const session = await Auth.currentSession();
       const apiTools = await new ToolsAPI(session);
       newItem.action = 'update_default';
-      const response = await apiTools.putSSMScripts(newItem);
+      await apiTools.putSSMScripts(newItem);
 
       handleNotification({
         id: notificationId,
@@ -422,10 +434,7 @@ const AutomationScripts = (props) => {
 
   }
 
-  async function handleViewerTabChange(tabselected)
-  {
-      setViewerCurrentTab(tabselected);
-  }
+
 
   function handleResetScreen()
   {
@@ -446,77 +455,174 @@ const AutomationScripts = (props) => {
 
   }
 
-  async function handleSave(editedItem, action) {
-
-        handleNotification({
-          type: 'error',
-          dismissible: true,
-          header: "Save Automation Script",
-          content: 'Save function not defined, needs creating.',
-        });
-
-    handleResetScreen();
-
-  }
-
-  async function handleDeleteItemClick(e) {
-    e.preventDefault();
-    showDeleteConfirmaton();
-  }
-
-  async function handleDeleteItem(e) {
-    e.preventDefault();
-    let currentApp = 0;
-
-    await hideDeleteConfirmaton();
-
-    try {
-      const session = await Auth.currentSession();
-      const apiUser = new User(session);
-      for(let item in selectedItems) {
-        currentApp = item;
-        // await apiUser.deleteApp(selectedItems[item][itemIDKey]);
-        handleNotification({
-              type: 'success',
-              dismissible: true,
-              header: 'Automation Script deleted successfully',
-              content: selectedItems[item].filename + ' was deleted.'
-            });
-
-      }
-      //Unselect items marked for deletion to clear apps.
-      setSelectedItems([]);
-
-      await updateMain();
-
-    } catch (e) {
-      console.log(e);
-        handleNotification({
-            type: 'error',
-            dismissible: true,
-            header: 'Automation script deletion failed',
-            content: selectedItems[currentApp].filename + ' failed to delete.'
-          });
-    }
-  }
-
-  const ViewAutomationScript = (props) => {
-
-    const [selectedServers, setSelectedServers] = useState([]);
-
-    if (selectedItems.length === 1) {
-
-      return (
-        <AutomationScriptView {...props}
-            item={selectedItems[0]}
-            dataAll={dataAll}
-            handleTabChange={handleViewerTabChange}
-            selectedTab={viewerCurrentTab}
-          />
-      );
+  function displayScriptScreen(){
+    if (editingItem){
+      return  displayEditScreen(action)
     } else {
-      return (null);
+      return displayViewScreen()
     }
+  }
+
+  function displayViewScreen(){
+    return <SpaceBetween direction="vertical" size="xs">
+      <AutomationScriptsTable
+        userAccess={props.userEntityAccess}
+        sendNotification={handleNotification}
+        schema={schemaSSMAttribs}
+        schemaName={'script'}
+        schemaKeyAttribute={itemIDKey}
+        dataAll={dataAll}
+        items={dataMain}
+        selectedItems={selectedItems}
+        handleSelectionChange={handleItemSelectionChange}
+        isLoading={isLoadingMain}
+        errorLoading={errorMain}
+        handleRefreshClick={handleRefreshClick}
+        handleAddItem={handleAddItem}
+        handleActionSelection={handleAction}
+        actionsButtonDisabled={isActionsDisabled()}
+        actionItems={[{
+          id: 'change_default',
+          text: 'Change default version',
+          description: 'Change default version used.',
+          disabled: false
+        },
+          {
+            id: 'new_version',
+            text: 'Add new version',
+            description: 'Add a new version of the script.',
+            disabled: false
+          },
+          {
+            id: 'download_default_version',
+            text: 'Download default version',
+            description: 'Download default version of the script.',
+            disabled: false
+          },
+          {
+            id: 'download_latest_version',
+            text: 'Download latest version',
+            description: 'Download latest version of the script.',
+            disabled: false
+          }]}
+      />
+      <ViewAutomationScript {...props}
+                            schema={schemaSSMAttribs}
+                            selectedItems={selectedItems}
+                            dataAll={dataAll}
+
+      />
+    </SpaceBetween>
+  }
+
+  function displayEditScreen(action){
+    switch (action) {
+      case 'Add': {
+        return <AutomationScriptImport
+          action={action}
+          schema={schemaSSMAttribs}
+          item={focusItem}
+          handleUpload={handleUpload}
+          cancelClick={handleResetScreen}
+          updateNotification={handleNotification}
+        />
+      }
+      case 'Update': {
+        return <AutomationScriptImport
+          action={action}
+          schema={schemaSSMAttribs}
+          item={focusItem}
+          handleUpload={handleUpload}
+          cancelClick={handleResetScreen}
+          updateNotification={handleNotification}
+        />
+      }
+      case 'UpdateDefault': {
+        return displayUpdatedDefault();
+      }
+      default:
+        return undefined;
+    }
+  }
+
+  function isActionsDisabled(){
+    if (props.userEntityAccess['script'] && props.userEntityAccess['script'].create && selectedItems.length === 1) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function displayUpdatedDefault(){
+    return  <SpaceBetween direction={'vertical'} size={'xxl'}>
+      <Container
+        className="custom-dashboard-container"
+        header={
+          <Header
+            variant="h2"
+          >
+            Change default script version
+          </Header>
+        }
+      >
+        <SpaceBetween size={'xxl'} direction={'vertical'}>
+          <FormField
+            key={'script_name'}
+            label={'Script Name'}
+          >
+            <Input
+              onChange={undefined}
+              value={focusItem.script_name}
+              disabled={true}
+            />
+          </FormField>
+          <FormField
+            key={'script_desc'}
+            label={'Script Description'}
+          >
+            <Input
+              onChange={undefined}
+              value={focusItem.script_description}
+              disabled={true}
+            />
+          </FormField>
+          <SpaceBetween size={'xs'} direction={'vertical'}>
+            <FormField
+              key={'script_version'}
+              label={'Script Default Version'}
+              description={'The default version will be used for all jobs initiated from the console.'}
+            >
+              <Select
+                selectedOption={{
+                  label: newDefaultVersion,
+                  value: newDefaultVersion
+                }}
+                onChange={event => setNewDefaultVersion(event.detail.selectedOption.value)}
+                loadingText={"Loading values..."}
+                options={getVersions()}
+                selectedAriaLabel={'Selected'}
+                placeholder={"Select version"}
+              />
+            </FormField>
+            <Button iconName={'download'} onClick={e => downloadScriptVersion({'package_uuid': focusItem.package_uuid, 'script_name': focusItem.script_name, 'default': newDefaultVersion})}>Download selected version</Button>
+          </SpaceBetween>
+        </SpaceBetween>
+      </Container>
+      {newDefaultVersion !== focusItem.default ?
+        <Alert
+          dismissAriaLabel="Close alert"
+          type="warning"
+        >
+          {newDefaultVersion !== focusItem.default ? 'Saving will change default script to use version ' + newDefaultVersion + ' instead of version ' + focusItem.default + ' for all automation future jobs.' : '' }
+        </Alert>
+        :
+        undefined}
+      <SpaceBetween direction={'horizontal'} size={'xxs'}>
+        <Button variant={'primary'} onClick={handleResetScreen} disabled={false}>Cancel</Button>
+        <Button onClick={handleChangeVersion} disabled={newDefaultVersion !== focusItem.default ? false : true}>Save</Button>
+
+      </SpaceBetween>
+    </SpaceBetween>
   }
 
   useEffect( () => {
@@ -575,155 +681,8 @@ const AutomationScripts = (props) => {
         Loading schema...
       </StatusIndicator>
       :
-      !editingItem
-        ?
-          (
-            <SpaceBetween direction="vertical" size="xs">
-              <AutomationScriptsTable
-                userAccess={props.userEntityAccess}
-                sendNotification={handleNotification}
-                schema={schemaSSMAttribs}
-                schemaName={'script'}
-                schemaKeyAttribute={itemIDKey}
-                dataAll={dataAll}
-                items={dataMain}
-                selectedItems={selectedItems}
-                handleSelectionChange={handleItemSelectionChange}
-                isLoading={isLoadingMain}
-                errorLoading={errorMain}
-                handleRefreshClick={handleRefreshClick}
-                handleAddItem={handleAddItem}
-                handleActionSelection={handleAction}
-                actionsButtonDisabled={props.userEntityAccess['script'] && props.userEntityAccess['script'].create ? selectedItems.length !== 1 ? true: false : true}
-                actionItems={[{
-                  id: 'change_default',
-                  text: 'Change default version',
-                  description: 'Change default version used.',
-                  disabled: false
-                },
-                {
-                  id: 'new_version',
-                  text: 'Add new version',
-                  description: 'Add a new version of the script.',
-                  disabled: false
-                },
-                {
-                  id: 'download_default_version',
-                  text: 'Download default version',
-                  description: 'Download default version of the script.',
-                  disabled: false
-                },
-                  {
-                    id: 'download_latest_version',
-                    text: 'Download latest version',
-                    description: 'Download latest version of the script.',
-                    disabled: false
-                  }]}
-                />
-              <ViewAutomationScript {...props} schema={schemaSSMAttribs}/>
-            </SpaceBetween>
-          )
-          :
-          (
-            action === 'Add'
-            ?
-                  <AutomationScriptImport
-                    action={action}
-                    schema={schemaSSMAttribs}
-                    item={focusItem}
-                    handleUpload={handleUpload}
-                    cancelClick={handleResetScreen}
-                    updateNotification={handleNotification}
-                />
-            :
-              action === 'Update'
-              ?
-                <AutomationScriptImport
-                  action={action}
-                  schema={schemaSSMAttribs}
-                  item={focusItem}
-                  handleUpload={handleUpload}
-                  cancelClick={handleResetScreen}
-                  updateNotification={handleNotification}
-                />
-              :
-                action === 'UpdateDefault'
-                  ?
-                  <SpaceBetween direction={'vertical'} size={'xxl'}>
-                    <Container
-                      className="custom-dashboard-container"
-                      header={
-                        <Header
-                          variant="h2"
-                        >
-                          Change default script version
-                        </Header>
-                      }
-                    >
-                      <SpaceBetween size={'xxl'} direction={'vertical'}>
-                        <FormField
-                          key={'script_name'}
-                          label={'Script Name'}
-                        >
-                          <Input
-                            onChange={undefined}
-                            value={focusItem.script_name}
-                            disabled={true}
-                          />
-                        </FormField>
-                        <FormField
-                          key={'script_desc'}
-                          label={'Script Description'}
-                        >
-                          <Input
-                            onChange={undefined}
-                            value={focusItem.script_description}
-                            disabled={true}
-                          />
-                        </FormField>
-                        <SpaceBetween size={'xs'} direction={'vertical'}>
-                        <FormField
-                          key={'script_version'}
-                          label={'Script Default Version'}
-                          description={'The default version will be used for all jobs initiated from the console.'}
-                        >
-                          <Select
-                            selectedOption={{
-                              label: newDefaultVersion,
-                              value: newDefaultVersion
-                            }}
-                            onChange={event => setNewDefaultVersion(event.detail.selectedOption.value)}
-                            loadingText={"Loading values..."}
-                            options={getVersions()}
-                            selectedAriaLabel={'Selected'}
-                            placeholder={"Select version"}
-                          />
-                        </FormField>
-                        <Button iconName={'download'} onClick={e => downloadScriptVersion({'package_uuid': focusItem.package_uuid, 'script_name': focusItem.script_name, 'default': newDefaultVersion})}>Download selected version</Button>
-                        </SpaceBetween>
-                      </SpaceBetween>
-                    </Container>
-                    {newDefaultVersion != focusItem.default ?
-                      <Alert
-                        dismissAriaLabel="Close alert"
-                        type="warning"
-                      >
-                        {newDefaultVersion != focusItem.default ? 'Saving will change default script to use version ' + newDefaultVersion + ' instead of version ' + focusItem.default + ' for all automation future jobs.' : '' }
-                      </Alert>
-                      :
-                      undefined}
-                    <SpaceBetween direction={'horizontal'} size={'xxs'}>
-                      <Button variant={'primary'} onClick={handleResetScreen} disabled={false}>Cancel</Button>
-                      <Button onClick={handleChangeVersion} disabled={newDefaultVersion != focusItem.default ? false : true}>Save</Button>
-
-                    </SpaceBetween>
-                  </SpaceBetween>
-                  :
-                  undefined
-          )
-
+        displayScriptScreen()
       }
-    <DeleteModal title={'Delete script'}onConfirmation={handleDeleteItem}>{selectedItems.length === 1 ? <p>Are you sure you wish to delete the selected script?</p> : <p>Are you sure you wish to delete the {selectedItems.length} selected scripts?</p>}</DeleteModal>
     </div>
   );
 };

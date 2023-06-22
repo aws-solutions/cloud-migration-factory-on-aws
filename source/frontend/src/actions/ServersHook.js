@@ -11,7 +11,7 @@ import {
 
 import { useReducer, useEffect } from 'react';
 
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 import User from "../actions/user";
 
 export const useGetServers = () => {

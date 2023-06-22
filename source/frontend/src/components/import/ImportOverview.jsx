@@ -5,13 +5,15 @@
 
 import React from 'react';
 import {
-Container,
-Header,
-Popover,
-ColumnLayout} from '@awsui/components-react';
+  Container,
+  Header,
+  Popover,
+  ColumnLayout,
+  ExpandableSection,
+  SpaceBetween
+} from '@awsui/components-react';
 
 import {capitalize} from "../../resources/main";
-import {ExpandableSection, SpaceBetween} from "@awsui/components-react";
 import AllViewerAttributes from "../ui_attributes/AllViewerAttributes";
 
 const ItemDetails = (props) => {
@@ -143,7 +145,7 @@ const SummaryEntity = (props) => {
 const ArrayToList = (props) => {
 
   return (
-  <div>{props.list.map((item, i) => <p>{item[props.displayKey]}</p>)}</div> // `.map()` creates/returns a new array from calling a function on every element in the array it's called on
+  <div>{props.list.map((item, i) => <p key={item[props.displayKey]}>{item[props.displayKey]}</p>)}</div> // `.map()` creates/returns a new array from calling a function on every element in the array it's called on
   )
 }
 

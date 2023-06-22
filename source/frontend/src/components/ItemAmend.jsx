@@ -6,18 +6,16 @@
 //Component used for providing generic edit record/item screen.
 // All schema entities use this component.
 
-import React, {useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   SpaceBetween,
   Form,
   Header,
   Button
- } from '@awsui/components-react';
+} from '@awsui/components-react';
 
-import { useModal } from '../actions/Modal.js';
+import {useModal} from '../actions/Modal.js';
 import AllAttributes from './ui_attributes/AllAttributes.jsx'
-
-import { useState } from 'react';
 import {capitalize, setNestedValuePath} from "../resources/main";
 
 const ItemAmend = (props) => {
@@ -29,11 +27,10 @@ const ItemAmend = (props) => {
   const [isSaving, setIsSaving] = useState(false);
 
   //Modals
-  const { show: showUnsavedConfirmaton, hide: hideUnsavedConfirmaton, RenderModal: UnSavedModal } = useModal()
+  const { show: showUnsavedConfirmaton, RenderModal: UnSavedModal } = useModal()
 
   async function handleUserInput (value){
     let valueArray = [];
-    let localFormValidation = true;
     let newRecord = Object.assign({}, localItem);
 
     //Convert non-Array values to array in order to keep procedure simple.
@@ -63,7 +60,6 @@ const ItemAmend = (props) => {
 
             });
 
-            //newRecord[value.field] = updatedTags;
             setNestedValuePath(newRecord, valueItem.field, updatedTags);
 
           } else {
@@ -77,7 +73,6 @@ const ItemAmend = (props) => {
         }
       }
       else {
-        //newRecord[value.field] = value.value;
         setNestedValuePath(newRecord, valueItem.field, valueItem.value);
       }
     }
@@ -136,15 +131,15 @@ const ItemAmend = (props) => {
         actions={
           // located at the bottom of the form
           <SpaceBetween direction="horizontal" size="xs">
-            <Button onClick={handleCancel} variant="link">Cancel</Button>
-            <Button onClick={handleSave} disabled={!validForm} variant="primary" loading={isSaving}>
+            <Button onClick={handleCancel} ariaLabel={'cancel'} variant="link">Cancel</Button>
+            <Button onClick={handleSave} ariaLabel={'save'} disabled={!validForm} variant="primary" loading={isSaving}>
               Save
             </Button>
           </SpaceBetween>
         }
         errorText={formErrors.length > 0 ? formErrors.map(error => {
             let errorReason = error.validation_regex_msg ? error.validation_regex_msg : 'You must specify a value.';
-            return <p>{error.description + ' - ' + errorReason}</p>}): undefined
+            return <p key={error.description + ' - ' + errorReason}>{error.description + ' - ' + errorReason}</p>}): undefined
         }
       >
           <SpaceBetween size="l">

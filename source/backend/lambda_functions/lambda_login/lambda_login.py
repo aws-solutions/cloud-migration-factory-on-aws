@@ -37,6 +37,7 @@ default_http_headers = {
 }
 
 def lambda_handler(event, context):
+    response = {}
     try:
         body = json.loads(event['body'])
         client = boto3.client('cognito-idp')

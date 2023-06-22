@@ -4,8 +4,8 @@
  */
 
 import React from 'react';
-import ReactDOM from 'react-dom';
-import Amplify from 'aws-amplify'
+import { createRoot } from 'react-dom/client';
+import { Amplify } from '@aws-amplify/core'
 import App from './App';
 import "@awsui/global-styles/index.css"
 import { BrowserRouter } from 'react-router-dom';
@@ -64,10 +64,11 @@ const updatedAwsConfig = {
 Amplify.configure(updatedAwsConfig);
 
 document.addEventListener('DOMContentLoaded', () => {
-  ReactDOM.render(
-    <BrowserRouter>
+  const container = document.getElementById("root");
+  const root = createRoot(container);
+  root.render(
+      <BrowserRouter>
       <App />
-    </BrowserRouter>,
-    document.getElementById("root")
+    </BrowserRouter>
   );
 });

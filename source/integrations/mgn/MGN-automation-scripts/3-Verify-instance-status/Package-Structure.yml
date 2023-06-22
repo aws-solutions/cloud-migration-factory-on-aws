@@ -2,6 +2,7 @@ Name: "3-Verify Instance Status"
 Description: "This script will verify the status check of the target machines  in a specific wave"
 MasterFileName: "3-Verify-instance-status.py"
 UpdateUrl: ""
+Group: "Rehost-MGN"
 Arguments:
   -
     name: "Waveid"

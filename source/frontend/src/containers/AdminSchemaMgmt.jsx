@@ -6,7 +6,7 @@
 import React, {useEffect, useState} from 'react';
 import Admin from "../actions/admin";
 
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 import {
   FormField,
   ColumnLayout,
@@ -30,7 +30,6 @@ import ToolHelpEdit from "../components/ToolHelpEdit";
 
 const AdminSchemaMgmt = (props) => {
   //Layout state management.
-  const [editingItem, setEditingItem] = useState(false);
   const [editingSchemaInfoHelp, setEditingSchemaInfoHelp] = useState(false);
   const [editingSchemaInfoHelpTemp, setEditingSchemaInfoHelpTemp] = useState('');
   const [editingSchemaInfoHelpUpdate, setEditingSchemaInfoHelpUpdate] = useState(false);
@@ -47,8 +46,6 @@ const AdminSchemaMgmt = (props) => {
   const [schemaTabs, setSchemaTabs] = useState([]);
 
   const [selectedSubTab, setSelectedSubTab] = useState('attributes');
-
-  const [schemas, setSchemas] = useState(['database', 'application']);
 
   //Modals
   const { show: showAmend, hide: hideAmend, RenderModal: AmendModal } = useSchemaModal()
@@ -68,7 +65,6 @@ const AdminSchemaMgmt = (props) => {
     setAction('add');
     showAmend();
     setFocusItem({});
-    setEditingItem(true);
 
   }
 
@@ -77,7 +73,6 @@ const AdminSchemaMgmt = (props) => {
     setAction('edit');
     showAmend();
     setFocusItem(selectedItems[0]);
-    setEditingItem(true);
 
   }
 
@@ -114,7 +109,7 @@ const AdminSchemaMgmt = (props) => {
     try {
       const session = await Auth.currentSession();
       const apiAdmin = new Admin(session);
-      const result = await apiAdmin.putSchema(selectedTab, {schema_name: selectedTab, help_content: editingSchemaInfoHelpTemp});
+      await apiAdmin.putSchema(selectedTab, {schema_name: selectedTab, help_content: editingSchemaInfoHelpTemp});
 
       handleNotification({
         type: 'success',
@@ -185,7 +180,7 @@ const AdminSchemaMgmt = (props) => {
     try {
       const session = await Auth.currentSession();
       const apiAdmin = new Admin(session);
-      const result = await apiAdmin.putSchema(selectedTab, {schema_name: selectedTab, friendly_name: editingSchemaSettingsTemp.friendly_name});
+      await apiAdmin.putSchema(selectedTab, {schema_name: selectedTab, friendly_name: editingSchemaSettingsTemp.friendly_name});
 
       handleNotification({
         type: 'success',
@@ -239,11 +234,6 @@ const AdminSchemaMgmt = (props) => {
   }
 
   async function handleSave(editItem, action) {
-
-    //const { history } = this.props;
-    //if(history) history.goBack();
-
-    let newApp = Object.assign({}, editItem);
     try {
       if (action === 'edit') {
         const session = await Auth.currentSession();
@@ -260,8 +250,6 @@ const AdminSchemaMgmt = (props) => {
         });
 
         await props.reloadSchema();
-
-        setEditingItem(false);
 
         //This is needed to ensure the item in selectApps reflects new updates
         setSelectedItems([]);
@@ -296,7 +284,7 @@ const AdminSchemaMgmt = (props) => {
           header: "Save attribute",
           content: e.response.data.message
         });
-        setEditingItem(false);
+
       } else{
         hideAmend();
         handleNotification({
@@ -306,7 +294,7 @@ const AdminSchemaMgmt = (props) => {
           content: 'Unknown error occurred',
         });
       }
-      setEditingItem(false);
+
     }
 
   }
@@ -352,6 +340,20 @@ const AdminSchemaMgmt = (props) => {
     }
   }
 
+  function getDeleteHandler(selectedItems){
+
+    if (selectedItems.length !== 0)
+    {
+      if (!selectedItems[0].system){
+        return handleDeleteItemClick;
+      } else {
+        return undefined;
+      }
+    } else {
+      return handleDeleteItemClick;
+    }
+  }
+
   //On schema metadata change reload tabs.
   useEffect( () => {
     let tabs = [];
@@ -378,7 +380,7 @@ const AdminSchemaMgmt = (props) => {
                         selectedItems={selectedItems}
                         handleSelectionChange={handleItemSelectionChange}
                         handleAddItem={handleAddItem}
-                        handleDeleteItem={selectedItems.length !== 0 ? !selectedItems[0].system ? handleDeleteItemClick : undefined : handleDeleteItemClick}
+                        handleDeleteItem={getDeleteHandler(selectedItems)}
                         handleEditItem={handleEditItem}
                       />
                 },

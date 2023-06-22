@@ -2,6 +2,7 @@ Name: "5-Post Cutover Validation"
 Description: "Performs various post cutover validation checks, such as, service status, processes, installed software, tags etc."
 MasterFileName: "5-post_cutover_validations.py"
 UpdateUrl: ""
+Group: "Rehost-MGN"
 Arguments:
   -
     name: "Waveid"

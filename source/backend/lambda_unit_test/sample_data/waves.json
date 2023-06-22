@@ -1,0 +1,18 @@
+[
+  {
+    "wave_id": {
+      "S": "1"
+    },
+    "wave_name": {
+      "S": "Wave 1"
+    }
+  },
+  {
+    "wave_id": {
+      "S": "2"
+    },
+    "wave_name": {
+      "S": "Wave 2"
+    }
+  }
+]

@@ -39,7 +39,10 @@ with open('FactoryEndpoints.json') as json_file:
 UserHOST = endpoints['UserApiUrl']
 
 def GetCEProject(projectname):
-    r = requests.get(HOST + mfcommon.ce_endpoint.format('projects'), headers=headers, cookies=session)
+    r = requests.get(HOST + mfcommon.ce_endpoint.format('projects'),
+                     headers=headers,
+                     cookies=session,
+                     timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
     if r.status_code != 200:
         print("ERROR: Failed to fetch the projects....")
         sys.exit(2)
@@ -63,9 +66,13 @@ def GetCEProject(projectname):
 def ProjectList(waveid, token, UserHOST, serverendpoint, appendpoint):
 # Get all Apps and servers from migration factory
     auth = {"Authorization": token}
-    servers = json.loads(requests.get(UserHOST + serverendpoint, headers=auth).text)
+    servers = json.loads(requests.get(UserHOST + serverendpoint,
+                                      headers=auth,
+                                      timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT).text)
     #print(servers)
-    apps = json.loads(requests.get(UserHOST + appendpoint, headers=auth).text)
+    apps = json.loads(requests.get(UserHOST + appendpoint,
+                                   headers=auth,
+                                   timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT).text)
     #print(apps)
     newapps = []
 
@@ -127,7 +134,10 @@ def verify_replication(projects, token):
             print("")
             project_id = project['ProjectId']
             serverlist = project['Servers']
-            m = requests.get(HOST + mfcommon.ce_endpoint.format('projects/{}/machines').format(project_id), headers=headers, cookies=session)
+            m = requests.get(HOST + mfcommon.ce_endpoint.format('projects/{}/machines').format(project_id),
+                             headers=headers,
+                             cookies=session,
+                             timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
             if "sourceProperties" not in m.text:
                 print("ERROR: Failed to fetch the machines for project: " + project['ProjectName'])
                 sys.exit(7)
@@ -190,7 +200,10 @@ def verify_replication(projects, token):
                     print ("Server " + server["server_name"] + " replication status: Not Started" )
                     serverattr = {"replication_status": "Not Started"}
                     replication_not_finished = True
-                updateserver = requests.put(UserHOST + mfcommon.serverendpoint + '/' + server['server_id'], headers=auth, data=json.dumps(serverattr))
+                updateserver = requests.put(UserHOST + mfcommon.serverendpoint + '/' + server['server_id'],
+                                            headers=auth,
+                                            data=json.dumps(serverattr),
+                                            timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
                 if updateserver.status_code == 401:
                     print("Error: Access to replication_status attribute is denied")
                     sys.exit(9)

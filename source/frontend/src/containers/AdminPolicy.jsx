@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import Admin from "../actions/admin";
 
-import { Auth } from "aws-amplify";
+import { Auth } from "@aws-amplify/auth";
 import {
   Tabs,
   SpaceBetween, StatusIndicator,
@@ -19,6 +19,32 @@ import PermissionsView from "../components/PermissionsView";
 import ItemAmend from "../components/ItemAmend";
 import {useUserGroupsModal} from "../actions/UserGroupsModalHook";
 import {useAmendItemModal} from "../actions/AmendItemModalHook";
+
+
+const ViewPermissions = (props) => {
+  //Viewer pane state management.
+  const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
+
+  async function handleViewerTabChange(tabselected)
+  {
+    setViewerCurrentTab(tabselected);
+  }
+
+  if (props.selectedItems.length === 1 && (props.selectedTab === 'roles' || props.selectedTab === 'policies')) {
+
+    return (
+      <PermissionsView {...props}
+                       item={props.selectedItems[0]}
+                       itemType={props.selectedTab}
+                       schema={props.selectedTab === 'roles' ? props.schema.role : props.schema.policy}
+                       schemas={props.schema}
+                       handleTabChange={handleViewerTabChange}
+                       selectedTab={viewerCurrentTab}/>
+    );
+  } else {
+    return null;
+  }
+}
 
 const AdminPolicy = (props) => {
 
@@ -35,17 +61,164 @@ const AdminPolicy = (props) => {
   const [selectedTab, setSelectedTab] = useState('roles');
   const [action, setAction] = useState(['add']);
 
-  //Viewer pane state management.
-  const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
+
 
   //Modals
   const { show: showDeleteConfirmation, hide: hideDeleteConfirmation, RenderModal: DeleteModal } = useModal()
   const { show: showGroupDeleteConfirmation, hide: hideGroupDeleteConfirmation, RenderModal: GroupDeleteModal } = useModal()
-  const { show: showAddGroups, hide: hideAddGroups, RenderModal: AddGroupsModal } = useUserGroupsModal()
-  const { show: showRemoveGroups, hide: hideRemoveGroups, RenderModal: RemoveGroupsModal } = useUserGroupsModal()
-  const { show: showAddGroup, hide: hideAddGroup, RenderModal: AddGroupModal } = useAmendItemModal()
+  const { show: showAddGroups,  RenderModal: AddGroupsModal } = useUserGroupsModal()
+  const { show: showRemoveGroups, RenderModal: RemoveGroupsModal } = useUserGroupsModal()
+  const { show: showAddGroup, RenderModal: AddGroupModal } = useAmendItemModal()
 
+  function getPermissions(isLoading, permissionsData, key){
+    if (isLoading){
+      return []
+    } else {
+      return permissionsData[key]
+    }
+  }
 
+  function displayAdminPolicy(editingItem){
+    if (!editingItem) {
+      return <Tabs
+        activeTabId={selectedTab}
+        onChange={({detail}) => handleTabChange(detail.activeTabId)}
+        tabs={[
+          {
+            label: "Roles",
+            id: "roles",
+            content:
+              <SpaceBetween direction="vertical" size="xs">
+                <ItemTable
+                  schema={props.schema.role}
+                  schemaKeyAttribute={'role_id'}
+                  schemaName={'role'}
+                  dataAll={allData}
+                  items={getPermissions(permissionsIsLoading, permissionsData, 'roles')}
+                  selectedItems={selectedItems}
+                  handleSelectionChange={handleItemSelectionChange}
+                  isLoading={permissionsIsLoading}
+                  errorLoading={permissionsError}
+                  handleRefreshClick={handleRefreshClick}
+                  handleAddItem={handleAddItem}
+                  handleDeleteItem={handleDeleteItemClick}
+                  handleEditItem={handleEditItem}
+                  selectionType={'single'}
+                />
+                <ViewPermissions
+                  schema={props.schema}
+                  selectedItems={selectedItems}
+                  selectedTab={selectedTab}
+                />
+              </SpaceBetween>
+          },
+          {
+            label: "Policies",
+            id: "policies",
+            content:
+              <SpaceBetween direction="vertical" size="xs">
+                <ItemTable
+                  schema={props.schema.policy}
+                  schemaKeyAttribute={'policy_id'}
+                  schemaName={'policie'}
+                  dataAll={allData}
+                  items={getPermissions(permissionsIsLoading, permissionsData, 'policies')}
+                  selectedItems={selectedItems}
+                  handleSelectionChange={handleItemSelectionChange}
+                  isLoading={permissionsIsLoading}
+                  errorLoading={permissionsError}
+                  handleRefreshClick={handleRefreshClick}
+                  handleAddItem={handleAddItem}
+                  handleDeleteItem={handleDeleteItemClick}
+                  handleEditItem={handleEditItem}
+                  selectionType={'single'}
+                />
+                <ViewPermissions
+                  schema={props.schema}
+                  selectedItems={selectedItems}
+                  selectedTab={selectedTab}
+                />
+              </SpaceBetween>
+          }
+          ,
+          {
+            label: "Groups",
+            id: "groups",
+            content:
+              <SpaceBetween direction="vertical" size="xs">
+                <ItemTable
+                  schema={props.schema.group}
+                  schemaKeyAttribute={'group_name'}
+                  schemaName={'group'}
+                  dataAll={permissionsData.groups}
+                  items={getPermissions(permissionsIsLoading, permissionsData, 'groups')}
+                  isLoading={permissionsIsLoading}
+                  errorLoading={permissionsError}
+                  handleRefreshClick={handleRefreshClick}
+                  handleAddItem={handleAddGroupClick}
+                  handleDeleteItem={handleDeleteGroupClick}
+                  handleSelectionChange={handleItemSelectionChange}
+                  selectionType={'single'}
+                  selectedItems={selectedItems}
+                />
+                <ViewPermissions
+                  schema={props.schema}
+                  selectedItems={selectedItems}
+                  selectedTab={selectedTab}
+                />
+              </SpaceBetween>
+          }
+          ,
+          {
+            label: "Users",
+            id: "users",
+            content:
+              <SpaceBetween direction="vertical" size="xs">
+                <ItemTable
+                  description={'Users must be created through Amazon Cognito or a federated IDP.'}
+                  schema={props.schema.user}
+                  schemaKeyAttribute={'userRef'}
+                  schemaName={'user'}
+                  dataAll={permissionsData.users}
+                  items={permissionsIsLoading ? [] : permissionsData.users}
+                  isLoading={permissionsIsLoading}
+                  errorLoading={permissionsError}
+                  handleRefreshClick={handleRefreshClick}
+                  actionsButtonDisabled={false}
+                  handleAction={handleActionClick}
+                  actionItems={[{
+                    id: 'add_group',
+                    text: 'Add users to group',
+                    description: 'Add users to group.',
+                    disabled: selectedItems.length === 0 ? true : false
+                  },
+                    {
+                      id: 'remove_group',
+                      text: 'Remove users to group',
+                      description: 'Remove users to group.',
+                      disabled: selectedItems.length === 0 ? true : false
+                    }]}
+                  handleSelectionChange={handleItemSelectionChange}
+                  selectionType={'multi'}
+                  selectedItems={selectedItems}
+                />
+                <ViewPermissions
+                  schema={props.schema}
+                  selectedItems={selectedItems}
+                  selectedTab={selectedTab}
+                />
+              </SpaceBetween>
+          }
+        ]}
+      />
+    }else {
+      return <ItemAmend action={action} schemaName={selectedTab === 'roles' ? 'role' : 'policy'}
+                        schemas={props.schema} userAccess={props.userEntityAccess} item={focusItem}
+                        handleSave={handleSave} handleCancel={handleResetScreen}
+                        updateNotification={handleNotification}/>
+
+    }
+  }
 
   function handleNotification(notification)
   {
@@ -63,7 +236,6 @@ const AdminPolicy = (props) => {
   async function handleAddGroupClick(e) {
     e.preventDefault();
     showAddGroup();
-    //showDeleteConfirmation();
   }
 
   async function handleDeleteGroupClick(e) {
@@ -98,9 +270,6 @@ const AdminPolicy = (props) => {
   }
 
   async function handleSave(editItem, action) {
-
-    //const { history } = this.props;
-    //if(history) history.goBack();
 
     let newItem = Object.assign({}, editItem);
     let notificationHeader = 'policy';
@@ -179,7 +348,6 @@ const AdminPolicy = (props) => {
         //Reload actual permissions for current user.
         await props.reloadPermissions();
       } else if (action === 'add' && selectedTab === 'policies') {
-        notificationHeader = 'policy'
         const session = await Auth.currentSession();
         const apiAdmin = new Admin(session);
 
@@ -235,11 +403,6 @@ const AdminPolicy = (props) => {
     setSelectedItems([]);
   }
 
-  async function handleViewerTabChange(tabselected)
-  {
-    setViewerCurrentTab(tabselected);
-  }
-
   async function handleDeleteItemClick(e) {
     e.preventDefault();
     showDeleteConfirmation();
@@ -286,7 +449,7 @@ const AdminPolicy = (props) => {
 
       const session = await Auth.currentSession();
       const apiAdmin = await new Admin(session);
-      const response = await apiAdmin.putUsers(users);
+      await apiAdmin.putUsers(users);
 
       permissionsUpdate();
 
@@ -362,7 +525,7 @@ const AdminPolicy = (props) => {
 
       const session = await Auth.currentSession();
       const apiAdmin = await new Admin(session);
-      const response = await apiAdmin.putUsers(users);
+      await apiAdmin.putUsers(users);
 
       permissionsUpdate();
 
@@ -429,7 +592,7 @@ const AdminPolicy = (props) => {
 
       const session = await Auth.currentSession();
       const apiAdmin = await new Admin(session);
-      const response = await apiAdmin.postGroups([group]);
+      await apiAdmin.postGroups([group]);
 
       permissionsUpdate();
 
@@ -493,7 +656,6 @@ const AdminPolicy = (props) => {
     try {
       const session = await Auth.currentSession();
       const apiAdmin = new Admin(session);
-      //await apiUser.deleteApp(selectedItems[item].app_id);
 
       if (selectedTab === 'roles') {
         await apiAdmin.delRole(selectedItems[0].role_id);
@@ -541,26 +703,6 @@ const AdminPolicy = (props) => {
     }
   }
 
-  const ViewPermissions = (props) => {
-
-    const [selectedItemsViewer, lsetSelectedItemsViewer] = useState([]);
-
-    if (selectedItems.length === 1 && (selectedTab === 'roles' || selectedTab === 'policies')) {
-
-      return (
-        <PermissionsView {...props}
-          item={selectedItems[0]}
-          itemType={selectedTab}
-          schema={selectedTab === 'roles' ? props.schema.role : props.schema.policy}
-          schemas={props.schema}
-          handleTabChange={handleViewerTabChange}
-          selectedTab={viewerCurrentTab}/>
-      );
-    } else {
-      return (null);
-    }
-  }
-
   return (
     <div>
       {props.schemaIsLoading ?
@@ -568,135 +710,7 @@ const AdminPolicy = (props) => {
           Loading schema...
         </StatusIndicator>
         :
-          !editingItem
-          ?
-          <Tabs
-            activeTabId={selectedTab}
-            onChange={({detail}) => handleTabChange(detail.activeTabId)}
-            tabs={[
-              {
-                label: "Roles",
-                id: "roles",
-                content:
-                  <SpaceBetween direction="vertical" size="xs">
-                    <ItemTable
-                      schema={props.schema.role}
-                      schemaKeyAttribute={'role_id'}
-                      schemaName={'role'}
-                      dataAll={allData}
-                      items={permissionsIsLoading ? [] : permissionsData.roles}
-                      selectedItems={selectedItems}
-                      handleSelectionChange={handleItemSelectionChange}
-                      isLoading={permissionsIsLoading}
-                      errorLoading={permissionsError}
-                      handleRefreshClick={handleRefreshClick}
-                      handleAddItem={handleAddItem}
-                      handleDeleteItem={handleDeleteItemClick}
-                      handleEditItem={handleEditItem}
-                      selectionType={'single'}
-                    />
-                    <ViewPermissions
-                      schema={props.schema}
-                    />
-                  </SpaceBetween>
-              },
-              {
-                label: "Policies",
-                id: "policies",
-                content:
-                  <SpaceBetween direction="vertical" size="xs">
-                    <ItemTable
-                      schema={props.schema.policy}
-                      schemaKeyAttribute={'policy_id'}
-                      schemaName={'policie'}
-                      dataAll={allData}
-                      items={permissionsIsLoading ? [] : permissionsData.policies}
-                      selectedItems={selectedItems}
-                      handleSelectionChange={handleItemSelectionChange}
-                      isLoading={permissionsIsLoading}
-                      errorLoading={permissionsError}
-                      handleRefreshClick={handleRefreshClick}
-                      handleAddItem={handleAddItem}
-                      handleDeleteItem={handleDeleteItemClick}
-                      handleEditItem={handleEditItem}
-                      selectionType={'single'}
-                    />
-                    <ViewPermissions
-                      schema={props.schema}
-                    />
-                  </SpaceBetween>
-              }
-              ,
-              {
-                label: "Groups",
-                id: "groups",
-                content:
-                  <SpaceBetween direction="vertical" size="xs">
-                    <ItemTable
-                      schema={props.schema.group}
-                      schemaKeyAttribute={'group_name'}
-                      schemaName={'group'}
-                      dataAll={permissionsData.groups}
-                      items={permissionsIsLoading ? [] : permissionsData.groups}
-                      isLoading={permissionsIsLoading}
-                      errorLoading={permissionsError}
-                      handleRefreshClick={handleRefreshClick}
-                      handleAddItem={handleAddGroupClick}
-                      handleDeleteItem={handleDeleteGroupClick}
-                      handleSelectionChange={handleItemSelectionChange}
-                      selectionType={'single'}
-                      selectedItems={selectedItems}
-                    />
-                    <ViewPermissions
-                      schema={props.schema}
-                    />
-                  </SpaceBetween>
-              }
-              ,
-              {
-                label: "Users",
-                id: "users",
-                content:
-                  <SpaceBetween direction="vertical" size="xs">
-                    <ItemTable
-                      description={'Users must be created through Amazon Cognito or a federated IDP.'}
-                      schema={props.schema.user}
-                      schemaKeyAttribute={'userRef'}
-                      schemaName={'user'}
-                      dataAll={permissionsData.users}
-                      items={permissionsIsLoading ? [] : permissionsData.users}
-                      isLoading={permissionsIsLoading}
-                      errorLoading={permissionsError}
-                      handleRefreshClick={handleRefreshClick}
-                      actionsButtonDisabled={false}
-                      handleAction={handleActionClick}
-                      actionItems={[{
-                        id: 'add_group',
-                        text: 'Add users to group',
-                        description: 'Add users to group.',
-                        disabled: selectedItems.length === 0 ? true : false
-                      },
-                        {
-                          id: 'remove_group',
-                          text: 'Remove users to group',
-                          description: 'Remove users to group.',
-                          disabled: selectedItems.length === 0 ? true : false
-                        }]}
-                      handleSelectionChange={handleItemSelectionChange}
-                      selectionType={'multi'}
-                      selectedItems={selectedItems}
-                    />
-                    <ViewPermissions
-                      schema={props.schema}
-                    />
-                  </SpaceBetween>
-              }
-            ]}
-          />
-          :
-          <ItemAmend action={action} schemaName={selectedTab === 'roles' ? 'role' : 'policy'}
-                     schemas={props.schema} userAccess={props.userEntityAccess}  item={focusItem} handleSave={handleSave} handleCancel={handleResetScreen}
-                     updateNotification={handleNotification}/>
+          displayAdminPolicy(editingItem)
         }
       <DeleteModal
         title={'Delete policy'}

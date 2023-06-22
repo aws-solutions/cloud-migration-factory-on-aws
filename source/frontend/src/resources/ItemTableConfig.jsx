@@ -120,19 +120,25 @@ export function getColumnDefinitions(schemaName, schema, provide_link = false){
             id: attr.name,
             header: attr.description,
             cell: item => getNestedValuePath(item, attr.name) ? getNestedValuePath(item, attr.name).map((policy, index) => {
-              let createmsg = '';
-              let readmsg = '';
-              let updatemsg = '';
-              let deletemsg = '';
+              let finalMsg = [];
 
-              policy.create ? createmsg = 'C': createmsg = ''
-              policy.read ? readmsg = 'R': readmsg = ''
-              policy.update ? updatemsg = 'U': updatemsg = ''
-              policy.delete ? deletemsg = 'D': deletemsg = ''
+              if (policy.create) {
+                finalMsg.push('C')
+              }
 
-              let finalmsg = createmsg + readmsg + updatemsg + deletemsg
+              if (policy.read) {
+                finalMsg.push('R')
+              }
 
-              return <div>{policy.friendly_name ? policy.friendly_name : policy.schema_name + ' ['+ finalmsg +']'}</div>}) : getNestedValuePath(item, attr.name),
+              if (policy.update) {
+                finalMsg.push('U')
+              }
+
+              if (policy.delete) {
+                finalMsg.push('D')
+              }
+
+              return <div key={policy.schema_name}>{policy.friendly_name ? policy.friendly_name : policy.schema_name + ' ['+ finalMsg.join('') +']'}</div>}) : getNestedValuePath(item, attr.name),
             minWidth: 180,
             sortingField: attr.name
           }

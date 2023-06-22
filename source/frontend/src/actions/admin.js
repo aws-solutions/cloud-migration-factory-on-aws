@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { API } from "aws-amplify";
+import { API } from "@aws-amplify/api";
 
 export default class Admin {
   constructor(session) {
@@ -33,9 +33,9 @@ export default class Admin {
   putSchema(schemaName, schema) {
     const token = this.session.idToken.jwtToken;
     const accesstoken = this.session.accessToken.jwtToken;
-    var schemastr = JSON.stringify(schema)
-    var data = '{ "event":"PUT", "update_schema":' + schemastr + '}'
-    var obj = JSON.parse(data)
+    const schemastr = JSON.stringify(schema)
+    const data = '{ "event":"PUT", "update_schema":' + schemastr + '}'
+    const obj = JSON.parse(data)
     const options = {
       body: obj,
       headers: {
@@ -49,8 +49,8 @@ export default class Admin {
   postSchema(schemaName, schema) {
     const token = this.session.idToken.jwtToken;
     const accesstoken = this.session.accessToken.jwtToken;
-    var schemastr = JSON.stringify(schema)
-    var obj = JSON.parse(schemastr)
+    const schemastr = JSON.stringify(schema)
+    const obj = JSON.parse(schemastr)
     const options = {
       body: obj,
       headers: {
@@ -71,22 +71,12 @@ export default class Admin {
     return API.del('admin', '/admin/schema/' + schemaName, options);
   }
 
-  getSchemaAttributes(schemaName) {
-    const token = this.session.idToken.jwtToken;
-    const options = {
-      headers: {
-        Authorization: token
-      }
-    };
-    return API.get("admin", "/admin/schema/" + schemaName,options);
-  }
-
   putSchemaAttr(schemaName, attr, attr_name) {
     const token = this.session.idToken.jwtToken;
     const accesstoken = this.session.accessToken.jwtToken;
-    var attrstr = JSON.stringify(attr)
-    var data = '{ "event":"PUT" , "name":"' + attr_name + '", "update":' + attrstr + '}'
-    var obj = JSON.parse(data)
+    const attrstr = JSON.stringify(attr)
+    const data = '{ "event":"PUT" , "name":"' + attr_name + '", "update":' + attrstr + '}'
+    const obj = JSON.parse(data)
     const options = {
       body: obj,
       headers: {
@@ -100,9 +90,9 @@ export default class Admin {
   postSchemaAttr(schemaName, attr) {
     const token = this.session.idToken.jwtToken;
     const accesstoken = this.session.accessToken.jwtToken;
-    var attrstr = JSON.stringify(attr)
-    var data = '{ "event":"POST", "new":' + attrstr + '}'
-    var obj = JSON.parse(data)
+    const attrstr = JSON.stringify(attr)
+    const data = '{ "event":"POST", "new":' + attrstr + '}'
+    const obj = JSON.parse(data)
     const options = {
       body: obj,
       headers: {
@@ -116,8 +106,8 @@ export default class Admin {
   delSchemaAttr(schemaName, attr_name) {
     const token = this.session.idToken.jwtToken;
     const accesstoken = this.session.accessToken.jwtToken;
-    var data = '{ "event":"DELETE" , "name":"' + attr_name + '"}'
-    var obj = JSON.parse(data)
+    const data = '{ "event":"DELETE" , "name":"' + attr_name + '"}'
+    const obj = JSON.parse(data)
     const options = {
       body: obj,
       headers: {

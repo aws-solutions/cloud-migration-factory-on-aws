@@ -12,13 +12,11 @@ Box} from '@awsui/components-react';
 
 // Attribute Display message content
 const WaveStatus = ({data, children}) => {
-
-  let localData = {};
   let statusType = 'loading';
 
   let waveStatus = data.data.map(function(value, index) {return value['wave_status']});
 
-  var wave_count = [];
+  let wave_count = [];
   waveStatus.forEach(function(value, index) {
       let lvalue = value;
 

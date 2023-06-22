@@ -4,7 +4,7 @@
  */
 
 import React, {useEffect, useState} from "react";
-import {Auth} from "aws-amplify";
+import {Auth} from "@aws-amplify/auth";
 
 import {useNavigate} from "react-router-dom";
 import {
@@ -23,7 +23,6 @@ const ForgotPassword = (props) => {
   let navigate = useNavigate();
   console.log(props);
 
-  const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -32,8 +31,6 @@ const ForgotPassword = (props) => {
 
   const handleForgotPassword = async () => {
 
-    setIsLoading(true);
-
     try {
       if(email) {
         await Auth.forgotPassword(email);
@@ -41,20 +38,16 @@ const ForgotPassword = (props) => {
       }
     } catch (e) {
       setPasswordError(e.message);
-      setIsLoading(false);
     }
   }
   const handleSubmit = async event => {
     event.preventDefault();
-
-    setIsLoading(true);
 
     try {
       await Auth.forgotPasswordSubmit(email, code, password);
       navigate("/login");
     } catch (e) {
       setPasswordError(e.message)
-      setIsLoading(false);
     }
   }
 

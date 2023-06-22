@@ -22,7 +22,7 @@ import botocore
 import os
 import logging
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -120,13 +120,12 @@ def lambda_handler(event, context):
                         )
 
                 # set state of user account.
-                if 'delete' in user:
-                    if user['delete']:
-                        logger.info("Deleting user '%s'." % (user['username']))
-                        client.admin_delete_user(
-                            UserPoolId=os.environ['userpool_id'],
-                            Username=user['username']
-                        )
+                if 'delete' in user and user['delete']:
+                    logger.info("Deleting user '%s'." % (user['username']))
+                    client.admin_delete_user(
+                        UserPoolId=os.environ['userpool_id'],
+                        Username=user['username']
+                    )
             except client.exceptions.UserNotFoundException as boto_client_error_no_user:
                 logger.info("User '%s' does not exist , skipping user updates." % user['username'])
                 errors.append("User '%s'  does not exist , skipping user updates." % user['username'])
@@ -156,4 +155,3 @@ def lambda_handler(event, context):
         return {'headers': {**default_http_headers},
                 'statusCode': 200
                 }
-

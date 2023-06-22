@@ -15,25 +15,24 @@ import CredentialManagerTable from '../components/CredentialManagerTable';
 import { useCredentialManager } from '../actions/CredentialManagerHook';
 import FlashMessage from '../components/FlashMessage.jsx';
 
+
+const Breadcrumbs = () => (
+  <BreadcrumbGroup
+    items={[
+      {
+        text: 'Migration Management',
+        href: '/admin/permissions'
+      },
+      {
+        text: 'Secrets',
+        href: '/secrets'
+      }
+    ]}
+  />
+);
+
 const Secrets = (props) => {
     const [{ isLoading: secretDataIsLoading, data: secretData, error: secretDataErrorLoading }] = useCredentialManager();
-
-    // Breadcrumb content
-    const Breadcrumbs = () => (
-        <BreadcrumbGroup
-            items={[
-                {
-                    text: 'Migration Management',
-                    href: '/admin/permissions'
-                },
-                {
-                    text: 'Secrets',
-                    href: '/secrets'
-                }
-            ]}
-        />
-    );
-
     return (
         <>
             <AppLayout

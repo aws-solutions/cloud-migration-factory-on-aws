@@ -16,10 +16,11 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
 #########################################################################################
 
-import factory
-import roles
-import policies
-import json, boto3, logging, os
+import boto3
+import json
+import logging
+import os
+
 import requests
 
 log = logging.getLogger()
@@ -29,33 +30,42 @@ ROLE_TABLE = os.getenv('RoleDynamoDBTable')
 SCHEMA_TABLE = os.getenv('SchemaDynamoDBTable')
 POLICY_TABLE = os.getenv('PolicyDynamoDBTable')
 
+# Load default schema from json.
+with open('default_schema.json') as json_schema_file:
+    default_schema = json.load(json_schema_file)
+
+# Load default policies from json.
+with open('default_policies.json') as json_policies_file:
+    default_policies = json.load(json_policies_file)
+
+# Load default roles from json.
+with open('default_roles.json') as json_roles_file:
+    default_roles = json.load(json_roles_file)
+
+
 def load_schema():
     client = boto3.client('dynamodb')
 
-    for item in factory.schema:
-
+    for item in default_schema:
         response = client.put_item(
-            TableName = SCHEMA_TABLE,
-            Item = item
+            TableName=SCHEMA_TABLE,
+            Item=item
         )
 
-    for item in roles.schema:
-
+    for item in default_roles:
         response = client.put_item(
-            TableName = ROLE_TABLE,
-            Item = item
+            TableName=ROLE_TABLE,
+            Item=item
         )
 
-    for item in policies.schema:
-
+    for item in default_policies:
         response = client.put_item(
-            TableName = POLICY_TABLE,
-            Item = item
+            TableName=POLICY_TABLE,
+            Item=item
         )
 
 
 def lambda_handler(event, context):
-
     try:
         log.info('Event:\n {}'.format(event))
         log.info('Context:\n {}'.format(context))
@@ -63,39 +73,40 @@ def lambda_handler(event, context):
         if event['RequestType'] == 'Create':
             log.info('Create action')
             load_schema()
-            status='SUCCESS'
-            message='Default schema loaded successfully'
+            status = 'SUCCESS'
+            message = 'Default schema loaded successfully'
 
         elif event['RequestType'] == 'Update':
             log.info('Update action')
-            status='SUCCESS'
-            message='No update required'
+            status = 'SUCCESS'
+            message = 'No update required'
 
         elif event['RequestType'] == 'Delete':
             log.info('Delete action')
-            status='SUCCESS'
-            message='No deletion required'
+            status = 'SUCCESS'
+            message = 'No deletion required'
 
         else:
             log.info('SUCCESS!')
-            status='SUCCESS'
-            message='Unexpected event received from CloudFormation'
+            status = 'SUCCESS'
+            message = 'Unexpected event received from CloudFormation'
 
     except Exception as e:
         log.info('FAILED!')
         log.info(e)
-        status='FAILED'
-        message='Exception during processing'
+        status = 'FAILED'
+        message = 'Exception during processing'
 
-    response_data = {'Message' : message}
-    response=respond(event, context, status, response_data, None)
+    response_data = {'Message': message}
+    response = respond(event, context, status, response_data, None)
 
     return {
-        'Response' :response
+        'Response': response
     }
 
+
 def respond(event, context, responseStatus, responseData, physicalResourceId):
-    #Build response payload required by CloudFormation
+    # Build response payload required by CloudFormation
     responseBody = {}
     responseBody['Status'] = responseStatus
     responseBody['Reason'] = 'Details in: ' + context.log_stream_name
@@ -105,24 +116,25 @@ def respond(event, context, responseStatus, responseData, physicalResourceId):
     responseBody['LogicalResourceId'] = event['LogicalResourceId']
     responseBody['Data'] = responseData
 
-    #Convert json object to string and log it
+    # Convert json object to string and log it
     json_responseBody = json.dumps(responseBody)
     log.info('Response body: {}'.format(str(json_responseBody)))
 
-    #Set response URL
+    # Set response URL
     responseUrl = event['ResponseURL']
 
-    #Set headers for preparation for a PUT
+    # Set headers for preparation for a PUT
     headers = {
-        'content-type' : '',
-        'content-length' : str(len(json_responseBody))
+        'content-type': '',
+        'content-length': str(len(json_responseBody))
     }
 
-    #Return the response to the signed S3 URL
+    # Return the response to the signed S3 URL
     try:
         response = requests.put(responseUrl,
-        data=json_responseBody,
-        headers=headers)
+                                data=json_responseBody,
+                                headers=headers,
+                                timeout=30)
         log.info('Status code: {}'.format(str(response.reason)))
         return 'SUCCESS'
 
