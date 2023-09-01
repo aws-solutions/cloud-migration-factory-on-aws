@@ -239,14 +239,17 @@ def verify_target_account_servers(serverlist):
                     isServerExist = False
                     for sourceserver in mgn_sourceservers:
                         # Check if the factory server exist in Application Migration Service
-                        if factoryserver['server_name'].lower().strip() == sourceserver['sourceProperties']['identificationHints']['hostname'].lower().strip():
-                            isServerExist = True
-                        elif factoryserver['server_name'].lower().strip() == sourceserver['sourceProperties']['identificationHints']['fqdn'].lower().strip():
-                            isServerExist = True
-                        elif factoryserver['server_fqdn'].lower().strip() == sourceserver['sourceProperties']['identificationHints']['hostname'].lower().strip():
-                            isServerExist = True
-                        elif factoryserver['server_fqdn'].lower().strip() == sourceserver['sourceProperties']['identificationHints']['fqdn'].lower().strip():
-                            isServerExist = True
+
+                        # Confirm the hostname and fqdn keys exist before checking for them
+                        if ('hostname' and 'fqdn') in sourceserver['sourceProperties']['identificationHints']:
+                            if factoryserver['server_name'].lower().strip() == sourceserver['sourceProperties']['identificationHints']['hostname'].lower().strip():
+                                isServerExist = True
+                            elif factoryserver['server_name'].lower().strip() == sourceserver['sourceProperties']['identificationHints']['fqdn'].lower().strip():
+                                isServerExist = True
+                            elif factoryserver['server_fqdn'].lower().strip() == sourceserver['sourceProperties']['identificationHints']['hostname'].lower().strip():
+                                isServerExist = True
+                            elif factoryserver['server_fqdn'].lower().strip() == sourceserver['sourceProperties']['identificationHints']['fqdn'].lower().strip():
+                                isServerExist = True
                         else:
                             continue
                         # Get EC2 launch template Id for the source server in Application Migration Service
