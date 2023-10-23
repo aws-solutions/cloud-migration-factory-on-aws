@@ -1,40 +1,19 @@
-#########################################################################################
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.                    #
-# SPDX-License-Identifier: MIT-0                                                        #
-#                                                                                       #
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this  #
-# software and associated documentation files (the "Software"), to deal in the Software #
-# without restriction, including without limitation the rights to use, copy, modify,    #
-# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to    #
-# permit persons to whom the Software is furnished to do so.                            #
-#                                                                                       #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,   #
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A         #
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT    #
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION     #
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE        #
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
-#########################################################################################
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
 
 # Version: 29MAY2022.01
 
 from __future__ import print_function
 import sys
 import argparse
-import requests
-import json
 import boto3
 import botocore.exceptions
 from datetime import datetime
 import time
 import mfcommon
 
-serverendpoint = mfcommon.serverendpoint
-appendpoint = mfcommon.appendpoint
 timeout = 60 * 60
-
-with open('FactoryEndpoints.json') as json_file:
-    endpoints = json.load(json_file)
 
 
 def unix_time_millis(dt):
@@ -81,13 +60,12 @@ def get_mgn_source_servers(mgn_client_base):
             return source_server_data
 
 
-def verify_replication(serverlist, UserHOST):
-    Not_finished = True
+def verify_replication(serverlist):
+    not_finished = True
     count_fail = 0
-    currentTime = datetime.utcnow()
-    while Not_finished:
-        auth = {"Authorization": mfcommon.Factorylogin()}
-        Not_finished = False
+    current_time = datetime.utcnow()
+    while not_finished:
+        not_finished = False
         replication_status = []
         for account in serverlist:
             replication_not_finished = False
@@ -168,13 +146,14 @@ def verify_replication(serverlist, UserHOST):
                         # print replication status and update replication_status in migration factory
                         print("Server " + factoryserver["server_name"] + " replication status: " + machine_status[
                             factoryserver["server_name"]], flush=True)
-                        serverattr = {"replication_status": machine_status[factoryserver["server_name"]]}
+
+                        updateserver = mfcommon.update_server_replication_status(
+                            mfcommon.Factorylogin(),
+                            factoryserver['server_id'],
+                            machine_status[factoryserver["server_name"]]
+                        )
                         if machine_status[factoryserver["server_name"]] != "Healthy":
                             replication_not_finished = True
-                        updateserver = requests.put(UserHOST + serverendpoint + '/' + factoryserver['server_id'],
-                                                    headers=auth,
-                                                    data=json.dumps(serverattr),
-                                                    timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
                         if updateserver.status_code == 401:
                             print("Error: Access to replication_status attribute is denied", flush=True)
                             sys.exit(1)
@@ -186,19 +165,17 @@ def verify_replication(serverlist, UserHOST):
 
         for status in replication_status:
             if status == True:
-                Not_finished = True
-        if Not_finished:
+                not_finished = True
+        if not_finished:
             print("")
-            print("***************************************************")
-            print("* Replication in progress - retry after 1 minute *")
-            print("***************************************************", flush=True)
+            print("Replication in progress - next check in 1 minute.", flush=True)
             time.sleep(60)
         print("")
-        newTime = datetime.utcnow()
-        timeElapsed = unix_time_millis(newTime) - unix_time_millis(currentTime)
-        print(str(timeElapsed) + " seconds elapsed")
+        new_time = datetime.utcnow()
+        time_elapsed = unix_time_millis(new_time) - unix_time_millis(current_time)
+        print(str(time_elapsed) + " seconds elapsed")
         print("")
-        if timeElapsed > timeout:
+        if time_elapsed > timeout:
             return -1
     return count_fail
 
@@ -212,30 +189,18 @@ def main(arguments):
                         help='Specify if user prompts for passwords are allowed. Default = False')
     args = parser.parse_args(arguments)
 
-    UserHOST = ""
-    # Get MF endpoints from FactoryEndpoints.json file
-    if 'UserApiUrl' in endpoints:
-        UserHOST = endpoints['UserApiUrl']
-    else:
-        print("ERROR: Invalid FactoryEndpoints.json file, please update UserApiUrl")
-        sys.exit(1)
-
     print("")
-    print("****************************")
-    print("*Login to Migration factory*")
-    print("****************************", flush=True)
+    print("*Login to Migration factory*", flush=True)
     token = mfcommon.Factorylogin()
 
-    print("****************************")
-    print("*** Getting Server List ****")
-    print("****************************", flush=True)
-    get_servers = mfcommon.get_factory_servers(args.Waveid, token, UserHOST, False, 'Rehost')
+    print("*** Getting Server List ****", flush=True)
+    get_servers = mfcommon.get_factory_servers(args.Waveid, token, False, 'Rehost')
 
     print("")
     print("*****************************")
     print("* Verify replication status *")
     print("*****************************", flush=True)
-    failure_count = verify_replication(get_servers, UserHOST)
+    failure_count = verify_replication(get_servers)
 
     if (failure_count == -1):
         print(

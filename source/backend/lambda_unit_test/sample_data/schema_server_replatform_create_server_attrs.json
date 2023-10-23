@@ -1,0 +1,102 @@
+{
+  "schema_name": "server",
+  "schema_type": "user",
+  "attributes": [
+    {
+      "description": "Root Volume Size",
+      "system": true,
+      "name": "root_vol_size",
+      "group": "Target - Storage",
+      "type": "Integer"
+    },
+    {
+      "description": "AMI Id",
+      "name": "ami_id",
+      "group": "Target - Instance",
+      "system": true,
+      "type": "string"
+    },
+    {
+      "description": "Availability zone",
+      "name": "availabilityzone",
+      "group": "Target - Instance",
+      "system": true,
+      "type": "string"
+    },
+    {
+      "description": "Root Volume Type",
+      "name": "root_vol_type",
+      "group": "Target - Storage",
+      "system": true,
+      "type": "string"
+    },
+    {
+      "description": "Additional Volume Sizes",
+      "name": "add_vols_size",
+      "group": "Target - Storage",
+      "system": true,
+      "type": "string"
+    },
+    {
+      "description": "Additional Volume Types",
+      "name": "add_vols_type",
+      "group": "Target - Storage",
+      "system": true,
+      "type": "string"
+    },
+    {
+      "description": "Enable EBS Optimized",
+      "name": "ebs_optimized",
+      "group": "Target - Storage",
+      "system": true,
+      "type": "checkbox"
+    },
+    {
+      "description": "EBS KMS Key Id for Volume Encryption",
+      "name": "ebs_kmskey_id",
+      "group": "Target - Storage",
+      "system": true,
+      "type": "string"
+    },
+    {
+      "description": "Enable Detailed Monitoring",
+      "name": "detailed_monitoring",
+      "group": "Target - Instance",
+      "system": true,
+      "type": "checkbox"
+    },
+    {
+      "description": "Root Volume Name",
+      "name": "root_vol_name",
+      "group": "Target - Storage",
+      "system": true,
+      "type": "string"
+    },
+    {
+      "description": "Additional Volume Names seperated by semicolon(;)",
+      "name": "add_vols_name",
+      "group": "Target - Storage",
+      "system": true,
+      "type": "string"
+    },
+    {
+      "description": "Server Id",
+      "hidden": true,
+      "name": "server_id",
+      "required": true,
+      "system": true,
+      "type": "string"
+    },
+    {
+      "description": "Application",
+      "group_order": "-998",
+      "name": "app_id",
+      "rel_display_attribute": "app_name",
+      "rel_entity": "application",
+      "rel_key": "app_id",
+      "required": true,
+      "system": true,
+      "type": "relationship"
+    }
+  ]
+}

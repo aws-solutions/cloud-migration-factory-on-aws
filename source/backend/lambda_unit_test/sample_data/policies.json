@@ -1,0 +1,26 @@
+[
+  {
+    "policy_id": {
+      "S": "1"
+    },
+    "policy_name": {
+      "S": "Administrator"
+    }
+  },
+  {
+    "policy_id": {
+      "S": "2"
+    },
+    "policy_name": {
+      "S": "ReadOnly"
+    }
+  },
+  {
+    "policy_id": {
+      "S": "3"
+    },
+    "policy_name": {
+      "S": "CustomPolicy"
+    }
+  }
+]

@@ -1,27 +1,12 @@
-#########################################################################################
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.                    #
-# SPDX-License-Identifier: MIT-0                                                        #
-#                                                                                       #
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this  #
-# software and associated documentation files (the "Software"), to deal in the Software #
-# without restriction, including without limitation the rights to use, copy, modify,    #
-# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to    #
-# permit persons to whom the Software is furnished to do so.                            #
-#                                                                                       #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,   #
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A         #
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT    #
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION     #
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE        #
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
-#########################################################################################
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
 
 # Version: 17MAY2021.01
 
 from __future__ import print_function
 import sys
 import argparse
-import requests
 import json
 import subprocess
 import time
@@ -30,12 +15,6 @@ import botocore.exceptions
 import mfcommon
 
 linuxpkg = __import__("1-Install-Linux")
-
-with open('FactoryEndpoints.json') as json_file:
-    endpoints = json.load(json_file)
-
-serverendpoint = mfcommon.serverendpoint
-appendpoint = mfcommon.appendpoint
 
 
 def assume_role(account_id, region):
@@ -61,7 +40,7 @@ def assume_role(account_id, region):
 
 
 def install_ads_agents(force, get_servers, region, ads_secret_name, windows_user_name, windows_password,
-                       linux_user_name, linux_pass_key, linux_key_exist, linux_secret_name=None,
+                       linux_user_name, linux_pass_key, linux_secret_name=None,
                        windows_secret_name=None, no_user_prompts=False):
     try:
         if region != '':
@@ -76,18 +55,11 @@ def install_ads_agents(force, get_servers, region, ads_secret_name, windows_user
                 agent_install_secrets = mfcommon.getCredentials(ads_secret_name)
 
                 # Installing agent on Windows servers
-                server_string = ""
                 if len(account['servers_windows']) > 0:
 
                     agent_windows_download_url = "https://s3.us-west-2.amazonaws.com/aws-discovery-agent.us-west-2/windows/latest/AWSDiscoveryAgentInstaller.exe"
-                    # Get all servers FQDNs into csv for trusted hosts update.
-                    for server in account['servers_windows']:
-                        server_string = server_string + server['server_fqdn'] + ','
-                    server_string = server_string[:-1]
-                    # Add servers to local trusted hosts to allow authentication if different domain.
-                    p_trustedhosts = subprocess.Popen(["powershell.exe",
-                                                       "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '" + server_string + "' -Concatenate -Force"],
-                                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+                    mfcommon.add_windows_servers_to_trusted_hosts(account["servers_windows"])
 
                     for server in account['servers_windows']:
                         windows_credentials = mfcommon.getServerCredentials(windows_user_name, windows_password, server,
@@ -125,63 +97,18 @@ def install_ads_agents(force, get_servers, region, ads_secret_name, windows_user
                         linux_credentials = mfcommon.getServerCredentials(linux_user_name, linux_pass_key, server,
                                                                           linux_secret_name, no_user_prompts)
 
-                        install_linux = linuxpkg.install_ads(agent_linux_download_url, region, server['server_fqdn'],
-                                                             linux_credentials['username'],
-                                                             linux_credentials['password'],
-                                                             linux_credentials['private_key'],
-                                                             agent_install_secrets['secret_key'],
-                                                             agent_install_secrets['secret_value'])
+                        linuxpkg.install_ads(agent_linux_download_url, region, server['server_fqdn'],
+                                             linux_credentials['username'],
+                                             linux_credentials['password'],
+                                             linux_credentials['private_key'],
+                                             agent_install_secrets['secret_key'],
+                                             agent_install_secrets['secret_value'])
                 print("")
 
         else:
             print("ERROR: Invalid or empty factory region")
             sys.exit()
 
-    except botocore.exceptions.ClientError as error:
-        if ":" in str(error):
-            err = ''
-            msgs = str(error).split(":")[1:]
-            for msg in msgs:
-                err = err + msg
-            msg = "ERROR: " + err
-            print(msg)
-            sys.exit()
-        else:
-            msg = "ERROR: " + str(error)
-            print(msg)
-            sys.exit()
-
-
-def AgentCheck(get_servers, UserHOST, token, region):
-    try:
-        failures = 0
-        auth = {"Authorization": token}
-        for account in get_servers:
-            target_account_session = assume_role(str(account['aws_accountid']), account['aws_region'])
-            mgn_client = target_account_session.client("mgn", account['aws_region'])
-            mgn_sourceservers = mgn_client.describe_source_servers(filters={})
-            all_servers = account['servers_windows'] + account['servers_linux']
-            for factoryserver in all_servers:
-                serverattr = {}
-                isServerExist = False
-
-                sourceserver = mfcommon.get_MGN_Source_Server(factoryserver, mgn_sourceservers['items'])
-
-                if sourceserver is not None:
-                    print("-- SUCCESS: Agent installed on server: " + factoryserver['server_fqdn'])
-                    serverattr = {"migration_status": "Agent Install - Success"}
-                else:
-                    print("-- FAILED: Agent install failed on server: " + factoryserver['server_fqdn'])
-                    serverattr = {"migration_status": "Agent Install - Failed"}
-                    failures += 1
-
-                update_server_status = requests.put(UserHOST + serverendpoint + '/' + factoryserver['server_id'],
-                                                    headers=auth,
-                                                    data=json.dumps(serverattr),
-                                                    timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT
-                                                    )
-
-        return failures
     except botocore.exceptions.ClientError as error:
         if ":" in str(error):
             err = ''
@@ -212,45 +139,32 @@ def main(arguments):
 
     args = parser.parse_args(arguments)
 
-    UserHOST = ""
-    region = ""
-    # Get MF endpoints from FactoryEndpoints.json file
-    if 'UserApiUrl' in endpoints:
-        UserHOST = endpoints['UserApiUrl']
-    else:
-        print("ERROR: Invalid FactoryEndpoints.json file, please update UserApiUrl")
-        sys.exit()
-
-    # Get region value from FactoryEndpoint.json file if migration execution server is on prem
-
-    if 'Region' in endpoints:
-        region = endpoints['Region']
-    else:
-        print("ERROR: Invalid FactoryEndpoints.json file, please update region")
-        sys.exit()
-    print("Factory region: " + region)
-
     print("")
-    print("****************************")
     print("*Login to Migration factory*")
-    print("****************************")
     token = mfcommon.Factorylogin()
 
-    print("****************************")
     print("*** Getting Server List ***")
-    print("****************************")
-    get_servers, linux_exist, windows_exist = mfcommon.get_factory_servers(args.Waveid, token, UserHOST)
+    get_servers, _, _ = mfcommon.get_factory_servers(args.Waveid, token)
     linux_user_name = ''
     linux_pass_key = ''
-    linux_key_exist = False
 
     print("****************************")
     print("**** Installing Agents *****")
     print("****************************")
     print("")
-    install_agents = install_ads_agents(args.Force, get_servers, args.ADSHomeRegion, args.SecretADSAgents, "", "",
-                                        linux_user_name, linux_pass_key, linux_key_exist, args.SecretLinux,
-                                        args.SecretWindows, args.NoPrompts)
+    install_ads_agents(
+        args.Force,
+        get_servers,
+        args.ADSHomeRegion,
+        args.SecretADSAgents,
+        "",
+        "",
+        linux_user_name,
+        linux_pass_key,
+        args.SecretLinux,
+        args.SecretWindows,
+        args.NoPrompts
+    )
 
     print("")
     print("********************************")

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testExecutions version="1">
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ItemTable.test.tsx">
+    <testCase name="ItemTable displays the generic items table and populates with some dummy server data" duration="207"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ui_attributes/RelationshipAttribute.test.tsx">
+    <testCase name="RelationshipAttribute displays related attribute that allows multiple relationships to be selected." duration="219"/>
+    <testCase name="RelationshipAttribute displays related attribute that allows a single relationship to be selected." duration="110"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ui_attributes/TagAttribute.test.tsx">
+    <testCase name="TagAttribute displays the label and text provided" duration="212"/>
+    <testCase name="TagAttribute trigger update" duration="234"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ui_attributes/ListAttribute.test.tsx">
+    <testCase name="ListAttribute displays the label and text provided" duration="202"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ui_attributes/EmbeddedEntityAttribute.test.tsx">
+    <testCase name="EmbeddedEntityAttribute displays an attribute and text provided" duration="556"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/containers/AdminPermissions.test.tsx">
+    <testCase name="Admin permissions screen loads and displays tabs." duration="249"/>
+    <testCase name="Switch to Roles tab and select first role to show details." duration="270"/>
+    <testCase name="Switch to Groups tab." duration="138"/>
+    <testCase name="Switch to Policies tab and select first policy to show details." duration="282"/>
+    <testCase name="Switch to Users tab." duration="195"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ui_attributes/Audit.test.tsx">
+    <testCase name="Audit displays all valid creations and modified information provided" duration="48"/>
+    <testCase name="Audit displays labels for items with no audit data." duration="18"/>
+    <testCase name="Audit displays labels for items with no audit data but has _history." duration="15"/>
+    <testCase name="Audit displays labels for items with no createdBy or lastModifiedBY email audit data." duration="23"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ui_attributes/JsonAttribute.test.tsx">
+    <testCase name="TextAttribute displays the label and text provided" duration="164"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ui_attributes/GroupsAttribute.test.tsx">
+    <testCase name="GroupsAttribute displays the label and text provided" duration="229"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ui_attributes/AllAttributes.test.tsx">
+    <testCase name="AllAttributes displays a string attribute" duration="1374"/>
+    <testCase name="AllAttributes enter string to trigger update" duration="866"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ui_attributes/CheckboxAttribute.test.tsx">
+    <testCase name="CheckboxAttribute displays the label and text provided" duration="129"/>
+    <testCase name="CheckboxAttribute trigger update" duration="19"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ui_attributes/PoliciesAttribute.test.tsx">
+    <testCase name="PoliciesAttribute displays the label and text provided" duration="127"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ui_attributes/MultiValueStringAttribute.test.tsx">
+    <testCase name="MultiValueStringAttribute displays the label provided." duration="99"/>
+    <testCase name="MultiValueStringAttribute enter string to update" duration="19"/>
+    <testCase name="MultiValueStringAttribute clear value" duration="8"/>
+    <testCase name="MultiValueStringAttribute displays the label provided as name." duration="9"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/IntakeFormTable.test.tsx">
+    <testCase name="IntakeFormTable displays the empty items table with header Import" duration="108"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ui_attributes/DateAttribute.test.tsx">
+    <testCase name="DateAttribute displays the label and text provided" duration="125"/>
+    <testCase name="DateAttribute enter date to trigger update" duration="28"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/resources/main.test.ts">
+    <testCase name="Capitalize the first letter of the string argument." duration="2"/>
+    <testCase name="Returns true if key exists in the object." duration="1"/>
+    <testCase name="Returns the differences between 2 objects based on a deep equals." duration="1"/>
+    <testCase name="Returns the value of a nested object based on a path." duration="0"/>
+    <testCase name="Returns the value of a nested object based on a path." duration="1"/>
+    <testCase name="Sets the value of a nested object based on a path." duration="0"/>
+    <testCase name="Compare a and b in ascending order based on a key." duration="2"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/FlashMessage.test.tsx">
+    <testCase name="FlashMessage Displays current notifications" duration="57"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ui_attributes/TextAttribute.test.tsx">
+    <testCase name="TextAttribute displays the label and text provided" duration="18"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/components/ItemAmend.test.tsx">
+    <testCase name="ItemAmend displays the generic items amend component and populates with some dummy server data" duration="1420"/>
+    <testCase name="Update server_name enter string to trigger update" duration="958"/>
+    <testCase name="Click save" duration="1071"/>
+    <testCase name="Update tag to verify array update code" duration="671"/>
+    <testCase name="Click cancel" duration="392"/>
+  </file>
+  <file path="/codebuild/output/src864772165/src/source/frontend/src/containers/UserImport.test.tsx">
+    <testCase name="UserImport displays a main message title" duration="360"/>
+    <testCase name="Upload valid csv file" duration="2249"/>
+    <testCase name="Upload invalid csv file" duration="2132"/>
+    <testCase name="Upload valid csv file and review upload" duration="4260"/>
+    <testCase name="Upload valid csv file and view commit overview" duration="2451"/>
+    <testCase name="Upload valid Excel file" duration="2059"/>
+  </file>
+</testExecutions>

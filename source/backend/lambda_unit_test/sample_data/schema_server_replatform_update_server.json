@@ -1,0 +1,25 @@
+{
+  "schema_name": "server",
+  "schema_type": "user",
+  "attributes": [
+    {
+      "description": "Server Id",
+      "hidden": true,
+      "name": "server_id",
+      "required": true,
+      "system": true,
+      "type": "string"
+    },
+    {
+      "description": "Application",
+      "group_order": "-998",
+      "name": "app_id",
+      "rel_display_attribute": "app_name",
+      "rel_entity": "application",
+      "rel_key": "app_id",
+      "required": true,
+      "system": true,
+      "type": "relationship"
+    }
+  ]
+}

@@ -1,3 +1,6 @@
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
 import gzip
 import json
 import base64
@@ -36,21 +39,21 @@ def unix_time_seconds(dt):
 
 def update_log(ssm_id, output, ddb_retry_count):
     resp = ssm_jobs_table.get_item(TableName=ssm_jobs_table_name, Key={'SSMId': ssm_id})
-    SSMData = resp["Item"]
+    ssm_data = resp["Item"]
 
-    if "outcomeDate" in SSMData["_history"]:
-        original_record_time = SSMData["_history"]["outcomeDate"]
+    if "outcomeDate" in ssm_data["_history"]:
+        original_record_time = ssm_data["_history"]["outcomeDate"]
     else:
         original_record_time = ""
-    createdTimestamp = SSMData["_history"]["createdTimestamp"]
-    outcomeTimestamp = datetime.utcnow()
-    outcomeTimestampStr = outcomeTimestamp.isoformat(sep='T')
-    SSMData["_history"]["outcomeDate"] = outcomeTimestampStr
+    created_timestamp = ssm_data["_history"]["createdTimestamp"]
+    outcome_timestamp = datetime.utcnow()
+    outcome_timestamp_str = outcome_timestamp.isoformat(sep='T')
+    ssm_data["_history"]["outcomeDate"] = outcome_timestamp_str
 
-    timeSecondsElapsed = unix_time_seconds(outcomeTimestamp) - unix_time_seconds(
-        datetime.strptime(createdTimestamp, "%Y-%m-%dT%H:%M:%S.%f"))
-    SSMData["_history"]["timeElapsed"] = str(timeSecondsElapsed)
-    logger.debug("time elapsed: " + str(timeSecondsElapsed))
+    time_seconds_elapsed = unix_time_seconds(outcome_timestamp) - unix_time_seconds(
+        datetime.strptime(created_timestamp, "%Y-%m-%dT%H:%M:%S.%f"))
+    ssm_data["_history"]["timeElapsed"] = str(time_seconds_elapsed)
+    logger.debug("time elapsed: " + str(time_seconds_elapsed))
 
     notification = {
         'type': '',
@@ -60,109 +63,130 @@ def update_log(ssm_id, output, ddb_retry_count):
         'timeStamp': ''
     }
 
-    if "JOB_COMPLETE" in output:
-        logger.info('Job Completed.')
-        SSMData["status"] = "COMPLETE"
-        SSMData["_history"]["completedTimestamp"] = outcomeTimestampStr
-        notification['timeStamp'] = outcomeTimestampStr
-        notification['type'] = 'success'
-    elif "JOB_FAILED" in output:
-        logger.info('Job Failed.')
-        SSMData["status"] = "FAILED"
-        SSMData["_history"]["completedTimestamp"] = outcomeTimestampStr
-        notification['timeStamp'] = outcomeTimestampStr
-        notification['type'] = 'error'
-    elif int(timeSecondsElapsed) > job_timeout_seconds and resp["Item"]["SSMData"]["status"] == "RUNNING":
-        logger.info('Job Timed out.')
-        SSMData["status"] = "TIMED-OUT"
-        SSMData["_history"]["completedTimestamp"] = outcomeTimestampStr
-        notification['timeStamp'] = outcomeTimestampStr
-        notification['type'] = 'error'
-    else:
-        logger.info('Job still running.')
-        notification['timeStamp'] = outcomeTimestampStr
-        notification['type'] = 'pending'
+    compute_job_status(output, ssm_data, notification, outcome_timestamp_str, time_seconds_elapsed, resp)
 
-    SSMData["output"] = str(SSMData["output"]) + output
+    ssm_data["output"] = str(ssm_data["output"]) + output
 
-    outputArray = SSMData["output"].split("\n")
+    output_array = ssm_data["output"].split("\n")
 
-    if len(outputArray) > 0:
-        for i in range(len(outputArray) - 1, 0, -1):
-            if outputArray[i].strip() != "" and not outputArray[i].strip().startswith("JOB_") and not (
-                outputArray[i].strip().startswith("[") and outputArray[i].strip().endswith("]")):
-                SSMData["outputLastMessage"] = outputArray[i]
+    if len(output_array) > 0:
+        for i in range(len(output_array) - 1, 0, -1):
+            if output_array[i].strip() != "" and \
+                    not output_array[i].strip().startswith("JOB_") and \
+                    not (output_array[i].strip().startswith("[") and output_array[i].strip().endswith("]")):
+                ssm_data["outputLastMessage"] = output_array[i]
                 break
     else:
-        SSMData["outputLastMessage"] = ''
+        ssm_data["outputLastMessage"] = ''
 
-    notification['content'] = SSMData["jobname"] + ' - ' + SSMData["outputLastMessage"]
-    notification['uuid'] = SSMData["uuid"]
+    notification['content'] = ssm_data["jobname"] + ' - ' + ssm_data["outputLastMessage"]
+    notification['uuid'] = ssm_data["uuid"]
 
-    if original_record_time == "":
-        try:
-            # As no original record time set then this record is assumed to be a new log so check if outcome is present.
-            ssm_jobs_table.put_item(
-                Item=SSMData,
-                ConditionExpression="attribute_not_exists(#_history.#outcomeDate)",
-                ExpressionAttributeNames={
-                    '#_history': '_history',
-                    '#outcomeDate': 'outcomeDate',
-                }
-            )
-        except botocore.exceptions.ClientError as x:
-            logger.error(x)
-            error_code = x.response.get("Error", {}).get("Code")
-            if error_code == "ConditionalCheckFailedException":
-                if ddb_retry_count < ddb_retry_max:
-                    ddb_retry_count += 1
-                    logger.warning("Log write conflict detected. Retry %s of %s for job uuid: %s"
-                                   % (ddb_retry_count, ddb_retry_max, SSMData["uuid"]))
-                    notification = update_log(ssm_id, output, ddb_retry_count)
-                else:
-                    logger.error("Log write conflict detected, "
-                                 "and max retries reached for update job uuid: %s" % SSMData["uuid"])
-                pass
-            else:
-                raise
-    else:
-        try:
-            # Job record has outcomeDate, use this to ensure no changes made to record while processing this request.
-            ssm_jobs_table.put_item(
-                Item=SSMData,
-                ConditionExpression="#_history.#outcomeDate = :original_record_time",
-                ExpressionAttributeNames={
-                    '#_history': '_history',
-                    '#outcomeDate': 'outcomeDate',
-                },
-                ExpressionAttributeValues={
-                    ":original_record_time": original_record_time,
-                },
-            )
-        except botocore.exceptions.ClientError as x:
-            error_code = x.response.get("Error", {}).get("Code")
-            if error_code == "ConditionalCheckFailedException":
-                # An update was made to the record by another process, retrying update with new record content.
-                if ddb_retry_count < ddb_retry_max:
-                    ddb_retry_count += 1
-                    logger.warning("Log write conflict detected. Retry %s of %s for job uuid: %s"
-                                   % (ddb_retry_count, ddb_retry_max, SSMData["uuid"]))
-                    notification = update_log(ssm_id, output, ddb_retry_count)
-                else:
-                    logger.error("Log write conflict detected, "
-                                 "and max retries reached for update job uuid: %s" % SSMData["uuid"])
-                pass
-            else:
-                raise
+    error_notification = update_ssm_job_status_in_db(original_record_time, ddb_retry_count, ssm_data, ssm_id, output)
+    if error_notification is not None:
+        notification = error_notification
+
     return notification
 
 
-def lambda_handler(event, context):
+def compute_job_status(output, ssm_data, notification, outcome_timestamp_str, time_seconds_elapsed, resp):
+    if "JOB_COMPLETE" in output:
+        logger.info('Job Completed.')
+        ssm_data["status"] = "COMPLETE"
+        ssm_data["_history"]["completedTimestamp"] = outcome_timestamp_str
+        notification['timeStamp'] = outcome_timestamp_str
+        notification['type'] = 'success'
+    elif "JOB_FAILED" in output:
+        logger.info('Job Failed.')
+        ssm_data["status"] = "FAILED"
+        ssm_data["_history"]["completedTimestamp"] = outcome_timestamp_str
+        notification['timeStamp'] = outcome_timestamp_str
+        notification['type'] = 'error'
+    elif int(time_seconds_elapsed) > job_timeout_seconds and resp["Item"]["SSMData"]["status"] == "RUNNING":
+        logger.info('Job Timed out.')
+        ssm_data["status"] = "TIMED-OUT"
+        ssm_data["_history"]["completedTimestamp"] = outcome_timestamp_str
+        notification['timeStamp'] = outcome_timestamp_str
+        notification['type'] = 'error'
+    else:
+        logger.info('Job still running.')
+        notification['timeStamp'] = outcome_timestamp_str
+        notification['type'] = 'pending'
+
+
+def update_ssm_job_status_in_db(original_record_time, ddb_retry_count, ssm_data, ssm_id, output):
+    if original_record_time == "":
+        response = process_new_log_item(ssm_data, ddb_retry_count, ssm_id, output)
+        if response is not None:
+            return response
+    else:
+        response = process_existing_log_item(ssm_data, original_record_time, ddb_retry_count, ssm_id, output)
+        if response is not None:
+            return response
+
+
+def process_new_log_item(ssm_data, ddb_retry_count, ssm_id, output):
+    try:
+        # As no original record time set then this record is assumed to be a new log so check if outcome is present.
+        ssm_jobs_table.put_item(
+            Item=ssm_data,
+            ConditionExpression="attribute_not_exists(#_history.#outcomeDate)",
+            ExpressionAttributeNames={
+                '#_history': '_history',
+                '#outcomeDate': 'outcomeDate',
+            }
+        )
+    except botocore.exceptions.ClientError as x:
+        logger.error(x)
+        error_code = x.response.get("Error", {}).get("Code")
+        if error_code == "ConditionalCheckFailedException":
+            if ddb_retry_count < ddb_retry_max:
+                ddb_retry_count += 1
+                logger.warning("Log write conflict detected. Retry %s of %s for job uuid: %s"
+                               % (ddb_retry_count, ddb_retry_max, ssm_data["uuid"]))
+                notification = update_log(ssm_id, output, ddb_retry_count)
+                return notification
+            else:
+                logger.error("Log write conflict detected, "
+                             "and max retries reached for update job uuid: %s" % ssm_data["uuid"])
+        else:
+            raise
+
+
+def process_existing_log_item(ssm_data, original_record_time, ddb_retry_count, ssm_id, output):
+    try:
+        # Job record has outcomeDate, use this to ensure no changes made to record while processing this request.
+        ssm_jobs_table.put_item(
+            Item=ssm_data,
+            ConditionExpression="#_history.#outcomeDate = :original_record_time",
+            ExpressionAttributeNames={
+                '#_history': '_history',
+                '#outcomeDate': 'outcomeDate',
+            },
+            ExpressionAttributeValues={
+                ":original_record_time": original_record_time,
+            },
+        )
+    except botocore.exceptions.ClientError as x:
+        error_code = x.response.get("Error", {}).get("Code")
+        if error_code == "ConditionalCheckFailedException":
+            # An update was made to the record by another process, retrying update with new record content.
+            if ddb_retry_count < ddb_retry_max:
+                ddb_retry_count += 1
+                logger.warning("Log write conflict detected. Retry %s of %s for job uuid: %s"
+                               % (ddb_retry_count, ddb_retry_max, ssm_data["uuid"]))
+                notification = update_log(ssm_id, output, ddb_retry_count)
+                return notification
+            else:
+                logger.error("Log write conflict detected, "
+                             "and max retries reached for update job uuid: %s" % ssm_data["uuid"])
+        else:
+            raise
+
+
+def lambda_handler(event, _):
     # parse Cloudwatch Log
     cw_data = event['awslogs']['data']
-    compressed_payload = base64.b64decode(cw_data)
-    uncompressed_payload = gzip.decompress(compressed_payload)
-    payload = json.loads(uncompressed_payload)
     compressed_payload = base64.b64decode(cw_data)
     uncompressed_payload = gzip.decompress(compressed_payload)
     payload = json.loads(uncompressed_payload)
@@ -175,17 +199,17 @@ def lambda_handler(event, context):
     logger.debug("Log :" + message)
 
     # parse SSMId
-    SSMId = message.split("[", 1)[-1]
-    SSMId = SSMId.split("]", 1)[0]
+    ssm_id = message.split("[", 1)[-1]
+    ssm_id = ssm_id.split("]", 1)[0]
 
-    logger.info('Job ID. %s', SSMId)
+    logger.info('Job ID. %s', ssm_id)
 
     # remove remaining SSMIds
     output = message.split(" ", 1)[-1]
-    output = output.replace("[" + SSMId + "]", "")
+    output = output.replace("[" + ssm_id + "]", "")
     output = "[" + time.strftime("%H:%M:%S") + "] " + "\n" + output + "\n" + "\n"
 
-    notification = update_log(SSMId, output, ddb_retry_count)
+    notification = update_log(ssm_id, output, ddb_retry_count)
 
     if gatewayapi:  # If socket is set then send notifications to users.
         # Send to all connections
@@ -194,4 +218,4 @@ def lambda_handler(event, context):
             try:
                 gatewayapi.post_to_connection(ConnectionId=item["connectionId"], Data=json.dumps(notification))
             except botocore.exceptions.ClientError as e:
-                pass
+                logger.debug(f'Error posting to wss connection {e}')

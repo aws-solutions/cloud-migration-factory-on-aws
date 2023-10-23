@@ -1,0 +1,12 @@
+[
+  {
+    "connectionId": {
+      "S": "1"
+    }
+  },
+  {
+    "connectionId": {
+      "S": "2"
+    }
+  }
+]

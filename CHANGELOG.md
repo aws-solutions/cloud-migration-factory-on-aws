@@ -3,7 +3,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [3.3.0] - 2023-06/22
+
+## [3.3.1] - 2023-10-23
+### Changed
+- SOURCE CODE: Significant source code refactoring to improve maintainability to support future releases
+- SOURCE CODE: All Javascript code modules changed to TypeScript, this is the first stage of migrating frontend codebase to TS @ts-nocheck is used extensively currently. Ongoing work to add types in this release and the next.
+- PRIVATE DEPLOYMENT: Customers using private deployment were having to manually add DNS and/or local hosts updates to allow resolution of the VPCE for API gateway which was causing issues with deployment as this is not standard practice. With this update Private deployment type now uses the public DNS name for the new VPCE within the configuration, meaning that we resolve using the public DNS Address of the VPCE for API Gateway.
+### Fixed
+- SOURCE CODE: All external libraries updated to latest stable versions to ensure vulnerabilities are not introduced.
+- MGN: Resolved issues where MGN agent installation fails when CMF is deployed in a different region to the target AWS region for the server install. This was due to the installation using the incorrect variable to obtain the region.
+- MGN: Resolved customer issue with MGN migration between regions in the same account failing due to incorrect STS token generation. Applied same fix that was made to MGN agent installation scripts, to force STS to create a token in the target region.
+- WINDOWS AUTOMATION: Resolved issue where adding hosts to the Windows Trusted Hosted setting while running automation scripts was running async causing the entry to be missing when follow on steps occurred too quickly. This function is now sync and moved to a common function in the mfcommon.py.
+- DEPLOYMENT: Migrated CloudFront Origin access from Origin Access Identity (OAI) to Origin Access Control (OAC) as OAI has become unstable during stack deployment and will be retired in the future.
+### Added
+- mfcommon.py now has functions to support updating replication and migration status values of a server.
+## [3.3.0] - 2023-06-22
 ### Changed
 - FEATURE-RETIRED: AMS WIG feature code has now been retired from CMF. Creation of RFC for onboarding instances to AMS is now managed directly via RFCs to the AMS team and not possible through CMF.
 - MGN: Added ability to specify tags for test and live launched instances that are appended to the master tags for a server record.

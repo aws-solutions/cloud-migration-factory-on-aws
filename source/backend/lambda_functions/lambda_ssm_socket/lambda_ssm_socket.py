@@ -1,3 +1,6 @@
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
 import json
 import boto3
 import os
@@ -76,54 +79,66 @@ def verify_token(token):
     return claims
 
 
-def lambda_handler(event, context):
-    logger.debug(event)
-    if event["requestContext"]["eventType"] == "CONNECT":
-        if "connectionId" in event["requestContext"]:
-            logger.info('CONNECT: %s', event["requestContext"].get("connectionId"))
-        return _get_response(200, "Connection successful, authentication required.")
+def process_connect(event):
+    if "connectionId" in event["requestContext"]:
+        logger.info('CONNECT: %s', event["requestContext"].get("connectionId"))
+    return _get_response(200, "Connection successful, authentication required.")
 
-    elif event["requestContext"]["eventType"] == "DISCONNECT":
-        if "connectionId" in event["requestContext"]:
-            logger.info('DISCONNECT: %s', event["requestContext"].get("connectionId"))
-        connectionId = event["requestContext"].get("connectionId")
-        table = dynamodb.Table(connectionIds_table_name)
-        table.delete_item(Key={"connectionId": connectionId})
-        return _get_response(200, "Disconnect successful")
 
-    elif event["requestContext"]["eventType"] == "MESSAGE":
-        if "connectionId" in event["requestContext"]:
-            logger.info('MESSAGE: %s', event["requestContext"].get("connectionId"))
-        try:
-            message = json.loads(event['body'])
-            logger.debug('MESSAGE: %s' + ' - ' + event['body'], event["requestContext"].get("connectionId"))
-            if 'type' not in message and ('message' not in message or 'token' not in message):
-                error_message = "Invalid message format"
-                logger.error('MESSAGE: %s' + ' - ' + error_message, event["requestContext"].get("connectionId"))
-                return _get_response(400, error_message)
-        except Exception as e:
-            error_message = "Error converting message to JSON"
+def process_disconnect(event):
+    if "connectionId" in event["requestContext"]:
+        logger.info('DISCONNECT: %s', event["requestContext"].get("connectionId"))
+    connection_id = event["requestContext"].get("connectionId")
+    table = dynamodb.Table(connectionIds_table_name)
+    table.delete_item(Key={"connectionId": connection_id})
+    return _get_response(200, "Disconnect successful")
+
+
+def process_message(event):
+    if "connectionId" in event["requestContext"]:
+        logger.info('MESSAGE: %s', event["requestContext"].get("connectionId"))
+    try:
+        message = json.loads(event['body'])
+        logger.debug('MESSAGE: %s' + ' - ' + event['body'], event["requestContext"].get("connectionId"))
+        if 'type' not in message and ('message' not in message or 'token' not in message):
+            error_message = "Invalid message format"
             logger.error('MESSAGE: %s' + ' - ' + error_message, event["requestContext"].get("connectionId"))
             return _get_response(400, error_message)
-        if message['type'] == 'auth':
-            claims = verify_token(message['token'])
-            if claims is False:
-                error_message = "Invalid token"
-                logger.error('MESSAGE: %s' + ' - ' + error_message, event["requestContext"].get("connectionId"))
-                return _get_response(400, error_message)
-            else:
-                info_message = "Authentication successful"
-                connectionId = event["requestContext"].get("connectionId")
-                table = dynamodb.Table(connectionIds_table_name)
-                table.put_item(Item={"connectionId": connectionId, "date/time": datetime.datetime.now().strftime("%c"),
-                                     "email": claims['email'], "topics": []})
-                logger.info('MESSAGE: %s' + ' - ' + info_message, event["requestContext"].get("connectionId"))
-                return _get_response(200, info_message)
-
-        error_message = "Unsupported message type, full message:"
-        logger.error('MESSAGE: %s' + ' - ' + error_message + event['body'], event["requestContext"].get("connectionId"))
+    except Exception as e:  # //NOSONAR
+        error_message = "Error converting message to JSON"
+        logger.error('MESSAGE: %s' + ' - ' + error_message, event["requestContext"].get("connectionId"))
         return _get_response(400, error_message)
+    if message['type'] == 'auth':
+        claims = verify_token(message['token'])
+        if claims is False:
+            error_message = "Invalid token"
+            logger.error('MESSAGE: %s' + ' - ' + error_message, event["requestContext"].get("connectionId"))
+            return _get_response(400, error_message)
+        else:
+            info_message = "Authentication successful"
+            connectionId = event["requestContext"].get("connectionId")
+            table = dynamodb.Table(connectionIds_table_name)
+            table.put_item(Item={"connectionId": connectionId, "date/time": datetime.datetime.now().strftime("%c"),
+                                 "email": claims['email'], "topics": []})
+            logger.info('MESSAGE: %s' + ' - ' + info_message, event["requestContext"].get("connectionId"))
+            return _get_response(200, info_message)
+
+    error_message = "Unsupported message type, full message:"
+    logger.error('MESSAGE: %s' + ' - ' + error_message + event['body'], event["requestContext"].get("connectionId"))
+    return _get_response(400, error_message)
+
+
+def process_unexpected(event):
+    return _get_response(400, "Unsupported event type.")
+
+
+def lambda_handler(event, _):
+    logger.debug(event)
+    if event["requestContext"]["eventType"] == "CONNECT":
+        return process_connect(event)
+    elif event["requestContext"]["eventType"] == "DISCONNECT":
+        return process_disconnect(event)
+    elif event["requestContext"]["eventType"] == "MESSAGE":
+        return process_message(event)
     else:
-        # Unsupported eventType
-        connectionId = event["requestContext"].get("connectionId")
-        return _get_response(400, "Unsupported event type.")
+        return process_unexpected(event)

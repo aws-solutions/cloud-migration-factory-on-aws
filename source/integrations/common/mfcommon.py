@@ -47,17 +47,101 @@ ce_endpoint = '/api/latest/{}'
 ce_address = 'https://console.cloudendure.com'
 ce_headers = {'Content-Type': 'application/json'}
 
-serverendpoint = '/prod/user/server'
-databaseendpoint = '/prod/user/database'
-appendpoint = '/prod/user/app'
-waveendpoint = '/prod/user/wave'
+api_stage = 'prod'
+
+serverendpoint = '/user/server'
+databaseendpoint = '/user/database'
+appendpoint = '/user/app'
+waveendpoint = '/user/wave'
 
 REQUESTS_DEFAULT_TIMEOUT = 60
+
+PREFIX_CREDENTIALS_STORE = 'cached_secret:'
 
 credentials_store = {}
 
 with open('FactoryEndpoints.json') as json_file:
     mf_config = json.load(json_file)
+
+
+def get_mf_config_user_api_id():
+    # Function required to maintain backward compatibility with pre-3.3.1 CMF deployments,
+    # allowing newer scripts to work on older versions.
+    if "UserApi" in mf_config:
+        return mf_config["UserApi"]
+    elif "UserApiUrl" in mf_config:
+        return extract_api_id_from_url(mf_config["UserApiUrl"])
+    else:
+        print("ERROR: Invalid FactoryEndpoints.json file. UserApi or UserApiUrl not present.")
+        sys.exit()
+
+
+def extract_api_id_from_url(api_url):
+    if api_url:
+        return api_url[8:18]
+
+
+def get_api_endpoint_headers(token, api_id):
+    if 'VpceId' in mf_config and mf_config['VpceId'] != '':
+        auth = {
+            "Authorization": token
+        }
+    else:
+        auth = {"Authorization": token}
+
+    return auth
+
+
+def get_api_endpoint_url(api_id, api_endpoint):
+    if 'VpceId' in mf_config and mf_config['VpceId'] != '':
+        return f'https://{api_id}-{mf_config["VpceId"]}.execute-api.{mf_config["Region"]}.amazonaws.com/{api_stage}{api_endpoint}'
+    else:
+        return f'https://{api_id}.execute-api.{mf_config["Region"]}.amazonaws.com/{api_stage}{api_endpoint}'
+
+
+def build_requests_parameters(token, api_id, api_path):
+    return {
+        "url": get_api_endpoint_url(api_id, api_path),
+        "headers": get_api_endpoint_headers(token, api_id),
+        "timeout": REQUESTS_DEFAULT_TIMEOUT
+    }
+
+
+def get_data_from_api(token, api_id, api_path):
+    request_parameters = build_requests_parameters(token, api_id, api_path)
+
+    try:
+        requests_response = requests.get(**request_parameters)  # nosec B113
+    except requests.exceptions.ConnectionError:
+        msg = f'ERROR: Could not connect to API endpoint {request_parameters["url"]}{api_path}.'
+        print(msg)
+        sys.exit()
+
+    if requests_response.status_code != 200:
+        msg = f'ERROR: Bad response from API {request_parameters["url"]}{api_path}. {requests_response.text}'
+        print(msg)
+        sys.exit()
+
+    return requests_response
+
+
+def put_data_to_api(token, api_id, api_path, payload):
+    request_parameters = build_requests_parameters(token, api_id, api_path)
+    request_parameters['data'] = json.dumps(payload)
+
+    try:
+        requests_response = requests.put(**request_parameters)  # nosec B113
+
+    except requests.exceptions.ConnectionError:
+        msg = f'ERROR: Could not connect to API endpoint {request_parameters["url"]}{api_path}.'
+        print(msg)
+        sys.exit()
+
+    if requests_response.status_code != 200:
+        msg = f'ERROR: Bad response from API {request_parameters["url"]}{api_path}. {requests_response.text}'
+        print(msg)
+
+    return requests_response
 
 
 # common functions
@@ -103,10 +187,8 @@ def Factorylogin():
     if 'UserPoolId' in mf_config and 'Region' in mf_config:
         try:
             secretsmanager_client = boto3.client('secretsmanager', mf_config['Region'])
-            # mf_service_account_details = secretsmanager_client.describe_secret(SecretId='MFServiceAccount-' + mf_config['UserPoolId'])
             mf_service_account = secretsmanager_client.get_secret_value(
                 SecretId='MFServiceAccount-' + mf_config['UserPoolId'])
-            # username = mf_service_account_details['Description']
             mfauth = json.loads(mf_service_account['SecretString'])
             username = mfauth['username']
             password = mfauth['password']
@@ -117,17 +199,17 @@ def Factorylogin():
                 'Code'] == 'AccessDeniedException':
                 print("Service Account doesn't exist or access is denied to Secret, please enter username and password")
                 if 'DefaultUser' in mf_config:
-                    DefaultUser = mf_config['DefaultUser']
+                    default_user = mf_config['DefaultUser']
                 else:
-                    DefaultUser = ''
-                username = input("Factory Username [" + DefaultUser + "]: ") or DefaultUser
+                    default_user = ''
+                username = input("Factory Username [" + default_user + "]: ") or default_user
                 password = getpass.getpass('Factory Password: ')
     else:
         if 'DefaultUser' in mf_config:
-            DefaultUser = mf_config['DefaultUser']
+            default_user = mf_config['DefaultUser']
         else:
-            DefaultUser = ""
-        username = input("Factory Username [" + DefaultUser + "]: ") or DefaultUser
+            default_user = ""
+        username = input("Factory Username [" + default_user + "]: ") or default_user
         password = getpass.getpass('Factory Password: ')
     login_data = {'username': username, 'password': password}
     try:
@@ -142,7 +224,7 @@ def Factorylogin():
             if 'ChallengeName' in r_content and r_content['ChallengeName'] == 'SMS_MFA':
                 try:
                     one_time_code = input("Please provide MFA One Time Code: ")
-                except EOFError as MFA_input_error:
+                except EOFError:
                     print("", flush=True)
                     print("ERROR: MFA is enabled for the service account; this is not supported when used with "
                           "CMF automation, if MFA is required, scripts must be run from the command line of the "
@@ -181,10 +263,10 @@ def Factorylogin():
 
 
 def getServerCredentials(local_username, local_password, server, secret_overide=None, no_user_prompts=False):
+
     username = ""
     password = ""
     secret_name = ""
-    using_secret = False
 
     # Local account details passed, do not get from secrets manager.
     if local_username != "" and local_password != "":
@@ -200,8 +282,8 @@ def getServerCredentials(local_username, local_password, server, secret_overide=
     if secret_name != "":
 
         # Check if already read secret, and if so return cached.
-        if 'cached_secret:' + secret_name in credentials_store:
-            return credentials_store['cached_secret:' + secret_name]
+        if PREFIX_CREDENTIALS_STORE + secret_name in credentials_store:
+            return credentials_store[PREFIX_CREDENTIALS_STORE + secret_name]
 
         try:
             secretsmanager_client = boto3.client('secretsmanager', mf_config['Region'])
@@ -246,10 +328,8 @@ def getServerCredentials(local_username, local_password, server, secret_overide=
 
             mfauth = secret_data
 
-            using_secret = True
-
             # Cache secret for next server.
-            credentials_store['cached_secret:' + secret_name] = mfauth
+            credentials_store[PREFIX_CREDENTIALS_STORE + secret_name] = mfauth
 
             return mfauth
         except botocore.exceptions.ClientError as e:
@@ -257,11 +337,10 @@ def getServerCredentials(local_username, local_password, server, secret_overide=
             if e.response['Error']['Code'] == 'ResourceNotFoundException' or e.response['Error'][
                 'Code'] == 'AccessDeniedException':
                 if no_user_prompts == True:
-                    print(
-                        "Secret not found [" + server['secret_name'] + "] doesn't exist or access is denied to Secret.")
+                    print(f"Secret not found [{server['secret_name']}] doesn't exist or access is denied to Secret.")
                 else:
-                    print("Secret not found [" + server[
-                        'secret_name'] + "] doesn't exist or access is denied to Secret, please enter username and password")
+                    print(f"Secret not found [{server['secret_name']}] doesn't exist or access is denied to Secret, "
+                          f"please enter username and password")
             else:
                 # Unknown error returned when getting secret.
                 print(e.response['Error'])
@@ -307,8 +386,8 @@ def getCredentials(secret_name, no_user_prompts=True):
     if secret_name != "":
 
         # Check if already read secret, and if so return cached.
-        if 'cached_secret:' + secret_name in credentials_store:
-            return credentials_store['cached_secret:' + secret_name]
+        if PREFIX_CREDENTIALS_STORE + secret_name in credentials_store:
+            return credentials_store[PREFIX_CREDENTIALS_STORE + secret_name]
 
         try:
             secretsmanager_client = boto3.client('secretsmanager', mf_config['Region'])
@@ -370,7 +449,7 @@ def getCredentials(secret_name, no_user_prompts=True):
             mfauth = secret_data
 
             # Cache secret for next server.
-            credentials_store['cached_secret:' + secret_name] = mfauth
+            credentials_store[PREFIX_CREDENTIALS_STORE + secret_name] = mfauth
 
             return mfauth
         except botocore.exceptions.ClientError as e:
@@ -391,42 +470,40 @@ def getCredentials(secret_name, no_user_prompts=True):
         return {'username': '', 'password': ''}
 
 
-def ServerList(waveid, token, UserHOST, Projectname):
-    # Get all Apps and servers from migration factory
-    auth = {"Authorization": token}
-    servers = json.loads(requests.get(UserHOST + serverendpoint,
-                                      headers=auth,
-                                      timeout=REQUESTS_DEFAULT_TIMEOUT).text)
-    # print(servers)
-    apps = json.loads(requests.get(UserHOST + appendpoint,
-                                   headers=auth,
-                                   timeout=REQUESTS_DEFAULT_TIMEOUT).text)
+def get_cmf_application_ids_for_wave(cmf_api_token, wave_id, ce_project_name=''):
+    app_ids = []
 
-    # Get App list
-    applist = []
+    apps_api_response = get_data_from_api(cmf_api_token, get_mf_config_user_api_id(), appendpoint)
+
+    apps = json.loads(apps_api_response.text)
+
     for app in apps:
-        if 'wave_id' in app:
-            if str(app['wave_id']) == str(waveid):
-                if Projectname != "":
-                    if str(app['cloudendure_projectname']) == str(Projectname):
-                        applist.append(app['app_id'])
-                else:
-                    applist.append(app['app_id'])
+        if 'wave_id' in app and str(app['wave_id']) == str(wave_id):
+            if ce_project_name != "":
+                if str(app['cloudendure_projectname']) == str(ce_project_name):
+                    app_ids.append(app['app_id'])
+            else:
+                app_ids.append(app['app_id'])
 
-    # print(apps)
-    # print(servers)
-    # Get Server List
-    servers_Windows = []
-    servers_Linux = []
-    for app in applist:
+    return app_ids
+
+
+def get_cmf_servers_for_all_apps(cmf_api_token, cmf_application_ids):
+    servers_api_response = get_data_from_api(cmf_api_token, get_mf_config_user_api_id(), serverendpoint)
+
+    servers = json.loads(servers_api_response.text)
+
+    servers_windows = []
+    servers_linux = []
+    for app_id in cmf_application_ids:
         for server in servers:
-            if app == server['app_id']:
+            if app_id == server['app_id']:
                 if 'server_os_family' in server:
                     if 'server_fqdn' in server:
                         if server['server_os_family'].lower() == "windows":
-                            servers_Windows.append(server)
+                            servers_windows.append(server)
                         if server['server_os_family'].lower() == "linux":
-                            servers_Linux.append(server)
+                            servers_linux.append(server)
                     else:
                         print("ERROR: server_fqdn for server: " + server['server_name'] + " doesn't exist")
                         sys.exit(4)
@@ -434,27 +511,38 @@ def ServerList(waveid, token, UserHOST, Projectname):
                     print('server_os_family attribute does not exist for server: ' + server[
                         'server_name'] + ", please update this attribute")
                     sys.exit(2)
-    if len(servers_Windows) == 0 and len(servers_Linux) == 0:
-        print("ERROR: Serverlist for wave: " + waveid + " in CE Project " + Projectname + " is empty....")
+
+    return servers_windows, servers_linux
+
+
+def ServerList(waveid, token, _, Projectname=''):
+    # Get App list
+    applist = get_cmf_application_ids_for_wave(token, waveid, Projectname)
+
+    # Get Server Lists
+    servers_windows, servers_linux = get_cmf_servers_for_all_apps(token, applist)
+
+    if len(servers_windows) == 0 and len(servers_linux) == 0:
+        print(f"ERROR: Serverlist for wave: {waveid} in CE Project {Projectname} is empty....")
         print("")
     else:
         print("successfully retrieved server list")
         print("")
-        if len(servers_Windows) > 0:
+        if len(servers_windows) > 0:
             print("*** Windows Server List")
-            for server in servers_Windows:
+            for server in servers_windows:
                 print(server['server_name'])
         else:
             print("*** No Windows Servers")
         print("")
-        if len(servers_Linux) > 0:
+        if len(servers_linux) > 0:
             print("*** Linux Server List ***")
             print("")
-            for server in servers_Linux:
+            for server in servers_linux:
                 print(server['server_name'])
         else:
             print("*** No Linux Servers")
-        return servers_Windows, servers_Linux
+        return servers_windows, servers_linux
 
 
 def CElogin(userapitoken):
@@ -556,43 +644,19 @@ def GetCERegion(project_id, ce_session, ce_headers):
 
 
 # Function is used with new MGN capabiltiy to get servers based on the AWS account they are targeted to.
-def get_factory_servers(waveid, token, user_host, osSplit=True, rtype=None):
+def get_factory_servers(waveid, token, osSplit=True, rtype=None):
     try:
         linux_exist = False
         windows_exist = False
-        auth = {"Authorization": token}
         # Get all Apps and servers from migration factory
-        try:
-            servers_response = requests.get(user_host + serverendpoint,
-                                            headers=auth,
-                                            timeout=REQUESTS_DEFAULT_TIMEOUT)
-        except requests.exceptions.ConnectionError:
-            msg = f"ERROR: Could not connect to API endpoint {user_host}{serverendpoint}."
-            print(msg)
-            sys.exit()
 
-        if servers_response.status_code != 200:
-            msg = f"ERROR: Bad response from API {user_host}{serverendpoint}. {servers_response.text}"
-            print(msg)
-            sys.exit()
+        servers_api_response = get_data_from_api(token, get_mf_config_user_api_id(), serverendpoint)
 
-        getservers = json.loads(servers_response.text)
+        getservers = json.loads(servers_api_response.text)
 
-        try:
-            apps_response = requests.get(user_host + appendpoint,
-                                         headers=auth,
-                                         timeout=REQUESTS_DEFAULT_TIMEOUT)
-        except requests.exceptions.ConnectionError:
-            msg = f"ERROR: Could not connect to API endpoint {user_host}{appendpoint}."
-            print(msg)
-            sys.exit()
+        apps_api_response = get_data_from_api(token, get_mf_config_user_api_id(), appendpoint)
 
-        if apps_response.status_code != 200:
-            msg = f"ERROR: Bad response from API {user_host}{appendpoint}. {apps_response.text}"
-            print(msg)
-            sys.exit()
-
-        getapps = json.loads(apps_response.text)
+        getapps = json.loads(apps_api_response.text)
 
         servers = sorted(getservers, key=lambda i: i['server_name'])
         apps = sorted(getapps, key=lambda i: i['app_name'])
@@ -618,7 +682,7 @@ def get_factory_servers(waveid, token, user_host, osSplit=True, rtype=None):
                         print(msg)
                         sys.exit()
         if len(aws_accounts) == 0:
-            msg = "ERROR: AWS Account list for wave " + waveid + " is empty...."
+            msg = f"ERROR: AWS Account list for wave {waveid} is empty...."
             print(msg)
             sys.exit()
 
@@ -663,8 +727,8 @@ def get_factory_servers(waveid, token, user_host, osSplit=True, rtype=None):
             if osSplit:
                 # Check if the server list is empty for both Windows and Linux
                 if len(account['servers_windows']) == 0 and len(account['servers_linux']) == 0:
-                    msg = "INFORMATIONAL: Server list for wave " + waveid + " and account: " + account[
-                        'aws_accountid'] + " region: " + account['aws_region'] + " is empty...."
+                    msg = (f"INFORMATIONAL: Server list for wave {waveid} and account: {account['aws_accountid']} "
+                           f"region: {account['aws_region']} is empty....")
                     print(msg)
                 if len(account['servers_linux']) > 0:
                     linux_exist = True
@@ -672,8 +736,8 @@ def get_factory_servers(waveid, token, user_host, osSplit=True, rtype=None):
                     windows_exist = True
             else:
                 if len(account['servers']) == 0:
-                    msg = "INFORMATIONAL: Server list for wave " + waveid + " and account: " + account[
-                        'aws_accountid'] + " region: " + account['aws_region'] + " is empty...."
+                    msg = (f"INFORMATIONAL: Server list for wave {waveid} and account: {account['aws_accountid']} "
+                           f"region: {account['aws_region']}  is empty....")
                     print(msg)
         if osSplit:
             return aws_accounts, linux_exist, windows_exist
@@ -694,41 +758,60 @@ def get_factory_servers(waveid, token, user_host, osSplit=True, rtype=None):
             sys.exit()
 
 
-def get_MGN_Source_Server(factoryserver, mgn_sourceservers):
-    lsourceserver = None
+def clean_value(value):
+    return value.lower().strip()
 
-    for sourceserver in mgn_sourceservers:
-        if sourceserver['isArchived'] == False:
+
+def is_cmf_server_match_for_mgn_ip_address(interface, cmf_server):
+    cmf_server_name = clean_value(cmf_server['server_name'])
+    cmf_server_fqdn = clean_value(cmf_server['server_fqdn'])
+
+    if interface['isPrimary'] is True:
+        for ip_address in interface['ips']:
+            if cmf_server_name == clean_value(ip_address) or cmf_server_fqdn == clean_value(ip_address):
+                return True
+
+    return False
+
+
+def is_cmf_server_match_for_mgn_hostname(mgn_source_server, cmf_server):
+    cmf_server_name = clean_value(cmf_server['server_name'])
+    cmf_server_fqdn = clean_value(cmf_server['server_fqdn'])
+    mgn_server_hostname = clean_value(mgn_source_server['sourceProperties']['identificationHints']['hostname'])
+    mgn_server_fqdn = clean_value(mgn_source_server['sourceProperties']['identificationHints']['fqdn'])
+
+    if cmf_server_name == mgn_server_hostname or cmf_server_name == mgn_server_fqdn \
+        or cmf_server_fqdn == mgn_server_hostname or cmf_server_fqdn == mgn_server_fqdn:
+        return True
+
+    return False
+
+
+def is_cmf_server_matching_mgn_source_server(cmf_server, mgn_source_server):
+    # Check if any IP addresses in MGN record match with CMF.
+    if 'networkInterfaces' in mgn_source_server['sourceProperties']:
+        for interface in mgn_source_server['sourceProperties']['networkInterfaces']:
+            if is_cmf_server_match_for_mgn_ip_address(interface, cmf_server):
+                return True
+
+    if is_cmf_server_match_for_mgn_hostname(mgn_source_server, cmf_server):
+        return True
+
+    return False
+
+
+def get_MGN_Source_Server(cmf_server, mgn_source_servers):
+    found_matching_source_server = None
+
+    for mgn_source_server in mgn_source_servers:
+        if 'isArchived' in mgn_source_server and not mgn_source_server['isArchived']:
             # Check if the factory server exist in Application Migration Service
-            # Check if IP address is matching any on record.
-            if 'networkInterfaces' in sourceserver['sourceProperties']:
-                for interface in sourceserver['sourceProperties']['networkInterfaces']:
-                    if interface['isPrimary'] is True:
-                        for ips in interface['ips']:
-                            if factoryserver['server_name'].lower().strip() == ips.lower().strip():
-                                lsourceserver = sourceserver
-                                break
-                            elif factoryserver['server_fqdn'].lower().strip() == ips.lower().strip():
-                                lsourceserver = sourceserver
-                                break
-                    if lsourceserver is not None:
-                        break
 
-            if factoryserver['server_name'].lower().strip() == sourceserver['sourceProperties']['identificationHints'][
-                'hostname'].lower().strip():
-                lsourceserver = sourceserver
-            elif factoryserver['server_name'].lower().strip() == \
-                sourceserver['sourceProperties']['identificationHints']['fqdn'].lower().strip():
-                lsourceserver = sourceserver
-            elif factoryserver['server_fqdn'].lower().strip() == \
-                sourceserver['sourceProperties']['identificationHints']['hostname'].lower().strip():
-                lsourceserver = sourceserver
-            elif factoryserver['server_fqdn'].lower().strip() == \
-                sourceserver['sourceProperties']['identificationHints']['fqdn'].lower().strip():
-                lsourceserver = sourceserver
+            if is_cmf_server_matching_mgn_source_server(cmf_server, mgn_source_server):
+                found_matching_source_server = mgn_source_server
 
-    if lsourceserver is not None:
-        return lsourceserver
+    if found_matching_source_server is not None:
+        return found_matching_source_server
     else:
         return None
 
@@ -749,7 +832,7 @@ def execute_external_script(command):
             print(output)
             return True
     except ValueError as e:
-        print("Exception while executing script: " + command)
+        print(f"Exception {e} while executing script: {command}")
         return False
 
 
@@ -766,19 +849,17 @@ def execute_cmd_via_ssh(host, username, key, cmd, using_key, multi_threaded=Fals
     try:
         ssh, error = open_ssh(host, username, key, using_key)
         if ssh:
-            stdin, stdout, stderr = ssh.exec_command(cmd)  # nosec B601
+            _, stdout, stderr = ssh.exec_command(cmd)  # nosec B601
             for line in stdout.readlines():
                 output = output + line
             for line in stderr.readlines():
                 error = error + line
     except IOError as io_error:
-        error = "Unable to execute the command " + cmd + " due to " + \
-                str(io_error)
+        error = f"Unable to execute the command {cmd} due to {str(io_error)}"
         if not multi_threaded:
             print(error)
     except paramiko.SSHException as ssh_exception:
-        error = "Unable to execute the command " + cmd + " due to " + \
-                str(ssh_exception)
+        error = f"Unable to execute the command {cmd} due to {str(ssh_exception)}"
         if not multi_threaded:
             print(error)
     finally:
@@ -788,6 +869,7 @@ def execute_cmd_via_ssh(host, username, key, cmd, using_key, multi_threaded=Fals
 
 
 def open_ssh(host, username, key_pwd, using_key, multi_threaded=False):
+    base_error = f"Unable to connect to host {host} with username {username} due to"
     ssh = None
     error = ''
     try:
@@ -803,20 +885,17 @@ def open_ssh(host, username, key_pwd, using_key, multi_threaded=False):
             ssh.connect(hostname=host, username=username, password=key_pwd)
     except IOError as io_error:
         ssh = None
-        error = "Unable to connect to host " + host + " with username " + \
-                username + " due to " + str(io_error)
+        error = f"{base_error} {str(io_error)}"
         if not multi_threaded:
             print(error)
     except paramiko.SSHException as ssh_exception:
         ssh = None
-        error = "Unable to connect to host " + host + " with username " + \
-                username + " due to " + str(ssh_exception)
+        error = f"{base_error} {str(ssh_exception)}"
         if not multi_threaded:
             print(error)
     except Exception as all_other:
         ssh = None
-        error = "Unable to connect to host " + host + " with username " + \
-                username + " due to " + str(all_other)
+        error = f"{base_error} {str(all_other)}"
         if not multi_threaded:
             print(error)
 
@@ -925,22 +1004,19 @@ def factory_login(auth_data):
 
 
 # Function is used with new database entity to get databases based on the AWS account they are targeted to and wave.
-def get_factory_databases(waveid, token, user_api_url, rtype=None):
+def get_factory_databases(waveid, token, rtype=None):
     try:
-        linux_exist = False
-        windows_exist = False
-        auth = {"Authorization": token}
-        # Get all Apps and databases from migration factory
-        getdatabases = json.loads(requests.get(user_api_url + databaseendpoint,
-                                               headers=auth,
-                                               timeout=REQUESTS_DEFAULT_TIMEOUT).text)
-        # print(getdatabases)
-        getapps = json.loads(requests.get(user_api_url + appendpoint,
-                                          headers=auth,
-                                          timeout=REQUESTS_DEFAULT_TIMEOUT).text)
-        # print(apps)
-        databases = sorted(getdatabases, key=lambda i: i['database_name'])
-        apps = sorted(getapps, key=lambda i: i['app_name'])
+
+        databases_api_response = get_data_from_api(token, get_mf_config_user_api_id(), databaseendpoint)
+
+        databases = json.loads(databases_api_response.text)
+
+        apps_api_response = get_data_from_api(token, get_mf_config_user_api_id(), appendpoint)
+
+        apps = json.loads(apps_api_response.text)
+
+        databases = sorted(databases, key=lambda i: i['database_name'])
+        apps = sorted(apps, key=lambda i: i['app_name'])
 
         # Get Unique target AWS account and region
         aws_accounts = []
@@ -1001,8 +1077,8 @@ def get_factory_databases(waveid, token, user_api_url, rtype=None):
 
 def find_distribution(host, username, key_pwd, using_key):
     distribution = "linux"
-    output, error = execute_cmd_via_ssh(host, username, key_pwd, "cat /etc/*release",
-                                        using_key)
+    output, _ = execute_cmd_via_ssh(host, username, key_pwd, "cat /etc/*release",
+                                    using_key)
     if "ubuntu" in output:
         distribution = "ubuntu"
     elif "fedora" in output:
@@ -1022,15 +1098,15 @@ def install_wget(host, username, key_pwd, using_key):
         ssh = open_ssh(host, username, key_pwd, using_key, True)
         if distribution == "ubuntu":
             ssh.exec_command("sudo apt-get update")  # nosec B601
-            stdin, stdout, stderr = ssh.exec_command("sudo DEBIAN_FRONTEND=noninteractive "  # nosec B601
-                                                     "apt-get install wget")
+            stdin, _, stderr = ssh.exec_command("sudo DEBIAN_FRONTEND=noninteractive "  # nosec B601
+                                                "apt-get install wget")
         elif distribution == "suse":
-            stdin, stdout, stderr = ssh.exec_command("sudo zypper install wget")  # nosec B601
+            stdin, _, stderr = ssh.exec_command("sudo zypper install wget")  # nosec B601
             stdin.write('Y\n')
             stdin.flush()
         else:
             # This condition works with centos, fedora and RHEL distributions
-            stdin, stdout, stderr = ssh.exec_command("sudo yum install wget -y")  # nosec B601
+            stdin, _, stderr = ssh.exec_command("sudo yum install wget -y")  # nosec B601
         # Check if there is any error while installing wget
         error = ''
         for line in stderr.readlines():
@@ -1038,7 +1114,7 @@ def install_wget(host, username, key_pwd, using_key):
         if not error:
             print("wget got installed successfully")
             # Execute the command wget and check if it got configured correctly
-            stdin, stdout, stderr = ssh.exec_command("wget")  # nosec B601
+            stdin, _, stderr = ssh.exec_command("wget")  # nosec B601
             error = ''
             for line in stderr.readlines():
                 error = error + line
@@ -1050,3 +1126,30 @@ def install_wget(host, username, key_pwd, using_key):
     finally:
         if ssh is not None:
             ssh.close()
+
+
+def update_server_migration_status(token, server_id, new_status):
+    status_update_payload = {"migration_status": new_status}
+    return put_data_to_api(token, get_mf_config_user_api_id(), f'{serverendpoint}/{server_id}', status_update_payload)
+
+
+def update_server_replication_status(token, server_id, new_status):
+    status_update_payload = {"replication_status": new_status}
+    return put_data_to_api(token, get_mf_config_user_api_id(), f'{serverendpoint}/{server_id}', status_update_payload)
+
+
+def add_windows_servers_to_trusted_hosts(cmf_servers):
+    # Get all servers FQDNs into csv for trusted hosts update.
+    trusted_hosts_server_csv = ""
+    for server in cmf_servers:
+        trusted_hosts_server_csv = trusted_hosts_server_csv + server["server_fqdn"] + ','
+
+    trusted_hosts_server_csv = trusted_hosts_server_csv[:-1]
+    # Add servers to local trusted hosts to allow authentication if different domain.
+    subprocess.run([
+        "powershell.exe",
+        "Set-Item WSMan:\localhost\Client\TrustedHosts",
+        "-Value '" + trusted_hosts_server_csv + "'",
+        "-Concatenate",
+        "-Force"],
+        check=True)

@@ -16,12 +16,11 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
 #########################################################################################
 
-# Version: 29MAY2022.01
+# Version: 1SEP2023.00
 
 from __future__ import print_function
 import sys
 import argparse
-import requests
 import json
 import subprocess
 
@@ -30,172 +29,44 @@ if not sys.warnoptions:
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", category=Warning)
     import paramiko
-import socket
-import boto3
-import botocore.exceptions
 import mfcommon
 import threading
-import time
 import os
-import tempfile
 
 from queue import Queue
 
-with open('FactoryEndpoints.json') as json_file:
-    endpoints = json.load(json_file)
+MSG_SSH_SOURCE = 'SSH 22 to source server'
+MSG_SSH_UNABLE_TO_CONNECT = 'Unable to connect! SSH is null'
+MSG_SUDO_PERMISSION = 'SUDO permission'
 
-serverendpoint = mfcommon.serverendpoint
-appendpoint = mfcommon.appendpoint
-
-
-def get_factory_servers(waveid, token, UserHOST):
-    try:
-        linux_exist = False
-        windows_exist = False
-        auth = {"Authorization": token}
-        # Get all Apps and servers from migration factory
-        try:
-            servers_response = requests.get(UserHOST + serverendpoint,
-                                            headers=auth,
-                                            timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
-        except requests.exceptions.ConnectionError:
-            msg = f"ERROR: Could not connect to API endpoint {UserHOST}{serverendpoint}."
-            print(msg)
-            sys.exit()
-
-        if servers_response.status_code != 200:
-            msg = f"ERROR: Bad response from API {UserHOST}{serverendpoint}. {servers_response.text}"
-            print(msg)
-            sys.exit()
-
-        getservers = json.loads(servers_response.text)
-
-        try:
-            apps_response = requests.get(UserHOST + appendpoint,
-                                         headers=auth,
-                                         timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
-        except requests.exceptions.ConnectionError:
-            msg = f"ERROR: Could not connect to API endpoint {UserHOST}{appendpoint}."
-            print(msg)
-            sys.exit()
-
-        if apps_response.status_code != 200:
-            msg = f"ERROR: Bad response from API {UserHOST}{appendpoint}. {apps_response.text}"
-            print(msg)
-            sys.exit()
-
-        getapps = json.loads(apps_response.text)
-
-        servers = sorted(getservers, key=lambda i: i['server_name'])
-        apps = sorted(getapps, key=lambda i: i['app_name'])
-
-        # Get Unique target AWS account and region
-        aws_accounts = []
-        for app in apps:
-            if 'wave_id' in app and 'aws_accountid' in app and 'aws_region' in app:
-                if str(app['wave_id']) == str(waveid):
-                    if len(str(app['aws_accountid']).strip()) == 12:
-                        target_account = {}
-                        target_account['aws_accountid'] = str(app['aws_accountid']).strip()
-                        target_account['aws_region'] = app['aws_region'].lower().strip()
-                        target_account['servers_windows'] = []
-                        target_account['servers_linux'] = []
-                        if target_account not in aws_accounts:
-                            aws_accounts.append(target_account)
-                    else:
-                        msg = "ERROR: Incorrect AWS Account Id Length for app: " + app['app_name']
-                        print(msg)
-                        sys.exit()
-        if len(aws_accounts) == 0:
-            msg = "ERROR: Server list for wave " + waveid + " is empty...."
-            print(msg)
-            sys.exit()
-
-        # Get server list
-        for account in aws_accounts:
-            print("### Servers in Target Account: " + account['aws_accountid'] + " , region: " + account[
-                'aws_region'] + " ###")
-            for app in apps:
-                if 'wave_id' in app and 'aws_accountid' in app and 'aws_region' in app:
-                    if str(app['wave_id']) == str(waveid):
-                        if str(app['aws_accountid']).strip() == str(account['aws_accountid']):
-                            if app['aws_region'].lower().strip() == account['aws_region']:
-                                for server in servers:
-                                    if 'r_type' in server and server['r_type'] == 'Rehost':
-                                        if 'app_id' in server:
-                                            if server['app_id'] == app['app_id']:
-                                                # verify server_os_family attribute, only accepts Windows or Linux
-                                                if 'server_os_family' in server:
-                                                    # Verify server_fqdn, this is mandatory attribute
-                                                    if 'server_fqdn' in server:
-                                                        if server['server_os_family'].lower() == 'windows':
-                                                            account['servers_windows'].append(server)
-                                                        elif server['server_os_family'].lower() == 'linux':
-                                                            account['servers_linux'].append(server)
-                                                        else:
-                                                            print("ERROR: Invalid server_os_family for: " + server[
-                                                                'server_name'] + ", please select either Windows or Linux")
-                                                            sys.exit()
-                                                        print(server['server_fqdn'])
-                                                    else:
-                                                        print("ERROR: server_fqdn for server: " + server[
-                                                            'server_name'] + " doesn't exist")
-                                                        sys.exit()
-                                                else:
-                                                    print("ERROR: server_os_family does not exist for: " + server[
-                                                        'server_name'])
-                                                    sys.exit()
-            print("")
-            # Check if the server list is empty for both Windows and Linux
-            if len(account['servers_windows']) == 0 and len(account['servers_linux']) == 0:
-                msg = "ERROR: Server list for wave " + waveid + " and account: " + account[
-                    'aws_accountid'] + " region: " + account['aws_region'] + " is empty...."
-                print(msg)
-                sys.exit()
-            if len(account['servers_linux']) > 0:
-                linux_exist = True
-            if len(account['servers_windows']) > 0:
-                windows_exist = True
-        return aws_accounts, linux_exist, windows_exist
-    except botocore.exceptions.ClientError as error:
-        if ":" in str(error):
-            err = ''
-            msgs = str(error).split(":")[1:]
-            for msg in msgs:
-                err = err + msg
-            msg = "ERROR: " + err
-            print(msg)
-            sys.exit()
-        else:
-            msg = "ERROR: " + str(error)
-            print(msg)
-            sys.exit()
+OUTPUT_ERROR_KEY = 'final_result'
 
 
 def check_windows(parameters):
-    MGNEndpoint = parameters["MGNEndpoint"]
-    S3Endpoint = parameters["S3Endpoint"]
+    mgn_endpoint = parameters["MGNEndpoint"]
+    s3_endpoint = parameters["S3Endpoint"]
     s = parameters["s"]
-    MGNServerIP = parameters["MGNServerIP"]
-    Domain_User = parameters["user_name"]
-    Domain_Password = parameters["windows_password"]
+    mgn_server_ip = parameters["MGNServerIP"]
+    domain_user = parameters["user_name"]
+    domain_password = parameters["windows_password"]
     secret_name = parameters["secret_name"]
     no_user_prompts = parameters["no_user_prompts"]
 
     windows_fail = False
     print("")
-    windows_results = []
 
-    credentials = mfcommon.getServerCredentials(Domain_User, Domain_Password, s, secret_name, no_user_prompts)
-    # logger.debug("---------------------------------------------------------")
-    # logger.debug("-- Windows Server result for " + s['server_name'] + " --")
-    # logger.debug("---------------------------------------------------------")
+    credentials = mfcommon.getServerCredentials(domain_user, domain_password, s, secret_name, no_user_prompts)
 
-    s_result = {}
-    final = ""
+    s_result = {
+        "server_id": s["server_id"],
+        "server_name": s["server_fqdn"],
+        "test_results": [],
+        "success": True
+    }
+
     command = "Invoke-Command -ComputerName " + s["server_fqdn"] + \
               " -FilePath 0-Prerequisites-Windows.ps1 -ArgumentList " + \
-              MGNServerIP + "," + MGNEndpoint + "," + S3Endpoint
+              mgn_server_ip + "," + mgn_endpoint + "," + s3_endpoint
     if credentials['username'] != "":
         if "\\" not in credentials['username'] and "@" not in credentials['username']:
             # Assume local account provided, prepend server name to user ID.
@@ -213,135 +84,117 @@ def check_windows(parameters):
         for r in returnlist:
             if r.strip() != "":
                 result = r.split(":")
-                s_result[result[0]] = result[1].replace("\r", "")
+
                 if "Pass" not in result[1]:
+                    s_result['test_results'].append(
+                        {
+                            'test': result[0],
+                            'result': result[1],
+                            'error': result[2].replace("\r", "")
+                        }
+                    )
+                    s_result['success'] = False
                     windows_fail = True
-                    final = final + result[0] + ","
-        s_result["final_result"] = final[:-1]
-    s_result["server_name"] = s["server_fqdn"]
-    s_result["server_id"] = s["server_id"]
+                else:
+                    s_result['test_results'].append({'test': result[0], 'result': result[1].replace("\r", "")})
+
     if len(error) > 0:
-        s_result["error"] = error
+        s_result['test_results'].append({'test': "Powershell test script", 'result': error})
+        s_result['success'] = False
         windows_fail = True
 
-    '''
-    if 'TCP 443 to MGN Endpoint' in s_result:
-        logger.debug(" TCP 443 to MGN Endpoint  : " + s_result['TCP 443 to MGN Endpoint'])
-    if 'TCP 1500 to Rep Server' in s_result:
-        logger.debug(" TCP 1500 to Rep Server   : " + s_result['TCP 1500 to Rep Server'])
-    if '2GB C drive Free Space' in s_result:
-        logger.debug(" 2GB C:\ Free Space       : " + s_result['2GB C drive Free Space'])
-    '''
-
-    if "error" in s_result:
-        print(s_result['error'])
-        windows_fail = True
-    windows_results.append(s_result)
-    return windows_results, windows_fail
+    return s_result, windows_fail
 
 
 def check_ssh_connectivity(ip, user_name, pass_key, is_key, s_result):
-    ssh, error = open_ssh(ip, user_name, pass_key, is_key)
+    ssh, error = mfcommon.open_ssh(ip, user_name, pass_key, is_key)
     if ssh is None or len(error) > 0:
-        s_result["error"] = error
-        s_result["SSH 22 to source server"] = "Fail"
-        if "final_result" in s_result:
-            s_result["final_result"] = s_result["final_result"] + "SSH 22 to source server,"
-        else:
-            s_result["final_result"] = "SSH 22 to source server,"
-        print(" SSH 22 to source server : Fail")
+        s_result['test_results'].append({'test': MSG_SSH_SOURCE, 'result': "Fail", 'error': error})
+        s_result['success'] = False
         return None
     else:
-        s_result["SSH 22 to source server"] = "Pass"
-        # logger.debug(" SSH 22 to source server : Pass")
+        s_result['test_results'].append({'test': MSG_SSH_SOURCE, 'result': "Pass"})
         return ssh
 
 
 def check_sudo_permissions(ssh, s_result):
     stderr = None
-    stdout = None
     ssh_err = ''
     if ssh is not None:
         try:
-            stdin, stdout, stderr = ssh.exec_command("sudo -n -l")  # nosec B601
+            _, _, stderr = ssh.exec_command("sudo -n -l")  # nosec B601
         except paramiko.SSHException as e:
-            ssh_err = "Got exception! " + str(e)
+            s_result['test_results'].append(
+                {'test': MSG_SUDO_PERMISSION, 'result': "Fail", 'error': str(e)}
+            )
+            s_result['success'] = False
+            return
     else:
-        ssh_err = 'Unable to connect! SSH is null'
+        s_result['test_results'].append(
+            {'test': MSG_SUDO_PERMISSION, 'result': "Fail", 'error': MSG_SSH_UNABLE_TO_CONNECT}
+        )
+        s_result['success'] = False
+        return
 
     if stderr:
         for err in stderr.readlines():
             ssh_err = ssh_err + err
     if 'password is required' in ssh_err:
-        s_result["error"] = ssh_err
-        s_result["SUDO permission"] = "Fail"
-        if "final_result" in s_result:
-            s_result["final_result"] = s_result["final_result"] + "SUDO permission,"
-        else:
-            s_result["final_result"] = "SUDO permission,"
-        print(" SUDO permission         : Fail")
+        s_result['test_results'].append({'test': MSG_SUDO_PERMISSION, 'result': "Fail", 'error': 'password is required'})
+        s_result['success'] = False
     else:
-        s_result["SUDO permission"] = "Pass"
-        # logger.debug(" SUDO permission         : Pass")
+        s_result['test_results'].append({'test': MSG_SUDO_PERMISSION, 'result': "Pass"})
 
 
 def check_tcp_connectivity(ssh, host, port, s_result, friendly_name=None):
-    stderr = None
-    stdout = None
     if friendly_name:
         check = "%s-%s" % (friendly_name, str(port))
     else:
-        check = "TCP" + str(port)
-    ssh_err = ''
+        if port == '1500':
+            check = " TCP 1500 to MGN Rep Server"
+        elif port == '443':
+            check = " TCP 443 to Endpoint"
+        else:
+            check = " TCP " + str(port)
+
     if ssh is not None:
         cmd = "sudo timeout 2 bash -c '</dev/tcp/" + host + "/" + port + " && echo port is open || echo port is closed' || echo connection timeout"
         try:
-            stdin, stdout, stderr = ssh.exec_command(cmd)  # nosec B601
+            _, stdout, stderr = ssh.exec_command(cmd)  # nosec B601
             str_output = ''
             for output in stdout.readlines():
                 str_output = str_output + output
+
+            str_stderr = ''
+            for err in stderr.readlines():
+                str_stderr = str_stderr + err
+
             if len(str_output) > 0:
                 str_output = str_output.strip()
                 if "open" in str(str_output):
-                    s_result[check] = "Pass"
+                    s_result['test_results'].append({'test': check, 'result': "Pass"})
                 else:
-                    s_result[check] = "Fail"
+                    s_result['test_results'].append({'test': check, 'result': "Fail", 'error': str_output})
+                    s_result['success'] = False
+                    return
             else:
-                s_result[check] = "Fail"
+                s_result['test_results'].append({'test': check, 'result': "Pass"})
+                s_result['success'] = False
+
+            if len(str_stderr) > 0:
+                if "refused" in str_stderr:
+                    s_result['test_results'].append({'test': check, 'result': "Pass"})
+                else:
+                    s_result['test_results'].append({'test': check, 'result': "Fail", 'error': str_stderr})
+                    s_result['success'] = False
+
         except paramiko.SSHException as e:
-            ssh_err = "Got exception! while executing the command " + cmd + \
-                      " due to " + str(e)
+            ssh_err = f"Got exception! while executing the command {cmd}  due to {str(e)}"
+            s_result['test_results'].append({'test': check, 'result': "Fail", 'error': ssh_err})
+            s_result['success'] = False
     else:
-        ssh_err = 'Unable to connect! SSH is null'
-
-    if port == '1500':
-        message = " TCP 1500 to Rep Server  : "
-    elif port == '443':
-        message = " TCP 443 to Endpoint : "
-    else:
-        message = "Incorrect port! "
-
-    if stderr:
-        for err in stderr.readlines():
-            ssh_err = ssh_err + err
-    if "refused" in ssh_err:
-        s_result[check] = "Pass"
-    if check in s_result:
-        # logger.debug(message + s_result[check])
-        if s_result[check] == "Fail":
-            if "final_result" in s_result:
-                s_result["final_result"] = s_result["final_result"] + check + ","
-            else:
-                s_result["final_result"] = check + ","
-    else:
-        if len(ssh_err) > 0:
-            s_result["error"] = ssh_err
-        s_result[check] = "Fail"
-        if "final_result" in s_result:
-            s_result["final_result"] = s_result["final_result"] + check + ","
-        else:
-            s_result["final_result"] = check + ","
-        print(message + "Fail", flush=True)
+        s_result['test_results'].append({'test': check, 'result': "Fail", 'error': MSG_SSH_UNABLE_TO_CONNECT})
+        s_result['success'] = False
 
 
 def check_freespace(ssh, dir, min, s_result):
@@ -351,7 +204,7 @@ def check_freespace(ssh, dir, min, s_result):
     if ssh is not None:
         cmd = "df -h " + dir + " | tail -1 | tr -s ' ' | cut -d' ' -f4"
         try:
-            stdin, stdout, stderr = ssh.exec_command(cmd)  # nosec B601
+            _, stdout, stderr = ssh.exec_command(cmd)  # nosec B601
             str_output = ''
             for output in stdout.readlines():
                 str_output = str_output + output
@@ -370,108 +223,91 @@ def check_freespace(ssh, dir, min, s_result):
                 ssh_err = dir + " directory should have a minimum of " + str(
                     min) + " GB free space, but got " + str(value)
         except paramiko.SSHException as e:
-            ssh_err = "Got exception! while executing the command " + cmd + \
-                      " due to " + str(e)
+            ssh_err = f"Got exception! while executing the command {cmd}  due to {str(e)}"
     else:
-        ssh_err = 'Unable to connect! SSH is null'
+        ssh_err = MSG_SSH_UNABLE_TO_CONNECT
 
     if stderr:
         for err in stderr.readlines():
             ssh_err = ssh_err + err
+
+    check = str(min) + " GB " + dir + " FreeSpace"
     if len(ssh_err) > 0:
-        s_result["error"] = ssh_err
-        s_result[str(min) + " GB " + dir + " FreeSpace"] = "Fail"
-        if "final_result" in s_result:
-            s_result["final_result"] = s_result["final_result"] + "FreeSpace" + str(min) + ","
-        else:
-            s_result["final_result"] = "FreeSpace" + str(min) + ","
-        if min == 2.0:
-            print(" " + str(min) + " GB " + dir + " FreeSpace      : Fail")
-        else:
-            print(" " + str(min) + " GB " + dir + " FreeSpace   : Fail")
+        s_result['test_results'].append({'test': check, 'result': "Fail", 'error': ssh_err})
+        s_result['success'] = False
     else:
-        s_result[str(min) + " GB " + dir + " FreeSpace"] = "Pass"
-        '''
-        if min == 2.0:
-            #logger.debug(" " + str(min) + " GB " + dir + " FreeSpace      : Pass")
-        else:
-            #logger.debug(" " + str(min) + " GB " + dir + " FreeSpace   : Pass")
-        '''
+        s_result['test_results'].append({'test': check, 'result': "Pass"})
 
 
 def check_dhclient(ssh, s_result):
     stderr = None
-    stdout = None
     ssh_err = ''
+    check = "DHCLIENT Package"
     if ssh is not None:
         try:
-            stdin, stdout, stderr = ssh.exec_command("sudo dhclient -v")  # nosec B601
+            _, _, stderr = ssh.exec_command("sudo dhclient -v")  # nosec B601
         except paramiko.SSHException as e:
-            ssh_err = "Got exception! " + str(e)
+            s_result['test_results'].append(
+                {'test': check, 'result': "Fail", 'error': str(e)}
+            )
+            s_result['success'] = False
+            return
     else:
-        ssh_err = 'Unable to connect! SSH is null'
+        s_result['test_results'].append(
+            {'test': check, 'result': "Fail", 'error': MSG_SSH_UNABLE_TO_CONNECT}
+        )
+        s_result['success'] = False
+        return
 
     if stderr:
         for err in stderr.readlines():
             ssh_err = ssh_err + err
     if len(ssh_err) > 0 and 'not found' in ssh_err:
-        s_result["error"] = ssh_err
-        s_result["DHCLIENT Package"] = "Fail"
-        if "final_result" in s_result:
-            s_result["final_result"] = s_result["final_result"] + "DHCLIENT Package,"
-        else:
-            s_result["final_result"] = "DHCLIENT Package,"
-        print(" DHCLIENT Package        : Fail")
+        s_result['test_results'].append({'test': check, 'result': "Fail", 'error': ssh_err})
+        s_result['success'] = False
     else:
-        s_result["DHCLIENT Package"] = "Pass"
-        # logger.debug(" DHCLIENT Package        : Pass")
+        s_result['test_results'].append({'test': check, 'result': "Pass", 'error': ssh_err})
 
 
 def check_linux(parameters):
-    MGNEndpoint = parameters["MGNEndpoint"]
-    S3Endpoint = parameters["S3Endpoint"]
-    Servers_Linux = parameters["Servers_Linux"]
-    MGNServerIP = parameters["MGNServerIP"]
+    mgn_endpoint = parameters["MGNEndpoint"]
+    s3_endpoint = parameters["S3Endpoint"]
+    mgn_server_ip = parameters["MGNServerIP"]
     user_name = parameters["user_name"]
     pass_key = parameters["pass_key"]
-    key_exist = parameters["key_exist"]
     s = parameters["s"]
     secret_name = parameters["secret_name"]
     no_user_prompts = parameters["no_user_prompts"]
 
     linux_fail = False
-    linux_results = []
 
-    # logger.debug("")
-    # logger.debug("---------------------------------------------------------")
-    # logger.debug("-- Linux Server result for " + s['server_name'] + " --")
-    # logger.debug("---------------------------------------------------------")
-    # logger.debug("")
-    s_result = {}
-    s_result["server_id"] = s["server_id"]
-    s_result["server_name"] = s["server_fqdn"]
-    s_result["final_result"] = ""
+    s_result = {
+        "server_id": s["server_id"],
+        "server_name": s["server_fqdn"],
+        "test_results": [],
+        "success": True
+    }
 
     credentials = mfcommon.getServerCredentials(user_name, pass_key, s, secret_name, no_user_prompts)
 
     # This checks network connectivity, if we can SSH to the source machine
     ssh = check_ssh_connectivity(s["server_fqdn"], credentials['username'], credentials['password'],
                                  credentials['private_key'], s_result)
-    if "SSH 22 to source server" not in s_result["final_result"]:
+    if OUTPUT_ERROR_KEY not in s_result:
         # Check if the given user has sudo permissions
         check_sudo_permissions(ssh, s_result)
-        if "SUDO permission" not in s_result["final_result"]:
+        if OUTPUT_ERROR_KEY not in s_result:
             # Check if user is able to access Internet and
             # connect to MGN Service Endpoint, or private endpoint
-            check_tcp_connectivity(ssh, MGNEndpoint, '443', s_result, "MGNEndpoint")
+            check_tcp_connectivity(ssh, mgn_endpoint, '443', s_result, "MGNEndpoint")
 
             # Check if user is able to access Internet and
             # connect to S3 Endpoint, or private endpoint
-            check_tcp_connectivity(ssh, S3Endpoint, '443', s_result, "S3Endpoint")
+            check_tcp_connectivity(ssh, s3_endpoint, '443', s_result, "S3Endpoint")
 
             # Check if user is able to connect to TCP 1500
             # for a specific IP (user provide IP address)
-            check_tcp_connectivity(ssh, MGNServerIP, '1500', s_result)
+            check_tcp_connectivity(ssh, mgn_server_ip, '1500', s_result)
 
             # Check if root directory have more than 3GB free space
             check_freespace(ssh, '/', 2.0, s_result)
@@ -481,49 +317,25 @@ def check_linux(parameters):
 
             # Check if dhclient package is installed.
             check_dhclient(ssh, s_result)
-    if "error" in s_result:
-        print(s_result['error'], flush=True)
+    if not s_result['success']:
         linux_fail = True
     # Closing ssh connection
     if ssh is not None:
         ssh.close()
         ssh = None
-    if "final_result" in s_result:
-        final_result = s_result["final_result"]
+    if OUTPUT_ERROR_KEY in s_result:
+        final_result = s_result[OUTPUT_ERROR_KEY]
         if len(final_result) > 1 and final_result[-1] == ',':
             final_result = final_result[:-1]
-            s_result["final_result"] = final_result
+            s_result[OUTPUT_ERROR_KEY] = final_result
             linux_fail = True
-    linux_results.append(s_result)
+
     if os.path.isfile(credentials['password']):
         os.remove(credentials['password'])
-    return linux_results, linux_fail
+    return s_result, linux_fail
 
 
-def open_ssh(host, username, key_pwd, using_key):
-    ssh = None
-    error = ''
-    try:
-        if using_key:
-            from io import StringIO
-            private_key = paramiko.RSAKey.from_private_key(StringIO(key_pwd))
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(hostname=host, username=username, pkey=private_key)
-        else:
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(hostname=host, username=username, password=key_pwd)
-    except IOError as io_error:
-        error = "Unable to connect to host " + host + " with username " + \
-                username + " due to " + str(io_error)
-    except paramiko.SSHException as ssh_exception:
-        error = "Unable to connect to host " + host + " with username " + \
-                username + " due to " + str(ssh_exception)
-    return ssh, error
-
-
-def print_results(label, results, UserHOST, token, status):
+def print_results(label, results, token, status):
     # Print all the execution output to the console
     for result in results:
         print("")
@@ -531,16 +343,17 @@ def print_results(label, results, UserHOST, token, status):
         print("-- " + label + " Server result for " + result['server_name'] + " --")
         print("---------------------------------------------------------")
         print("")
-        if result.get("error", "") != "":
-            print(result["error"])
+        if result['success']:
+            output = "ALL TESTS PASSED"
         else:
-            output = ""
-            for k, v in result.items():
-                if k != None:
-                    while len(k) < 35:
-                        k = k + "."
-                    output = output + "\n" + k + ": " + v
-            print(output, flush=True)
+            output = "SOME TESTS FAILED"
+
+        for test_result in result['test_results']:
+            if test_result['result'] == 'Fail':
+                output += f"\n [x] {test_result['test']}: {test_result['result']}"
+            else:
+                output += f"\n{test_result['test']}: {test_result['result']}"
+        print(output, flush=True)
 
     print("")
     print("")
@@ -548,56 +361,43 @@ def print_results(label, results, UserHOST, token, status):
     print("------------------------------------------------------------")
     print("-- " + label + " server passed all Pre-requisites checks --")
     print("------------------------------------------------------------")
-    isEmpty = 0
+    is_empty = 0
     for result in results:
-        if 'final_result' in result:
-            if result['final_result'] == "":
-                if 'error' not in result:
-                    print("     " + result['server_name'])
-                    serverattr = {"migration_status": "Pre-requisites check : Passed"}
-                    update = requests.put(UserHOST + serverendpoint + '/' +
-                                          result['server_id'],
-                                          headers={"Authorization": token},
-                                          data=json.dumps(serverattr),
-                                          timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
-            else:
-                isEmpty = isEmpty + 1
-    if len(results) == isEmpty:
-        print("     No Server Passed")
+        if result['success']:
+            print("     " + result['server_name'])
+            mfcommon.update_server_migration_status(
+                token,
+                result['server_id'],
+                "Pre-requisites check : Passed"
+            )
+        else:
+            is_empty = is_empty + 1
+    if len(results) == is_empty:
+        print(" [x]   No servers passed all checks.")
     print("", flush=True)
 
     if status:
         print("")
         print("-------------------------------------------------------------")
-        print("-- " + label + " server failed one or more Pre-requisites checks --")
+        print("-- " + label + " servers failed one or more pre-requisites checks --")
         print("-------------------------------------------------------------")
         print("", flush=True)
         for result in results:
-            if 'final_result' not in result:
-                print("     " + result[
-                    'server_name'] + " : Unexpected error, please check error details")
-                serverattr = {"migration_status": "Pre-requisites check : Failed - Unexpected error"}
-                update = requests.put(UserHOST + serverendpoint + '/' + result['server_id'],
-                                      headers={"Authorization": token},
-                                      data=json.dumps(serverattr),
-                                      timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
-            else:
-                if 'error' in result and result['final_result'] == "":
-                    print("     " + result[
-                        'server_name'] + " : Unexpected error, please check error details")
-                    serverattr = {"migration_status": "Pre-requisites check : Failed - Unexpected error"}
-                    update = requests.put(UserHOST + serverendpoint + '/' + result['server_id'],
-                                          headers={"Authorization": token},
-                                          data=json.dumps(serverattr),
-                                          timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
-                if result['final_result'] != "":
-                    print("     " + result['server_name'] + " : " + result['final_result'])
-                    serverattr = {
-                        "migration_status": "Pre-requisites check : Failed - " + result['final_result']}
-                    update = requests.put(UserHOST + serverendpoint + '/' + result['server_id'],
-                                          headers={"Authorization": token},
-                                          data=json.dumps(serverattr),
-                                          timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
+            if not result['success']:
+                failure_output = [
+                    f"{test_result['test']}: {test_result['error']}"
+                    for test_result in result['test_results']
+                    if test_result['result'] == 'Fail'
+                ]
+
+                print(f"     {result['server_name']} : Pre-requisites checks : Failed - {failure_output}")
+
+                mfcommon.update_server_migration_status(
+                    token,
+                    result['server_id'],
+                    f"Pre-requisites checks : Failed - {failure_output}"
+                )
+
     print("", flush=True)
 
 
@@ -619,19 +419,25 @@ def parse_arguments(arguments):
     return args
 
 
-def main(args):
-    UserHOST = ""
-
-    if 'UserApiUrl' in endpoints:
-        UserHOST = endpoints['UserApiUrl']
+def get_install_endpoint_parameters(account):
+    parameters = {}
+    if args.MGNEndpoint:
+        parameters["MGNEndpoint"] = args.MGNEndpoint
     else:
-        print("ERROR: Invalid FactoryEndpoints.json file, please update UserApiUrl")
-        sys.exit()
+        parameters["MGNEndpoint"] = "mgn.{}.amazonaws.com".format(account['aws_region'])
+    if args.S3Endpoint:
+        parameters["S3Endpoint"] = args.S3Endpoint
+    else:
+        parameters["S3Endpoint"] = "aws-application-migration-service-{}.s3.amazonaws.com" \
+            .format(account['aws_region'])
+
+    return parameters
+
+
+def main():
 
     print("")
-    print("****************************")
-    print("* Login to Migration factory *")
-    print("****************************")
+    print("Login to Migration factory")
     print("", flush=True)
     token = mfcommon.Factorylogin()
 
@@ -639,15 +445,17 @@ def main(args):
     print("*** Getting Server List ****")
     print("****************************")
     print("", flush=True)
-    get_servers, linux_exist, windows_exist = get_factory_servers(args.Waveid, token, UserHOST)
+    get_servers, linux_exist, windows_exist = mfcommon.get_factory_servers(
+        args.Waveid, token, osSplit=True, rtype='Rehost'
+    )
     user_name = ''
     pass_key = ''
     key_exist = False
 
     windows_results = []
     linux_results = []
-    windows_status = False
-    linux_status = False
+    windows_status_failed = False
+    linux_status_failed = False
     windows_fail = False
     linux_fail = False
 
@@ -658,80 +466,55 @@ def main(args):
         print("*********************************************")
         print("", flush=True)
 
-        threadList = list()
+        thread_list = list()
         que = Queue()
 
         for account in get_servers:
             if len(account["servers_windows"]) > 0:
                 # Parameters to be passed to the thread
-                parameters = {}
-                if args.MGNEndpoint:
-                    parameters["MGNEndpoint"] = args.MGNEndpoint
-                else:
-                    parameters["MGNEndpoint"] = "mgn.{}.amazonaws.com".format(account['aws_region'])
-                if args.S3Endpoint:
-                    parameters["S3Endpoint"] = args.S3Endpoint
-                else:
-                    parameters["S3Endpoint"] = "aws-application-migration-service-{}.s3.amazonaws.com" \
-                        .format(account['aws_region'])
+                parameters = get_install_endpoint_parameters(account)
                 parameters["servers_windows"] = account["servers_windows"]
                 parameters["MGNServerIP"] = args.ReplicationServerIP
                 parameters["user_name"] = ""
                 parameters["windows_password"] = ""
                 parameters["secret_name"] = args.SecretWindows
                 parameters["no_user_prompts"] = args.NoPrompts
-                # Get all servers FQDNs into csv for trusted hosts update.
-                server_string = ""
-                for s in account['servers_windows']:
-                    server_string = server_string + s["server_fqdn"] + ','
-                server_string = server_string[:-1]
-                # Add servers to local trusted hosts to allow authentication if different domain.
-                subprocess.Popen(["powershell.exe", "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '"
-                                  + server_string + "' -Concatenate -Force"], stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
+
+                mfcommon.add_windows_servers_to_trusted_hosts(account["servers_windows"])
+
                 # Creating multiple threads to connect to source servers in parallel
                 for s in account["servers_windows"]:
                     parameters["s"] = s
                     x = threading.Thread(target=lambda q, parameters: q.put(check_windows(parameters)),
                                          args=(que, parameters), name=s["server_fqdn"])
                     x.start()
-                    threadList.append(x)
+                    thread_list.append(x)
 
         print("Waiting for all threads to finish...")
         print("", flush=True)
-        for thread in threadList:
+        for thread in thread_list:
             thread.join()
 
         while not que.empty():
             # Get the results from all the threads and save it in windows_results
             result, windows_fail = que.get()
-            windows_results = windows_results + result
+            windows_results.append(result)
+
             if windows_fail:
-                windows_status = True
+                windows_status_failed = True
 
     if linux_exist:
         print("")
-        print("********************************************")
         print("*Checking Pre-requisites for Linux servers*")
-        print("********************************************")
         print("", flush=True)
 
         count = 0  # For counting number of threads
-        threadList = list()  # for storing the details of each thread
+        thread_list = list()  # for storing the details of each thread
         que = Queue()  # for storing the output messages from each thread
 
         for account in get_servers:
             if len(account["servers_linux"]) > 0:
-                parameters = {}
-                if args.MGNEndpoint:
-                    parameters["MGNEndpoint"] = args.MGNEndpoint
-                else:
-                    parameters["MGNEndpoint"] = "mgn.{}.amazonaws.com".format(account['aws_region'])
-                if args.S3Endpoint:
-                    parameters["S3Endpoint"] = args.S3Endpoint
-                else:
-                    parameters["S3Endpoint"] = "aws-application-migration-service-{}.s3.amazonaws.com" \
-                        .format(account['aws_region'])
+                parameters = get_install_endpoint_parameters(account)
                 parameters["Servers_Linux"] = account["servers_linux"]
                 parameters["MGNServerIP"] = args.ReplicationServerIP
                 parameters["user_name"] = user_name
@@ -746,18 +529,19 @@ def main(args):
                                          args=(que, parameters), name=s["server_fqdn"])
                     x.start()
                     count = count + 1
-                    threadList.append(x)
+                    thread_list.append(x)
 
         print("Waiting for all checks to finish...")
         print("", flush=True)
-        for thread in threadList:
+        for thread in thread_list:
             thread.join()
 
         while not que.empty():
             result, linux_fail = que.get()
-            linux_results = linux_results + result
+            linux_results.append(result)
+
             if linux_fail:
-                linux_status = True
+                linux_status_failed = True
 
     print("")
     print("********************************************")
@@ -765,9 +549,9 @@ def main(args):
     print("********************************************")
     print("", flush=True)
     if windows_exist:
-        print_results("Windows", windows_results, UserHOST, token, windows_status)
+        print_results("Windows", windows_results, token, windows_status_failed)
     if linux_exist:
-        print_results("Linux", linux_results, UserHOST, token, linux_status)
+        print_results("Linux", linux_results, token, linux_status_failed)
 
     if linux_fail or windows_fail:
         print("A number of servers failed pre-requisites checks, see logs for details.")
@@ -779,4 +563,4 @@ def main(args):
 
 if __name__ == '__main__':
     args = parse_arguments(sys.argv[1:])
-    sys.exit(main(args))
+    sys.exit(main())

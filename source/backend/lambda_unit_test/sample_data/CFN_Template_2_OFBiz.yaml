@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Builds stack for EC2 Servers for the Application OFBiz
+Outputs:
+  wordpressdbAZ:
+    Description: Availability Zone of the newly created EC2 instance
+    Value: !GetAtt 'wordpressdbEc2Instance.AvailabilityZone'
+  wordpressdbInstanceId:
+    Description: InstanceId of the newly created EC2 instance
+    Value: !Ref 'wordpressdbEc2Instance'
+  wordpressdbPrivateDNS:
+    Description: Private DNSName of the newly created EC2 instance
+    Value: !GetAtt 'wordpressdbEc2Instance.PrivateDnsName'
+  wordpressdbPrivateIP:
+    Description: Private IP address of the newly created EC2 instance
+    Value: !GetAtt 'wordpressdbEc2Instance.PrivateIp'
+  wordpressdbPublicDNS:
+    Description: Public DNSName of the newly created EC2 instance
+    Value: !GetAtt 'wordpressdbEc2Instance.PublicDnsName'
+  wordpressdbPublicIP:
+    Description: Public IP address of the newly created EC2 instance
+    Value: !GetAtt 'wordpressdbEc2Instance.PublicIp'
+Parameters:
+  wordpressdbAMIId:
+    Default: amzn-linux-2022
+    Description: The ID of the AMI to deploy the instance with.
+    Type: AWS::EC2::Image::Id
+  wordpressdbAZName:
+    Default: us-east-1a
+    Description: The Availability Zone that you want to launch the instance and volumes
+    Type: String
+  wordpressdbEbsKmsKeyId:
+    AllowedPattern: ^(arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key/){0,1}[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$|^$
+    Default: ''
+    Description: ID or ARN of the KMS master key to be used to encrypt EBS Volumes
+    Type: String
+  wordpressdbEbsOptimized:
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'false'
+    Description: True for the instance to be optimized for Amazon Elastic Block Store I/O. False for it to not be. If you set this to true, choose an InstanceType that supports EBS optimization.
+    Type: String
+  wordpressdbInstanceType:
+    Default: t3.medium
+    Description: The EC2 instance type. Choose an InstanceType that supports EBS optimization if InstanceEBSOptimized = true.
+    Type: String
+  wordpressdbSubnetId:
+    Default: subnet-02ee1e6b9543b81c9
+    Description: The subnet that you want to launch the instance into, in the form subnet-0123abcd or subnet-01234567890abcdef
+    Type: String
+  wordpressdbdetailedmonitoring:
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'false'
+    Description: True to enable detailed monitoring on the instance, false to use only basic monitoring.
+    Type: String
+  wordpressdbinstanceprofile:
+    Default: ''
+    Description: An IAM instance profile defined in your account. The default is an AWS-provided role.
+    Type: String
+  wordpressdbrootvolumename:
+    AllowedValues:
+      - /dev/sda1
+      - /dev/xvda
+    Default: /dev/xvda
+    Description: The device name of the root volume (for example /dev/xvda or /dev/sda1).
+    Type: String
+  wordpressdbrootvolumesize:
+    Default: '8'
+    Description: The size of the root volume for the instance in GiB.
+    MaxValue: 16384
+    MinValue: 8
+    Type: Number
+  wordpressdbrootvolumetype:
+    AllowedValues:
+      - standard
+      - io1
+      - io2
+      - gp2
+      - gp3
+    Default: gp3
+    Description: >-
+      The volume type for root volume. Choose io1, io2, gp2 or gp3 for SSD-backed volumes optimized for transactional workloads. Choose standard for HDD-backed volumes suitable for workloads where data
+      is infrequently accessed.
+    Type: String
+  wordpressdbsecuritygroupids:
+    Default: sg-0485cd66e0f74adf3
+    Description: Comma-separated list of up to three security group (SG) identifiers. These control access to the EC2 instance
+    Type: CommaDelimitedList
+Resources:
+  wordpressdbEc2Instance:
+    Properties:
+      AvailabilityZone: !Ref 'wordpressdbAZName'
+      BlockDeviceMappings:
+        - DeviceName: !Ref 'wordpressdbrootvolumename'
+          Ebs:
+            Encrypted: true
+            VolumeSize: !Ref 'wordpressdbrootvolumesize'
+            VolumeType: !Ref 'wordpressdbrootvolumetype'
+      EbsOptimized: !Ref 'wordpressdbEbsOptimized'
+      IamInstanceProfile: !Ref 'wordpressdbinstanceprofile'
+      ImageId: !Ref 'wordpressdbAMIId'
+      InstanceType: !Ref 'wordpressdbInstanceType'
+      Monitoring: !Ref 'wordpressdbdetailedmonitoring'
+      SecurityGroupIds: !Ref 'wordpressdbsecuritygroupids'
+      SubnetId: !Ref 'wordpressdbSubnetId'
+      Tags:
+        - Key: CostCenter
+          Value: '123'
+        - Key: BU
+          Value: IT
+        - Key: Location
+          Value: US
+        - Key: Name
+          Value: wordpress-db
+      Tenancy: default
+    Type: AWS::EC2::Instance
+

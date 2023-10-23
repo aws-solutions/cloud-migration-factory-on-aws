@@ -1,0 +1,54 @@
+{
+  "schema_name": "EC2",
+  "schema_type": "automation",
+  "friendly_name": "EC2",
+  "attributes": [
+    {
+      "rel_display_attribute": "aws_accountid",
+      "system": true,
+      "validation_regex": "^(?!\\s*$).+",
+      "rel_key": "aws_accountid",
+      "name": "accountid",
+      "description": "AWS account ID",
+      "rel_entity": "application",
+      "validation_regex_msg": "AWS account ID must be provided.",
+      "type": "relationship"
+    },
+    {
+      "rel_display_attribute": "wave_name",
+      "system": true,
+      "validation_regex": "^(?!\\s*$).+",
+      "rel_key": "wave_id",
+      "name": "waveid",
+      "description": "Wave",
+      "rel_entity": "wave",
+      "validation_regex_msg": "Wave must be provided.",
+      "type": "relationship"
+    }
+  ],
+  "group": "RePlatform",
+  "description": "New EC2 Build",
+  "actions": [
+    {
+      "name": "EC2 Input Validation",
+      "apiMethod": "post",
+      "id": "EC2 Input Validation",
+      "awsuistyle": "primary",
+      "apiPath": "/gfvalidate"
+    },
+    {
+      "name": "EC2 Generate CF Template",
+      "apiMethod": "post",
+      "id": "EC2 Generate CF Template",
+      "awsuistyle": "primary",
+      "apiPath": "/gfbuild"
+    },
+    {
+      "name": "EC2 Deployment",
+      "apiMethod": "post",
+      "id": "EC2 Deployment",
+      "awsuistyle": "primary",
+      "apiPath": "/gfdeploy"
+    }
+  ]
+}

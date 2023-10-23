@@ -2,8 +2,8 @@
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
-
 const config = {
+  testEnvironment: 'jsdom',
   "verbose": true,
   "collectCoverage": true,
   "testResultsProcessor": "jest-sonar-reporter",

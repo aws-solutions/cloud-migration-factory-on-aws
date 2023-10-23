@@ -1,0 +1,158 @@
+[
+  {
+    "SSMId": {
+      "S": "i-0f8671916d904a820+c1f73bdc-f6ae-4341-9311-c29060c15bf9+2023-04-25T19:10:00.892229"
+    },
+    "jobname": {
+      "S": "Install MGN  Agents - 1"
+    },
+    "status": {
+      "S": "COMPLETE"
+    },
+    "_history": {
+      "M": {
+        "completedTimestamp": {
+          "S": "2023-04-25T19:14:00.923970"
+        },
+        "createdTimestamp": {
+          "S": "2023-04-25T19:10:00.892229"
+        },
+        "outcomeDate": {
+          "S": "2023-04-25T19:14:00.923970"
+        },
+        "timeElapsed": {
+          "S": "240.03174090385437"
+        }
+      }
+    }
+  },
+  {
+    "SSMId": {
+      "S": "i-0f8671916d904a820+ef222435-3d58-443b-a113-ac10ac7833c2+2023-04-26T14:09:33.736191"
+    },
+    "jobname": {
+      "S": "Verify instance status wave 2  - 1"
+    },
+    "mf_endpoints": {
+      "M": {
+        "LoginApiUrl": {
+          "S": "https://u54o8bbj7h.example.com"
+        },
+        "Region": {
+          "S": "us-east-1"
+        },
+        "UserApiUrl": {
+          "S": "https://dtx3uf5sme.example.com"
+        },
+        "UserPoolClientId": {
+          "S": "63tg3rrtcu52kgikddggtj9ej0"
+        },
+        "UserPoolId": {
+          "S": "us-east-1_x0yoV1QEe"
+        }
+      }
+    },
+    "mi_id": {
+      "S": "i-0f8671916d904a820"
+    },
+    "output": {
+      "S": "[14:09:50] \nSuccessfully packaged [3-Verify Instance Status]\n\n\n[14:10:19] \nSuccessfully downloaded script to: c:\\migrations\\scripts\\history\\3be17aef-d404-4864-8aaa-e0b297e5e14d-04-26-2023-02.10.18PM\n\n[14:10:26] \nSuccessfully verified script package contents\n\n[14:10:33] \n\n ****************************\n *Login to Migration factory*\n ****************************\n Migration Factory : You have successfully logged in\n \n ****************************\n *** Getting Server List ****\n ****************************\n\n\n[14:10:34] \n### Servers in Target Account: 111111111111 , region: us-east-1 ###\n windows.onpremsim.env\n \n \n *****************************\n ** Verify instance status **\n *****************************\n\n\n[14:10:36] \n******************************\n * Getting Target Instance Id *\n ******************************\n \n Account: 111111111111, Region: us-east-1\n windows.onpremsim.env : i-0a3e49e9d8818babc\n \n ######################################################\n #### In Account: 111111111111 , region: us-east-1 ####\n ######################################################\n ----------------------------------------------------\n - The following instances PASSED 2/2 status checks -\n ----------------------------------------------------\n windows.onpremsim.env\n\n\n[14:10:37] \n\n All servers have had status check completed successfully.\n\n\n[14:10:38] \nJOB_COMPLETE\n\n"
+    },
+    "outputLastMessage": {
+      "S": " All servers have had status check completed successfully."
+    },
+    "script": {
+      "M": {
+        "default": {
+          "S": "1"
+        },
+        "latest": {
+          "S": "1"
+        },
+        "package_uuid": {
+          "S": "3be17aef-d404-4864-8aaa-e0b297e5e14d"
+        },
+        "script_arguments": {
+          "M": {
+            "Waveid": {
+              "S": "2"
+            }
+          }
+        },
+        "script_dependencies": {
+          "NULL": true
+        },
+        "script_description": {
+          "S": "This script will verify the status check of the target machines  in a specific wave"
+        },
+        "script_masterfile": {
+          "S": "3-Verify-instance-status.py"
+        },
+        "script_name": {
+          "S": "3-Verify Instance Status"
+        },
+        "script_update_url": {
+          "S": ""
+        },
+        "version": {
+          "S": "0"
+        },
+        "version_id": {
+          "S": "cLY0yH3U6T5T1fK6Enk9mOpvELdO.TkV"
+        },
+        "_history": {
+          "M": {
+            "createdBy": {
+              "M": {
+                "email": {
+                  "S": "[system]"
+                },
+                "userRef": {
+                  "S": "[system]"
+                }
+              }
+            },
+            "createdTimestamp": {
+              "S": "2023-04-25T17:46:50.258158"
+            }
+          }
+        }
+      }
+    },
+    "SSMAutomationExecutionId": {
+      "S": "fe72ef31-2e87-43be-9a50-9641e5cf334b"
+    },
+    "status": {
+      "S": "COMPLETE"
+    },
+    "uuid": {
+      "S": "ef222435-3d58-443b-a113-ac10ac7833c2"
+    },
+    "_history": {
+      "M": {
+        "completedTimestamp": {
+          "S": "2023-04-26T14:10:38.758210"
+        },
+        "createdBy": {
+          "M": {
+            "email": {
+              "S": "serviceaccount@example.com"
+            },
+            "userRef": {
+              "S": "a16cd40f-95e0-4709-b7bd-0109e926b9e3"
+            }
+          }
+        },
+        "createdTimestamp": {
+          "S": "2023-04-26T14:09:33.736191"
+        },
+        "outcomeDate": {
+          "S": "2023-04-26T14:10:38.758210"
+        },
+        "timeElapsed": {
+          "S": "65.02201890945435"
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,18 @@
+[
+  {
+   "schema_name": {
+     "S": "wave"
+   },
+   "schema_type": {
+     "S": "user"
+   }
+ },
+ {
+   "schema_name": {
+     "S": "app"
+   },
+   "schema_type": {
+     "S": "user"
+   }
+ }
+]

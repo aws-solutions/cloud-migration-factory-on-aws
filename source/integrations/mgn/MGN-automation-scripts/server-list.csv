@@ -1,9 +1,9 @@
 wave_name,app_name,aws_region,aws_accountid,server_name,server_os_family,server_os_version,server_fqdn,server_tier,server_environment,r_type,subnet_IDs,securitygroup_IDs,subnet_IDs_test,securitygroup_IDs_test,instanceType,tenancy,tags
-Wave 1,app01-hr,us-east-1,111122223333,Server1,windows,windows server 2012 R2,server1.mydomain.local,web,dev,Rehost,subnet-1111,sg-1111;sg-2222,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
-Wave 1,app01-hr,us-east-1,111122223333,Server2,windows,windows server 2012 R2,server2.mydomain.local,db,dev,Rehost,subnet-1111,sg-1111;sg-2222,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
-Wave 2,app02-sales,us-west-2,111122223333,Server3,windows,windows server 2016,server3.mydomain.local,web,prod,Rehost,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
-Wave 2,app02-sales,us-west-2,111122223333,Server4,windows,windows server 2016,server4.mydomain.local,app,prod,Rehost,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
-Wave 2,app02-sales,us-west-2,111122223333,Server5,windows,windows server 2016,server5.mydomain.local,db,prod,Rehost,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
-Wave 3,app03-sales,us-west-2,111122223333,Server6,windows,windows server 2016,server6.mydomain.local,db,prod,Rehost,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
-Wave 3,app03-sales,us-west-2,111122223333,Server7,linux,Red Hat Enterprise Linux 7,server7.mydomain.local,db,prod,Rehost,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
-Wave 3,app03-sales,us-west-2,111122223333,Server8,linux,Red Hat Enterprise Linux 7,server6.mydomain.local,db,prod,Rehost,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
+Wave 1,app01-hr,us-east-1,111122223333,Server1,windows,windows server 2012 R2,server1.example.local,web,dev,Rehost,subnet-1111,sg-1111;sg-2222,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
+Wave 1,app01-hr,us-east-1,111122223333,Server2,windows,windows server 2012 R2,server2.example.local,db,dev,Rehost,subnet-1111,sg-1111;sg-2222,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
+Wave 2,app02-sales,us-west-2,111122223333,Server3,windows,windows server 2016,server3.example.local,web,prod,Rehost,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
+Wave 2,app02-sales,us-west-2,111122223333,Server4,windows,windows server 2016,server4.example.local,app,prod,Rehost,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
+Wave 2,app02-sales,us-west-2,111122223333,Server5,windows,windows server 2016,server5.example.local,db,prod,Rehost,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
+Wave 3,app03-sales,us-west-2,111122223333,Server6,windows,windows server 2016,server6.example.local,db,prod,Rehost,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
+Wave 3,app03-sales,us-west-2,111122223333,Server7,linux,Red Hat Enterprise Linux 7,server7.example.local,db,prod,Rehost,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US
+Wave 3,app03-sales,us-west-2,111122223333,Server8,linux,Red Hat Enterprise Linux 7,server6.example.local,db,prod,Rehost,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared,CostCenter=123;BU=IT;Location=US

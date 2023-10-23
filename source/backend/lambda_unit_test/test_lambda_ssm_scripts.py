@@ -1,8 +1,6 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-#########################################################################################
-#########################################################################################
 
 
 import unittest
@@ -100,7 +98,7 @@ test_script_records = [
                 "createdBy": {
                     "M": {
                         "email": {
-                            "S": "someone@amazon.co.uk"
+                            "S": "someone@example.com"
                         },
                         "userRef": {
                             "S": "someone"
@@ -113,7 +111,7 @@ test_script_records = [
                 "lastModifiedBy": {
                     "M": {
                         "email": {
-                            "S": "someone@amazon.com"
+                            "S": "someone@example.com"
                         },
                         "userRef": {
                             "S": "someone"
@@ -185,7 +183,7 @@ test_script_records = [
                 "createdBy": {
                     "M": {
                         "email": {
-                            "S": "someone@amazon.com"
+                            "S": "someone@example.com"
                         },
                         "userRef": {
                             "S": "someone"
@@ -299,9 +297,9 @@ class LambdaSSMScriptsTest(TestCase):
                                  "script_masterfile": "test-masterfile.py",
                                  "script_name": "test", "script_update_url": None,
                                  "version_id": "YWOD5U3Wn4XO4e8ApSSetwmtq0I_4maw",
-                                 "_history": {"createdBy": {"email": "someone@amazon.co.uk", "userRef": "someone"},
+                                 "_history": {"createdBy": {"email": "someone@example.com", "userRef": "someone"},
                                               "createdTimestamp": "2023-05-26T07:50:06.396959",
-                                              "lastModifiedBy": {"email": "someone@amazon.com", "userRef": "someone"},
+                                              "lastModifiedBy": {"email": "someone@example.com", "userRef": "someone"},
                                               "lastModifiedTimestamp": "2023-05-26T08:01:35.441261"}}]
         expected_response = {'headers': {**default_http_headers}, 'body': f"{json.dumps(expected_result_data)}"}
         self.assertEqual(data, expected_response)
@@ -325,9 +323,9 @@ class LambdaSSMScriptsTest(TestCase):
                                  "script_masterfile": "test-masterfile.py",
                                  "script_name": "test", "script_update_url": None,
                                  "version_id": "YWOD5U3Wn4XO4e8ApSSetwmtq0I_4maw",
-                                 "_history": {"createdBy": {"email": "someone@amazon.co.uk", "userRef": "someone"},
+                                 "_history": {"createdBy": {"email": "someone@example.com", "userRef": "someone"},
                                               "createdTimestamp": "2023-05-26T07:50:06.396959",
-                                              "lastModifiedBy": {"email": "someone@amazon.com", "userRef": "someone"},
+                                              "lastModifiedBy": {"email": "someone@example.com", "userRef": "someone"},
                                               "lastModifiedTimestamp": "2023-05-26T08:01:35.441261"}},
                                 {"package_uuid": "9bd96f83-8510-44a9-be5e-d34f20982143",
                                  "version": "1",
@@ -341,7 +339,7 @@ class LambdaSSMScriptsTest(TestCase):
                                  "script_masterfile": "test-masterfile.py",
                                  "script_name": "test", "script_update_url": None,
                                  "version_id": "YWOD5U3Wn4XO4e8ApSSetwmtq0I_4maw",
-                                 "_history": {"createdBy": {"email": "someone@amazon.com", "userRef": "someone"},
+                                 "_history": {"createdBy": {"email": "someone@example.com", "userRef": "someone"},
                                               "createdTimestamp": "2023-05-26T07:50:06.396959"}}]
         expected_response = {'headers': {**default_http_headers}, 'body': f"{json.dumps(expected_result_data)}"}
         self.assertEqual(data, expected_response)
@@ -385,7 +383,7 @@ class LambdaSSMScriptsTest(TestCase):
              "script_masterfile": "test-masterfile.py",
              "script_name": "test", "script_update_url": None,
              "version_id": "YWOD5U3Wn4XO4e8ApSSetwmtq0I_4maw",
-             "_history": {"createdBy": {"email": "someone@amazon.com", "userRef": "someone"},
+             "_history": {"createdBy": {"email": "someone@example.com", "userRef": "someone"},
                           "createdTimestamp": "2023-05-26T07:50:06.396959"}}]
         self.assertEqual(data.get('statusCode'), 200)
         self.assertEqual(data.get('headers'), {**default_http_headers})

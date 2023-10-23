@@ -1,0 +1,35 @@
+[
+  {
+   "schema_name": {
+    "S": "server"
+   },
+   "lastModifiedTimestamp": {
+     "S": "2023-04-28T15:27:12.991773"
+   },
+   "schema_type": {
+    "S": "user"
+   }
+  },
+  {
+   "schema_name": {
+     "S": "wave"
+   },
+   "lastModifiedTimestamp": {
+     "S": "2023-04-28T15:27:12.991773"
+   },
+   "schema_type": {
+     "S": "user"
+   }
+ },
+ {
+   "schema_name": {
+     "S": "app"
+   },
+   "lastModifiedTimestamp": {
+     "S": "2023-04-25T18:53:25.915746"
+   },
+   "schema_type": {
+     "S": "user"
+   }
+ }
+]
