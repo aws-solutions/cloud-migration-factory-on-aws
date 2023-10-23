@@ -1,0 +1,300 @@
+[
+  {
+   "schema_name": {
+    "S": "server"
+   },
+   "schema_type": {
+    "S": "user"
+   },
+   "attributes": {
+     "L": [
+         {
+          "M": {
+            "description": {
+              "S": "Root Volume Size"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "root_vol_size"
+            },
+            "group": {
+              "S": "Target - Storage"
+            },
+            "type": {
+              "S": "Integer"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "AMI Id"
+            },
+            "name": {
+              "S": "ami_id"
+            },
+            "group": {
+              "S": "Target - Instance"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+       {
+          "M": {
+            "description": {
+              "S": "Availability zone"
+            },
+            "name": {
+              "S": "availabilityzone"
+            },
+            "group": {
+              "S": "Target - Instance"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Root Volume Type"
+            },
+            "name": {
+              "S": "root_vol_type"
+            },
+            "group": {
+              "S": "Target - Storage"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+       {
+          "M": {
+            "description": {
+              "S": "Additional Volume Sizes"
+            },
+            "name": {
+              "S": "add_vols_size"
+            },
+            "group": {
+              "S": "Target - Storage"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Additional Volume Types"
+            },
+            "name": {
+              "S": "add_vols_type"
+            },
+            "group": {
+              "S": "Target - Storage"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Enable EBS Optimized"
+            },
+            "name": {
+              "S": "ebs_optimized"
+            },
+            "group": {
+              "S": "Target - Storage"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "checkbox"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "EBS KMS Key Id for Volume Encryption"
+            },
+            "name": {
+              "S": "ebs_kmskey_id"
+            },
+            "group": {
+              "S": "Target - Storage"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Enable Detailed Monitoring"
+            },
+            "name": {
+              "S": "detailed_monitoring"
+            },
+            "group": {
+              "S": "Target - Instance"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "checkbox"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Root Volume Name"
+            },
+            "name": {
+              "S": "root_vol_name"
+            },
+            "group": {
+              "S": "Target - Storage"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+       {
+          "M": {
+            "description": {
+              "S": "Additional Volume Names seperated by semicolon(;)"
+            },
+            "name": {
+              "S": "add_vols_name"
+            },
+            "group": {
+              "S": "Target - Storage"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Server Id"
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "server_id"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Application"
+            },
+            "group_order": {
+              "S": "-998"
+            },
+            "name": {
+              "S": "app_id"
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "relationship"
+            }
+          }
+        }
+     ]
+   }
+  },
+  {
+   "schema_name": {
+     "S": "wave"
+   },
+   "schema_type": {
+     "S": "user"
+   }
+ },
+ {
+   "schema_name": {
+     "S": "app"
+   },
+   "schema_type": {
+     "S": "user"
+   }
+ },
+ {
+   "schema_name": {
+     "S": "automation"
+   },
+   "schema_type": {
+     "S": "automation"
+   }
+ }
+]

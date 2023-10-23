@@ -2,7 +2,10 @@ requests==2.31.0
 python-jose==3.3.0
 simplejson==3.19.1
 boto3==1.26.153
-moto==4.1.11
-coverage==7.2.7
-troposphere==4.3.2
-PyYAML==5.4.1
+moto==4.2.0
+coverage==7.3.0
+troposphere==4.4.1
+PyYAML==6.0
+pyparsing==3.0.9
+docker==6.1.3
+aws-lambda-powertools[aws-sdk]~=2.23.1

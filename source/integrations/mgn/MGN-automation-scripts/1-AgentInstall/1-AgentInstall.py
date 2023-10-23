@@ -16,12 +16,11 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
 #########################################################################################
 
-# Version: 1SEP2022.00
+# Version: 1SEP2023.00
 
 from __future__ import print_function
 import sys
 import argparse
-import requests
 import json
 import subprocess
 import time
@@ -31,20 +30,25 @@ import mfcommon
 import os
 import multiprocessing
 
+POWERSHELL_EXE = "powershell.exe"
+
+LOG_PADDING = 50
+LOG_PADDING_CHAR = '*'
+
+MSG_QUEUED_TASK = "Queued task for"
+MSG_AGENT_INSTALL_FAILED = "Agent Install - Failed"
+
 lock = multiprocessing.Lock()
 queue = multiprocessing.Queue()
 
 linuxpkg = __import__("1-Install-Linux")
 
-token = None
+cmf_api_access_token = None
 user_api_url = None
 servers = {}
 
 with open('FactoryEndpoints.json') as json_file:
     endpoints = json.load(json_file)
-
-serverendpoint = mfcommon.serverendpoint
-appendpoint = mfcommon.appendpoint
 
 if "CMF_SCRIPTS_BUCKET" in os.environ:
     scripts_bucket = os.environ["CMF_SCRIPTS_BUCKET"]
@@ -77,7 +81,7 @@ def assume_role(account_id, region):
         return None
 
 
-def assume_role_mgn_install(account_id, region, cmf_user_name):
+def assume_role_mgn_install(account_id, region):
     sts_client = boto3.client('sts', region_name=region)
     role_arn = 'arn:aws:iam::' + account_id + ':role/CMF-AutomationServer'
     # Call the assume_role method of the STSConnection object and pass the role
@@ -92,17 +96,7 @@ def assume_role_mgn_install(account_id, region, cmf_user_name):
                 {
                     'arn': 'arn:aws:iam::aws:policy/AWSApplicationMigrationAgentInstallationPolicy'
                 },
-            ],
-            #             Tags=[
-            #                 {
-            #                     'Key': 'CMFTask',
-            #                     'Value': 'InstallMGNAgents'
-            #                 },
-            #                 {
-            #                     'Key': 'CMFInitiatingUser',
-            #                     'Value': cmf_user_name
-            #                 },
-            #             ]
+            ]
         )
         credentials = response['Credentials']
         return credentials
@@ -112,7 +106,7 @@ def assume_role_mgn_install(account_id, region, cmf_user_name):
 
 
 # Pagination for describe MGN source servers
-def get_mgn_source_servers(mgn_client_base):
+def get_unfiltered_mgn_source_servers(mgn_client_base):
     token = None
     source_server_data = []
     paginator = mgn_client_base.get_paginator('describe_source_servers')
@@ -129,6 +123,37 @@ def get_mgn_source_servers(mgn_client_base):
             return source_server_data
 
 
+def add_vpc_endpoints_to_command(parameters, command):
+    if 's3_endpoint' in parameters and parameters['s3_endpoint'] is not None:
+        command.append("-s3endpoint")
+        command.append(parameters['s3_endpoint'])
+
+    if 'mgn_endpoint' in parameters and parameters['mgn_endpoint'] is not None:
+        command.append("-mgnendpoint")
+        command.append(parameters['mgn_endpoint'])
+
+
+def add_windows_credentials_to_command(parameters, command, final_output):
+    # User credentials of user running the script added to the powershell command, without this the
+    # powershell script will run under localsystem.
+    if parameters["windows_user_name"] != "":
+        if "\\" not in parameters["windows_user_name"] and "@" not in parameters["windows_user_name"]:
+            # Assume local account provided, prepend server name to user ID.
+            server_name_only = parameters["server"]["server_fqdn"].split(".")[0]
+            parameters["windows_user_name"] = server_name_only + "\\" + parameters["windows_user_name"]
+            final_output['messages'].append("INFO: Using local account to connect: "
+                                            + parameters["windows_user_name"])
+        else:
+            final_output['messages'].append("INFO: Using domain account to connect: "
+                                            + parameters["windows_user_name"])
+        command.append("-windowsuser")
+        command.append("'" + parameters["windows_user_name"] + "'")
+        command.append("-windowspwd")
+        command.append("'" + parameters["windows_password"] + "'")
+    else:
+        final_output['messages'].append("INFO: Using current process credentials to connect to perform install.")
+
+
 def run_task_windows(parameters):
     final_output = {'messages': []}
     pid = multiprocessing.current_process()
@@ -136,7 +161,7 @@ def run_task_windows(parameters):
     final_output['host'] = parameters["server"]['server_fqdn']
     final_output['messages'].append("Installing MGN Agent on :  " + parameters["server"]['server_fqdn'])
 
-    command = ["powershell.exe",
+    command = [POWERSHELL_EXE,
                ".\\1-Install-Windows.ps1",
                "-reinstall",
                "$" + str(parameters["reinstall"]).lower(),
@@ -159,33 +184,12 @@ def run_task_windows(parameters):
         command.append("-sessiontoken")
         command.append(parameters["agent_install_secrets"]['SessionToken'])
 
-    if 's3_endpoint' in parameters and parameters['s3_endpoint'] is not None:
-        command.append("-s3endpoint")
-        command.append(parameters['s3_endpoint'])
-
-    if 'mgn_endpoint' in parameters and parameters['mgn_endpoint'] is not None:
-        command.append("-mgnendpoint")
-        command.append(parameters['mgn_endpoint'])
+    add_vpc_endpoints_to_command(parameters, command)
 
     try:
-        if parameters["windows_user_name"] != "":
-            # User credentials of user executing the script added to the powershell command, without this the powershell script will run under localsystem.
-            if "\\" not in parameters["windows_user_name"] and "@" not in parameters["windows_user_name"]:
-                # Assume local account provided, prepend server name to user ID.
-                server_name_only = parameters["server"]["server_fqdn"].split(".")[0]
-                parameters["windows_user_name"] = server_name_only + "\\" + parameters["windows_user_name"]
-                final_output['messages'].append("INFO: Using local account to connect: "
-                                                + parameters["windows_user_name"])
-            else:
-                final_output['messages'].append("INFO: Using domain account to connect: "
-                                                + parameters["windows_user_name"])
-            command.append("-windowsuser")
-            command.append("'" + parameters["windows_user_name"] + "'")
-            command.append("-windowspwd")
-            command.append("'" + parameters["windows_password"] + "'")
+        add_windows_credentials_to_command(parameters, command, final_output)
 
-        p = subprocess.Popen(command,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         for line in p.stdout.readlines():
             final_output['messages'].append(line)
 
@@ -224,30 +228,134 @@ def run_task_linux(task_params):
         sesssion_token = ""
 
     try:
-        final_output = install_linux_output_queue = linuxpkg.install_mgn(task_params["agent_linux_download_url"],
-                                                                         task_params["region"],
-                                                                         task_params["server"]['server_fqdn'],
-                                                                         task_params["linux_user_name"],
-                                                                         task_params['linux_pass_key'],
-                                                                         task_params["linux_key_exist"],
-                                                                         task_params["agent_install_secrets"]
-                                                                         ['AccessKeyId'],
-                                                                         task_params["agent_install_secrets"]
-                                                                         ['SecretAccessKey'],
-                                                                         sesssion_token,
-                                                                         task_params["s3_endpoint"],
-                                                                         task_params["mgn_endpoint"])
+        final_output = linuxpkg.install_mgn(task_params["agent_linux_download_url"],
+                                            task_params["region"],
+                                            task_params["server"]['server_fqdn'],
+                                            task_params["linux_user_name"],
+                                            task_params['linux_pass_key'],
+                                            task_params["linux_key_exist"],
+                                            task_params["agent_install_secrets"]
+                                            ['AccessKeyId'],
+                                            task_params["agent_install_secrets"]
+                                            ['SecretAccessKey'],
+                                            sesssion_token,
+                                            task_params["s3_endpoint"],
+                                            task_params["mgn_endpoint"])
         # Add any output processing here on task completion.
-
         return final_output
+
     except Exception as error:
         final_output['messages'].append("ERROR (run_task_linux): %s" % error)
         final_output['return_code'] = 1
         return final_output
 
 
-def install_mgn_agents(reinstall, get_servers, region, windows_user_name, windows_password, linux_user_name, linux_pass_key,
-                       linux_key_exist, linux_secret_name=None, windows_secret_name=None, no_user_prompts=False,
+def add_linux_servers_to_install_queue(account, pool, linux_secret_name, s3_endpoint, base_parameters, no_user_prompts):
+    if len(account['servers_linux']) == 0:
+        return
+
+    if s3_endpoint:
+        agent_linux_download_url = f"https://{s3_endpoint}/aws-application-migration-service-{account['aws_region']}/" \
+                                   f"latest/linux/aws-replication-installer-init.py"
+    else:
+        agent_linux_download_url = f"https://aws-application-migration-service-{account['aws_region']}." \
+                                   f"s3.amazonaws.com/latest/linux/aws-replication-installer-init.py"
+    for server in account['servers_linux']:
+        linux_credentials = mfcommon.getServerCredentials('', '', server,
+                                                          linux_secret_name, no_user_prompts)
+
+        server_parameters = base_parameters.copy()
+        server_parameters["server"] = server
+        server_parameters["agent_linux_download_url"] = agent_linux_download_url
+        server_parameters["server_fqdn"] = server['server_fqdn']
+        server_parameters["linux_user_name"] = linux_credentials['username']
+        server_parameters["linux_pass_key"] = linux_credentials['password']
+        server_parameters["linux_key_exist"] = linux_credentials['private_key']
+        server_parameters["region"] = account['aws_region']
+
+        print(MSG_QUEUED_TASK, server['server_fqdn'], flush=True)
+
+        pool.apply_async(run_task_linux,
+                         args=(server_parameters,),
+                         callback=log_result,
+                         error_callback=error_result
+                         )
+
+
+def add_windows_server_to_install_queue(pool, server_parameters):
+    # If server record has winrm_use_ssl key then override use ssl value with the server.
+    if 'winrm_use_ssl' in server_parameters["server"]:
+        if server_parameters["server"]['winrm_use_ssl'] is True:
+            server_parameters["windows_use_ssl"] = True
+        else:
+            server_parameters["windows_use_ssl"] = False
+
+    print(MSG_QUEUED_TASK, server_parameters["server"]['server_fqdn'], flush=True)
+
+    pool.apply_async(run_task_windows,
+                     args=(server_parameters,),
+                     callback=log_result,
+                     error_callback=error_result
+                     )
+
+
+def add_window_servers_to_install_queue(account, pool, windows_secret_name, s3_endpoint, base_parameters,
+                                        no_user_prompts):
+    if len(account['servers_windows']) == 0:
+        return
+
+    if s3_endpoint:
+        agent_windows_download_url = f"https://{s3_endpoint}/aws-application-migration-service" \
+                                     f"-{account['aws_region']}/latest/windows/AwsReplicationWindowsInstaller.exe"
+    else:
+        agent_windows_download_url = f"https://aws-application-migration-service" \
+                                     f"-{account['aws_region']}.s3.amazonaws.com/latest/windows/" \
+                                     f"AwsReplicationWindowsInstaller.exe"
+
+    mfcommon.add_windows_servers_to_trusted_hosts(account['servers_windows'])
+
+    for server in account['servers_windows']:
+        windows_credentials = mfcommon.getServerCredentials('', '', server,
+                                                            windows_secret_name, no_user_prompts)
+
+        server_parameters = base_parameters.copy()
+        server_parameters["server"] = server
+        server_parameters["agent_windows_download_url"] = agent_windows_download_url
+        server_parameters["server_fqdn"] = server['server_fqdn']
+        server_parameters["windows_user_name"] = windows_credentials['username']
+        server_parameters["windows_password"] = windows_credentials['password']
+        server_parameters["region"] = account['aws_region']
+
+        add_windows_server_to_install_queue(pool, server_parameters)
+
+
+def get_agent_install_secrets(use_iam_user_aws_credentials, account):
+    if use_iam_user_aws_credentials:
+        # Get AWS credentials from secret called MGNAgentInstallUser in target account.
+        print("Using AWS credentials for MGN agent installation from target account secret (MGNAgentInstallUser).",
+              flush=True)
+        target_account_session = assume_role(str(account['aws_accountid']), account['aws_region'])
+        if target_account_session is None:
+            # Assume role failed continue to next account, as cannot access IAM user for install.
+            print("Unable to assume role CMF-AutomationServer in AWS account %s in region %s."
+                  % (account['aws_accountid'], account['aws_region']))
+            return None
+        secretsmanager_client = target_account_session.client('secretsmanager', account['aws_region'])
+        return json.loads(secretsmanager_client.get_secret_value(SecretId='MGNAgentInstallUser')['SecretString'])
+    else:
+        # get temporary credentials from target account for agent installation.
+        print("Using temporary AWS credentials for MGN agent installation.", flush=True)
+        temporary_agent_install_credentials = assume_role_mgn_install(str(account['aws_accountid']),
+                                                                      account['aws_region'])
+        if temporary_agent_install_credentials is None:
+            # Assume role failed continue to next account, as cannot access role for install.
+            print("Unable to assume role CMF-AutomationServer in AWS account %s in region %s."
+                  % (account['aws_accountid'], account['aws_region']))
+            return None
+        return temporary_agent_install_credentials
+
+
+def install_mgn_agents(reinstall, get_servers, linux_secret_name=None, windows_secret_name=None, no_user_prompts=False,
                        concurrency=10, use_iam_user_aws_credentials=False, s3_endpoint=None, mgn_endpoint=None,
                        windows_use_ssl=False):
     # Create worker pool
@@ -261,12 +369,12 @@ def install_mgn_agents(reinstall, get_servers, region, windows_user_name, window
 
     # task parameters
     parameters = {
-        "windows_user_name": windows_user_name,
-        "windows_password": windows_password,
+        "windows_user_name": '',
+        "windows_password": '',
         "windows_secret_name": windows_secret_name,
-        "linux_user_name": linux_user_name,
-        "linux_pass_key": linux_pass_key,
-        "linux_key_exist": linux_key_exist,
+        "linux_user_name": '',
+        "linux_pass_key": '',
+        "linux_key_exist": False,
         "linux_secret_name": linux_secret_name,
         "no_user_prompts": no_user_prompts,
         "reinstall": reinstall,
@@ -279,108 +387,16 @@ def install_mgn_agents(reinstall, get_servers, region, windows_user_name, window
         print("######################################################")
         print("#### In Account: " + account['aws_accountid'], ", region: " + account['aws_region'] + " ####")
         print("######################################################", flush=True)
-        if use_iam_user_aws_credentials:
-            # Get AWS credentials from secret called MGNAgentInstallUser in target account.
-            print("Using AWS credentials for MGN agent installation from target account secret (MGNAgentInstallUser).",
-                  flush=True)
-            target_account_session = assume_role(str(account['aws_accountid']), account['aws_region'])
-            if target_account_session is None:
-                # Assume role failed continue to next account, as cannot access IAM user for install.
-                print("Unable to assume role CMF-AutomationServer in AWS account %s in region %s."
-                      % (account['aws_accountid'], account['aws_region']))
-                continue
-            secretsmanager_client = target_account_session.client('secretsmanager', region)
-            parameters["agent_install_secrets"] = json.loads(secretsmanager_client.get_secret_value
-                                                             (SecretId='MGNAgentInstallUser')['SecretString'])
-        else:
-            # get temporary credentials from target account for agent installation.
-            print("Using temporary AWS credentials for MGN agent installation.", flush=True)
-            temporary_agent_install_credentials = assume_role_mgn_install(str(account['aws_accountid']), region, "")
-            if temporary_agent_install_credentials is None:
-                # Assume role failed continue to next account, as cannot access role for install.
-                print("Unable to assume role CMF-AutomationServer in AWS account %s in region %s."
-                      % (account['aws_accountid'], account['aws_region']))
-                continue
-            parameters["agent_install_secrets"] = temporary_agent_install_credentials
 
-        # Installing agent on Windows servers
-        server_string = ""
-        if len(account['servers_windows']) > 0:
+        parameters["agent_install_secrets"] = get_agent_install_secrets(use_iam_user_aws_credentials, account)
 
-            if s3_endpoint:
-                agent_windows_download_url = "https://%s/aws-application-migration-service-%s/latest/windows/" \
-                                             "AwsReplicationWindowsInstaller.exe" % (s3_endpoint, account['aws_region'])
-            else:
-                agent_windows_download_url = "https://aws-application-migration-service-{}.s3.amazonaws.com/latest/" \
-                                             "windows/AwsReplicationWindowsInstaller.exe".format(account['aws_region'])
+        if parameters["agent_install_secrets"] is None:
+            continue
 
-            # Get all servers FQDNs into csv for trusted hosts update.
-            for server in account['servers_windows']:
-                server_string = server_string + server['server_fqdn'] + ','
-            server_string = server_string[:-1]
-            # Add servers to local trusted hosts to allow authentication if different domain.
-            p_trustedhosts = subprocess.Popen(["powershell.exe",
-                                               "Set-Item WSMan:\localhost\Client\TrustedHosts -Value '"
-                                               + server_string + "' -Concatenate -Force"],
-                                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        add_window_servers_to_install_queue(account, pool, windows_secret_name, s3_endpoint, parameters,
+                                            no_user_prompts)
 
-            for server in account['servers_windows']:
-                windows_credentials = mfcommon.getServerCredentials(windows_user_name, windows_password, server,
-                                                                    windows_secret_name, no_user_prompts)
-
-                server_parameters = parameters.copy()
-                server_parameters["server"] = server
-                server_parameters["agent_windows_download_url"] = agent_windows_download_url
-                server_parameters["server_fqdn"] = server['server_fqdn']
-                server_parameters["windows_user_name"] = windows_credentials['username']
-                server_parameters["windows_password"] = windows_credentials['password']
-                server_parameters["region"] = account['aws_region']
-
-                # If server record has winrm_use_ssl key then override use ssl value with the server.
-                if 'winrm_use_ssl' in server:
-                    if server['winrm_use_ssl'] is True:
-                        server_parameters["windows_use_ssl"] = True
-                    else:
-                        server_parameters["windows_use_ssl"] = False
-
-                print("Queued task for", server['server_fqdn'], flush=True)
-
-                pool.apply_async(run_task_windows,
-                                 args=(server_parameters,),
-                                 callback=log_result,
-                                 error_callback=error_result
-                                 )
-
-        # Creating task for all Linux servers.
-        if len(account['servers_linux']) > 0:
-
-            if s3_endpoint:
-                agent_linux_download_url = "https://%s/aws-application-migration-service-%s/latest/linux/" \
-                                           "aws-replication-installer-init.py" % (s3_endpoint, account['aws_region'])
-            else:
-                agent_linux_download_url = "https://aws-application-migration-service-{" \
-                                           "}.s3.amazonaws.com/latest/linux/aws-replication-installer-init.py".format(
-                    account['aws_region'])
-            for server in account['servers_linux']:
-                linux_credentials = mfcommon.getServerCredentials(linux_user_name, linux_pass_key, server,
-                                                                  linux_secret_name, no_user_prompts)
-
-                server_parameters = parameters.copy()
-                server_parameters["server"] = server
-                server_parameters["agent_linux_download_url"] = agent_linux_download_url
-                server_parameters["server_fqdn"] = server['server_fqdn']
-                server_parameters["linux_user_name"] = linux_credentials['username']
-                server_parameters["linux_pass_key"] = linux_credentials['password']
-                server_parameters["linux_key_exist"] = linux_credentials['private_key']
-                server_parameters["region"] = account['aws_region']
-
-                print("Queued task for", server['server_fqdn'], flush=True)
-
-                pool.apply_async(run_task_linux,
-                                 args=(server_parameters,),
-                                 callback=log_result,
-                                 error_callback=error_result
-                                 )
+        add_linux_servers_to_install_queue(account, pool, linux_secret_name, s3_endpoint, parameters, no_user_prompts)
 
     # Close pool for new requests.
     pool.close()
@@ -389,71 +405,96 @@ def install_mgn_agents(reinstall, get_servers, region, windows_user_name, window
     pool.join()
 
 
-def AgentCheck(get_servers, UserHOST, token):
+def is_server_registered_with_mgn(cmf_server, mgn_source_servers, update_status=False):
+    is_registered = False
+    try:
+        sourceserver = mfcommon.get_MGN_Source_Server(cmf_server, mgn_source_servers)
+
+        if sourceserver is not None:
+            print("-- SUCCESS: MGN Agent verified in MGN console for server: " + cmf_server['server_fqdn'])
+            migration_status = "Agent Install - Success"
+            is_registered = True
+        else:
+            print("-- FAILED: MGN Agent not found in MGN console for server: " + cmf_server['server_fqdn'])
+            migration_status = MSG_AGENT_INSTALL_FAILED
+
+        if update_status:
+            mfcommon.update_server_migration_status(cmf_api_access_token,
+                                                    cmf_server['server_id'],
+                                                    migration_status)
+        print("", flush=True)
+    except botocore.exceptions.ClientError as error:
+        is_registered = False
+        if ":" in str(error):
+            err = ''
+            msgs = str(error).split(":")[1:]
+            for msg in msgs:
+                err = err + msg
+            msg = "ERROR: " + err
+            print(msg)
+        else:
+            msg = "ERROR: " + str(error)
+            print(msg)
+        print("-- FAILED: %s, %s" % (cmf_server['server_id'], str(error)))
+
+        if update_status:
+            mfcommon.update_server_migration_status(cmf_api_access_token,
+                                                    cmf_server['server_id'],
+                                                    MSG_AGENT_INSTALL_FAILED)
+
+    return is_registered
+
+
+def get_mgn_source_servers(aws_target_account_id,
+                           aws_target_account_region,
+                           target_account_cmf_servers,
+                           update_status=False):
     failures = 0
-    auth = {"Authorization": token}
-    for account in get_servers:
-        all_servers = account['servers_windows'] + account['servers_linux']
-        try:
-            target_account_session = assume_role(str(account['aws_accountid']), account['aws_region'])
-            mgn_client = target_account_session.client("mgn", account['aws_region'])
-            mgn_sourceservers = get_mgn_source_servers(mgn_client)
-        except botocore.exceptions.ClientError as error:
-            # Error getting account MGN
-            if ":" in str(error):
-                err = ''
-                msgs = str(error).split(":")[1:]
-                for msg in msgs:
-                    err = err + msg
-                msg = str(err)
-            else:
-                msg = str(error)
+    mgn_source_servers = []
+    try:
+        target_account_session = assume_role(aws_target_account_id, aws_target_account_region)
+        mgn_client = target_account_session.client("mgn", aws_target_account_region)
+        mgn_source_servers = get_unfiltered_mgn_source_servers(mgn_client)
+    except botocore.exceptions.ClientError as error:
+        # Error getting account MGN
+        if ":" in str(error):
+            err = ''
+            msgs = str(error).split(":")[1:]
+            for msg in msgs:
+                err = err + msg
+            msg = str(err)
+        else:
+            msg = str(error)
 
-            for factoryserver in all_servers:
-                print("-- FAILED: AWS Account MGN Error (%s in %s): %s for server %s" % (str(account['aws_accountid']),
-                                                                                         account['aws_region'],
-                                                                                         msg,
-                                                                                         factoryserver['server_fqdn'])
-                      )
-                serverattr = {"migration_status": "Agent Install - Failed - %s" % msg}
-                update_server_status = requests.put(UserHOST + serverendpoint + '/' + factoryserver['server_id'],
-                                                    headers=auth,
-                                                    data=json.dumps(serverattr),
-                                                    timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
-            failures += len(all_servers)
-            continue
+        for cmf_server in target_account_cmf_servers:
+            print(
+                "-- FAILED: AWS Account MGN Error (%s in %s): %s for server %s" % (aws_target_account_id,
+                                                                                   aws_target_account_region,
+                                                                                   msg,
+                                                                                   cmf_server['server_fqdn'])
+            )
+            if update_status:
+                mfcommon.update_server_migration_status(cmf_api_access_token,
+                                                        cmf_server['server_id'],
+                                                        f"Agent Install - Failed - {msg}")
+        failures += len(target_account_cmf_servers)
 
-        for factoryserver in all_servers:
-            serverattr = {}
-            isServerExist = False
-            try:
-                sourceserver = mfcommon.get_MGN_Source_Server(factoryserver, mgn_sourceservers)
+    return mgn_source_servers, failures
 
-                if sourceserver is not None:
-                    print("-- SUCCESS: MGN Agent verified in MGN console for server: " + factoryserver['server_fqdn'])
-                    serverattr = {"migration_status": "Agent Install - Success"}
-                else:
-                    print("-- FAILED: MGN Agent not found in MGN console for server: " + factoryserver['server_fqdn'])
-                    serverattr = {"migration_status": "Agent Install - Failed"}
-                    failures += 1
 
-                update_server_status = requests.put(UserHOST + serverendpoint + '/' + factoryserver['server_id'],
-                                                    headers=auth,
-                                                    data=json.dumps(serverattr),
-                                                    timeout=mfcommon.REQUESTS_DEFAULT_TIMEOUT)
-                print("", flush=True)
-            except botocore.exceptions.ClientError as error:
-                if ":" in str(error):
-                    err = ''
-                    msgs = str(error).split(":")[1:]
-                    for msg in msgs:
-                        err = err + msg
-                    msg = "ERROR: " + err
-                    print(msg)
-                else:
-                    msg = "ERROR: " + str(error)
-                    print(msg)
-                print("-- FAILED: %s, %s" % (factoryserver['server_id'], str(error)))
+def agent_check(get_servers):
+    failures = 0
+    for target_account in get_servers:
+        target_account_cmf_servers = target_account['servers_windows'] + target_account['servers_linux']
+
+        mgn_source_servers, target_account_failures = get_mgn_source_servers(str(target_account['aws_accountid']),
+                                                                             target_account['aws_region'],
+                                                                             target_account_cmf_servers,
+                                                                             True)
+
+        failures += target_account_failures
+        for cmf_server in target_account_cmf_servers:
+            if not is_server_registered_with_mgn(cmf_server, mgn_source_servers, True):
                 failures += 1
 
     return failures
@@ -464,10 +505,8 @@ def log_result(result):
     outcome = 'SUCCESSFUL'
     if 'return_code' in result:
         if result['return_code'] == 0:
-            successful = + 1
             outcome = 'SUCCESSFUL'
         else:
-            failures = + 1
             outcome = 'FAILED'
 
     print('Task result returned for %s as %s, detailed logs to follow.' % (result['host'], outcome), flush=True)
@@ -486,32 +525,46 @@ def print_result(process):
         hostname = process['host']
     else:
         hostname = 'unknown'
-    print("--------------------------------------------------------------")
+    print("".rjust(LOG_PADDING, LOG_PADDING_CHAR))
     print("")
     print('          RESULTS START: ' + hostname)
     print("")
-    print("--------------------------------------------------------------", flush=True)
+    print("".rjust(LOG_PADDING, LOG_PADDING_CHAR), flush=True)
     if 'messages' in process:
         for message in process['messages']:
             print(message)
     else:
         print(process)
-    print("--------------------------------------------------------------")
+    print("".rjust(LOG_PADDING, LOG_PADDING_CHAR))
     print("")
     print('          RESULTS END: ' + hostname)
     print("")
-    print("--------------------------------------------------------------", flush=True)
+    print("".rjust(LOG_PADDING, LOG_PADDING_CHAR), flush=True)
     lock.release()
     process['printed'] = True
+
+
+def is_successful_message(process):
+    if 'return_code' in process:
+        if process['return_code'] == 0:
+            return True
+        else:
+            return False
+
+
+def process_message(process):
+    if 'printed' in process and not process['printed']:
+        print_result(process)
+        return is_successful_message(process)
 
 
 # Main process queue handler responsible for processing output requests from completed jobs/processes.
 # All output is held in this function from all processes until the TERMINATE message is received, then all results are
 # printed to stdout. And the final message for the total job completion is also printed with summary data.
-def process_msg_recv(queue, failure_count):
+def process_msg_recv(output_message_queue, failure_count):
     messages = []
     while True:
-        message = queue.get()
+        message = output_message_queue.get()
         if message == 'TERMINATE':
             break
         else:
@@ -521,13 +574,10 @@ def process_msg_recv(queue, failure_count):
     successful = 0
     failures = 0
     for process in messages:
-        if 'printed' in process and not process['printed']:
-            print_result(process)
-            if 'return_code' in process:
-                if process['return_code'] == 0:
-                    successful += 1
-                else:
-                    failures += 1
+        if process_message(process):
+            successful += 1
+        else:
+            failures += 1
 
     failure_count.value = failures
     print(
@@ -548,6 +598,7 @@ def parse_boolean(value):
 
 
 def main(arguments):
+    global cmf_api_access_token
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -565,13 +616,6 @@ def main(arguments):
     parser.add_argument('--UseSSL', default=False, type=parse_boolean)
     args = parser.parse_args(arguments)
 
-    # Get MF endpoints from FactoryEndpoints.json file
-    if 'UserApiUrl' in endpoints:
-        UserHOST = endpoints['UserApiUrl']
-    else:
-        print("ERROR: Invalid FactoryEndpoints.json file, please update UserApiUrl")
-        sys.exit()
-
     # Get region value from FactoryEndpoint.json file if migration execution server is on prem
 
     if 'Region' in endpoints and endpoints['Region'].strip() != '':
@@ -582,22 +626,19 @@ def main(arguments):
     print("Factory region: " + region)
 
     print("")
-    print("****************************")
-    print("*Login to Migration factory*")
-    print("****************************", flush=True)
-    token = mfcommon.Factorylogin()
+    print("".rjust(LOG_PADDING, LOG_PADDING_CHAR))
+    print("Login to Migration factory".center(LOG_PADDING, LOG_PADDING_CHAR))
+    print("".rjust(LOG_PADDING, LOG_PADDING_CHAR), flush=True)
+    cmf_api_access_token = mfcommon.Factorylogin()
 
-    print("****************************")
-    print("*** Getting Server List ***")
-    print("****************************", flush=True)
-    get_servers, linux_exist, windows_exist = mfcommon.get_factory_servers(args.Waveid, token, UserHOST, True, 'Rehost')
-    linux_user_name = ''
-    linux_pass_key = ''
-    linux_key_exist = False
+    print("".rjust(LOG_PADDING, LOG_PADDING_CHAR))
+    print("Getting Server List".center(LOG_PADDING, LOG_PADDING_CHAR))
+    print("".rjust(LOG_PADDING, LOG_PADDING_CHAR), flush=True)
+    get_servers, _, _ = mfcommon.get_factory_servers(args.Waveid, cmf_api_access_token,True, 'Rehost')
 
-    print("****************************")
-    print("*****  %s  *****" % task_name)
-    print("****************************", flush=True)
+    print("".rjust(LOG_PADDING, LOG_PADDING_CHAR))
+    print(task_name.center(LOG_PADDING, LOG_PADDING_CHAR))
+    print("".rjust(LOG_PADDING, LOG_PADDING_CHAR), flush=True)
     print("")
 
     # Start print message queue thread.
@@ -606,7 +647,7 @@ def main(arguments):
     process_print_queue.start()
 
     try:
-        install_mgn_agents(args.Force, get_servers, region, "", "", linux_user_name, linux_pass_key, linux_key_exist,
+        install_mgn_agents(args.Force, get_servers,
                            args.SecretLinux, args.SecretWindows, args.NoPrompts, args.Concurrency,
                            args.AWSUseIAMUserCredentials, args.S3Endpoint, args.MGNEndpoint, args.UseSSL)
     except Exception as e:
@@ -617,19 +658,15 @@ def main(arguments):
 
     # Wait for all print processing to complete.
     process_print_queue.join()
-    # if failure_count.value > 0:
-    #     return 1
-    # else:
-    #     return 0
 
     print("")
-    print("*************************************************")
-    print("*Checking Agent install results with MGN Console*")
-    print("*************************************************")
+    print("".rjust(LOG_PADDING, LOG_PADDING_CHAR))
+    print("Checking Agent install results within MGN Console".center(LOG_PADDING, LOG_PADDING_CHAR))
+    print("".rjust(LOG_PADDING, LOG_PADDING_CHAR))
     print("", flush=True)
 
     time.sleep(5)
-    mgn_failure_count = AgentCheck(get_servers, UserHOST, token)
+    mgn_failure_count = agent_check(get_servers)
 
     if mgn_failure_count > 0 or failure_count.value > 0:
         print(str(mgn_failure_count) + " server agents could not be validated with the MGN console. "

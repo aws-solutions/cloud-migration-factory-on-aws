@@ -1,0 +1,318 @@
+{
+  "schema_name": "server",
+  "schema_type": "user",
+  "attributes": [
+    {
+      "description": "Server Id",
+      "hidden": true,
+      "name": "server_id",
+      "required": true,
+      "system": true,
+      "type": "string"
+    },
+    {
+      "description": "Application",
+      "group_order": "-998",
+      "name": "app_id",
+      "rel_display_attribute": "app_name",
+      "rel_entity": "application",
+      "rel_key": "app_id",
+      "required": true,
+      "system": true,
+      "type": "relationship"
+    },
+    {
+      "description": "Root Volume Size (GiB)",
+      "name": "root_vol_size",
+      "system": true,
+      "validation_regex_msg": "Volume Size needs to between 1 GiB and 16384 GiB",
+      "validation_regex": "^([1-9]|[1-9][0-9]|[1-9][0-9][0-9]|[1-9][0-9][0-9][0-9]|[1][0-6][0-3][0-8][0-4])$",
+      "type": "Integer",
+      "group": "Target - Storage",
+      "conditions": {
+        "queries": [
+          {
+            "comparator": "!=",
+            "value": "Replatform",
+            "attribute": "r_type"
+          },
+          {
+            "comparator": "empty",
+            "attribute": "root_vol_size"
+          }
+        ],
+        "outcomes": {
+          "true": [
+            "hidden"
+          ],
+          "false": [
+            "required"
+          ]
+        }
+      }
+    },
+    {
+      "description": "AMI Id",
+      "name": "ami_id",
+      "system": true,
+      "type": "string",
+      "group": "Target - Instance",
+      "validation_regex": "^(ami-(([a-z0-9]{8,17})+)$)",
+      "validation_regex_msg": "AMI ID must start with ami- and followed by upto 12 alphanumeric characters.",
+      "conditions": {
+        "queries": [
+          {
+            "comparator": "!=",
+            "value": "Replatform",
+            "attribute": "r_type"
+          },
+          {
+            "comparator": "empty",
+            "attribute": "ami_id"
+          }
+        ],
+        "outcomes": {
+          "true": [
+            "hidden"
+          ],
+          "false": [
+            "required"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Availability zone",
+      "name": "availabilityzone",
+      "system": true,
+      "type": "string",
+      "group": "Target - Instance",
+      "conditions": {
+        "queries": [
+          {
+            "comparator": "!=",
+            "value": "Replatform",
+            "attribute": "r_type"
+          },
+          {
+            "comparator": "empty",
+            "attribute": "availabilityzone"
+          }
+        ],
+        "outcomes": {
+          "true": [
+            "hidden"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Root Volume Type",
+      "name": "root_vol_type",
+      "system": true,
+      "type": "list",
+      "listvalue": "standard,io1,io2,gp2,gp3,",
+      "group": "Target - Storage",
+      "conditions": {
+        "queries": [
+          {
+            "comparator": "!=",
+            "value": "Replatform",
+            "attribute": "r_type"
+          },
+          {
+            "comparator": "empty",
+            "attribute": "root_vol_type"
+          }
+        ],
+        "outcomes": {
+          "true": [
+            "hidden"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Additional Volume Sizes (GiB)",
+      "name": "add_vols_size",
+      "system": true,
+      "validation_regex_msg": "Volume Sizes need to be between 1 GiB and 16384 GiB",
+      "validation_regex": "^([1-9]|[1-9][0-9]|[1-9][0-9][0-9]|[1-9][0-9][0-9][0-9]|[1][0-6][0-3][0-8][0-4])$",
+      "type": "multivalue-string",
+      "group": "Target - Storage",
+      "conditions": {
+        "queries": [
+          {
+            "comparator": "!=",
+            "value": "Replatform",
+            "attribute": "r_type"
+          },
+          {
+            "comparator": "empty",
+            "attribute": "add_vols_size"
+          }
+        ],
+        "outcomes": {
+          "true": [
+            "hidden"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Additional Volume Types (standard, io1, io2, gp2, or gp3)",
+      "name": "add_vols_type",
+      "system": true,
+      "type": "multivalue-string",
+      "validation_regex": "^(standard|io1|io2|gp2|gp3)$",
+      "validation_regex_msg": "Allowed Volume Types \"standard\", \"io1\", \"io2\", \"gp2\", or \"gp3\"",
+      "group": "Target - Storage",
+      "conditions": {
+        "queries": [
+          {
+            "comparator": "!=",
+            "value": "Replatform",
+            "attribute": "r_type"
+          },
+          {
+            "comparator": "empty",
+            "attribute": "add_vols_type"
+          }
+        ],
+        "outcomes": {
+          "true": [
+            "hidden"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Enable EBS Optimized",
+      "name": "ebs_optimized",
+      "system": true,
+      "type": "checkbox",
+      "group": "Target - Storage",
+      "conditions": {
+        "queries": [
+          {
+            "comparator": "!=",
+            "value": "Replatform",
+            "attribute": "r_type"
+          },
+          {
+            "comparator": "empty",
+            "attribute": "ebs_optimized"
+          }
+        ],
+        "outcomes": {
+          "true": [
+            "hidden"
+          ]
+        }
+      }
+    },
+    {
+      "description": "EBS KMS Key Id or ARN for Volume Encryption",
+      "name": "ebs_kmskey_id",
+      "system": true,
+      "type": "string",
+      "group": "Target - Storage",
+      "validation_regex": "^(arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key/){0,1}[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "validation_regex_msg": "Provide a valid KMS Key or ARN.",
+      "conditions": {
+        "queries": [
+          {
+            "comparator": "!=",
+            "value": "Replatform",
+            "attribute": "r_type"
+          },
+          {
+            "comparator": "empty",
+            "attribute": "ebs_kmskey_id"
+          }
+        ],
+        "outcomes": {
+          "true": [
+            "hidden"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Enable Detailed Monitoring",
+      "name": "detailed_monitoring",
+      "system": true,
+      "type": "checkbox",
+      "group": "Target - Instance",
+      "conditions": {
+        "queries": [
+          {
+            "comparator": "!=",
+            "value": "Replatform",
+            "attribute": "r_type"
+          },
+          {
+            "comparator": "empty",
+            "attribute": "detailed_monitoring"
+          }
+        ],
+        "outcomes": {
+          "true": [
+            "hidden"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Root Volume Name",
+      "name": "root_vol_name",
+      "system": true,
+      "type": "list",
+      "listvalue": "/dev/sda1,/dev/xvda,",
+      "group": "Target - Storage",
+      "conditions": {
+        "queries": [
+          {
+            "comparator": "!=",
+            "value": "Replatform",
+            "attribute": "r_type"
+          },
+          {
+            "comparator": "empty",
+            "attribute": "root_vol_name"
+          }
+        ],
+        "outcomes": {
+          "true": [
+            "hidden"
+          ]
+        }
+      }
+    },
+    {
+      "description": "Additional Volume Names",
+      "name": "add_vols_name",
+      "system": true,
+      "type": "multivalue-string",
+      "group": "Target - Storage",
+      "conditions": {
+        "queries": [
+          {
+            "comparator": "!=",
+            "value": "Replatform",
+            "attribute": "r_type"
+          },
+          {
+            "comparator": "empty",
+            "attribute": "add_vols_name"
+          }
+        ],
+        "outcomes": {
+          "true": [
+            "hidden"
+          ]
+        }
+      }
+    }
+  ]
+}

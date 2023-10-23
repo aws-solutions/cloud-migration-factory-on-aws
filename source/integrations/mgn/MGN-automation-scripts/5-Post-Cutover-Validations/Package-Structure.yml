@@ -6,7 +6,7 @@ Group: "Rehost-MGN"
 Arguments:
   -
     name: "Waveid"
-    description: "01.Wave Name"
+    description: "Wave Name"
     type: "relationship"
     rel_display_attribute: "wave_name"
     rel_entity: "wave"
@@ -14,90 +14,100 @@ Arguments:
     validation_regex: "^(?!\\s*$).+"
     validation_regex_msg: "Wave must be provided."
     required: true
+    group_order: "1"
   -
     name: "SecretWindows"
     long_desc: "Windows Secret to use for credentials."
-    description: "02.Windows Secret"
+    description: "Windows Secret"
     type: "relationship"
     rel_display_attribute: "Name"
     rel_entity: "secret"
     rel_key: "Name"
+    group_order: "2"
   -
     name: "SecretLinux"
     long_desc: "Linux Secret to use for credentials."
-    description: "03.Linux Secret"
+    description: "Linux Secret"
     type: "relationship"
     rel_display_attribute: "Name"
     rel_entity: "secret"
     rel_key: "Name"
-  -
-    name: "NoPrompts"
-    description: "04.No Prompt"
-    long_desc: "Specify if user prompts for Passwords are allowed. True or False"
-    type: "checkbox"
+    group_order: "3"
   -
     name: "Tags"
-    description: "05.Mandatory Tags"
+    description: "Mandatory Tags"
     long_desc: "Comma separated list of Mandatory tags. Default: Name"
     type: "standard"
     required: false
+    group_order: "4"
   -
     name: "ServiceList"
-    description: "06.Linux Service List"
+    description: "Linux Service List"
     long_desc: "Comma separated list of Linux Running Services. Default: amazon-ssm-agent"
     type: "standard"
     required: false
+    group_order: "5"
   -
     name: "wantedApplications"
-    description: "07.Windows required applications"
+    description: "Windows required applications"
     long_desc: "Comma separated list of wanted applications to be validated in windows server. Default: Amazon SSM Agent"
     type: "standard"
     required: false
+    group_order: "6"
   -
     name: "unwantedApplications"
-    description: "08.Windows Unwanted applications"
+    description: "Windows Unwanted applications"
     long_desc: "Comma separated list of unwanted applications to be validated in windows server. Default: McAfee,Norton,Symantec,VMWare Tools,AVG,Qualys"
     type: "standard"
     required: false
+    group_order: "7"
   -
     name: "runningApplications"
-    description: "09.Windows Running Applications"
+    description: "Windows Running Applications"
     long_desc: "Comma separated list of running applications to be validated in windows server. Default: AmazonSSMAgent"
     type: "standard"
     required: false
+    group_order: "8"
   -
     name: "EnableTerminationProtection"
-    description: "10.Enable Termination Protection on the Instance"
+    description: "Enable Termination Protection on the Instance"
     long_desc: "Specify if you would like to enable the termination protection on the target instance. True or False"
     type: "checkbox"
+    group_order: "9"
   -
     name: "EnableAllValidations"
-    description: "11.Enable all optional validations"
+    description: "Enable all optional validations"
     long_desc: "Specify if all optional validations needs to be enabled. True or False"
     type: "checkbox"
+    group_order: "10"
   -
     name: "HostFileEntryCheck"
-    description: "12.(Optional - Linux) Check for IP in Host File"
+    description: "(Optional - Linux) Check for IP in Host File"
     long_desc: "Validates if the private IP entry in the Host file of the instance . True or False"
     type: "checkbox"
+    group_order: "11"
   -
     name: "DnsEntryCheck"
-    description: "13.(Optional - Linux) Check DNS Server entry in /etc/resolv.conf"
+    description: "(Optional - Linux) Check DNS Server entry in /etc/resolv.conf"
     long_desc: "Validates if on-prem DNS server IPs are updated in the /etc/resolv.conf. True or False"
     type: "checkbox"
+    group_order: "12"
   -
     name: "dnsIps"
-    description: "14.DNS Server IPs"
+    description: "DNS Server IPs"
     long_desc: "(Optional - Linux) Pipe separated list of DNS Server IPs. eg: 1.1.1.1|2.2.2.2. Required only if Dns Entry Check is enabled."
     type: "standard"
     required: false
+    group_order: "13"
   -
     name: "SyslogEntryCheck"
-    description: "15.(Optional - Linux) Check linuxsyslogaws entry in /etc/rsyslog.conf"
+    description: "(Optional - Linux) Check linuxsyslogaws entry in /etc/rsyslog.conf"
     long_desc: "Validates if linuxsyslogaws entry is present in /etc/rsyslog.conf. True or False"
     type: "checkbox"
+    group_order: "14"
   -
     name: "BootupStatusCheck"
-    description: "16.(Optional - All) Checks the Instance Bootup Screenshot"
+    description: "(Optional - All) Checks the Instance Bootup Screenshot"
     long_desc: "Validates if the Instance has booted up properly by checking the instance screenshot. True or False"
     type: "checkbox"
+    group_order: "15"

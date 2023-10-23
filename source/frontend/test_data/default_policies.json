@@ -1,0 +1,372 @@
+[
+  {
+    "policy_id": "1",
+    "entity_access": [
+      {
+        "create": true,
+        "update": true,
+        "attributes": [
+          {
+            "attr_type": "application",
+            "attr_name": "app_id"
+          },
+          {
+            "attr_type": "application",
+            "attr_name": "app_name"
+          },
+          {
+            "attr_type": "application",
+            "attr_name": "wave_id"
+          },
+          {
+            "attr_type": "application",
+            "attr_name": "cloudendure_projectname"
+          },
+          {
+            "attr_type": "application",
+            "attr_name": "aws_accountid"
+          },
+          {
+            "attr_type": "application",
+            "attr_name": "aws_region"
+          }
+        ],
+        "schema_name": "application",
+        "read": true,
+        "delete": true
+      },
+      {
+        "create": true,
+        "update": true,
+        "attributes": [
+          {
+            "attr_type": "wave",
+            "attr_name": "wave_id"
+          },
+          {
+            "attr_type": "wave",
+            "attr_name": "wave_name"
+          },
+          {
+            "attr_type": "wave",
+            "attr_name": "wave_status"
+          },
+          {
+            "attr_type": "wave",
+            "attr_name": "wave_start_time"
+          },
+          {
+            "attr_type": "wave",
+            "attr_name": "wave_end_time"
+          }
+        ],
+        "schema_name": "wave",
+        "read": true,
+        "delete": true
+      },
+      {
+        "create": true,
+        "update": true,
+        "attributes": [
+          {
+            "attr_type": "server",
+            "attr_name": "server_id"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "app_id"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "server_name"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "server_os_family"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "server_os_version"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "server_fqdn"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "server_tier"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "server_environment"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "subnet_IDs"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "securitygroup_IDs"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "subnet_IDs_test"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "securitygroup_IDs_test"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "instanceType"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "iamRole"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "private_ip"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "tags"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "tenancy"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "migration_status"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "replication_status"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "r_type"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "network_interface_id"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "network_interface_id_test"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "dedicated_host_id"
+          }
+        ],
+        "schema_name": "server",
+        "read": true,
+        "delete": true
+      },
+      {
+        "create": true,
+        "update": true,
+        "attributes": [
+          {
+            "attr_type": "database",
+            "attr_name": "database_id"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "app_id"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_name"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_type"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "r_type"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_network_port"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_class"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_subnet_group"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_parameter_group"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_target_engine"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_instance_identifier"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_target_secret"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_target_autoscale_storage"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_allocated_storage"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_storage_type"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_stroage_target_iops"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_target_standby"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_target_vpc"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_target_network_sg"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_target_auth_iam"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_target_server_name"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_target_multiaz"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_target_encrypt"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "migration_status"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "database_source_server_name"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "dms_source_endpoint"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "dms_target_endpoint"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "dms_replication_instance"
+          },
+          {
+            "attr_type": "database",
+            "attr_name": "dms_replication_task"
+          }
+        ],
+        "schema_name": "database",
+        "read": true,
+        "delete": true
+      },
+      {
+        "create": true,
+        "schema_name": "mgn"
+      },
+      {
+        "create": true,
+        "schema_name": "ce"
+      },
+      {
+        "create": true,
+        "schema_name": "ssm_job"
+      },
+      {
+        "create": true,
+        "update": true,
+        "attributes": [
+          {
+            "attr_type": "script",
+            "attr_name": "script_name"
+          },
+          {
+            "attr_type": "script",
+            "attr_name": "script_description"
+          },
+          {
+            "attr_type": "script",
+            "attr_name": "fileName"
+          },
+          {
+            "attr_type": "script",
+            "attr_name": "path"
+          },
+          {
+            "attr_type": "script",
+            "attr_name": "script_masterfile"
+          },
+          {
+            "attr_type": "script",
+            "attr_name": "default"
+          },
+          {
+            "attr_type": "script",
+            "attr_name": "latest"
+          }
+        ],
+        "schema_name": "script",
+        "read": false,
+        "delete": false
+      }
+    ],
+    "policy_name": "Administrator"
+  },
+  {
+    "policy_id": "2",
+    "entity_access": [
+      {
+        "create": false,
+        "update": false,
+        "schema_name": "application",
+        "read": true,
+        "delete": false
+      },
+      {
+        "create": false,
+        "update": false,
+        "schema_name": "wave",
+        "read": true,
+        "delete": false
+      },
+      {
+        "create": false,
+        "update": false,
+        "schema_name": "server",
+        "read": true,
+        "delete": false
+      }
+    ],
+    "policy_name": "ReadOnly"
+  }
+]

@@ -232,19 +232,26 @@ Resources:
       PolicyDocument:
         Statement:
           -
+            Sid: AllowCloudFrontServicePrincipal
             Action:
               - "s3:GetObject"
             Effect: "Allow"
             Resource: !Sub "${FrontEndBucket.Arn}/*"
             Principal:
-              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudfrontOriginAccessIdentity}'
+              "Service": "cloudfront.amazonaws.com"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudfrontDistribution.Id}"
 
-  CloudfrontOriginAccessIdentity:
+  CloudFrontOriginAccessControl:
     Condition: DeployCloudFront
-    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Type: AWS::CloudFront::OriginAccessControl
     Properties:
-      CloudFrontOriginAccessIdentityConfig:
-        Comment: !Sub access-identity-${FrontEndBucket.DomainName}
+      OriginAccessControlConfig:
+        Name: !Sub "${Application}-${Environment}-OAC"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
 
   CloudfrontDistribution:
     Condition: DeployCloudFront
@@ -301,8 +308,9 @@ Resources:
         Origins:
           - DomainName: !GetAtt FrontEndBucket.DomainName
             Id: !Sub S3-${FrontEndBucket}
+            OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
             S3OriginConfig:
-              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudfrontOriginAccessIdentity}
+              OriginAccessIdentity: ''
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4566,6 +4574,7 @@ Resources:
           ADMIN_API: !Ref AdminAPI
           LOGIN_API: !Ref LoginAPI
           TOOLS_API: !Ref ToolsAPI
+          VPCE_API_ID: !If [ DeploymentPrivate, !GetAtt APIGatewayEndpoint.Id, ""]
           SSM_WS_API: !Sub '${AutomationService.Outputs.SSMSocketAPI}'
           USER_POOL_ID: !Ref CognitoUserPool
           APP_CLIENT_ID: !Ref CognitoAppClient
@@ -4694,6 +4703,7 @@ Resources:
         ToolsAPI: !Ref ToolsAPI
         LoginAPI: !Ref LoginAPI
         UserAPI: !Ref UserAPI
+        VPCEID: !If [ DeploymentPrivate, !GetAtt APIGatewayEndpoint.Id, ""]
         Region: !Ref "AWS::Region"
         KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
         CognitoUserPoolArn: !GetAtt CognitoUserPool.Arn
@@ -5069,3 +5079,4 @@ Outputs:
   FactoryUserName:
     Description: 'Factory Service account User name'
     Value: !Ref ServiceAccountEmail
+

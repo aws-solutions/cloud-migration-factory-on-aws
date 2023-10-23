@@ -1,23 +1,7 @@
-#########################################################################################
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.                    #
-# SPDX-License-Identifier: MIT-0                                                        #
-#                                                                                       #
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this  #
-# software and associated documentation files (the "Software"), to deal in the Software #
-# without restriction, including without limitation the rights to use, copy, modify,    #
-# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to    #
-# permit persons to whom the Software is furnished to do so.                            #
-#                                                                                       #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,   #
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A         #
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT    #
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION     #
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE        #
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
-#########################################################################################
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
 
 
-import json
 import os
 import sys
 import unittest
@@ -27,43 +11,21 @@ from unittest.mock import patch, ANY
 import boto3
 from moto import mock_dynamodb
 
-import common_utils
-common_utils.init()
-logger = common_utils.logger
+import test_common_utils
+from test_common_utils import LambdaContextLogStream, RequestsResponse, SerializedDictMatcher, logger, \
+    default_mock_os_environ
 
-
-@mock.patch.dict('os.environ', {
-    'AWS_ACCESS_KEY_ID': 'testing',
-    'AWS_SECRET_ACCESS_KEY': 'testing',
-    'AWS_SECURITY_TOKEN': 'testing',
-    'AWS_SESSION_TOKEN': 'testing',
-    'AWS_DEFAULT_REGION': 'us-east-1',
+mock_os_environ = {
+    **default_mock_os_environ,
     'RoleDynamoDBTable': 'RoleDynamoDBTable',
     'SchemaDynamoDBTable': 'SchemaDynamoDBTable',
     'PolicyDynamoDBTable': 'PolicyDynamoDBTable',
-})
+}
+
+
+@mock.patch.dict('os.environ', mock_os_environ)
 @mock_dynamodb
 class LambdaDefaultSchemaTest(unittest.TestCase):
-
-    # Classes matching types needed in this test case with duck typing
-    class RequestsResponse:
-        def __init__(self, reason):
-            self.reason = reason
-
-    class LambdaContext:
-        def __init__(self, log_stream_name):
-            self.log_stream_name = log_stream_name
-
-    # used to check whether a serialized object contains a key and value
-    # to be used in mock.call_with
-    class SerializedDictMatcher:
-        def __init__(self, field_name, expected_value):
-            self.field_name = field_name
-            self.expected_value = expected_value
-
-        def __eq__(self, other):
-            dict_other = json.loads(other)
-            return self.field_name in dict_other and dict_other[self.field_name] == self.expected_value
 
     @classmethod
     def setUpClass(cls):
@@ -155,7 +117,7 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
             'LogicalResourceId': 'RESOURCEABC',
             'ResponseURL': self.test_url,
         }
-        self.lambda_context = LambdaDefaultSchemaTest.LambdaContext('testing')
+        self.lambda_context = LambdaContextLogStream('testing')
 
     def mock_file_open(*args, **kwargs):
         logger.debug(f'mock_file_open : {args}, {kwargs}')
@@ -206,10 +168,10 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
     def test_lambda_handler_create(self, mock_requests):
         import lambda_defaultschema
 
-        mock_requests.put.return_value = LambdaDefaultSchemaTest.RequestsResponse(200)
+        mock_requests.put.return_value = RequestsResponse(200)
         response = lambda_defaultschema.lambda_handler(self.event_create, self.lambda_context)
         mock_requests.put.assert_called_once_with(self.event_create['ResponseURL'],
-                                                  data=LambdaDefaultSchemaTest.SerializedDictMatcher('Status',
+                                                  data=SerializedDictMatcher('Status',
                                                                                                      'SUCCESS'),
                                                   headers=ANY,
                                                   timeout=ANY)
@@ -226,7 +188,7 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         mock_requests.put.side_effect = Exception('test exception')
         response = lambda_defaultschema.lambda_handler(self.event_create, self.lambda_context)
         mock_requests.put.assert_called_once_with(self.event_create['ResponseURL'],
-                                                  data=LambdaDefaultSchemaTest.SerializedDictMatcher('Status',
+                                                  data=SerializedDictMatcher('Status',
                                                                                                      'SUCCESS'),
                                                   headers=ANY,
                                                   timeout=ANY)
@@ -241,10 +203,10 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
     def test_lambda_handler_update(self, mock_requests):
         import lambda_defaultschema
 
-        mock_requests.put.return_value = LambdaDefaultSchemaTest.RequestsResponse(200)
+        mock_requests.put.return_value = RequestsResponse(200)
         response = lambda_defaultschema.lambda_handler(self.event_update, self.lambda_context)
         mock_requests.put.assert_called_once_with(self.event_create['ResponseURL'],
-                                                  data=LambdaDefaultSchemaTest.SerializedDictMatcher('Status',
+                                                  data=SerializedDictMatcher('Status',
                                                                                                      'SUCCESS'),
                                                   headers=ANY,
                                                   timeout=ANY)
@@ -259,10 +221,10 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
     def test_lambda_handler_delete(self, mock_requests):
         import lambda_defaultschema
 
-        mock_requests.put.return_value = LambdaDefaultSchemaTest.RequestsResponse(200)
+        mock_requests.put.return_value = RequestsResponse(200)
         response = lambda_defaultschema.lambda_handler(self.event_delete, self.lambda_context)
         mock_requests.put.assert_called_once_with(self.event_create['ResponseURL'],
-                                                  data=LambdaDefaultSchemaTest.SerializedDictMatcher('Status',
+                                                  data=SerializedDictMatcher('Status',
                                                                                                      'SUCCESS'),
                                                   headers=ANY,
                                                   timeout=ANY)
@@ -276,10 +238,10 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
     def test_lambda_handler_unknown(self, mock_requests):
         import lambda_defaultschema
 
-        mock_requests.put.return_value = LambdaDefaultSchemaTest.RequestsResponse(200)
+        mock_requests.put.return_value = RequestsResponse(200)
         response = lambda_defaultschema.lambda_handler(self.event_unknown, self.lambda_context)
         mock_requests.put.assert_called_once_with(self.event_create['ResponseURL'],
-                                                  data=LambdaDefaultSchemaTest.SerializedDictMatcher('Status',
+                                                  data=SerializedDictMatcher('Status',
                                                                                                      'SUCCESS'),
                                                   headers=ANY,
                                                   timeout=ANY)
@@ -295,14 +257,14 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         import lambda_defaultschema
 
 
-        mock_requests.put.return_value = LambdaDefaultSchemaTest.RequestsResponse(200)
+        mock_requests.put.return_value = RequestsResponse(200)
         # simulate error by setting the wrong table name for all tables so that the test still good if the order changes
         lambda_defaultschema.SCHEMA_TABLE = self.table_schema + '_FAIL'
         lambda_defaultschema.ROLE_TABLE = self.table_role + '_FAIL'
         lambda_defaultschema.POLICY_TABLE = self.table_policy + '_FAIL'
         response = lambda_defaultschema.lambda_handler(self.event_create, self.lambda_context)
         mock_requests.put.assert_called_once_with(self.event_create['ResponseURL'],
-                                                  data=LambdaDefaultSchemaTest.SerializedDictMatcher('Status',
+                                                  data=SerializedDictMatcher('Status',
                                                                                                      'FAILED'),
                                                   headers=ANY,
                                                   timeout=ANY)

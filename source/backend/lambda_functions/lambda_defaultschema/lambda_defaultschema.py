@@ -1,20 +1,6 @@
-#########################################################################################
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.                    #
-# SPDX-License-Identifier: MIT-0                                                        #
-#                                                                                       #
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this  #
-# software and associated documentation files (the "Software"), to deal in the Software #
-# without restriction, including without limitation the rights to use, copy, modify,    #
-# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to    #
-# permit persons to whom the Software is furnished to do so.                            #
-#                                                                                       #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,   #
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A         #
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT    #
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION     #
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE        #
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
-#########################################################################################
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
 
 import boto3
 import json
@@ -47,19 +33,19 @@ def load_schema():
     client = boto3.client('dynamodb')
 
     for item in default_schema:
-        response = client.put_item(
+        client.put_item(
             TableName=SCHEMA_TABLE,
             Item=item
         )
 
     for item in default_roles:
-        response = client.put_item(
+        client.put_item(
             TableName=ROLE_TABLE,
             Item=item
         )
 
     for item in default_policies:
-        response = client.put_item(
+        client.put_item(
             TableName=POLICY_TABLE,
             Item=item
         )
@@ -98,41 +84,41 @@ def lambda_handler(event, context):
         message = 'Exception during processing'
 
     response_data = {'Message': message}
-    response = respond(event, context, status, response_data, None)
+    response = respond(event, context, status, response_data)
 
     return {
         'Response': response
     }
 
 
-def respond(event, context, responseStatus, responseData, physicalResourceId):
+def respond(event, context, response_status, response_data):
     # Build response payload required by CloudFormation
-    responseBody = {}
-    responseBody['Status'] = responseStatus
-    responseBody['Reason'] = 'Details in: ' + context.log_stream_name
-    responseBody['PhysicalResourceId'] = context.log_stream_name
-    responseBody['StackId'] = event['StackId']
-    responseBody['RequestId'] = event['RequestId']
-    responseBody['LogicalResourceId'] = event['LogicalResourceId']
-    responseBody['Data'] = responseData
+    response_body = {}
+    response_body['Status'] = response_status
+    response_body['Reason'] = 'Details in: ' + context.log_stream_name
+    response_body['PhysicalResourceId'] = context.log_stream_name
+    response_body['StackId'] = event['StackId']
+    response_body['RequestId'] = event['RequestId']
+    response_body['LogicalResourceId'] = event['LogicalResourceId']
+    response_body['Data'] = response_data
 
     # Convert json object to string and log it
-    json_responseBody = json.dumps(responseBody)
-    log.info('Response body: {}'.format(str(json_responseBody)))
+    json_response_body = json.dumps(response_body)
+    log.info('Response body: {}'.format(str(json_response_body)))
 
     # Set response URL
-    responseUrl = event['ResponseURL']
+    response_url = event['ResponseURL']
 
     # Set headers for preparation for a PUT
     headers = {
         'content-type': '',
-        'content-length': str(len(json_responseBody))
+        'content-length': str(len(json_response_body))
     }
 
     # Return the response to the signed S3 URL
     try:
-        response = requests.put(responseUrl,
-                                data=json_responseBody,
+        response = requests.put(response_url,
+                                data=json_response_body,
                                 headers=headers,
                                 timeout=30)
         log.info('Status code: {}'.format(str(response.reason)))

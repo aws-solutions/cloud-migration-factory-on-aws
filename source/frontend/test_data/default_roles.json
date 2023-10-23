@@ -1,0 +1,30 @@
+[
+  {
+    "groups": [
+      {
+        "group_name": "readonly"
+      }
+    ],
+    "role_id": "2",
+    "policies": [
+      {
+        "policy_id": "2"
+      }
+    ],
+    "role_name": "FactoryReadOnly"
+  },
+  {
+    "groups": [
+      {
+        "group_name": "admin"
+      }
+    ],
+    "role_id": "1",
+    "policies": [
+      {
+        "policy_id": "1"
+      }
+    ],
+    "role_name": "FactoryAdmin"
+  }
+]

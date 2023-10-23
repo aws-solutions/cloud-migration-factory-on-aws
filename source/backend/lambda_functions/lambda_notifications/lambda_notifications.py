@@ -1,20 +1,6 @@
-#########################################################################################
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.                    #
-# SPDX-License-Identifier: MIT-0                                                        #
-#                                                                                       #
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this  #
-# software and associated documentation files (the "Software"), to deal in the Software #
-# without restriction, including without limitation the rights to use, copy, modify,    #
-# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to    #
-# permit persons to whom the Software is furnished to do so.                            #
-#                                                                                       #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,   #
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A         #
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT    #
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION     #
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE        #
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
-#########################################################################################
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
 
 import os
 import simplejson as json
@@ -31,89 +17,62 @@ else:
 default_http_headers = {
     'Access-Control-Allow-Origin': cors,
     'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy' : "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
+    'Content-Security-Policy': "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
 }
 application = os.environ['application']
 environment = os.environ['environment']
 
-servers_table_name = '{}-{}-servers'.format(application, environment)
 schema_table_name = '{}-{}-schema'.format(application, environment)
-apps_table_name = '{}-{}-apps'.format(application, environment)
-waves_table_name = '{}-{}-waves'.format(application, environment)
-
-waves_table = boto3.resource('dynamodb').Table(waves_table_name)
-servers_table = boto3.resource('dynamodb').Table(servers_table_name)
 schema_table = boto3.resource('dynamodb').Table(schema_table_name)
-apps_table = boto3.resource('dynamodb').Table(apps_table_name)
 
-def lambda_handler(event, context):
 
+def process_item(items, schema, schema_notifications, default_date, last_change_date, date_format):
+    if 'lastModifiedTimestamp' in items['Item']:
+        dt_object = datetime.datetime.strptime(items['Item']['lastModifiedTimestamp'], date_format)
+        if dt_object > last_change_date:
+            last_change_date = dt_object
+        schema_notifications['versions'].append(
+            {
+                'schema': schema,
+                'lastModifiedTimestamp': items['Item']['lastModifiedTimestamp']
+            })
+    else:
+        schema_notifications['versions'].append(
+            {
+                'schema': schema,
+                'lastModifiedTimestamp': default_date.isoformat()
+            })
+    return last_change_date
+
+
+def lambda_handler(event, _):
     if event['httpMethod'] == 'GET':
-        respServer = schema_table.get_item(Key={'schema_name' : 'server'})
-        respApp = schema_table.get_item(Key={'schema_name' : 'app'})
-        respWave = schema_table.get_item(Key={'schema_name' : 'wave'})
-        defaultDate = datetime.datetime(2020, 1, 1)
-        lastChangeDate = datetime.datetime(2020, 1, 1)
+        resp_server = schema_table.get_item(Key={'schema_name': 'server'})
+        resp_app = schema_table.get_item(Key={'schema_name': 'app'})
+        resp_wave = schema_table.get_item(Key={'schema_name': 'wave'})
+        default_date = datetime.datetime(2020, 1, 1)
+        last_change_date = datetime.datetime(2020, 1, 1)
         notifications = {
-                            'lastChangeDate': '',
-                            'notifications' : []
-                        }
+            'lastChangeDate': '',
+            'notifications': []
+        }
         schema_notifications = {
-                                'type' : 'schema',
-                                'versions': []}
+            'type': 'schema',
+            'versions': []}
+        date_format = "%Y-%m-%dT%H:%M:%S.%f"
+        if 'Item' in resp_server:
+            last_change_date = process_item(resp_server, 'server', schema_notifications, default_date, last_change_date, date_format)
 
-        if 'Item' in respServer:
-            if 'lastModifiedTimestamp' in respServer['Item']:
-                dt_object = datetime.datetime.strptime(respServer['Item']['lastModifiedTimestamp'], "%Y-%m-%dT%H:%M:%S.%f")
-                if dt_object > lastChangeDate: lastChangeDate = dt_object
-                schema_notifications['versions'].append(
-                            {
-                               'schema': 'server',
-                               'lastModifiedTimestamp': respServer['Item']['lastModifiedTimestamp']
-                })
-            else:
-                schema_notifications['versions'].append(
-                            {
-                               'schema': 'server',
-                               'lastModifiedTimestamp': defaultDate.isoformat()
-                })
+        if 'Item' in resp_app:
+            last_change_date = process_item(resp_app, 'app', schema_notifications, default_date, last_change_date, date_format)
 
-        if 'Item' in respApp:
-            if 'lastModifiedTimestamp' in respApp['Item']:
-                dt_object = datetime.datetime.strptime(respApp['Item']['lastModifiedTimestamp'], "%Y-%m-%dT%H:%M:%S.%f")
-                if dt_object > lastChangeDate: lastChangeDate = dt_object
-                schema_notifications['versions'].append(
-                            {
-                               'schema': 'app',
-                               'lastModifiedTimestamp': respApp['Item']['lastModifiedTimestamp']
-                })
-            else:
-                schema_notifications['versions'].append(
-                            {
-                               'schema': 'app',
-                               'lastModifiedTimestamp': defaultDate.isoformat()
-                })
-
-        if 'Item' in respWave:
-            if 'lastModifiedTimestamp' in respWave['Item']:
-                dt_object = datetime.datetime.strptime(respWave['Item']['lastModifiedTimestamp'], "%Y-%m-%dT%H:%M:%S.%f")
-                if dt_object > lastChangeDate: lastChangeDate = dt_object
-                schema_notifications['versions'].append(
-                            {
-                               'schema': 'wave',
-                               'lastModifiedTimestamp': respWave['Item']['lastModifiedTimestamp']
-                })
-            else:
-                schema_notifications['versions'].append(
-                            {
-                               'schema': 'wave',
-                               'lastModifiedTimestamp': defaultDate.isoformat()
-                })
-
+        if 'Item' in resp_wave:
+            last_change_date = process_item(resp_wave, 'wave', schema_notifications, default_date, last_change_date, date_format)
 
         notifications['notifications'].append(schema_notifications)
-        notifications['lastChangeDate'] = lastChangeDate.isoformat()
+        notifications['lastChangeDate'] = last_change_date.isoformat()
 
         return {'headers': {**default_http_headers},
-                    'statusCode': 200,
-                    'body': json.dumps(notifications)}
+                'statusCode': 200,
+                'body': json.dumps(notifications)
+                }

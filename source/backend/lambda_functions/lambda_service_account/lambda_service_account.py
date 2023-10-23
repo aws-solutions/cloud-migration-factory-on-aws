@@ -1,20 +1,6 @@
-#########################################################################################
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.                    #
-# SPDX-License-Identifier: MIT-0                                                        #
-#                                                                                       #
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this  #
-# software and associated documentation files (the "Software"), to deal in the Software #
-# without restriction, including without limitation the rights to use, copy, modify,    #
-# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to    #
-# permit persons to whom the Software is furnished to do so.                            #
-#                                                                                       #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,   #
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A         #
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT    #
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION     #
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE        #
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
-#########################################################################################
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
 
 import json
 import boto3
@@ -28,6 +14,7 @@ CognitoGroup = os.environ['CognitoGroupName']
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
+
 def lambda_handler(event, context):
     try:
         log.info('Event:\n {}'.format(event))
@@ -36,35 +23,35 @@ def lambda_handler(event, context):
         if event['RequestType'] == 'Create':
             log.info('Create action')
             create_service_account()
-            status='SUCCESS'
-            message='Migration Factory Service Account created successfully'
+            status = 'SUCCESS'
+            message = 'Migration Factory Service Account created successfully'
 
         elif event['RequestType'] == 'Update':
             log.info('Update action')
-            status='SUCCESS'
-            message='No update required'
+            status = 'SUCCESS'
+            message = 'No update required'
 
         elif event['RequestType'] == 'Delete':
             log.info('Delete action')
-            status='SUCCESS'
-            message='No deletion required'
+            status = 'SUCCESS'
+            message = 'No deletion required'
 
         else:
             log.info('SUCCESS!')
-            status='SUCCESS'
-            message='Unexpected event received from CloudFormation'
+            status = 'SUCCESS'
+            message = 'Unexpected event received from CloudFormation'
 
     except Exception as e:
         log.info('FAILED!')
         log.info(e)
-        status='FAILED'
-        message='Exception during processing'
+        status = 'FAILED'
+        message = 'Exception during processing'
 
-    response_data = {'Message' : message}
-    response=respond(event, context, status, response_data, None)
+    response_data = {'Message': message}
+    response = respond(event, context, status, response_data)
 
     return {
-        'Response' :response
+        'Response': response
     }
 
 
@@ -74,14 +61,14 @@ def create_service_account():
 
     # Generate random password for service account
     pwd = secrets_manager_client.get_random_password(
-    PasswordLength=24
-    )
+        PasswordLength=24
+        )
 
     # Create an Service account
     create_user_response = client.admin_create_user(
         UserPoolId=PoolId,
         Username=ServiceAccountEmail,
-        MessageAction= 'SUPPRESS',
+        MessageAction='SUPPRESS',
         UserAttributes=[
             {
                 'Name': 'email',
@@ -92,14 +79,14 @@ def create_service_account():
     )
 
     # Add service account to admin group
-    add_user_to_admin = client.admin_add_user_to_group(
+    client.admin_add_user_to_group(
         UserPoolId=PoolId,
         Username=create_user_response['User']['Username'],
         GroupName=CognitoGroup
     )
 
     # Set service account password
-    admin_set_pwd = client.admin_set_user_password(
+    client.admin_set_user_password(
         UserPoolId=PoolId,
         Username=create_user_response['User']['Username'],
         Password=pwd['RandomPassword'],
@@ -108,42 +95,44 @@ def create_service_account():
 
     # Save password in secrets manager
     secret_name = 'MFServiceAccount-' + PoolId
-    save_secrets = secrets_manager_client.create_secret(
+    secrets_manager_client.create_secret(
         Name=secret_name,
         Description=ServiceAccountEmail,
         SecretString=json.dumps({"username": ServiceAccountEmail, "password": pwd['RandomPassword']})
     )
 
-def respond(event, context, responseStatus, responseData, physicalResourceId):
-    #Build response payload required by CloudFormation
-    responseBody = {}
-    responseBody['Status'] = responseStatus
-    responseBody['Reason'] = 'Details in: ' + context.log_stream_name
-    responseBody['PhysicalResourceId'] = context.log_stream_name
-    responseBody['StackId'] = event['StackId']
-    responseBody['RequestId'] = event['RequestId']
-    responseBody['LogicalResourceId'] = event['LogicalResourceId']
-    responseBody['Data'] = responseData
 
-    #Convert json object to string and log it
-    json_responseBody = json.dumps(responseBody)
-    log.info('Response body: {}'.format(str(json_responseBody)))
-
-    #Set response URL
-    responseUrl = event['ResponseURL']
-
-    #Set headers for preparation for a PUT
-    headers = {
-        'content-type' : '',
-        'content-length' : str(len(json_responseBody))
+def respond(event, context, response_status, response_data):
+    # Build response payload required by CloudFormation
+    response_body = {
+        'Status': response_status,
+        'Reason': 'Details in: ' + context.log_stream_name,
+        'PhysicalResourceId': context.log_stream_name,
+        'StackId': event['StackId'],
+        'RequestId': event['RequestId'],
+        'LogicalResourceId': event['LogicalResourceId'],
+        'Data': response_data
     }
 
-    #Return the response to the signed S3 URL
+    # Convert json object to string and log it
+    json_response_body = json.dumps(response_body)
+    log.info('Response body: {}'.format(str(json_response_body)))
+
+    # Set response URL
+    response_url = event['ResponseURL']
+
+    # Set headers for preparation for a PUT
+    headers = {
+        'content-type': '',
+        'content-length': str(len(json_response_body))
+    }
+
+    # Return the response to the signed S3 URL
     try:
-        response = requests.put(responseUrl,
-        data=json_responseBody,
-        headers=headers,
-        timeout=30)
+        response = requests.put(response_url,
+                                data=json_response_body,
+                                headers=headers,
+                                timeout=30)
         log.info('Status code: {}'.format(str(response.reason)))
         return 'SUCCESS'
 

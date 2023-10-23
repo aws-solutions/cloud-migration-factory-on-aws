@@ -1,20 +1,6 @@
-#########################################################################################
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.                    #
-# SPDX-License-Identifier: MIT-0                                                        #
-#                                                                                       #
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this  #
-# software and associated documentation files (the "Software"), to deal in the Software #
-# without restriction, including without limitation the rights to use, copy, modify,    #
-# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to    #
-# permit persons to whom the Software is furnished to do so.                            #
-#                                                                                       #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,   #
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A         #
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT    #
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION     #
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE        #
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
-#########################################################################################
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
 
 from __future__ import print_function
 import os
@@ -121,7 +107,7 @@ def validate_server_networking_settings(ec2_client, factoryserver, network_inter
         factoryserver[network_interface_attr_name] != '':
         # Check ENI exist
         try:
-            verify_eni = ec2_client.describe_network_interfaces(
+            ec2_client.describe_network_interfaces(
                 NetworkInterfaceIds=[factoryserver[network_interface_attr_name], ])
         except Exception as error:
             # Error validating ENI.
@@ -203,7 +189,7 @@ def update_launch_template(factoryservers, action):
             # Get total number of servers in each account
             total_servers_count = total_servers_count + len(account['servers'])
             # Assume role in the target account
-            target_account_creds = lambda_mgn.assume_role(str(account['aws_accountid']))
+            target_account_creds = lambda_mgn.assume_role(str(account['aws_accountid']), str(account['aws_region']))
 
             print("####################################################################################")
             print(
@@ -585,16 +571,16 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
         ## update tenancy
         p_tenancy = {}
         if 'tenancy' in factoryserver:
-            license = {}
+            os_license = {}
             if factoryserver["tenancy"].lower() == "shared":
                 p_tenancy['Tenancy'] = 'default'
-                license = {'osByol': False}
+                os_license = {'osByol': False}
             elif factoryserver["tenancy"].lower() == "dedicated":
                 p_tenancy['Tenancy'] = 'dedicated'
-                license = {'osByol': False}
+                os_license = {'osByol': False}
             elif factoryserver["tenancy"].lower() == "dedicated host":
                 p_tenancy['Tenancy'] = 'host'
-                license = {'osByol': True}
+                os_license = {'osByol': True}
                 if 'dedicated_host_id' in factoryserver:
                     if 'instanceType' in factoryserver:
                         return_message = verify_dedicated_host(ec2_client, factoryserver['dedicated_host_id'],
@@ -616,10 +602,10 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
                     return msg
             else:
                 p_tenancy['Tenancy'] = 'default'
-                license = {'osByol': False}
+                os_license = {'osByol': False}
             if factoryserver['server_os_family'].lower() == 'linux':
-                license = {'osByol': True}
-            mgn_client.update_launch_configuration(licensing=license, sourceServerID=factoryserver['source_server_id'])
+                os_license = {'osByol': True}
+            mgn_client.update_launch_configuration(licensing=os_license, sourceServerID=factoryserver['source_server_id'])
         else:
             p_tenancy['Tenancy'] = 'default'
         new_launch_template['Placement'] = p_tenancy
@@ -659,7 +645,7 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
                 log.info("Pid: " + str(os.getpid()) + " - " + msg)
             log.info("Pid: " + str(os.getpid()) + " - Test Template updated, the latest version is: " + str(
                 new_template_ver))
-            set_default_ver = ec2_client.modify_launch_template(LaunchTemplateId=factoryserver['launch_template_id'],
+            ec2_client.modify_launch_template(LaunchTemplateId=factoryserver['launch_template_id'],
                                                                 DefaultVersion=str(new_template_ver))
 
         # Update Launch template with Cutover SG and subnet
@@ -740,7 +726,7 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
                 log.info("Pid: " + str(os.getpid()) + " - " + msg)
                 status = True
 
-            set_default_ver_test = ec2_client.modify_launch_template(
+            ec2_client.modify_launch_template(
                 LaunchTemplateId=factoryserver['launch_template_id'], DefaultVersion=str(new_template_ver_test))
 
             # update tags into template
@@ -784,7 +770,7 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
                 log.info("Pid: " + str(os.getpid()) + " - " + msg)
                 status = True
 
-            set_default_ver_cutover = ec2_client.modify_launch_template(
+            ec2_client.modify_launch_template(
                 LaunchTemplateId=factoryserver['launch_template_id'], DefaultVersion=str(new_template_ver_cutover))
 
             ### Revert Launch template back to old version
@@ -802,7 +788,7 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
                 return msg
             else:
                 status = True
-            set_default_ver_latest = ec2_client.modify_launch_template(
+            ec2_client.modify_launch_template(
                 LaunchTemplateId=factoryserver['launch_template_id'], DefaultVersion=str(latest_template_ver))
 
             if status == True:
@@ -871,14 +857,14 @@ def add_tags_to_launch_template(factory_server, new_launch_template, additional_
                     del item['value']
                 log.debug("Pid: " + str(os.getpid()) + " - checking tag: " + item['Value'] + " on server: "
                           + factory_server['server_name'])
-                TagExist = False
+                tag_exist = False
                 for tag in tags['Tags']:
                     if item['Key'].lower() == tag['Key'].lower():
                         tag['Value'] = item['Value']
-                        TagExist = True
+                        tag_exist = True
                         log.info("Pid: " + str(os.getpid()) + " - Replaced existing value for tag: " + tag[
                             'Key'] + " on server: " + factory_server['server_name'])
-                if TagExist == False:
+                if tag_exist == False:
                     tags['Tags'].append(item)
 
 

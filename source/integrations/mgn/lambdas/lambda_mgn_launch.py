@@ -1,20 +1,6 @@
-#########################################################################################
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.                    #
-# SPDX-License-Identifier: MIT-0                                                        #
-#                                                                                       #
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this  #
-# software and associated documentation files (the "Software"), to deal in the Software #
-# without restriction, including without limitation the rights to use, copy, modify,    #
-# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to    #
-# permit persons to whom the Software is furnished to do so.                            #
-#                                                                                       #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,   #
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A         #
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT    #
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION     #
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE        #
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
-#########################################################################################
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
 
 from __future__ import print_function
 import requests
@@ -48,7 +34,7 @@ def launch_test_servers(account, mgn_client):
     try:
         # Enable multithreading
         processes = []
-        manager = multiprocessing.Manager()
+        multiprocessing.Manager()
         log.info("*** Launching Test Servers in account: " + account['aws_accountid'] + ", Region: " + account[
             'aws_region'] + " ***")
         action_result = mgn_client.start_test(sourceServerIDs=account['source_server_ids'])
@@ -90,7 +76,7 @@ def launch_cutover_servers(account, mgn_client):
     try:
         # Enable multithreading
         processes = []
-        manager = multiprocessing.Manager()
+        multiprocessing.Manager()
         log.info("*** Launching Cutover Servers in account: " + account['aws_accountid'] + ", Region: " + account[
             'aws_region'] + " ***")
         action_result = mgn_client.start_cutover(sourceServerIDs=account['source_server_ids'])
@@ -130,7 +116,7 @@ def launch_cutover_servers(account, mgn_client):
 def multiprocessing_usage(server, launch_type):
     existing_attr = servers_table.get_item(Key={'server_id': server['server_id']})
     existing_attr['Item']['migration_status'] = launch_type + " instance launched"
-    resp = servers_table.put_item(Item=existing_attr['Item'])
+    servers_table.put_item(Item=existing_attr['Item'])
     log.info("Pid: " + str(os.getpid()) + " - This is " + launch_type + " Launch, migration_status updated")
     if AnonymousUsageData == "Yes":
         usage_data = {"Solution": "SO0097",
@@ -139,17 +125,17 @@ def multiprocessing_usage(server, launch_type):
                       "TimeStamp": str(datetime.datetime.now()),
                       "Region": region
                       }
-        send_anonymous_data = requests.post(url,
-                                            data=json.dumps(usage_data),
-                                            headers={'content-type': 'application/json'},
-                                            timeout=REQUESTS_DEFAULT_TIMEOUT)
+        requests.post(url,
+                      data=json.dumps(usage_data),
+                      headers={'content-type': 'application/json'},
+                      timeout=REQUESTS_DEFAULT_TIMEOUT)
         url_ce = "https://s20a21yvzd.execute-api.us-east-1.amazonaws.com/prod/launch"
         mgn_data = {"UUID": s_uuid,
                     "version": "MGN-v3"
                     }
-        server_migrated = requests.post(url_ce,
-                                        data=json.dumps(mgn_data),
-                                        timeout=REQUESTS_DEFAULT_TIMEOUT)
+        requests.post(url_ce,
+                      data=json.dumps(mgn_data),
+                      timeout=REQUESTS_DEFAULT_TIMEOUT)
 
 
 # This function will terminate all launched instances
@@ -251,7 +237,7 @@ def manage_action(factoryservers, action):
             final_result = []
             for account in factoryservers:
                 action_result = None
-                target_account_creds = lambda_mgn.assume_role(str(account['aws_accountid']))
+                target_account_creds = lambda_mgn.assume_role(str(account['aws_accountid']), str(account['aws_region']))
                 target_account_session = lambda_mgn.get_session(target_account_creds, account['aws_region'])
                 mgn_client_base = target_account_session.client("mgn", account['aws_region'])
                 if action.strip() == 'Launch Test Instances':
@@ -268,11 +254,11 @@ def manage_action(factoryservers, action):
                 if action_result is not None and "ERROR" in action_result:
                     log.error(str(action_result))
                     return action_result
-            isSuccess = True
+            is_success = True
             for result in final_result:
                 if result is not None and 'ERROR' in result:
-                    isSuccess = False
-            if isSuccess == True:
+                    is_success = False
+            if is_success == True:
                 msg = 'SUCCESS: ' + action.strip() + ' was completed for all servers in this Wave'
                 log.info(msg)
                 return msg
@@ -290,7 +276,7 @@ def manage_action(factoryservers, action):
             max_threads = 30
             for account in factoryservers:
                 total_servers_count = total_servers_count + len(account['servers'])
-                target_account_creds = lambda_mgn.assume_role(str(account['aws_accountid']))
+                target_account_creds = lambda_mgn.assume_role(str(account['aws_accountid']), str(account['aws_region']))
                 print("##################################################################################")
                 print("### Multithread processing Action, in Account: " + account['aws_accountid'] + ", Region: " +
                       account['aws_region'] + " ###")
@@ -300,16 +286,16 @@ def manage_action(factoryservers, action):
                     for serverlist in chunks(account['servers'], len(account['servers'])):
                         print(serverlist)
                         p = multiprocessing.Process(target=multiprocessing_action, args=(
-                        serverlist, target_account_creds, account['aws_region'], action, return_dict, status_list,
-                        account['aws_accountid'], account['aws_region']))
+                            serverlist, target_account_creds, account['aws_region'], action, return_dict, status_list,
+                            account['aws_accountid'], account['aws_region']))
                         processes.append(p)
                         p.start()
                 else:
                     for serverlist in chunks(account['servers'], max_threads):
                         print(serverlist)
                         p = multiprocessing.Process(target=multiprocessing_action, args=(
-                        serverlist, target_account_creds, account['aws_region'], action, return_dict, status_list,
-                        account['aws_accountid'], account['aws_region']))
+                            serverlist, target_account_creds, account['aws_region'], action, return_dict, status_list,
+                            account['aws_accountid'], account['aws_region']))
                         processes.append(p)
                         p.start()
 

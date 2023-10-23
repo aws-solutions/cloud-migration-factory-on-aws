@@ -33,7 +33,7 @@ function Get-TCPPort443
     write-output "$name TCP443:Pass"
     } 
     catch {
-        write-output "$name TCP443:Fail"
+        write-output "$name TCP443:Fail:Could not connect to port TCP 443."
     }
     }
 }
@@ -54,7 +54,7 @@ function Get-TCPPort1500
     }
     catch
     {
-        write-output 'TCP1500:Fail'
+        write-output 'TCP1500:Fail:Could not connect to port TCP 1500.'
     }
 
 }
@@ -66,7 +66,7 @@ function Get-DiskSpace
     if($driveLetterFree -gt 2){
         write-output 'FreeSpace:Pass'
     }else{
-        write-output 'FreeSpace:Fail'
+        write-output 'FreeSpace:Fail:Not enough free space on drive C.'
     }
 
 }

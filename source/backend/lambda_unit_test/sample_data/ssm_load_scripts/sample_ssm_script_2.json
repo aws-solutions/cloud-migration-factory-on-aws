@@ -1,0 +1,4 @@
+{
+  "name": "sample ssm script 1 for testing lambda_ssm_scripts.py",
+  "comment": "sample_ssm_script_1.json and sample_ssm_script_2.json are zipped in sample_ssm_scripts.zip. The test expects only sample_ssm_scripts.zip. The json files included for for the convenience of checking the contents without unzipping"
+}
