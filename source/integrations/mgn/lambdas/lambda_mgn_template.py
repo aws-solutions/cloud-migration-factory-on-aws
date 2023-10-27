@@ -416,7 +416,12 @@ def verify_dedicated_host(ec2_client, dedicated_host_id, requested_instance_type
         if 'Hosts' in dedicated_hosts:
             if len(dedicated_hosts['Hosts']) == 1:
                 # Check that the instance type is matching this dedicated host.
-                Instance_family = dedicated_hosts['Hosts'][0]['HostProperties']['InstanceFamily']
+                if 'InstanceFamily' in dedicated_hosts['Hosts'][0]['HostProperties']:
+                    Instance_family = dedicated_hosts['Hosts'][0]['HostProperties']['InstanceFamily']
+                else:
+                    # Some dedicated hosts only have single instance type support, so InstanceFamily will not be defined.
+                    # Determine the family from the InstanceType value
+                    Instance_family = dedicated_hosts['Hosts'][0]['HostProperties']['InstanceType'].split(".")[0]
                 if requested_instance_type.split(".")[0] != Instance_family:
                     return 'ERROR: Host Supported Instance Family does not match required (Host=' + Instance_family + ', Requested=' + \
                            requested_instance_type.split(".")[0] + ')'
