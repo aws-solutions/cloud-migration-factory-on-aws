@@ -4,10 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import {
-  SpaceBetween, FormField, Multiselect, Grid, Select, Button
-} from '@awsui/components-react';
+import React, {useEffect, useState} from 'react';
+import {Button, FormField, Grid, Multiselect, Select, SpaceBetween} from '@awsui/components-react';
 import {useValueLists} from "../../actions/ValueListsHook";
 
 const ListAttribute = ({attribute, value, isReadonly, errorText, handleUserInput, displayHelpInfoLink}) => {
@@ -21,7 +19,7 @@ const ListAttribute = ({attribute, value, isReadonly, errorText, handleUserInput
 
   function handleUpdate(detail){
     setLocalValue(detail.value);
-    handleUserInput(detail)
+    handleUserInput([detail])
   }
 
   function getStatusType(attribute){

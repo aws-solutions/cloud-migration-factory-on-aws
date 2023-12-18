@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "(%%SOLUTION_ID%%-automation) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution (Version %%VERSION%%)"
+Description: "(%%SOLUTION_ID%%-automation) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution. Version:%%VERSION%%"
 
 Parameters:
   Application: 
@@ -65,14 +65,27 @@ Parameters:
   LambdaLayerMFPolicyLib:
     Type: String
 
+  LambdaLayerMFUtilsLib:
+    Type: String
+
   CORS:
     Type: String
+
+  LambdaRuntimePython:
+    Type: String
+    Default: python3.10
 
   IsDeploymentPrivate:
     Type: String
     Description: Is this a private deployment?
     Default: false
     AllowedValues: [ true, false ]
+
+Mappings:
+  Solution:
+    Data:
+      SolutionID: '%%SOLUTION_ID%%'
+      SolutionVersion: '%%VERSION%%'
 
 Conditions:
   DeploymentPublic: !Equals [!Ref IsDeploymentPrivate, false]
@@ -723,7 +736,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_ssm.lambda_handler
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       FunctionName: !Sub ${Application}-${Environment}-ssm
       Timeout: '300'
       Code:
@@ -744,8 +757,9 @@ Resources:
           region: !Ref AWS::Region
           userpool: !Ref CognitoUserPoolId
           clientid: !Ref CognitoAppClientId
-          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
           cors: !Ref CORS
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -759,6 +773,7 @@ Resources:
       Layers:
         - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -780,7 +795,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_ssm_jobs.lambda_handler
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       FunctionName: !Sub ${Application}-${Environment}-ssm-jobs
       Timeout: '120'
       Code:
@@ -791,8 +806,9 @@ Resources:
         Variables:
           application: !Ref Application
           environment: !Ref Environment
-          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
           cors: !Ref CORS
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -805,6 +821,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-ssm-jobs
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -826,7 +843,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_ssm_scripts.lambda_handler
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       FunctionName: !Sub ${Application}-${Environment}-ssm-scripts
       Timeout: '300'
       Code:
@@ -842,8 +859,9 @@ Resources:
           region: !Ref AWS::Region
           userpool: !Ref CognitoUserPoolId
           clientid: !Ref CognitoAppClientId
-          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
           cors: !Ref CORS
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -857,6 +875,7 @@ Resources:
       Layers:
         - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -878,7 +897,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_ssm_socket.lambda_handler
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       FunctionName: !Sub ${Application}-${Environment}-ssm-socket
       Timeout: '300'
       Code:
@@ -892,8 +911,9 @@ Resources:
           region: !Ref AWS::Region
           userpool_id: !Ref CognitoUserPoolId
           app_client_id: !Ref CognitoAppClientId
-          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
           cors: !Ref CORS
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -906,6 +926,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-ssm-socket
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -925,7 +946,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_ssm_output.lambda_handler
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       FunctionName: !Sub ${Application}-${Environment}-ssm-output
       Timeout: '300'
       Code:
@@ -937,8 +958,9 @@ Resources:
           socket_url: !If [ DeploymentPublic, !Sub "https://${SSMSocketAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/", !Sub "PrivateNotDeployed"]
           application: !Ref Application
           environment: !Ref Environment
-          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
           cors: !Ref CORS
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -951,6 +973,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-ssm-output
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -972,7 +995,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_ssm_load_scripts.lambda_handler
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       FunctionName: !Sub ${Application}-${Environment}-ssm-load-scripts
       Timeout: '300'
       Code:
@@ -985,6 +1008,8 @@ Resources:
           environment: !Ref Environment
           code_bucket_name: !Ref CodeBucket
           key_prefix: !Ref KeyPrefix
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -998,6 +1023,7 @@ Resources:
       Layers:
         - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:

@@ -1,35 +1,31 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, {useContext, useState} from 'react';
 import {
-  FormField,
-  Input,
   Checkbox,
-  Textarea,
-  Multiselect,
   Container,
+  FormField,
   Header,
-  SpaceBetween,
+  Input,
   Link,
-  Tabs
+  Multiselect,
+  SpaceBetween,
+  Tabs,
+  Textarea
 } from '@awsui/components-react';
 
-import { useMFApps } from "../../actions/ApplicationsHook";
-import { useGetServers } from "../../actions/ServersHook";
-import { useMFWaves } from "../../actions/WavesHook";
+import {useMFApps} from "../../actions/ApplicationsHook";
+import {useGetServers} from "../../actions/ServersHook";
+import {useMFWaves} from "../../actions/WavesHook";
 import {useAutomationScripts} from "../../actions/AutomationScriptsHook";
 
 import JsonAttribute from "./JsonAttribute";
 import Audit from "./Audit";
 
-import {
-  validateValue,
-  getNestedValuePath, capitalize
-} from '../../resources/main'
+import {capitalize, getNestedValuePath, validateValue} from '../../resources/main'
 
 import {useCredentialManager} from "../../actions/CredentialManagerHook";
 import {useAdminPermissions} from "../../actions/AdminPermissionsHook";
@@ -48,83 +44,115 @@ import DateAttribute from "./DateAttribute";
 import EmbeddedEntityAttribute from "./EmbeddedEntityAttribute";
 import PoliciesAttribute from "./PoliciesAttribute";
 import CheckboxAttribute from "./CheckboxAttribute";
+import {ToolsContext} from "../../contexts/ToolsContext";
+import {Attribute, BaseData, EntitySchema} from "../../models/EntitySchema";
+import {SchemaAccess, UserAccess} from "../../models/UserAccess";
+import {OptionDefinition} from '@awsui/components-react/internal/components/option/interfaces';
 
 const constDefaultGroupName = 'Details';
 
-const AllAttributes = (props) =>
-{
+type AllAttributesParams = {
+  schema: EntitySchema;
+  handleUserInput: (arg0: ({
+    field: string;
+    value: any;
+    validationError?: any;
+  })[]) => void;
+  handleUpdateValidationErrors: (arg0: any[]) => void;
+  item: any;
+  userAccess: UserAccess;
+  schemas: Record<string, EntitySchema>;
+  schemaName: string;
+  hideAudit?: boolean;
+};
+
+// TODO find a descriptive name for this component. what does it do?
+const AllAttributes = (props: AllAttributesParams) => {
+
+  const {setHelpPanelContent} = useContext(ToolsContext);
+
   //Load all related data into the UI for all relationships to work correctly.
   // TODO this is not optimal currently as all data is pulled back, needs update in future to make APIs return related data for a item.
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }] = useMFWaves();
-  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }] = useMFApps();
-  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }] = useGetServers();
-  const [{ isLoading: isLoadingScripts, data: dataScripts, error: errorScripts } ] = useAutomationScripts();
-  const [{ isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets }] = useCredentialManager();
-  const [{ isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases }] = useGetDatabases()
-  const [{ isLoading: permissionsIsLoading, data: permissionsData}] = useAdminPermissions();
+  const [{isLoading: isLoadingWaves, data: dataWaves, error: errorWaves}] = useMFWaves();
+  const [{isLoading: isLoadingApps, data: dataApps, error: errorApps}] = useMFApps();
+  const [{isLoading: isLoadingServers, data: dataServers, error: errorServers}] = useGetServers();
+  const [{isLoading: isLoadingScripts, data: dataScripts, error: errorScripts}] = useAutomationScripts();
+  const [{isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets}] = useCredentialManager();
+  const [{isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases}] = useGetDatabases()
+  const [{isLoading: permissionsIsLoading, data: permissionsData}] = useAdminPermissions();
 
-  const allData = {secret: {data: dataSecrets, isLoading: isLoadingSecrets, error: errorSecrets},script: {data: dataScripts, isLoading: isLoadingScripts, error: errorScripts},database: {data: dataDatabases, isLoading: isLoadingDatabases, error: errorDatabases}, server: {data: dataServers, isLoading: isLoadingServers, error: errorServers}, application: {data: dataApps, isLoading: isLoadingApps, error: errorApps}, wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}};
+  const allData: BaseData = {
+    secret: {data: dataSecrets, isLoading: isLoadingSecrets, error: errorSecrets},
+    script: {data: dataScripts, isLoading: isLoadingScripts, error: errorScripts},
+    database: {data: dataDatabases, isLoading: isLoadingDatabases, error: errorDatabases},
+    server: {data: dataServers, isLoading: isLoadingServers, error: errorServers},
+    application: {data: dataApps, isLoading: isLoadingApps, error: errorApps},
+    wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}
+  };
 
-  const [formValidationErrors, setFormValidationErrors] = useState([]);
+  const [formValidationErrors, setFormValidationErrors] = useState<any[]>([]);
   const [showadvancedpolicy, setShowadvancedpolicy] = useState(false);
 
-  async function handleUserInput(attribute, value, validationError){
+  async function handleUserInput(attribute: Attribute, value: any[], validationError: any) {
 
     let attributes_with_rel_filter = props.schema.attributes.filter(attributeFilter => {
       //this attribute's value is used to filter another select if true.
       return (attribute.name === attributeFilter.source_filter_attribute_name)
     });
 
-    let values = [];
-
-    values.push({
+    let values: {
+      field: string;
+      value: any[];
+      validationError: any
+    }[] = [{
       field: attribute.name,
       value: value,
       validationError: validationError
-    });
+    }];
 
-    for (const attributeFilter of attributes_with_rel_filter){
+    for (const attributeFilter of attributes_with_rel_filter) {
       values.push({
         field: attributeFilter.name,
-        value: []
+        value: [],
+        validationError: null
       });
     }
 
-    await props.handleUserInput(values);
+    props.handleUserInput(values);
 
   }
 
-  function getSelectOptions(entityData, isLoading, attribute, currentRecord) {
+  function getSelectOptions(entityData: any[], isLoading: boolean, attribute: Attribute, currentRecord: any) {
 
     if (isLoading)
       return [];
 
     let dataFiltered = entityData;
-    if ('rel_filter_attribute_name' in attribute && 'source_filter_attribute_name' in attribute){
+    if ('rel_filter_attribute_name' in attribute && 'source_filter_attribute_name' in attribute) {
       dataFiltered = entityData.filter((item) => {
-                                        const rel_value =  getNestedValuePath(item, attribute.rel_filter_attribute_name);
-                                        const source_value = getNestedValuePath(currentRecord, attribute.source_filter_attribute_name);
-                                        return (rel_value === source_value)
-                                      });
+        const rel_value = getNestedValuePath(item, attribute.rel_filter_attribute_name);
+        const source_value = getNestedValuePath(currentRecord, attribute.source_filter_attribute_name);
+        return (rel_value === source_value)
+      });
     }
 
     return dataFiltered.map((item) => {
-                            let tags = [];
-                            if('rel_additional_attributes' in attribute) {
-                              for (const add_attr of attribute.rel_additional_attributes) {
-                                if (add_attr in item){
-                                  tags.push(getNestedValuePath(item, add_attr));
-                                }
-                              }
-                            }
-                            return (
-                              { label: getNestedValuePath(item, attribute.rel_display_attribute), value: getNestedValuePath(item, attribute.rel_key), tags: tags }
-                            )
-                          });
+      let tags = [];
+      if (attribute.rel_additional_attributes) {
+        for (const add_attr of attribute.rel_additional_attributes) {
+          if (add_attr in item) {
+            tags.push(getNestedValuePath(item, add_attr));
+          }
+        }
+      }
+      return (
+        {label: getNestedValuePath(item, attribute.rel_display_attribute), value: getNestedValuePath(item, attribute.rel_key), tags: tags}
+      )
+    });
   }
 
   //Function :   Used to retrieve the options for a select UI component from the related records.
-  function getRelationshipSelect (attribute, currentRecord) {
+  function getRelationshipSelect(attribute: Attribute, currentRecord: any) {
 
     //Get fixed option values for attribute if they have been defined in the 'listvalue' key of the attribute.
     let options = [];
@@ -136,10 +164,10 @@ const AllAttributes = (props) =>
     }
 
     if ('listvalue' in attribute) {
-      options = attribute.listvalue.split(',');
+      options = attribute.listvalue?.split(',') || [];
       options = options.map((item) => {
         return (
-          { label: item, value: item}
+          {label: item, value: item}
         )
       });
     }
@@ -147,22 +175,22 @@ const AllAttributes = (props) =>
     //Get related records list, based on entity.
     switch (attribute.rel_entity) {
       case 'application':
-        listFull = getSelectOptions(dataApps,isLoadingApps,attribute,currentRecord);
+        listFull = getSelectOptions(dataApps, isLoadingApps, attribute, currentRecord);
         break;
       case 'wave':
-        listFull = getSelectOptions(dataWaves,isLoadingWaves,attribute,currentRecord);
+        listFull = getSelectOptions(dataWaves, isLoadingWaves, attribute, currentRecord);
         break;
       case 'server':
-        listFull = getSelectOptions(dataServers,isLoadingServers,attribute,currentRecord);
+        listFull = getSelectOptions(dataServers, isLoadingServers, attribute, currentRecord);
         break;
       case 'script':
-        listFull = getSelectOptions(dataScripts,isLoadingScripts,attribute,currentRecord);
+        listFull = getSelectOptions(dataScripts, isLoadingScripts, attribute, currentRecord);
         break;
       case 'secret':
-        listFull = getSelectOptions(dataSecrets,isLoadingSecrets,attribute,currentRecord);
+        listFull = getSelectOptions(dataSecrets, isLoadingSecrets, attribute, currentRecord);
         break;
       case 'policy':
-        listFull = getSelectOptions(permissionsData.policies,permissionsIsLoading,attribute,currentRecord);
+        listFull = getSelectOptions(permissionsData.policies, permissionsIsLoading, attribute, currentRecord);
         break;
       default:
         return [];
@@ -181,67 +209,66 @@ const AllAttributes = (props) =>
       });
 
       if (!found) {
-        if (listItem.value !== undefined){
+        if (listItem.value !== undefined) {
           listDeduped.push(listItem);
         }
       }
     }
 
     //Return fully populated list.
-    return listDeduped;
-
+    return listFull;
   }
 
-  function updateFormErrorsDisplayedToUser (attribute, errorMsg){
+  function updateFormErrorsDisplayedToUser(attribute: Attribute, errorMsg: any) {
     let existingValidationError = formValidationErrors.filter(function (item) {
       return item.name === attribute.name;
     });
 
     //Error present raise attribute as error.
-    if (existingValidationError.length === 0 && errorMsg !== null){
+    if (existingValidationError.length === 0 && errorMsg !== null) {
       let newValidationErrors = formValidationErrors;
       newValidationErrors.push(attribute);
       setFormValidationErrors(newValidationErrors);
-      if(props.handleUpdateValidationErrors){
+      if (props.handleUpdateValidationErrors) {
         props.handleUpdateValidationErrors(newValidationErrors);
       }
-    } else if (existingValidationError.length === 1 && errorMsg === null){
+    } else if (existingValidationError.length === 1 && errorMsg === null) {
       //Attribute was in error state before update.
       clearAttributeFormError(attribute.name);
     }
   }
 
-  function getAttributeValue(attribute){
+  function getAttributeValue(attribute: Attribute) {
 
     const value = getNestedValuePath(props.item, attribute.name);
 
-    if (value){
+    if (value) {
       return value;
-    } else if (attribute.listMultiSelect){
+    } else if (attribute.listMultiSelect) {
       return [];
     } else {
       return '';
     }
   }
 
-  function isAttributeValueRequired(attribute, item) {
+  function isAttributeValueRequired(attribute: Attribute, item: any) {
     let requiredConditional = false;
 
     if (attribute.conditions) {
       //Evaluate if this attribute has to have a value provided based on conditions of other attribute values.
-      requiredConditional = checkAttributeRequiredConditions(item, attribute.conditions).required
+      requiredConditional = !!checkAttributeRequiredConditions(item, attribute.conditions).required
     }
     return (attribute.required || requiredConditional)
   }
 
-  function isValueSet(value){
-    return !(value.length === 0 || value === '' || value === undefined || value === null)
+  function isValueSet(value: string | any[] | null | undefined) {
+    return !(value?.length === 0 || value === '' || value === undefined || value === null)
   }
 
-  function getErrorMessageMultiValueString(attribute, value){
+  function getErrorMessageMultiValueString(attribute: Attribute, value: any) {
     for (const item of value) {
       const errorMsg = validateValue(item, attribute)
-      if (errorMsg !== null){
+      if (errorMsg !== null) {
         return errorMsg;
       }
     }
@@ -249,14 +276,14 @@ const AllAttributes = (props) =>
     return null;
   }
 
-  function getErrorMessageMultiRelationship(attribute, value){
+  function getErrorMessageMultiRelationship(attribute: Attribute, value: any) {
     let errorMsg = null;
 
     if (attribute.listMultiSelect) {
       for (const itemValue of value) {
         const validationError = validateValue(itemValue, attribute)
         if (validationError === null && itemValue && !attribute?.listvalue?.includes(itemValue)) {
-          const relatedRecord = getRelationshipRecord(allData, attribute, itemValue);
+          const relatedRecord = getRelationshipRecord(attribute, allData, itemValue);
           if (relatedRecord === null || relatedRecord.length === 0) {
             errorMsg = 'Related record not found based on value provided, please check your selections.';
             break;
@@ -268,15 +295,15 @@ const AllAttributes = (props) =>
     return errorMsg;
   }
 
-  function getErrorMessageRelationship(attribute, value){
-    let errorMsg = null;
+  function getErrorMessageRelationship(attribute: Attribute, value: string) {
+    let errorMsg;
     if (attribute.listMultiSelect) {
       errorMsg = getErrorMessageMultiRelationship(attribute, value);
     } else {
       errorMsg = validateValue(value, attribute)
 
-      if (value && !attribute?.listvalue?.includes(value)){
-        let relatedRecord = getRelationshipRecord(allData, attribute, value);
+      if (value && !attribute?.listvalue?.includes(value)) {
+        let relatedRecord = getRelationshipRecord(attribute, allData, value);
         if (relatedRecord === null) {
           errorMsg = 'Related record not found based on value provided, please check your selection.';
         }
@@ -287,9 +314,10 @@ const AllAttributes = (props) =>
     return errorMsg;
   }
 
-  function getErrorMessageList(attribute, value){
+  function getErrorMessageList(attribute: Attribute, value: any) {
     if (attribute.listMultiSelect) {
       for (const valueItem of value) {
+        // TODO what is this supposed to do? the loop always returns on the first item
         return validateValue(valueItem, attribute)
       }
     } else {
@@ -297,7 +325,7 @@ const AllAttributes = (props) =>
     }
   }
 
-  function getErrorMessageJson(attribute, value){
+  function getErrorMessageJson(attribute: Attribute, value: string) {
     if (value) {
       try {
         JSON.parse(value);
@@ -310,7 +338,7 @@ const AllAttributes = (props) =>
     return null;
   }
 
-  function returnErrorMessage (attribute) {
+  function returnErrorMessage(attribute: Attribute) {
 
     let errorMsg = null;
 
@@ -349,30 +377,32 @@ const AllAttributes = (props) =>
 
   }
 
-  function HandleAccessChange(updatedData, schemaName, currentAccess, typeChanged){
+  function handleAccessChange(updatedData: boolean, schemaName: any, currentAccess: any, typeChanged: string) {
 
-    let schemaAccess = currentAccess.filter(schema => {
+    let schemaAccess = currentAccess.filter((schema: {
+      schema_name: any;
+    }) => {
       return schema.schema_name === schemaName
     });
 
-    if (schemaAccess.length > 0 ){
+    if (schemaAccess.length > 0) {
       schemaAccess[0][typeChanged] = updatedData;
 
-      props.handleUserInput({field: 'entity_access', value: currentAccess, validationError: null})
+      props.handleUserInput([{field: 'entity_access', value: currentAccess, validationError: null}])
     } else {
       //Create schema access object.
-      let newSchemaAccess = {
+      let newSchemaAccess: SchemaAccess = {
         "schema_name": schemaName
       };
 
       newSchemaAccess[typeChanged] = updatedData;
 
       currentAccess.push(newSchemaAccess);
-      props.handleUserInput({field: 'entity_access', value: currentAccess, validationError: null})
+      props.handleUserInput([{field: 'entity_access', value: currentAccess, validationError: null}])
     }
   }
 
-  function addPolicyTab(tabsArray, schema) {
+  function addPolicyTab(tabsArray: {}[], schema: EntitySchema) {
     let schemaPolicyTab = {};
     //Add tab for this schema type as not present.
     let tabName = '';
@@ -400,18 +430,20 @@ const AllAttributes = (props) =>
     return schemaPolicyTab;
   }
 
-  function getPolicyTab(tabsArray, schema){
+  function getPolicyTab(tabsArray: any[], schema: EntitySchema) {
 
-    let schemaPolicyTab = tabsArray.find(tab => {return tab.id === schema.schema_type})
+    let schemaPolicyTab = tabsArray.find(tab => {
+      return tab.id === schema.schema_type
+    })
 
-    if (!schemaPolicyTab){
+    if (!schemaPolicyTab) {
       schemaPolicyTab = addPolicyTab(tabsArray, schema)
     }
 
     return schemaPolicyTab;
   }
 
-  function getPolicyPlaceHolderText(policy, schemaName, numberSelected){
+  function getPolicyPlaceHolderText(policy: any, schemaName: string, numberSelected: string | number) {
     // policy ? numItemsSelected == 0 ? "Select " + ' editable ' + schemaName + ' attributes' : numItemsSelected + ' editable ' + schemaName + ' attributes' + ' selected' : "Select " + ' editable ' + schemaName + ' attributes'
     if (policy) {
       if (numberSelected === 0) {
@@ -419,13 +451,13 @@ const AllAttributes = (props) =>
       } else {
         return numberSelected + ' editable ' + schemaName + ' attributes' + ' selected'
       }
-    }else {
+    } else {
       return 'Select editable ' + schemaName + ' attributes'
     }
   }
 
-  function getSchemaAccessPolicy(policy, schemaName){
-    let schemaAccess = {};
+  function getSchemaAccessPolicy(policy: any[], schemaName: string) {
+    let schemaAccess: any = {};
 
     schemaAccess = policy.filter(schema => {
       return schema.schema_name === schemaName
@@ -440,10 +472,10 @@ const AllAttributes = (props) =>
     return schemaAccess;
   }
 
-  function getSelectedAttributes(schemaAccess){
+  function getSelectedAttributes(schemaAccess: Record<string, any>) {
 
     if (schemaAccess['attributes']) {
-      return schemaAccess['attributes'].map(valueItem => {
+      return schemaAccess['attributes'].map((valueItem: any) => {
         return {label: valueItem.attr_name, value: valueItem.attr_name}
       });
     } else {
@@ -451,16 +483,27 @@ const AllAttributes = (props) =>
     }
   }
 
-  function getSchemaDisplayName(schema){
+  function getSchemaDisplayName(schema: EntitySchema) {
 
-    if (schema?.friendly_name){
+    if (schema?.friendly_name) {
       return schema.friendly_name;
     }
 
     return capitalize(schema.schema_name);
   }
 
-  function addSchemaAccessPolicyEditor(schema, policy, schemaAccessPolicy, selectedAttributes, availableAttributes){
+  function addSchemaAccessPolicyEditor(
+    schema: EntitySchema,
+    policy: any,
+    schemaAccessPolicy: {
+      create: boolean;
+      read: boolean;
+      update: boolean;
+      delete: boolean;
+    },
+    selectedAttributes: OptionDefinition[],
+    availableAttributes: any
+  ) {
     return <Container
       header={<Header variant="h2" description="Schema access permissions.">{getSchemaDisplayName(schema)}</Header>}>
       <SpaceBetween size="l">
@@ -472,28 +515,28 @@ const AllAttributes = (props) =>
             <Checkbox
               checked={schemaAccessPolicy.create}
               onChange={event => (
-                HandleAccessChange(event.detail.checked, schema.schema_name, policy, 'create'))}
+                handleAccessChange(event.detail.checked, schema.schema_name, policy, 'create'))}
             >
               Create
             </Checkbox>
             <Checkbox
               checked={schemaAccessPolicy.read}
               onChange={event => (
-                HandleAccessChange(event.detail.checked, schema.schema_name, policy, 'read'))}
+                handleAccessChange(event.detail.checked, schema.schema_name, policy, 'read'))}
             >
               Read
             </Checkbox>
             <Checkbox
               checked={schemaAccessPolicy.update}
               onChange={event => (
-                HandleAccessChange(event.detail.checked, schema.schema_name, policy, 'update'))}
+                handleAccessChange(event.detail.checked, schema.schema_name, policy, 'update'))}
             >
               Update
             </Checkbox>
             <Checkbox
               checked={schemaAccessPolicy.delete}
               onChange={event => (
-                HandleAccessChange(event.detail.checked, schema.schema_name, policy, 'delete'))}
+                handleAccessChange(event.detail.checked, schema.schema_name, policy, 'delete'))}
             >
               Delete
             </Checkbox>
@@ -508,31 +551,38 @@ const AllAttributes = (props) =>
             >
               <Multiselect
                 selectedOptions={selectedAttributes}
-                onChange={event => HandleAccessChange(
-                  event.detail.selectedOptions.find(valueItem => {
+                onChange={event => {
+                  const updatedData = event.detail.selectedOptions.find(valueItem => {
                     return valueItem.value === '__system_all'
                   }) // if All selected by user then override other selections and add all items.
                     ?
-                    availableAttributes.filter(valueItem => {
+                    availableAttributes.filter((valueItem: {
+                      value: string;
+                    }) => {
                       return valueItem.value !== '__system_all'
                     })  // remove __system_all from the list as only used to select all.
-                      .map(valueItem => {
+                      .map((valueItem: {
+                        value: any;
+                      }) => {
                         return {attr_type: schema.schema_name, attr_name: valueItem.value}
                       }) // get all values to store in record, without labels and tags.
                     :
                     event.detail.selectedOptions.map(valueItem => {
                       return {attr_type: schema.schema_name, attr_name: valueItem.value}
-                    })
-                  , schema.schema_name
-                  , policy
-                  , 'attributes'
-                )}
+                    });
+                  return handleAccessChange(
+                    updatedData
+                    , schema.schema_name
+                    , policy
+                    , 'attributes'
+                  );
+                }}
                 loadingText={""}
                 statusType={undefined}
                 options={availableAttributes}
                 selectedAriaLabel={'selected'}
                 filteringType="auto"
-                placeholder={getPolicyPlaceHolderText(policy, schema.schema_name,selectedAttributes.length)}
+                placeholder={getPolicyPlaceHolderText(policy, schema.schema_name, selectedAttributes.length)}
               />
             </FormField>
             :
@@ -542,9 +592,12 @@ const AllAttributes = (props) =>
     </Container>
   }
 
-  function addAutomationAccessEditor(schema, policy, schemaAccessPolicy){
+  function addAutomationAccessEditor(schema: EntitySchema, policy: any, schemaAccessPolicy: {
+    create: boolean;
+  }) {
     return <Container
-      header={<Header variant="h2" description={schema.description ? schema.description : 'Automation access permissions.'}>{getSchemaDisplayName(schema)}</Header>}>
+      header={<Header variant="h2"
+                      description={schema.description ? schema.description : 'Automation access permissions.'}>{getSchemaDisplayName(schema)}</Header>}>
       <SpaceBetween size="l">
         <FormField
           label={'Access to submit automation jobs'}
@@ -554,7 +607,7 @@ const AllAttributes = (props) =>
             <Checkbox
               checked={schemaAccessPolicy.create}
               onChange={event => (
-                HandleAccessChange(event.detail.checked, schema.schema_name, policy, 'create'))}
+                handleAccessChange(event.detail.checked, schema.schema_name, policy, 'create'))}
             >
               Submit
             </Checkbox>
@@ -565,7 +618,7 @@ const AllAttributes = (props) =>
   }
 
 
-  function getSelectableAttributes(schema, isMultiSelect){
+  function getSelectableAttributes(schema: EntitySchema, isMultiSelect?: boolean) {
     let availableAttributes = []
 
     if (isMultiSelect) {
@@ -581,11 +634,11 @@ const AllAttributes = (props) =>
     return availableAttributes;
   }
 
-  function getPolicy(schemas, attribute, currentPolicy){
+  function getPolicy(schemas: Record<string, EntitySchema>, attribute: Attribute, currentPolicy: any[], index: number) {
 
-    let policyUITabs = [];
+    let policyUITabs: any[] = [];
 
-    for (const schemaName in schemas){
+    for (const schemaName in schemas) {
       //Do not display edit for the following schemas as this will be made available in future releases.
 
       if (schemas[schemaName].schema_type === 'system' && !showadvancedpolicy) {
@@ -596,10 +649,10 @@ const AllAttributes = (props) =>
       if (!currentPolicy) {
         ///No access settings, could be a new record/currentPolicy, provide default access settings.
         currentPolicy = []
-        props.handleUserInput({field: 'entity_access', value: currentPolicy, validationError: null})
+        props.handleUserInput([{field: 'entity_access', value: currentPolicy, validationError: null}])
       }
 
-      let schemaAccessPolicy = getSchemaAccessPolicy(currentPolicy,schemaName);
+      let schemaAccessPolicy = getSchemaAccessPolicy(currentPolicy, schemaName);
 
       let selectedAttributes = getSelectedAttributes(schemaAccessPolicy);
 
@@ -616,7 +669,7 @@ const AllAttributes = (props) =>
             availableAttributes
           )
         )
-      } else if (schemas[schemaName].schema_type === 'automation' && schemas[schemaName].actions.length > 0){
+      } else if (schemas[schemaName].schema_type === 'automation' && schemas[schemaName]?.actions?.length) {
         tabSchemaType.content.push(
           addAutomationAccessEditor(
             schemas[schemaName],
@@ -627,7 +680,7 @@ const AllAttributes = (props) =>
       }
     }
 
-    return <SpaceBetween size="l">
+    return <SpaceBetween size="l" key={`policy-tabs-${index}`}>
       <Tabs
         tabs={policyUITabs}
         // variant="container"
@@ -644,18 +697,19 @@ const AllAttributes = (props) =>
   }
 
   //If attribute passed has a help_content key then the info link will be displayed.
-  function displayHelpInfoLink(attribute){
+  function displayHelpInfoLink(attribute: Attribute) {
 
-    if (attribute.help_content){
-      return <Link variant="info" onFollow={() => props.setHelpPanelContent(attribute.help_content, false)}>Info</Link>
+    if (attribute.help_content) {
+      return <Link variant="info" key={'help-link'}
+                   onFollow={() => setHelpPanelContent(attribute.help_content, false)}>Info</Link>
     } else {
       return undefined;
     }
   }
 
-  function compareGroupOrder(a, b){
-    if(a.group_order && b.group_order) {
-      if (a.group_order === b.group_order){
+  function compareGroupOrder(a: Attribute, b: Attribute) {
+    if (a.group_order && b.group_order) {
+      if (a.group_order === b.group_order) {
         return 0;
       } else {
         return parseInt(a.group_order) < parseInt(b.group_order) ? -1 : 1;
@@ -668,29 +722,32 @@ const AllAttributes = (props) =>
     return undefined;
   }
 
-  function compareAttrDescription(a, b){
-    if (a.description && b.description){
+  function compareAttrDescription(
+    a: {
+      description: string;
+    }, b: {
+      description: any;
+    }) {
+    if (a.description && b.description) {
       return a.description.localeCompare(b.description);
-    }
-    else if (!a.description && b.description){
+    } else if (!a.description && b.description) {
       return -1;
-    }
-    else if (a.description && !b.description) {
+    } else if (a.description && !b.description) {
       return 1;
     }
 
     return undefined;
   }
 
-  function compareAttributes(a,b) {
+  function compareAttributes(a: Attribute, b: Attribute) {
     //Ensure that attributes with an order defined get priority.
     const groupOrder = compareGroupOrder(a, b);
-    if (groupOrder !== undefined){
+    if (groupOrder !== undefined) {
       return groupOrder;
     }
 
     const descriptionOrder = compareAttrDescription(a, b);
-    if (descriptionOrder !== undefined){
+    if (descriptionOrder !== undefined) {
       return descriptionOrder;
     }
 
@@ -699,14 +756,14 @@ const AllAttributes = (props) =>
   }
 
   // Verify that the current access policy allows update to the attribute.
-  function isReadOnly(schema, userAccess, attribute){
+  function isReadOnly(schema: EntitySchema, userAccess: UserAccess, attribute: Attribute) {
     const schemaName = schema?.schema_name === 'app' ? 'application' : schema?.schema_name;
 
     if ((!userAccess[schemaName]) || (userAccess[schemaName].create && (attribute.required || schema.schema_type === 'automation'))) {
       //Any required attributes will be available if the user has the create permission.
       return false
     } else {
-      for (const attr_access of userAccess[schemaName].attributes) {
+      for (const attr_access of userAccess[schemaName].attributes ?? []) {
         if (attr_access.attr_name === attribute.name && (userAccess[schemaName].create || userAccess[schemaName].update)) {
           return false
         }
@@ -717,11 +774,11 @@ const AllAttributes = (props) =>
     return true;
   }
 
-  function clearAttributeFormError(attributeName) {
+  function clearAttributeFormError(attributeName: string) {
     let newValidationErrors = formValidationErrors.filter(item => {
       return item.name !== attributeName;
     });
-    if (newValidationErrors.length > 0){
+    if (newValidationErrors.length > 0) {
       setFormValidationErrors(newValidationErrors);
       if (props.handleUpdateValidationErrors) {
         props.handleUpdateValidationErrors(newValidationErrors);
@@ -729,30 +786,25 @@ const AllAttributes = (props) =>
     } else {
       //Last error removed.
       setFormValidationErrors([]);
-      if(props.handleUpdateValidationErrors){
+      if (props.handleUpdateValidationErrors) {
         props.handleUpdateValidationErrors([]);
       }
 
     }
   }
 
-  function getKeyString(attribute) {
-    if (attribute.description) {
-      return attribute.description;
-    } else {
-      return attribute.name;
-    }
+  function getDisplayLabel(attribute: Attribute) {
+    const text = attribute.description || attribute.name;
+    return <SpaceBetween
+      direction='horizontal'
+      size='xs'>
+      <span key={'text'}>{text}</span>
+      {displayHelpInfoLink(attribute)}
+    </SpaceBetween>
+
   }
 
-  function getDisplayLabel(attribute) {
-    if (attribute.description){
-      return <SpaceBetween direction='horizontal' size='xs'>{attribute.description}{displayHelpInfoLink(attribute)} </SpaceBetween>
-    } else {
-      return <SpaceBetween direction='horizontal' size='xs'>{attribute.name}{displayHelpInfoLink(attribute)} </SpaceBetween>
-    }
-  }
-
-  function getDisplayValue(attribute, item, emptyValue = ''){
+  function getDisplayValue(attribute: Attribute, item: any, emptyValue = '') {
     const attributeValue = getNestedValuePath(item, attribute.name)
 
     if (attributeValue) {
@@ -762,19 +814,19 @@ const AllAttributes = (props) =>
     }
   }
 
-  function isAttributeHidden(attribute, item) {
+  function isAttributeHidden(attribute: Attribute, item: any) {
     const checkConditions = checkAttributeRequiredConditions(item, attribute.conditions);
 
     return ((!attribute.hidden && checkConditions.hidden === null) || (checkConditions.hidden === false));
   }
 
-  function buildAttributeUI(attributes){
+  function buildAttributeUI(attributes: Attribute[]) {
 
     attributes = attributes.sort(compareAttributes)
 
-    return attributes.map((attribute) => {
+    return attributes.map((attribute, index) => {
       if (isAttributeHidden(attribute, props.item)) {
-        let validationError = null;
+        let validationError: any = null;
 
         //Check if user has update rights to attribute.
         let attributeReadOnly = isReadOnly(props.schema, props.userAccess, attribute)
@@ -782,35 +834,38 @@ const AllAttributes = (props) =>
         switch (attribute.type) {
           case 'checkbox':
             return <CheckboxAttribute
-                attribute={attribute}
-                isReadonly={attributeReadOnly}
-                value={getNestedValuePath(props.item, attribute.name)}
-                handleUserInput={props.handleUserInput}
-                displayHelpInfoLink={displayHelpInfoLink}
-              />
+              attribute={attribute}
+              isReadonly={attributeReadOnly}
+              value={getNestedValuePath(props.item, attribute.name)}
+              handleUserInput={props.handleUserInput}
+              displayHelpInfoLink={displayHelpInfoLink}
+            />
           case 'multivalue-string':
             validationError = returnErrorMessage(attribute)
             return (
               <MultiValueStringAttribute
-              attribute={attribute}
-              isReadonly={attributeReadOnly}
-              value={getNestedValuePath(props.item, attribute.name) ? getNestedValuePath(props.item, attribute.name).join('\n') : ''}
-              errorText={validationError}
-              handleUserInput={props.handleUserInput}
-              displayHelpInfoLink={displayHelpInfoLink}
-            />
+                key={"item-" + index}
+                attribute={attribute}
+                isReadonly={attributeReadOnly}
+                value={getNestedValuePath(props.item, attribute.name) ? getNestedValuePath(props.item, attribute.name).join('\n') : ''}
+                errorText={validationError}
+                handleUserInput={props.handleUserInput}
+                displayHelpInfoLink={displayHelpInfoLink}
+              />
             )
           case 'textarea':
             validationError = returnErrorMessage(attribute)
             return (
               <FormField
-                key={attribute.name}
+                key={"item-" + index}
                 label={getDisplayLabel(attribute)}
                 description={attribute.long_desc}
                 errorText={validationError}
               >
                 <Textarea
-                  onChange={event => props.handleUserInput({field: attribute.name, value: event.detail.value, validationError: validationError})}
+                  onChange={event => props.handleUserInput(
+                    [{field: attribute.name, value: event.detail.value, validationError: validationError}]
+                  )}
                   value={getNestedValuePath(props.item, attribute.name)}
                   disabled={attributeReadOnly}
                 />
@@ -818,9 +873,9 @@ const AllAttributes = (props) =>
             )
           case 'json':
             validationError = returnErrorMessage(attribute)
-            return(
+            return (
               <JsonAttribute
-                key={attribute.name}
+                key={"item-" + index}
                 attribute={attribute}
                 item={getNestedValuePath(props.item, attribute.name)}
                 handleUserInput={props.handleUserInput}
@@ -849,8 +904,8 @@ const AllAttributes = (props) =>
               schemas={props.schemas}
               attribute={attribute}
               isReadonly={attributeReadOnly}
-              value={getRelationshipValue(allData, attribute, getNestedValuePath(props.item, attribute.name))}
-              record={getRelationshipRecord(allData, attribute, getNestedValuePath(props.item, attribute.name))}
+              value={getRelationshipValue(attribute, allData, getNestedValuePath(props.item, attribute.name))}
+              record={getRelationshipRecord(attribute, allData, getNestedValuePath(props.item, attribute.name))}
               errorText={returnErrorMessage(attribute)}
               options={getRelationshipSelect(attribute, props.item)}
               handleUserInput={handleUserInput}
@@ -861,7 +916,7 @@ const AllAttributes = (props) =>
             let value = getNestedValuePath(props.item, attribute.name)
 
             return (
-              getPolicy(props.schemas,attribute, value)
+              getPolicy(props.schemas, attribute, value, index)
             )
           }
           case 'groups':
@@ -889,12 +944,11 @@ const AllAttributes = (props) =>
               parentSchemaType={props.schema.schema_type}
               parentSchemaName={props.schemaName}
               parentUserAccess={props.userAccess}
-              embeddedEntitySchema={getRelationshipValue(allData, attribute, getNestedValuePath(props.item, attribute.lookup))}
+              embeddedEntitySchema={getRelationshipValue(attribute, allData, getNestedValuePath(props.item, attribute.lookup))}
               embeddedItem={props.item}
               handleUpdateValidationErrors={props.handleUpdateValidationErrors}
               attribute={attribute}
               handleUserInput={props.handleUserInput}
-              displayHelpInfoLink={displayHelpInfoLink}
             />
           case 'date':
             return <DateAttribute
@@ -909,14 +963,16 @@ const AllAttributes = (props) =>
             validationError = returnErrorMessage(attribute)
             return (
               <FormField
-                key={attribute.name}
+                key={"item-" + index}
                 label={getDisplayLabel(attribute)}
                 description={attribute.long_desc}
                 errorText={validationError}
               >
                 <Input
                   value={getDisplayValue(attribute, props.item)}
-                  onChange={event => props.handleUserInput({field: attribute.name, value: event.detail.value, validationError: validationError})}
+                  onChange={event => props.handleUserInput([
+                    {field: attribute.name, value: event.detail.value, validationError: validationError}
+                  ])}
                   type="password"
                   disabled={attributeReadOnly}
                 />
@@ -925,21 +981,21 @@ const AllAttributes = (props) =>
           default:
             validationError = returnErrorMessage(attribute)
             return (
-              <>
-                <FormField
-                  key={getKeyString(attribute)}
-                  label={getDisplayLabel(attribute)}
-                  description={attribute.long_desc}
-                  errorText={validationError}
-                >
-                  <Input
-                    value={getDisplayValue(attribute, props.item)}
-                    onChange={event => props.handleUserInput({field: attribute.name, value: event.detail.value, validationError: validationError})}
-                    disabled={attributeReadOnly}
-                    ariaLabel={attribute.name}
-                  />
-                </FormField>
-              </>
+              <FormField
+                key={"item-" + index}
+                label={getDisplayLabel(attribute)}
+                description={attribute.long_desc}
+                errorText={validationError}
+              >
+                <Input
+                  value={getDisplayValue(attribute, props.item)}
+                  onChange={event => props.handleUserInput([
+                    {field: attribute.name, value: event.detail.value, validationError: validationError}
+                  ])}
+                  disabled={attributeReadOnly}
+                  ariaLabel={attribute.name}
+                />
+              </FormField>
             )
         }
 
@@ -951,7 +1007,7 @@ const AllAttributes = (props) =>
         });
 
 
-        if (existingValidationError.length === 1){
+        if (existingValidationError.length === 1) {
           //Error present remove as attribute no longer visible.
           clearAttributeFormError(attribute.name);
         }
@@ -960,40 +1016,37 @@ const AllAttributes = (props) =>
     });
   }
 
-  function compareGroupsByName (a, b) {
+  function compareGroupsByName(a: any, b: any) {
     //Always have default group first in UI.
-    if(a.name === constDefaultGroupName){
+    if (a.name === constDefaultGroupName) {
       return -1;
     }
 
-
-    if (a.name && b.name){
+    if (a.name && b.name) {
       return a.name.localeCompare(b.name);
-    }
-    else if (!a.name && b.name){
+    } else if (!a.name && b.name) {
       return -1;
-    }
-    else if (a.name && !b.name) {
+    } else if (a.name && !b.name) {
       return 1;
     }
   }
 
-  function addAttributeToGroup(attribute, groups, groupName){
+  function addAttributeToGroup(attribute: Attribute, groups: any[], groupName: string) {
     let existingGroup = groups.find(o => o.name === groupName);
-    if(!existingGroup){
+    if (!existingGroup) {
       groups.push({name: groupName, attributes: [attribute]});
     } else {
       existingGroup.attributes.push(attribute);
     }
   }
 
-  function buildAttributeGroups(schema){
+  function buildAttributeGroups(schema: any) {
 
-    let groups = [];
+    let groups: any[] = [];
 
-    for (const attribute of schema){
+    for (const attribute of schema) {
 
-      if (attribute.group){
+      if (attribute.group) {
         addAttributeToGroup(attribute, groups, attribute.group)
       } else {
         addAttributeToGroup(attribute, groups, constDefaultGroupName)
@@ -1006,26 +1059,26 @@ const AllAttributes = (props) =>
   }
 
 
-  function buildFinalUI(schema) {
+  function buildFinalUI(schema: EntitySchema) {
 
-    if (!schema.attributes){
+    if (!schema.attributes) {
       return [];
     }
     let groupedAttrs = buildAttributeGroups(schema.attributes);
 
     //Create containers for each group of attributes.
-    let allContainers = groupedAttrs.map((item) => {
+    let allContainers = groupedAttrs.map((item, index) => {
       let group = buildAttributeUI(item.attributes)
       let allNull = true;
 
-      for (const attr of group){
+      for (const attr of group) {
         if (attr)
           allNull = false
       }
       //Only show group container if at least one attribute is visible.
       if (!allNull) {
         return (
-          <Container key={item.name} header={<Header variant="h2">{item.name}</Header>}>
+          <Container header={<Header variant="h2">{item.name}</Header>}>
             <SpaceBetween size="l">
               {group}
             </SpaceBetween>
@@ -1038,7 +1091,7 @@ const AllAttributes = (props) =>
 
     if (!props.hideAudit) {
       allContainers.push(
-        <Container header={<Header variant="h2">Audit</Header>}>
+        <Container key={allContainers.length + 1} header={<Header variant="h2">Audit</Header>}>
           <Audit item={props.item}/>
         </Container>
       );

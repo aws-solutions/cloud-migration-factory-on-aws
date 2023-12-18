@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -7,51 +6,51 @@
 import React, {useEffect, useState} from "react";
 import SideNavigation from "@awsui/components-react/side-navigation";
 import {capitalize} from "../resources/main";
-import {useLocation, useNavigate} from "react-router-dom";
+import {To, useLocation, useNavigate} from "react-router-dom";
 
 
-function ServiceNavigation(props) {
+interface ServiceNavigationProps {
+  userGroups?: string[];
+  schemaMetadata?: any[];
+}
+
+function ServiceNavigation(props: ServiceNavigationProps) {
+
   let navigate = useNavigate();
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState<any[]>([]);
   let location = useLocation()
 
   // If the provided link is empty, do not redirect pages
-  function onFollowHandler(ev) {
+  function onFollowHandler(ev: { preventDefault: () => void; detail: { href: To; }; }) {
     ev.preventDefault();
     if (ev.detail.href) {
       navigate(ev.detail.href);
     }
   }
 
-  useEffect( () => {
+  useEffect(() => {
 
     let navItems = [];
 
-    if (props.userGroups){
-      if (props.userGroups.includes("admin")){
-        navItems = itemsAdmin;
-      } else
-      {
-        navItems = itemsUser;
-      }
+    if (props.userGroups?.includes("admin")) {
+      navItems = itemsAdmin;
     } else {
-      //Default to user items only.
       navItems = itemsUser;
     }
 
     let navSchemaItems = []
-    if( props.schemaMetadata ) {
-      if (props.schemaMetadata.length > 0){
+    if (props.schemaMetadata) {
+      if (props.schemaMetadata.length > 0) {
         //Add user schemas to the navigation.
 
-        for (const schema of props.schemaMetadata){
+        for (const schema of props.schemaMetadata) {
           if (schema['schema_type'] === 'user')  //Only add user schemas to navigation.
           {
-            navSchemaItems.push({ type: "link", text: schema['friendly_name'] ? schema['friendly_name'] : capitalize(schema['schema_name']), href: '/' + schema['schema_name'] + 's' })
+            navSchemaItems.push({type: "link", text: schema['friendly_name'] ? schema['friendly_name'] : capitalize(schema['schema_name']), href: '/' + schema['schema_name'] + 's'})
           }
         }
-        navSchemaItems.push({ type: "link", text: "Import", href: "/import" });
-        navSchemaItems.push({ type: "link", text: "Export", href: "/export" });
+        navSchemaItems.push({type: "link", text: "Import", href: "/import"});
+        navSchemaItems.push({type: "link", text: "Export", href: "/export"});
 
         navItems[1].items = navSchemaItems;
       }
@@ -63,7 +62,7 @@ function ServiceNavigation(props) {
 
   return (
     <SideNavigation
-      header={{ text: "Migration Factory", href: "/" }}
+      header={{text: "Migration Factory", href: "/"}}
       items={items}
       activeHref={`${location.pathname}`}
       onFollow={onFollowHandler}
@@ -71,30 +70,30 @@ function ServiceNavigation(props) {
   );
 }
 
+const env = (window as any).env;
 const itemsUser = [
   {
     type: "section",
     text: "Overview",
-    items: [{ type: "link", text: "Dashboard", href: "/" }],
+    items: [{type: "link", text: "Dashboard", href: "/"}],
   },
   {
     type: "section",
     text: "Migration Management",
-    items: [
-    ],
+    items: [],
   },
   {
     type: "section",
     text: "Automation",
     items: [
-      { type: "link", text: "Jobs", href: "/automation/jobs" },
-      { type: "link", text: "Scripts", href: "/automation/scripts" },
+      {type: "link", text: "Jobs", href: "/automation/jobs"},
+      {type: "link", text: "Scripts", href: "/automation/scripts"},
     ],
   },
-  { type: "divider" },
+  {type: "divider"},
   {
     type: "link",
-    text: "VERSION_UI" in window.env ? "Version: " + window.env.VERSION_UI : null,
+    text: "VERSION_UI" in env ? "Version: " + env.VERSION_UI : null,
   },
 ];
 
@@ -102,20 +101,19 @@ const itemsAdmin = [
   {
     type: "section",
     text: "Overview",
-    items: [{ type: "link", text: "Dashboard", href: "/" }],
+    items: [{type: "link", text: "Dashboard", href: "/"}],
   },
   {
     type: "section",
     text: "Migration Management",
-    items: [
-    ],
+    items: [],
   },
   {
     type: "section",
     text: "Automation",
     items: [
-      { type: "link", text: "Jobs", href: "/automation/jobs" },
-      { type: "link", text: "Scripts", href: "/automation/scripts" },
+      {type: "link", text: "Jobs", href: "/automation/jobs"},
+      {type: "link", text: "Scripts", href: "/automation/scripts"},
     ],
   },
   {
@@ -123,8 +121,8 @@ const itemsAdmin = [
     text: "Administration",
     //defaultExpanded: false,
     items: [
-      { type: "link", text: "Permissions", href: "/admin/policy" },
-      { type: "link", text: "Attributes", href: "/admin/attribute" },
+      {type: "link", text: "Permissions", href: "/admin/policy"},
+      {type: "link", text: "Attributes", href: "/admin/attribute"},
       {
         type: "link",
         text: "Credential Manager",
@@ -132,10 +130,10 @@ const itemsAdmin = [
       },
     ],
   },
-  { type: "divider" },
+  {type: "divider"},
   {
     type: "link",
-    text: "VERSION_UI" in window.env ? "Version: " + window.env.VERSION_UI : null,
+    text: "VERSION_UI" in env ? "Version: " + env.VERSION_UI : null,
   },
 ];
 

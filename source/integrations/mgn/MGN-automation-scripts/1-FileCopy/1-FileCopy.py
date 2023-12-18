@@ -30,12 +30,12 @@ def upload_files(host, username, key_pwd, using_key, local_file_path):
         if os.path.isfile(file_path):
             filename = file_path.split("/")
             filename = filename[-1]
-            ftp.put(file_path, '/tmp/copy_ce_files/' + filename)  # nosec B108
+            ftp.put(file_path, '/tmp/copy_ce_files/' + filename)  # //NOSONAR nosec B108
         else:
             for file in os.listdir(local_file_path):
                 file_path = os.path.join(local_file_path, file)
                 if os.path.isfile(file_path):
-                    ftp.put(file_path, '/tmp/copy_ce_files/' + file)  # nosec B108
+                    ftp.put(file_path, '/tmp/copy_ce_files/' + file)  # //NOSONAR nosec B108
                 else:
                     print('ignoring the subdirectories... ' + file_path)
         ssh.exec_command(
@@ -72,10 +72,11 @@ def main(arguments):
 
     print("")
     print("*Login to Migration factory*")
-    token = mfcommon.Factorylogin()
+    token = mfcommon.factory_login()
 
     print("*Getting Server List*")
-    get_servers, linux_exist, windows_exist = mfcommon.get_factory_servers(args.Waveid, token, True, 'Rehost')
+    get_servers, linux_exist, windows_exist = mfcommon.get_factory_servers(
+        args.Waveid, token, True, 'Rehost')
 
     print("")
     print("*************************************")
@@ -91,8 +92,8 @@ def main(arguments):
             for account in get_servers:
                 if len(account["servers_windows"]) > 0:
                     for server in account["servers_windows"]:
-                        windows_credentials = mfcommon.getServerCredentials('', '', server, args.SecretWindows,
-                                                                            args.NoPrompts)
+                        windows_credentials = mfcommon.get_server_credentials('', '', server, args.SecretWindows,
+                                                                              args.NoPrompts)
                         if windows_credentials['username'] != "":
                             if "\\" not in windows_credentials['username'] and "@" not in windows_credentials[
                                 'username']:
@@ -131,8 +132,8 @@ def main(arguments):
             for account in get_servers:
                 if len(account["servers_linux"]) > 0:
                     for server in account["servers_linux"]:
-                        linux_credentials = mfcommon.getServerCredentials(linux_user_name, linux_pass_key, server,
-                                                                          args.SecretLinux, args.NoPrompts)
+                        linux_credentials = mfcommon.get_server_credentials(linux_user_name, linux_pass_key, server,
+                                                                            args.SecretLinux, args.NoPrompts)
                         err_reason = upload_files(server['server_fqdn'], linux_credentials['username'],
                                                   linux_credentials['password'], linux_credentials['private_key'],
                                                   args.LinuxSource)

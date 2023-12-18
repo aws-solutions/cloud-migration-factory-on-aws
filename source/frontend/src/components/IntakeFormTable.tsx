@@ -5,32 +5,28 @@
  */
 
 /************************************************************************
-                            DISCLAIMER
+ DISCLAIMER
 
-This is just a playground package. It does not comply with best practices
-of using AWS-UI components. For production code, follow the integration
-guidelines:
+ This is just a playground package. It does not comply with best practices
+ of using AWS-UI components. For production code, follow the integration
+ guidelines:
 
-https://polaris.a2z.com/develop/integration/react/
-************************************************************************/
-import React, { useState } from 'react';
+ https://polaris.a2z.com/develop/integration/react/
+ ************************************************************************/
+import React, {useState} from 'react';
+
+import {Box, Button, CollectionPreferences, Pagination, Table, TextFilter} from '@awsui/components-react';
 
 import {
-  Box,
-  Button,
-  CollectionPreferences,
-  Pagination,
-  TextFilter,
-  Table
-} from '@awsui/components-react';
-
- import {
-  PAGE_SELECTOR_OPTIONS,
-  DEFAULT_PREFERENCES, getColumnDefinitions, getContentSelectorOptions
+  DEFAULT_PREFERENCES,
+  getColumnDefinitions,
+  getContentSelectorOptions,
+  PAGE_SELECTOR_OPTIONS
 } from '../resources/intakeform-table-config';
 
-import { useCollection } from '@awsui/collection-hooks';
+import {useCollection} from '@awsui/collection-hooks';
 import TableHeader from './TableHeader';
+import {filterCounter, headerCounter} from "../utils/table-utils";
 
 const IntakeFormTable = (props) => {
 
@@ -62,17 +58,6 @@ const IntakeFormTable = (props) => {
       }
     }
   );
-
-  // Keeps track of how many applications are selected
-  function headerCounter(selectedApps, applications) {
-    return selectedApps.length
-      ? `(${selectedApps.length} of ${applications.length})`
-      : `(${applications.length})`;
-  }
-
-  function filterCounter(count) {
-    return `${count} ${count === 1 ? 'match' : 'matches'}`;
-  }
 
   async function handleOnRowClick(detail) {
 

@@ -10,7 +10,6 @@ import time
 import boto3
 from moto import mock_athena
 from test_common_utils import LambdaContextFnArn, test_account_id
-import test_common_utils
 from test_common_utils import logger, default_mock_os_environ
 
 

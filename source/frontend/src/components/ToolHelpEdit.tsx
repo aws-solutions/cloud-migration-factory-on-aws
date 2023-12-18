@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -6,8 +5,14 @@
 
 import {FormField, Input, SpaceBetween, TagEditor, Textarea} from "@awsui/components-react";
 import React from "react";
+import {HelpContent, Tag} from "../models/HelpContent";
 
-const ToolHelpEdit = ({editingSchemaInfoHelpTemp, handleUserInputEditSchemaHelp}) => {
+interface ToolHelpEditParams {
+  editingSchemaInfoHelpTemp: HelpContent | undefined,
+  handleUserInputEditSchemaHelp: (key: 'header' | 'content' | 'content_links' | 'content_html', value: string | Tag[]) => void
+}
+
+const ToolHelpEdit = ({editingSchemaInfoHelpTemp, handleUserInputEditSchemaHelp}: ToolHelpEditParams) => {
 
   if (editingSchemaInfoHelpTemp) {
     return <SpaceBetween direction={'vertical'} size={'xxl'}>
@@ -98,8 +103,8 @@ const ToolHelpEdit = ({editingSchemaInfoHelpTemp, handleUserInputEditSchemaHelp}
             enteredKeyLabel: key => 'Use "' + key + '"',
             enteredValueLabel: value => 'Use "' + value + '"'
           }}
-          tags={editingSchemaInfoHelpTemp.content_links ? editingSchemaInfoHelpTemp.content_links : []}
-          onChange={({detail}) => handleUserInputEditSchemaHelp('content_links', detail.tags)}
+          tags={editingSchemaInfoHelpTemp.content_links ?? []}
+          onChange={({detail}) => handleUserInputEditSchemaHelp('content_links', detail.tags as Tag[])}
         />
       </FormField>
     </SpaceBetween>

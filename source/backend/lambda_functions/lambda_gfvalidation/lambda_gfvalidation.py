@@ -3,30 +3,21 @@
 
 
 from __future__ import print_function
-import boto3
-import sys
 import os
 import json
 from policy import MFAuth
 
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
+import cmf_boto
+from cmf_utils import cors, default_http_headers
 
-default_http_headers = {
-    'Access-Control-Allow-Origin': cors,
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy': "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
-}
 application = os.environ['application']
 environment = os.environ['environment']
 servers_table_name = '{}-{}-servers'.format(application, environment)
 apps_table_name = '{}-{}-apps'.format(application, environment)
 waves_table_name = '{}-{}-waves'.format(application, environment)
-servers_table = boto3.resource('dynamodb').Table(servers_table_name)
-apps_table = boto3.resource('dynamodb').Table(apps_table_name)
-waves_table = boto3.resource('dynamodb').Table(waves_table_name)
+servers_table = cmf_boto.resource('dynamodb').Table(servers_table_name)
+apps_table = cmf_boto.resource('dynamodb').Table(apps_table_name)
+waves_table = cmf_boto.resource('dynamodb').Table(waves_table_name)
 
 
 def extract_validation_list_error(validation_list):
@@ -39,7 +30,7 @@ def extract_validation_list_error(validation_list):
 def lambda_handler(event, _):
     # Verify user has access to run ec2 replatform functions.
     auth = MFAuth()
-    auth_response = auth.getUserResourceCreationPolicy(event, 'EC2')
+    auth_response = auth.get_user_resource_creation_policy(event, 'EC2')
     if auth_response['action'] != 'allow':
         return {'headers': {**default_http_headers},
                 'statusCode': 401,

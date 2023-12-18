@@ -4,26 +4,17 @@
 
 import os
 import simplejson as json
-import boto3
 import datetime
-from boto3.dynamodb.conditions import Key, Attr
 
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
+import cmf_boto
+from cmf_utils import cors, default_http_headers
 
-default_http_headers = {
-    'Access-Control-Allow-Origin': cors,
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy': "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
-}
 application = os.environ['application']
 environment = os.environ['environment']
 
 schema_table_name = '{}-{}-schema'.format(application, environment)
 
-schema_table = boto3.resource('dynamodb').Table(schema_table_name)
+schema_table = cmf_boto.resource('dynamodb').Table(schema_table_name)
 
 
 def lambda_handler(event, context):

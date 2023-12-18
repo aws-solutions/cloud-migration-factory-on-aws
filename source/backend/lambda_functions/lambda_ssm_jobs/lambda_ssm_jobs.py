@@ -2,31 +2,19 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import json
-import boto3
 from datetime import datetime
 from datetime import timedelta
 import os
 import uuid
-import logging
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+import cmf_boto
+from cmf_logger import logger
+from cmf_utils import cors, default_http_headers
 
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
-
-default_http_headers = {
-    'Access-Control-Allow-Origin': cors,
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy': "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
-}
 application = os.environ['application']
 environment = os.environ['environment']
 
-dynamodb = boto3.resource("dynamodb")
+dynamodb = cmf_boto.resource("dynamodb")
 ssm_jobs_table_name = '{}-{}-ssm-jobs'.format(application, environment)
 table = dynamodb.Table(ssm_jobs_table_name)
 job_timeout_seconds = 60 * 720  # 12 hours
@@ -82,11 +70,7 @@ def process_post(event):
 def process_get(event):
     logger.info("Processing GET")
 
-    if "queryStringParameters" in event and event["queryStringParameters"] and \
-            "maximumdays" in event["queryStringParameters"]:
-        maximum_days_logs_returned = int(event["queryStringParameters"]["maximumdays"])
-    else:
-        maximum_days_logs_returned = default_maximum_days_logs_returned
+    maximum_days_logs_returned = get_maximum_days_of_logs_to_provide(event)
 
     if maximum_days_logs_returned is not None:
         current_time = datetime.utcnow()
@@ -154,6 +138,23 @@ def process_delete(event):
         'headers': {**default_http_headers},
         'body': ssm_id + " deleted"
     }
+
+
+def get_maximum_days_of_logs_to_provide(event):
+    """
+    Return of None is equivalent to providing all logs available, not filtered,
+    else the return is the number of days as int.
+    """
+    if event.get("queryStringParameters") and "maximumdays" in event["queryStringParameters"]:
+        if int(event["queryStringParameters"]["maximumdays"]) == -1:
+            # Return all logs, not filtered.
+            return None
+        else:
+            # Return all logs earlier than 'maximumdays'.
+            return int(event["queryStringParameters"]["maximumdays"])
+    else:
+        # Return logs earlier than the default_maximum_days_logs_returned.
+        return default_maximum_days_logs_returned
 
 
 def lambda_handler(event, _):

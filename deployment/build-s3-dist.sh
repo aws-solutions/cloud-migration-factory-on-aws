@@ -160,6 +160,10 @@ for d in */ ; do
     zip -r $build_dist_dir/script_mgn_$d1.zip .
     # Clean-up duplicated common libraries to reduce duplicate code reports in SonarQube
     rm -f ./mfcommon.py
+    rm -f ./cmf_logger.py
+    rm -f ./cmf_user_login.py
+    rm -f ./cmf_get_credentials.py
+    rm -f ./cmf_get_servers.py
 done
 
 cd $build_dist_dir/
@@ -180,6 +184,10 @@ for d in */ ; do
       zip -r $build_dist_dir/script_$d_$p1.zip .
           # Clean-up duplicated common libraries to reduce duplicate code reports in SonarQube
       rm -f ./mfcommon.py
+      rm -f ./cmf_logger.py
+      rm -f ./cmf_user_login.py
+      rm -f ./cmf_get_credentials.py
+      rm -f ./cmf_get_servers.py
     done
 done
 
@@ -193,6 +201,8 @@ echo "--------------------------------------------------------------------------
 cd $source_dir/integrations/
 cp ./migration-tracker/GlueScript/Migration_Tracker_App_Extract_Script.py $build_dist_dir/Migration_Tracker_App_Extract_Script.py
 cp ./migration-tracker/GlueScript/Migration_Tracker_Server_Extract_Script.py $build_dist_dir/Migration_Tracker_Server_Extract_Script.py
+cp ./migration-tracker/GlueScript/Migration_Tracker_Database_Extract_Script.py $build_dist_dir/Migration_Tracker_Database_Extract_Script.py
+cp ./migration-tracker/GlueScript/Migration_Tracker_Wave_Extract_Script.py $build_dist_dir/Migration_Tracker_Wave_Extract_Script.py
 
 #echo "------------------------------------------------------------------------------"
 #echo "[Frontend] Preparing for Unit Testing"

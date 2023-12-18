@@ -3,25 +3,12 @@
 
 
 import json
-import boto3
 import botocore
 import os
-import logging
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
-
-default_http_headers = {
-    'Access-Control-Allow-Origin': cors,
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy': "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
-}
+import cmf_boto
+from cmf_logger import logger
+from cmf_utils import cors, default_http_headers
 
 
 def add_user_to_current_groups(user, current_group_names, client_cognito_idp):
@@ -152,7 +139,7 @@ def update_user(user, client_cognito_idp):
 
 
 def lambda_handler(event, _):
-    client_cognito_idp = boto3.client('cognito-idp')
+    client_cognito_idp = cmf_boto.client('cognito-idp')
     body = json.loads(event['body'])
     errors = []
 

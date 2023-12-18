@@ -6,7 +6,7 @@
 
 import React from 'react';
 import {ExpandableSection, SpaceBetween, StatusIndicator} from "@awsui/components-react";
-import { getNestedValuePath } from "./main";
+import {getNestedValuePath} from "./main";
 
 const ErrorCell = (props) => {
   return <div>
@@ -331,8 +331,6 @@ export function getContentSelectorOptions(schema){
   return contentSelectorOptions;
 
 }
-
-export const CONTENT_SELECTOR_OPTIONS = getContentSelectorOptions();
 
 export const PAGE_SELECTOR_OPTIONS = [
   { value: 10, label: '10 Items' },

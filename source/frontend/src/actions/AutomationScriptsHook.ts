@@ -1,21 +1,16 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  requestStarted,
-  requestSuccessful,
-  requestFailed,
-  reducer } from '../resources/reducer';
+import {DataHook, reducer, requestFailed, requestStarted, requestSuccessful} from '../resources/reducer';
 
-import { useReducer, useEffect } from 'react';
+import {useEffect, useReducer} from 'react';
+import ToolsApiClient from "../api_clients/toolsApiClient";
 
-import { Auth } from "@aws-amplify/auth";
-import Tools from "../actions/tools";
+export const useAutomationScripts: DataHook = () => {
 
-export const useAutomationScripts = () => {
+
   const [state, dispatch] = useReducer(reducer, {
     isLoading: true,
     data: [],
@@ -28,14 +23,12 @@ export const useAutomationScripts = () => {
     dispatch(requestStarted());
 
     try {
-
-      const session = await Auth.currentSession();
-      let apiAutomation = await new Tools(session);
-      const response = await apiAutomation.getSSMScripts({ signal: myAbortController.signal });
+      let apiAutomation = new ToolsApiClient();
+      const response = await apiAutomation.getSSMScripts();
 
       dispatch(requestSuccessful({data: response}));
 
-    } catch (e) {
+    } catch (e: any) {
       if (e.message !== 'Request aborted') {
         console.error('Automation Scripts Hook', e);
       }
@@ -49,7 +42,7 @@ export const useAutomationScripts = () => {
     return () => {
       myAbortController.abort();
     };
-  };
+  }
 
   useEffect(() => {
     let cancelledRequest;

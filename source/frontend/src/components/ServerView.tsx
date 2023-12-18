@@ -1,46 +1,35 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import React from 'react';
-import {
-  Tabs,
-  SpaceBetween,
-  ColumnLayout,
-  Container,
-  Box,
-  Header
- } from '@awsui/components-react';
+import {ColumnLayout, Container, Header, SpaceBetween, Tabs} from '@awsui/components-react';
 
 import Audit from "../components/ui_attributes/Audit";
 import AllViewerAttributes from '../components/ui_attributes/AllViewerAttributes'
+import {ValueWithLabel} from "./ui_attributes/ValueWithLabel";
+import {EntitySchema} from "../models/EntitySchema";
 
-const ValueWithLabel = ({ label, children }) => (
-  <div>
-    <Box margin={{ bottom: 'xxxs' }} color="text-label">
-      {label}
-    </Box>
-    <div>{children}</div>
-  </div>
-);
 
-const ServerView = (props) => {
+type ServerViewParams = {
+  handleTabChange: (arg0: string) => void;
+  selectedTab: any;
+  server: { server_name: string };
+  schemas: Record<string, EntitySchema>;
+  app: { items: any[]; };
+  dataAll: any;
+};
+const ServerView = (props: ServerViewParams) => {
 
-  function handleOnTabChange(activeTabId) {
+  function handleOnTabChange(activeTabId: string) {
     if (props.handleTabChange) {
       props.handleTabChange(activeTabId);
     }
   }
 
   function selectedTab() {
-    if (props.selectedTab) {
       return props.selectedTab;
-    }
-    else {
-      return null;
-    }
   }
 
   return <Tabs
@@ -58,13 +47,6 @@ const ServerView = (props) => {
                     </SpaceBetween>
                   </ColumnLayout>
                 </Container>
-
-
-        // <ColumnLayout columns={3}>
-        //   <SpaceBetween size="l">
-        //     <TextAttribute name="Server Name" value={props.server.server_name}/>
-        //   </SpaceBetween>
-        // </ColumnLayout>
       },
       {
         label: "Application",
@@ -74,8 +56,8 @@ const ServerView = (props) => {
           <ColumnLayout columns={3}>
               <SpaceBetween size="l">
                   <AllViewerAttributes
-                      schema={props.schema.application}
-                      schemas={props.schema}
+                    schema={props.schemas.application}
+                    schemas={props.schemas}
                       item={props.app.items[0]}
                       dataAll={props.dataAll}
                   />
@@ -93,8 +75,8 @@ const ServerView = (props) => {
             <SpaceBetween size="l">
               <ColumnLayout columns={2} variant="text-grid">
                 <AllViewerAttributes
-                  schema={props.schema.server}
-                  schemas={props.schema}
+                  schema={props.schemas.server}
+                  schemas={props.schemas}
                   item={props.server}
                   dataAll={props.dataAll}
                 />

@@ -1,66 +1,68 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useEffect, useState} from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import {useLocation, useNavigate, useParams} from "react-router-dom";
-
-import { Auth } from "@aws-amplify/auth";
-import {
-  toBase64
-} from '../resources/main'
+import {toBase64} from '../resources/main'
 
 import {
   Alert,
+  Button,
+  Container,
+  FormField,
+  Header,
+  Input,
   Select,
   SpaceBetween,
-  StatusIndicator,
-  Header,
-  Button,
-  FormField,
-  Input,
-  Container
+  StatusIndicator
 } from '@awsui/components-react';
 
 
 import AutomationScriptView from '../components/AutomationScriptView'
-import { useAutomationScripts } from "../actions/AutomationScriptsHook";
+import {useAutomationScripts} from "../actions/AutomationScriptsHook";
 import AutomationScriptsTable from '../components/AutomationScriptsTable';
 import AutomationScriptImport from "../components/AutomationScriptImport";
-import ToolsAPI from "../actions/tools";
+import ToolsAPI from "../api_clients/toolsApiClient";
+import {ClickEvent} from "../models/Events";
+import {OptionDefinition} from "@awsui/components-react/internal/components/option/interfaces";
+import {NotificationContext} from "../contexts/NotificationContext";
+import {EntitySchema} from "../models/EntitySchema";
 
-const ViewAutomationScript = (props) => {
+const ViewAutomationScript = (props: { selectedItems: any[]; dataAll: any; schema: EntitySchema }) => {
 
   const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
-  async function handleViewerTabChange(tabselected)
-  {
-    setViewerCurrentTab(tabselected);
-  }
 
   if (props.selectedItems.length === 1) {
 
     return (
-      <AutomationScriptView {...props}
-                            item={props.selectedItems[0]}
-                            dataAll={props.dataAll}
-                            handleTabChange={handleViewerTabChange}
-                            selectedTab={viewerCurrentTab}
+      <AutomationScriptView
+        schema={props.schema}
+        item={props.selectedItems[0]}
+        dataAll={props.dataAll}
+        handleTabChange={setViewerCurrentTab}
+        selectedTab={viewerCurrentTab}
       />
     );
   } else {
-    return (null);
+    return null;
   }
 }
 
-const AutomationScripts = (props) => {
+type AutomationScriptsParams = {
+  userEntityAccess: { [x: string]: { create: any; }; };
+  schemas: Record<string, EntitySchema>;
+  schemaIsLoading?: boolean;
+};
+const AutomationScripts = (props: AutomationScriptsParams) => {
+  const {addNotification} = useContext(NotificationContext);
   let location = useLocation()
   let navigate = useNavigate();
   let params = useParams();
   //Data items for viewer and table.
   //Main table content hook. When duplicating just create a new hook and change the hook function at the end to populate table.
-  const [{ isLoading: isLoadingMain, data: dataMain, error: errorMain }, {update: updateMain } ] = useAutomationScripts();
+  const [{isLoading: isLoadingMain, data: dataMain, error: errorMain}, {update: updateMain}] = useAutomationScripts();
 
   const dataAll = {jobs: {data: dataMain, isLoading: isLoadingMain, error: errorMain}};
 
@@ -68,27 +70,21 @@ const AutomationScripts = (props) => {
   const [editingItem, setEditingItem] = useState(false);
 
   //Main table state management.
-  const [selectedItems, setSelectedItems] = useState([]);
-  const [focusItem, setFocusItem] = useState([]);
+  const [selectedItems, setSelectedItems] = useState<any[]>([]);
+  const [focusItem, setFocusItem] = useState<any>([]);
 
   //Viewer pane state management.
 
   const [action, setAction] = useState('Add');
 
-  const [newDefaultVersion, setNewDefaultVersion] = useState('');
+  const [newDefaultVersion, setNewDefaultVersion] = useState<string | undefined>('');
 
   //Get base path from the URL, all actions will use this base path.
   const basePath = '/automation/scripts'
   //Key for main item displayed in table.
   const itemIDKey = 'package_uuid';
 
-  function handleNotification(notification)
-  {
-    return props.updateNotification('add', notification)
-  }
-
-  async function handleRefreshClick(e) {
-    e.preventDefault();
+  async function handleRefreshClick() {
     await updateMain();
     refreshSelectedItems();
   }
@@ -98,7 +94,7 @@ const AutomationScripts = (props) => {
     let updatedItems = []
     if (selectedItems.length > 0) {
       for (const selectedItem of selectedItems) {
-        const findResult = dataMain.find(item => item[itemIDKey] === selectedItem[itemIDKey])
+        const findResult = dataMain.find((item: { [x: string]: any; }) => item[itemIDKey] === selectedItem[itemIDKey])
 
         if (findResult) {
           updatedItems.push(findResult);
@@ -110,8 +106,7 @@ const AutomationScripts = (props) => {
     setFocusItem(selectedItems.length === 1 ? selectedItems[0] : {});
   }
 
-  function handleAddItem()
-  {
+  function handleAddItem() {
     navigate({
       pathname: basePath + '/add'
     })
@@ -121,8 +116,7 @@ const AutomationScripts = (props) => {
 
   }
 
-  function handleUpdateItem()
-  {
+  function handleUpdateItem() {
     navigate({
       pathname: basePath + '/add'
     })
@@ -132,43 +126,43 @@ const AutomationScripts = (props) => {
 
   }
 
-  async function handleAction(e) {
+  async function handleAction(e: ClickEvent) {
     e.preventDefault();
 
     let action = e.detail.id;
 
-    if(action === 'new_version'){
+    if (action === 'new_version') {
       handleUpdateItem()
-    } else if (action === 'change_default'){
+    } else if (action === 'change_default') {
       setAction('UpdateDefault');
       setFocusItem(selectedItems[0]);
       setNewDefaultVersion(selectedItems[0].default)
       setEditingItem(true);
-    } else if (action === 'download_default_version'){
+    } else if (action === 'download_default_version') {
       setFocusItem(selectedItems[0]);
       await handleDownloadVersion()
-    } else if (action === 'download_latest_version'){
+    } else if (action === 'download_latest_version') {
       setFocusItem(selectedItems[0]);
       await downloadScriptVersion({'package_uuid': selectedItems[0].package_uuid, 'script_name': selectedItems[0].script_name, 'default': selectedItems[0].latest})
     }
   }
 
-  async function handleUpload(selectedFile, details) {
+  async function handleUpload(selectedFile: { name: string; }, details: { script_name: any; package_uuid: any; __make_default: any; default: any; }) {
 
     const result = await toBase64(selectedFile).catch(e => Error(e));
-    if(result instanceof Error) {
+    if (result instanceof Error) {
       console.log('Error: ', result.message);
       return;
     }
 
-    let newItem = {
+    let newItem: any = {
       "script_name": details.script_name,
       "script_file": result
     };
-    let notificationId = null;
+    let notificationId;
 
     try {
-      notificationId = handleNotification({
+      notificationId = addNotification({
         type: 'success',
         loading: true,
         dismissible: false,
@@ -176,74 +170,73 @@ const AutomationScripts = (props) => {
         content: "Uploading script - " + selectedFile.name,
       });
 
-      const session = await Auth.currentSession();
-      const apiTools = await new ToolsAPI(session);
+      const apiTools = new ToolsAPI();
       if (action === 'Add') {
         await apiTools.postSSMScripts(newItem);
-      } else if (action === 'Update'){
+      } else if (action === 'Update') {
         newItem.action = 'update_package';
         newItem.package_uuid = details.package_uuid;
         newItem.__make_default = details.__make_default;
         const response = await apiTools.putSSMScripts(newItem);
 
         console.log(response)
-      } else if (action === 'ChangeDefault'){
-        if (details.__make_default){
+      } else if (action === 'ChangeDefault') {
+        if (details.__make_default) {
           newItem.action = 'update_default';
           delete newItem.script_file;
           newItem.default = details.default
           await apiTools.putSSMScripts(newItem);
         }
       } else {
-        handleNotification({
+        addNotification({
           id: notificationId,
           type: 'error',
           dismissible: true,
           header: "Uploading script",
           content: 'Invalid action supplied.'
-        });
+        })
         return;
       }
 
-      handleNotification({
+      addNotification({
         id: notificationId,
         type: 'success',
         dismissible: true,
         header: "Uploading script",
         content: selectedFile.name + " script upload successfully.",
-      });
+      })
 
       updateMain();
-    } catch (e) {
+    } catch (e: any) {
       console.log(e);
       if ('response' in e) {
-        if(e.response != null && typeof e.response === 'object') {
+        if (e.response != null && typeof e.response === 'object') {
           if ('data' in e.response) {
-            handleNotification({
+            addNotification({
               id: notificationId,
               type: 'error',
               dismissible: true,
               header: "Uploading script",
               content: selectedFile.name + ' script upload failed: ' + JSON.stringify(e.response.data)
-            });
+            })
           }
         } else {
-          handleNotification({
+          addNotification({
             id: notificationId,
             type: 'error',
             dismissible: true,
             header: "Uploading script",
             content: selectedFile.name + ' script upload failed: ' + e.message
-          });
+          })
         }
       } else {
-        handleNotification({
+        addNotification({
           id: notificationId,
           type: 'error',
           dismissible: true,
           header: "Uploading script",
           content: selectedFile.name + ' script upload failed: Unknown error occurred',
-        });
+        })
       }
     }
     //
@@ -257,15 +250,15 @@ const AutomationScripts = (props) => {
 
   async function handleChangeVersion() {
 
-    let newItem = {
+    let newItem: any = {
       "package_uuid": focusItem.package_uuid,
       "script_name": focusItem.script_name,
       "default": newDefaultVersion
     };
-    let notificationId = null;
+    let notificationId;
 
     try {
-      notificationId = handleNotification({
+      notificationId = addNotification({
         type: 'success',
         loading: true,
         dismissible: false,
@@ -273,52 +266,51 @@ const AutomationScripts = (props) => {
         content: "Changing script default version - " + focusItem.script_name,
       });
 
-      const session = await Auth.currentSession();
-      const apiTools = await new ToolsAPI(session);
+      const apiTools = new ToolsAPI();
       newItem.action = 'update_default';
       await apiTools.putSSMScripts(newItem);
 
-      handleNotification({
+      addNotification({
         id: notificationId,
         type: 'success',
         dismissible: true,
         header: "Change script default version",
         content: focusItem.script_name + " script default version changed to use version " + newDefaultVersion + ".",
-      });
+      })
 
       setSelectedItems([]);
 
       updateMain();
-    } catch (e) {
+    } catch (e: any) {
       console.log(e);
       if ('response' in e) {
-        if(e.response != null && typeof e.response === 'object') {
+        if (e.response != null && typeof e.response === 'object') {
           if ('data' in e.response) {
-            handleNotification({
+            addNotification({
               id: notificationId,
               type: 'error',
               dismissible: true,
               header: "Change script default version",
               content: focusItem.script_name + ' script version change failed: ' + e.response.data
-            });
+            })
           }
         } else {
-          handleNotification({
+          addNotification({
             id: notificationId,
             type: 'error',
             dismissible: true,
             header: "Change script default version",
             content: focusItem.script_name + ' script version change failed: ' + e.message
-          });
+          })
         }
       } else {
-        handleNotification({
+        addNotification({
           id: notificationId,
           type: 'error',
           dismissible: true,
           header: "Uploading script",
           content: focusItem.script_name + ' script version change failed.',
-        });
+        })
       }
     }
     //
@@ -329,11 +321,11 @@ const AutomationScripts = (props) => {
     handleResetScreen();
   }
 
-  function downloadZIP(script) {
+  function downloadZIP(script: { script_file: any; script_name: string; script_version: string; }) {
     const linkSource = `data:application/zip;base64,${script.script_file}`;
     const downloadLink = document.createElement("a");
     let fileName = script.script_name;
-    if (fileName.endsWith('.zip')){
+    if (fileName.endsWith('.zip')) {
       fileName = script.script_name.replace('.zip', '_v' + script.script_version + '.zip');
     } else {
       fileName = script.script_name + '_v' + script.script_version + '.zip';
@@ -350,12 +342,12 @@ const AutomationScripts = (props) => {
 
   }
 
-  async function downloadScriptVersion(script) {
+  async function downloadScriptVersion(script: { package_uuid: any; script_name: any; default: any; }) {
 
-    let notificationId = null;
+    let notificationId;
 
     try {
-      notificationId = handleNotification({
+      notificationId = addNotification({
         type: 'success',
         loading: true,
         dismissible: false,
@@ -363,68 +355,66 @@ const AutomationScripts = (props) => {
         content: "Downloading script default version - " + script.script_name,
       });
 
-      const session = await Auth.currentSession();
-      const apiTools = await new ToolsAPI(session);
+      const apiTools = new ToolsAPI();
       const response = await apiTools.getSSMScript(script.package_uuid, script.default, true);
 
       downloadZIP(response)
 
-      handleNotification({
+      addNotification({
         id: notificationId,
         type: 'success',
         dismissible: true,
         header: "Download script",
         content: script.script_name + " script downloaded.",
-      });
+      })
 
       setSelectedItems([]);
 
-    } catch (e) {
+    } catch (e: any) {
       console.log(e);
       if ('response' in e) {
-        if(e.response != null && typeof e.response === 'object') {
+        if (e.response != null && typeof e.response === 'object') {
           if ('data' in e.response) {
-            handleNotification({
+            addNotification({
               id: notificationId,
               type: 'error',
               dismissible: true,
               header: "Download script",
               content: script.script_name + ' script download failed: ' + e.response.data
-            });
+            })
           }
         } else {
-          handleNotification({
+          addNotification({
             id: notificationId,
             type: 'error',
             dismissible: true,
             header: "Download script",
             content: script.script_name + ' script download failed: ' + e.message
-          });
+          })
         }
       } else {
-        handleNotification({
+        addNotification({
           id: notificationId,
           type: 'error',
           dismissible: true,
           header: "Download script",
           content: script.script_name + ' script download failed.',
-        });
+        })
       }
     }
 
   }
 
 
-  function handleEditItem(selection = null)
-  {
-    if ( selectedItems.length === 1) {
+  function handleEditItem(selection = null) {
+    if (selectedItems.length === 1) {
       navigate({
         pathname: basePath + '/edit/' + selectedItems[0][itemIDKey]
       })
       setAction('Edit')
       setFocusItem(selectedItems[0]);
       setEditingItem(true);
-    } else if ( selection ) {
+    } else if (selection) {
       navigate({
         pathname: basePath + '/edit/' + selection[itemIDKey]
       })
@@ -436,16 +426,14 @@ const AutomationScripts = (props) => {
   }
 
 
-
-  function handleResetScreen()
-  {
+  function handleResetScreen() {
     navigate({
       pathname: basePath
     })
     setEditingItem(false);
   }
 
-  function handleItemSelectionChange(selection) {
+  function handleItemSelectionChange(selection: Array<any>) {
 
     setSelectedItems(selection);
 
@@ -456,19 +444,18 @@ const AutomationScripts = (props) => {
 
   }
 
-  function displayScriptScreen(){
-    if (editingItem){
-      return  displayEditScreen(action)
+  function displayScriptScreen() {
+    if (editingItem) {
+      return displayEditScreen(action)
     } else {
       return displayViewScreen()
     }
   }
 
-  function displayViewScreen(){
+  function displayViewScreen() {
     return <SpaceBetween direction="vertical" size="xs">
       <AutomationScriptsTable
         userAccess={props.userEntityAccess}
-        sendNotification={handleNotification}
         schema={schemaSSMAttribs}
         schemaName={'script'}
         schemaKeyAttribute={itemIDKey}
@@ -507,16 +494,16 @@ const AutomationScripts = (props) => {
             disabled: false
           }]}
       />
-      <ViewAutomationScript {...props}
-                            schema={schemaSSMAttribs}
-                            selectedItems={selectedItems}
-                            dataAll={dataAll}
+      <ViewAutomationScript
+        schema={schemaSSMAttribs}
+        selectedItems={selectedItems}
+        dataAll={dataAll}
 
       />
     </SpaceBetween>
   }
 
-  function displayEditScreen(action){
+  function displayEditScreen(action: string) {
     switch (action) {
       case 'Add': {
         return <AutomationScriptImport
@@ -525,7 +512,6 @@ const AutomationScripts = (props) => {
           item={focusItem}
           handleUpload={handleUpload}
           cancelClick={handleResetScreen}
-          updateNotification={handleNotification}
         />
       }
       case 'Update': {
@@ -535,7 +521,6 @@ const AutomationScripts = (props) => {
           item={focusItem}
           handleUpload={handleUpload}
           cancelClick={handleResetScreen}
-          updateNotification={handleNotification}
         />
       }
       case 'UpdateDefault': {
@@ -546,7 +531,7 @@ const AutomationScripts = (props) => {
     }
   }
 
-  function isActionsDisabled(){
+  function isActionsDisabled() {
     if (props.userEntityAccess['script'] && props.userEntityAccess['script'].create && selectedItems.length === 1) {
       return false;
     }
@@ -554,8 +539,8 @@ const AutomationScripts = (props) => {
     return true;
   }
 
-  function displayUpdatedDefault(){
-    return  <SpaceBetween direction={'vertical'} size={'xxl'}>
+  function displayUpdatedDefault() {
+    return <SpaceBetween direction={'vertical'} size={'xxl'}>
       <Container
         className="custom-dashboard-container"
         header={
@@ -605,7 +590,9 @@ const AutomationScripts = (props) => {
                 placeholder={"Select version"}
               />
             </FormField>
-            <Button iconName={'download'} onClick={e => downloadScriptVersion({'package_uuid': focusItem.package_uuid, 'script_name': focusItem.script_name, 'default': newDefaultVersion})}>Download selected version</Button>
+            <Button iconName={'download'}
+                    onClick={e => downloadScriptVersion({'package_uuid': focusItem.package_uuid, 'script_name': focusItem.script_name, 'default': newDefaultVersion})}>Download
+              selected version</Button>
           </SpaceBetween>
         </SpaceBetween>
       </Container>
@@ -614,26 +601,25 @@ const AutomationScripts = (props) => {
           dismissAriaLabel="Close alert"
           type="warning"
         >
-          {newDefaultVersion !== focusItem.default ? 'Saving will change default script to use version ' + newDefaultVersion + ' instead of version ' + focusItem.default + ' for all automation future jobs.' : '' }
+          {newDefaultVersion !== focusItem.default ? 'Saving will change default script to use version ' + newDefaultVersion + ' instead of version ' + focusItem.default + ' for all automation future jobs.' : ''}
         </Alert>
         :
         undefined}
       <SpaceBetween direction={'horizontal'} size={'xxs'}>
         <Button variant={'primary'} onClick={handleResetScreen} disabled={false}>Cancel</Button>
-        <Button onClick={handleChangeVersion} disabled={newDefaultVersion !== focusItem.default ? false : true}>Save</Button>
+        <Button onClick={handleChangeVersion}
+                disabled={newDefaultVersion !== focusItem.default ? false : true}>Save</Button>
 
       </SpaceBetween>
     </SpaceBetween>
   }
 
-  useEffect( () => {
+  useEffect(() => {
     let selected = [];
 
     if (!isLoadingMain) {
 
-      let item = dataMain.filter(function (entry) {
-        return entry[itemIDKey] === params.id;
-      });
+      let item = dataMain.filter((entry: { [x: string]: string | undefined; }) => entry[itemIDKey] === params.id);
 
       if (item.length === 1) {
         selected.push(item[0]);
@@ -644,31 +630,23 @@ const AutomationScripts = (props) => {
         }
       } else if (location.pathname && location.pathname.match('/add')) {
         //Add url used, redirect to add screen.
-          handleAddItem();
+        handleAddItem();
       }
       refreshSelectedItems();
     }
 
   }, [dataMain]);
 
-  let schemaSSMAttribs = undefined;
+  const schemaSSMAttribs: EntitySchema = props.schemas['script'];
 
-  if (!props.schemaIsLoading && props.isReady) {
-    if (props.schema['script']) {
-      schemaSSMAttribs = props.schema['script'];
-    } else {
-      schemaSSMAttribs = [];
-    }
-  }
+  const getVersions = (): OptionDefinition[] => {
+    const versions: OptionDefinition[] = [];
 
-  const getVersions = () => {
-    let versions = [];
-
-    for (let versionNum = 1; versionNum <= focusItem.latest; versionNum++){
-      if (focusItem.default == versionNum){
-        versions.push({'label': versionNum + ' DEFAULT', 'value': versionNum});
+    for (let versionNum = 1; versionNum <= focusItem.latest; versionNum++) {
+      if (focusItem.default == versionNum) {
+        versions.push({'label': `${versionNum} DEFAULT`, 'value': `${versionNum}`});
       } else {
-        versions.push({'label': versionNum, 'value': versionNum});
+        versions.push({'label': `${versionNum}`, 'value': `${versionNum}`});
       }
 
     }
@@ -677,11 +655,11 @@ const AutomationScripts = (props) => {
 
   return (
     <div>
-    {props.schemaIsLoading ?
-      <StatusIndicator type="loading">
-        Loading schema...
-      </StatusIndicator>
-      :
+      {props.schemaIsLoading ?
+        <StatusIndicator type="loading">
+          Loading schema...
+        </StatusIndicator>
+        :
         displayScriptScreen()
       }
     </div>

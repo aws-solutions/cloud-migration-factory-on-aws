@@ -1,54 +1,60 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useEffect, useState} from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import {useLocation, useNavigate, useParams} from "react-router-dom";
 
-import {
-  SpaceBetween,
-  StatusIndicator
-} from '@awsui/components-react';
+import {SpaceBetween, StatusIndicator} from '@awsui/components-react';
 
 import AutomationJobView from '../components/AutomationJobView'
-import { useAutomationJobs } from "../actions/AutomationJobsHook";
-import { useMFWaves } from "../actions/WavesHook";
+import {useAutomationJobs} from "../actions/AutomationJobsHook";
+import {useMFWaves} from "../actions/WavesHook";
 import ItemTable from '../components/ItemTable';
 import AutomationTools from '../components/AutomationTools'
-import {Auth} from "@aws-amplify/auth";
-import ToolsAPI from "../actions/tools";
+import ToolsAPI from "../api_clients/toolsApiClient";
 import {userAutomationActionsMenuItems} from "../resources/main";
 import {useAutomationScripts} from "../actions/AutomationScriptsHook";
 import {useCredentialManager} from "../actions/CredentialManagerHook";
+import {ClickEvent} from "../models/Events";
+import {NotificationContext} from "../contexts/NotificationContext";
+import {EntitySchema} from "../models/EntitySchema";
+import {UserAccess} from "../models/UserAccess";
 
-const AutomationJobs = (props) => {
-  let location = useLocation()
+type AutomationJobsParams = {
+  schemas: Record<string, EntitySchema>;
+  schemaIsLoading?: boolean;
+  isReady?: boolean;
+  userEntityAccess: UserAccess;
+};
+const AutomationJobs = (props: AutomationJobsParams) => {
+
+  const {addNotification} = useContext(NotificationContext);
   let navigate = useNavigate();
   let params = useParams();
   //Data items for viewer and table.
   //Main table content hook. When duplicating just create a new hook and change the hook function at the end to populate table.
-  const [{ isLoading: isLoadingMain, data: dataMain, error: errorMain }, {update: updateMain } ] = useAutomationJobs();
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, ] = useMFWaves();
-  const [{ isLoading: isLoadingScripts, data: dataScripts, error: errorScripts },  ] = useAutomationScripts();
-  const [{ isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets }, ] = useCredentialManager();
+  const [{isLoading: isLoadingMain, data: dataMain, error: errorMain}, {update: updateMain}] = useAutomationJobs();
+  const [{isLoading: isLoadingWaves, data: dataWaves, error: errorWaves},] = useMFWaves();
+  const [{isLoading: isLoadingScripts, data: dataScripts, error: errorScripts},] = useAutomationScripts();
+  const [{isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets},] = useCredentialManager();
 
-  const dataAll = {secret: {data: dataSecrets, isLoading: isLoadingSecrets, error: errorSecrets},script: {data: dataScripts, isLoading: isLoadingScripts, error: errorScripts},jobs: {data: dataMain, isLoading: isLoadingMain, error: errorMain},wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}};
+  const dataAll = {secret: {data: dataSecrets, isLoading: isLoadingSecrets, error: errorSecrets}, script: {data: dataScripts, isLoading: isLoadingScripts, error: errorScripts}, jobs: {data: dataMain, isLoading: isLoadingMain, error: errorMain}, wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}};
 
   //Main table state management.
-  const [selectedItems, setSelectedItems] = useState([]);
-  const [focusItem, setFocusItem] = useState([]);
+  const [selectedItems, setSelectedItems] = useState<any[]>([]);
+  const [focusItem, setFocusItem] = useState<any>([]);
   const [filterJobsShowAll, setFilterJobsShowAll] = useState(false);
 
   //Add Job/Action state management.
-  const [automationAction, setAutomationAction] = useState(undefined);
+  const [automationAction, setAutomationAction] = useState<string | undefined>(undefined);
   const [preformingAction, setPreformingAction] = useState(false);
 
   //Viewer pane state management.
   const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
-  const [action, setAction] = useState(['Add']);
-  const [actions, setActions] = useState([]);
+  const [action, setAction] = useState<string>('add');
+  const [actions, setActions] = useState<any[]>([]);
 
   //Get base path from the URL, all actions will use this base path.
   const basePath = '/automation/jobs'
@@ -56,50 +62,11 @@ const AutomationJobs = (props) => {
   const itemIDKey = 'uuid';
   const schemaName = 'job';
 
-  function handleNotification(notification)
-  {
-    return props.updateNotification('add', notification)
+  async function handleRefreshClick() {
+    await updateMain(filterJobsShowAll ? -1 : 30);
   }
 
-  async function handleRefreshClick(e) {
-    e.preventDefault();
-    await updateMain(filterJobsShowAll ? undefined : 30);
-  }
-
-  function handleAddItem()
-  {
-    navigate({
-      pathname: basePath + '/add'
-    })
-    setAction('Add')
-    setFocusItem({});
-  }
-
-  function handleEditItem(selection = null)
-  {
-    if ( selectedItems.length === 1) {
-      navigate({
-        pathname: basePath + '/edit/' + selectedItems[0][itemIDKey]
-      })
-      setAction('Edit')
-      setFocusItem(selectedItems[0]);
-    } else if ( selection ) {
-      navigate({
-        pathname: basePath + '/edit/' + selection[itemIDKey]
-      })
-      setAction('Edit');
-      setFocusItem(selection);
-    }
-
-  }
-
-  async function handleViewerTabChange(tabselected)
-  {
-      setViewerCurrentTab(tabselected);
-  }
-
-  function handleResetScreen()
-  {
+  function handleResetScreen() {
     navigate({
       pathname: basePath
     });
@@ -107,7 +74,7 @@ const AutomationJobs = (props) => {
     setAction('View');
   }
 
-  function handleItemSelectionChange(selection) {
+  function handleItemSelectionChange(selection: Array<any>) {
 
     setSelectedItems(selection);
 
@@ -118,28 +85,26 @@ const AutomationJobs = (props) => {
 
   }
 
-  const ViewAutomationJob = (props) => {
+  const ViewAutomationJob = (props: { schema: { [x: string]: any; }; }) => {
 
     if (selectedItems.length === 1) {
 
       return (
         <AutomationJobView
-            item={selectedItems[0]}
-            schema={props.schema['job']}
-            schemas={props.schema}
-            dataAll={dataAll}
-            handleTabChange={handleViewerTabChange}
-            selectedTab={viewerCurrentTab}
-          />
+          item={selectedItems[0]}
+          schema={props.schema['job']}
+          schemas={props.schema}
+          dataAll={dataAll}
+          handleTabChange={setViewerCurrentTab}
+          selectedTab={viewerCurrentTab}
+        />
       );
     } else {
       return (null);
     }
   }
 
-  async function handleActionsClick(e) {
-    e.preventDefault();
-
+  async function handleActionsClick(e: ClickEvent) {
     let action = e.detail.id;
 
     setFocusItem(selectedItems);
@@ -147,36 +112,34 @@ const AutomationJobs = (props) => {
     setAction('Action');
   }
 
-  async function handleAction(actionData, actionId) {
+  async function handleAction(actionData: any, actionId: number) {
 
     setPreformingAction(true);
 
     let newItem = Object.assign({}, actionData);
-    let notificationId = null;
+    let notificationId;
 
-    let apiAction = props.schema[automationAction].actions.filter(function (entry) {
-      return entry.id === actionId;
-    });
+    let apiAction = props.schemas[automationAction!]?.actions?.filter((entry: { id: number; }) => entry.id === actionId);
 
-    if (apiAction.length !== 1) {
-      handleNotification({
+    if (apiAction?.length !== 1) {
+      addNotification({
         type: 'error',
         dismissible: true,
         header: "Perform wave action",
-        content: props.schema[automationAction].friendly_name + ' action [' & actionId & '] not found in schema.',
-      });
+        content: `${props.schemas[automationAction!].friendly_name} action [${actionId}] not found in schema.`,
+      })
     } else {
 
       try {
 
-        if (apiAction[0].additionalData){
+        if (apiAction[0].additionalData) {
           const keys = Object.keys(apiAction[0].additionalData);
-          for (const i in keys){
+          for (const i in keys) {
             newItem[keys[i]] = apiAction[0].additionalData[keys[i]]
           }
         }
 
-        notificationId = handleNotification({
+        notificationId = addNotification({
           type: 'success',
           loading: true,
           dismissible: false,
@@ -184,18 +147,17 @@ const AutomationJobs = (props) => {
           content: "Performing action - " + apiAction[0].name,
         });
 
-        const session = await Auth.currentSession();
-        const apiTools = await new ToolsAPI(session);
-        const response  = await apiTools.postTool(apiAction[0].apiPath, newItem);
+        const apiTools = new ToolsAPI();
+        const response = await apiTools.postTool(apiAction[0].apiPath, newItem);
         console.log(response)
 
         //Extra UUID from response.
         let uuid = response.split('+');
-        if (uuid.length > 1){
+        if (uuid.length > 1) {
           uuid = uuid[1];
           await handleResetScreen();
 
-          handleNotification({
+          addNotification({
             id: notificationId,
             type: 'success',
             dismissible: true,
@@ -203,53 +165,52 @@ const AutomationJobs = (props) => {
             actionButtonTitle: "View Job",
             actionButtonLink: "/automation/jobs/" + uuid,
             content: apiAction[0].name + " action successfully.",
-          });
+          })
         } else {
           await handleResetScreen();
 
-          handleNotification({
+          addNotification({
             id: notificationId,
             type: 'success',
             dismissible: true,
             header: "Perform wave action",
             content: response,
-          });
+          })
         }
 
 
+        await updateMain(filterJobsShowAll ? -1 : 30);
 
-        await updateMain(filterJobsShowAll ? undefined : 30);
-
-      } catch (e) {
+      } catch (e: any) {
         console.log(e);
         if ('response' in e) {
-          if(e.response != null && typeof e.response === 'object') {
+          if (e.response != null && typeof e.response === 'object') {
             if ('data' in e.response) {
-              handleNotification({
+              addNotification({
                 id: notificationId,
                 type: 'error',
                 dismissible: true,
                 header: "Perform wave action",
                 content: apiAction[0].name + ' action failed: ' + e.response.data
-              });
+              })
             }
           } else {
-            handleNotification({
+            addNotification({
               id: notificationId,
               type: 'error',
               dismissible: true,
               header: "Perform wave action",
               content: apiAction[0].name + ' action failed: ' + e.message
-            });
+            })
           }
         } else {
-          handleNotification({
+          addNotification({
             id: notificationId,
             type: 'error',
             dismissible: true,
             header: "Perform wave action",
             content: apiAction[0].name + ' action failed: Unknown error occured',
-          });
+          })
         }
       }
     }
@@ -258,43 +219,31 @@ const AutomationJobs = (props) => {
 
   }
 
-  async function handleFilterDaysChange(flag){
+  async function handleFilterDaysChange(flag: boolean | ((prevState: boolean) => boolean)) {
     setFilterJobsShowAll(flag);
 
-    await updateMain(flag ? undefined : 30);
+    await updateMain(flag ? -1 : 30);
   }
 
   //Update actions button options on schema change.
-  useEffect( () => {
+  useEffect(() => {
 
-    if(!props.schemaIsLoading && props.isReady){
+    if (!props.schemaIsLoading && props.isReady) {
 
-      setActions(userAutomationActionsMenuItems(props.schema, props.userEntityAccess));
+      setActions(userAutomationActionsMenuItems(props.schemas, props.userEntityAccess));
     }
-  },[props.schema, props.userEntityAccess]);
+  }, [props.schemas, props.userEntityAccess]);
 
-  useEffect( () => {
+  useEffect(() => {
     let selected = [];
 
     if (!isLoadingMain) {
       if (params.id) {
         //URL parameter present.
-        let item = dataMain.filter(function (entry) {
-          return entry[itemIDKey] === params.id;
-        });
+        let item = dataMain.filter((entry: { [x: string]: string | undefined; }) => entry[itemIDKey] === params.id);
 
-
-        if (item.length === 1) {
-          selected.push(item[0]);
-          handleItemSelectionChange(selected);
-          //Check if URL contains edit path and switch to amend component.
-          if (location.pathname && location.pathname.match('/edit/')) {
-            handleEditItem(item[0]);
-          }
-        } else if (location.pathname && location.pathname.match('/add')) {
-          //Add url used, redirect to add screen.
-          handleAddItem();
-        }
+        selected.push(item[0]);
+        handleItemSelectionChange(selected);
       }
     }
 
@@ -303,15 +252,13 @@ const AutomationJobs = (props) => {
 
   //Detect changes to main data table content and if an item was previously selected and in the viewer, refresh the item
   //content.
-  useEffect( () => {
-    let selected = [];
+  useEffect(() => {
+    let selected: any[] = [];
 
     if (!isLoadingMain) {
       if (selectedItems.length == 1) {
         //Refresh selected item.
-        let item = dataMain.filter(function (entry) {
-          return entry[itemIDKey] === selectedItems[0][itemIDKey];
-        });
+        let item = dataMain.filter((entry: { [x: string]: any; }) => entry[itemIDKey] === selectedItems[0][itemIDKey]);
 
         if (item.length === 1) {
           //Previous Item found in new data, reload into selected items.
@@ -326,27 +273,34 @@ const AutomationJobs = (props) => {
 
   }, [dataMain]);
 
-  function provideContent(currentAction){
+  function provideContent(currentAction: string) {
 
-    if(props.schemaIsLoading || !props.isReady){
+    if (props.schemaIsLoading || !props.isReady) {
       return (
         <StatusIndicator type="loading">
           Loading schema...
         </StatusIndicator>
-        )
+      )
     }
 
     switch (currentAction) {
       case 'Action':
         return (
-          <AutomationTools action={action} schema={props.schema[automationAction]} schemas={props.schema} schemaName={schemaName} userAccess={props.userEntityAccess} performingAction={preformingAction} selectedItems={focusItem} handleAction={handleAction} handleCancel={handleResetScreen} updateNotification={handleNotification}/>
+          <AutomationTools
+            schema={props.schemas[automationAction!]}
+            schemas={props.schemas}
+            schemaName={schemaName}
+            userAccess={props.userEntityAccess}
+            performingAction={preformingAction}
+            selectedItems={focusItem}
+            handleAction={handleAction}
+            handleCancel={handleResetScreen}/>
         )
       default:
         return <SpaceBetween direction="vertical" size="xs">
           <ItemTable
-            sendNotification={handleNotification}
             description={filterJobsShowAll ? "Displaying all jobs." : "Displaying only the last 30 days of jobs."}
-            schema={props.schema['job']}
+            schema={props.schemas['job']}
             schemaKeyAttribute={itemIDKey}
             schemaName={schemaName}
             dataAll={dataAll}
@@ -363,7 +317,9 @@ const AutomationJobs = (props) => {
             userAccess={props.userEntityAccess}
             handleDaysFilterChange={handleFilterDaysChange}
           />
-          <ViewAutomationJob {...props}/>
+          <ViewAutomationJob
+            schema={props.schemas}
+          />
         </SpaceBetween>
     }
 

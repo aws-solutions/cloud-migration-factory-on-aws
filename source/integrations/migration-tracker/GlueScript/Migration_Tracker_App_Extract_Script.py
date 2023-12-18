@@ -44,9 +44,9 @@ output_table_var=application_name + "-" + environment_name + "-app-extract-table
 
 datasource0 = glueContext.create_dynamic_frame.from_catalog(database = db_name_var.lower() , table_name =  input_table_var.lower(), transformation_ctx = "datasource0")
 
-applymapping1 = ApplyMapping.apply(frame = datasource0, mappings = [("wave_id", "string", "wave_id", "string"),("app_name", "string", "app_name", "string"), ("cloudendure_projectname", "string", "cloudendure_projectname", "string"),("app_id", "string", "app_id", "string")], transformation_ctx = "applymapping1")
+applymapping1 = ApplyMapping.apply(frame = datasource0, mappings = [("wave_id", "string", "wave_id", "string"),("app_name", "string", "app_name", "string"),("app_id", "string", "app_id", "string")], transformation_ctx = "applymapping1")
 
-selectfields2 = SelectFields.apply(frame = applymapping1, paths = [ "app_name", "wave_id","cloudendure_projectname", "app_id"], transformation_ctx = "selectfields2")
+selectfields2 = SelectFields.apply(frame = applymapping1, paths = [ "app_name", "wave_id", "app_id"], transformation_ctx = "selectfields2")
 
 resolvechoice3 = ResolveChoice.apply(frame = selectfields2, choice = "MATCH_CATALOG", database = db_name_var.lower(), table_name = output_table_var.lower(), transformation_ctx = "resolvechoice3")
 

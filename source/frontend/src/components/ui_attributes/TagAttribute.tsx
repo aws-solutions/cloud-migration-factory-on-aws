@@ -4,10 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import {
-  SpaceBetween, Container, Header, TagEditor
-} from '@awsui/components-react';
+import React, {useEffect, useState} from 'react';
+import {Container, Header, SpaceBetween, TagEditor} from '@awsui/components-react';
 
 const TagAttribute = ({attribute, tags, handleUserInput, displayHelpInfoLink}) => {
 

@@ -1,77 +1,99 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useEffect, useState} from 'react';
-import User from "../actions/user";
+import React, {useContext, useEffect, useState} from 'react';
+import UserApiClient from "../api_clients/userApiClient";
 import {useLocation, useNavigate, useParams} from "react-router-dom";
 import ItemAmend from "../components/ItemAmend";
-import {
-  capitalize,
-  exportTable,
-  getChanges
-} from '../resources/main'
-
-import {
-  SpaceBetween,
-  StatusIndicator
-} from '@awsui/components-react';
+import {getChanges} from '../resources/main'
+import {exportTable} from "../utils/xlsx-export";
+import {SpaceBetween} from '@awsui/components-react';
 
 import DatabaseView from '../components/DatabaseView';
-import { useMFApps } from "../actions/ApplicationsHook";
-import { useGetDatabases } from "../actions/DatabasesHook";
-import { useGetServers } from "../actions/ServersHook";
-import { useMFWaves } from "../actions/WavesHook";
+import {useMFApps} from "../actions/ApplicationsHook";
+import {useGetDatabases} from "../actions/DatabasesHook";
+import {useGetServers} from "../actions/ServersHook";
+import {useMFWaves} from "../actions/WavesHook";
 import ItemTable from '../components/ItemTable';
-import { useModal } from '../actions/Modal';
-import {parsePUTResponseErrors} from "../resources/recordFunctions";
+import {apiActionErrorHandler, parsePUTResponseErrors} from "../resources/recordFunctions";
+import {NotificationContext} from "../contexts/NotificationContext";
+import {EntitySchema} from "../models/EntitySchema";
+import {ToolsContext} from "../contexts/ToolsContext";
+import {CMFModal} from "../components/Modal";
 
-const ViewItem = (props) => {
+const ViewItem = (props: {
+  schema: Record<string, EntitySchema>;
+  selectedItems: any[];
+  dataAll: any;
+}) => {
   const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
-  async function handleViewerTabChange(tabSelected)
-  {
-    setViewerCurrentTab(tabSelected);
-  }
 
   if (props.selectedItems.length === 1) {
 
     return (
-      <DatabaseView {...props}
-                    database={props.selectedItems[0]}
-                    handleTabChange={handleViewerTabChange}
-                    dataAll={props.dataAll}
-                    selectedTab={viewerCurrentTab}
+      <DatabaseView
+        schema={props.schema}
+        database={props.selectedItems[0]}
+        handleTabChange={setViewerCurrentTab}
+        dataAll={props.dataAll}
+        selectedTab={viewerCurrentTab}
       />
     );
   } else {
-    return (null);
+    return null;
   }
 }
 
-const UserDatabaseTable = (props) => {
+type UserDatabaseTableParams = {
+  schemas: Record<string, EntitySchema>;
+  userEntityAccess: any;
+  schemaIsLoading?: boolean;
+};
+const UserDatabaseTable = ({schemas, userEntityAccess}: UserDatabaseTableParams) => {
+  const {addNotification} = useContext(NotificationContext);
+  const {setHelpPanelContentFromSchema} = useContext(ToolsContext);
+
   let location = useLocation()
   let navigate = useNavigate();
   let params = useParams();
 
   //Data items for viewer and table.
-  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }, ] = useMFApps();
-  const [{ isLoading: isLoadingMain, data: dataMain, error: errorMain }, { update: updateMain }] = useGetDatabases();
-  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }, ] = useGetServers();
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, ] = useMFWaves();
+  const [{isLoading: isLoadingApps, data: dataApps, error: errorApps},] = useMFApps();
+  const [{isLoading: isLoadingMain, data: dataMain, error: errorMain}, {update: updateMain}] = useGetDatabases();
+  const [{isLoading: isLoadingServers, data: dataServers, error: errorServers},] = useGetServers();
+  const [{isLoading: isLoadingWaves, data: dataWaves, error: errorWaves},] = useMFWaves();
 
-  const dataAll = {application: {data: dataApps, isLoading: isLoadingApps, error: errorApps}, database: {data: dataMain, isLoading: isLoadingMain, error: errorMain}, server: {data: dataServers, isLoading: isLoadingServers, error: errorServers}, wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}};
+  const dataAll = {
+    application: {
+      data: dataApps,
+      isLoading: isLoadingApps,
+      error: errorApps
+    }, database: {
+      data: dataMain,
+      isLoading: isLoadingMain,
+      error: errorMain
+    }, server: {
+      data: dataServers,
+      isLoading: isLoadingServers,
+      error: errorServers
+    }, wave: {
+      data: dataWaves,
+      isLoading: isLoadingWaves,
+      error: errorWaves
+    }
+  };
 
   //Layout state management.
   const [editingItem, setEditingItem] = useState(false);
 
   //Main table state management.
-  const [selectedItems, setSelectedItems] = useState([]);
-  const [focusItem, setFocusItem] = useState([]);
+  const [selectedItems, setSelectedItems] = useState<Array<any>>([]);
+  const [focusItem, setFocusItem] = useState<any>([]);
 
   //Viewer pane state management.
-  const [action, setAction] = useState(['Add']);
+  const [action, setAction] = useState('Add');
 
   //Get base path from the URL, all actions will use this base path.
   const basePath = location.pathname.split('/').length >= 2 ? '/' + location.pathname.split('/')[1] : '/';
@@ -79,53 +101,20 @@ const UserDatabaseTable = (props) => {
   const itemIDKey = 'database_id';
   const schemaName = 'database';
 
-  const { show: showDeleteConfirmaton, hide: hideDeleteConfirmaton, RenderModal: DeleteModal } = useModal()
+  const [isDeleteConfirmationModalVisible, setDeleteConfirmationModalVisible] = useState(false);
 
-  function apiActionErrorHandler(action, e){
-    console.error(e);
-    let response = '';
-    if ('response' in e && 'data' in e.response) {
-      //Check if errors key exists from Lambda errors.
-      if (e.response.data.errors)
-      {
-        response = e.response.data.errors;
-        response = parsePUTResponseErrors(response);
-      } else if (e.response.data.cause){
-        response = e.response.data.cause;
-      } else {
-        response = 'Unknown error occurred.';
-      }
-    } else {
-      response = 'Unknown error occurred.';
-    }
 
-    handleNotification({
-      type: 'error',
-      dismissible: true,
-      header: action + " " + schemaName,
-      content: (response)
-    });
-  }
-
-  function handleNotification(notification)
-  {
-    return props.updateNotification('add', notification)
-  }
-
-  function handleAddItem()
-  {
+  function handleAddItem() {
     navigate({
       pathname: basePath + '/add'
     })
     setAction('Add')
     setFocusItem({});
     setEditingItem(true);
-
   }
 
-  function handleDownloadItems()
-  {
-    if (selectedItems.length > 0 ) {
+  function handleDownloadItems() {
+    if (selectedItems.length > 0) {
       // Download selected only.
       exportTable(selectedItems, "Databases", schemaName + 's')
     } else {
@@ -134,16 +123,15 @@ const UserDatabaseTable = (props) => {
     }
   }
 
-  function handleEditItem(selection = null)
-  {
-    if ( selectedItems.length === 1) {
+  function handleEditItem(selection = null) {
+    if (selectedItems.length === 1) {
       navigate({
         pathname: basePath + '/edit/' + selectedItems[0][itemIDKey]
       })
       setAction('Edit')
       setFocusItem(selectedItems[0]);
       setEditingItem(true);
-    } else if ( selection ) {
+    } else if (selection) {
       navigate({
         pathname: basePath + '/edit/' + selection[itemIDKey]
       })
@@ -154,15 +142,14 @@ const UserDatabaseTable = (props) => {
 
   }
 
-  function handleResetScreen()
-  {
+  function handleResetScreen() {
     navigate({
       pathname: basePath
     })
     setEditingItem(false);
   }
 
-  function handleItemSelectionChange(selection) {
+  function handleItemSelectionChange(selection: Array<any>) {
 
     setSelectedItems(selection);
     if (selection.length === 1) {
@@ -178,22 +165,23 @@ const UserDatabaseTable = (props) => {
 
   }
 
-  async function handleEditSave(editedItem){
+  async function handleEditSave(editedItem: any): Promise<void> {
+
     let newItem = Object.assign({}, editedItem);
     let item_id = newItem[schemaName + '_id'];
     let item_name = newItem[schemaName + '_name'];
-    const apiUser = await User.initializeCurrentSession();
+    const apiUser = new UserApiClient();
 
-    newItem = getChanges (newItem, dataMain, itemIDKey);
-    if(!newItem){
+    newItem = getChanges(newItem, dataMain, itemIDKey);
+    if (!newItem) {
       // no changes to original record.
-      handleNotification({
+      addNotification({
         type: 'warning',
         dismissible: true,
         header: "Save " + schemaName,
         content: "No updates to save."
-      });
-      return false;
+      })
+      return;
     }
     delete newItem[schemaName + '_id'];
     let resultEdit = await apiUser.putItem(item_id, newItem, schemaName);
@@ -201,21 +189,20 @@ const UserDatabaseTable = (props) => {
     if (resultEdit['errors']) {
       console.debug("PUT " + schemaName + " errors");
       console.debug(resultEdit['errors']);
-      let errorsReturned = parsePUTResponseErrors(resultEdit['errors']);
-      handleNotification({
+      let errorsReturned = parsePUTResponseErrors(resultEdit['errors']).join(',');
+      addNotification({
         type: 'error',
         dismissible: true,
         header: "Update " + schemaName,
         content: (errorsReturned)
-      });
-      return false;
+      })
     } else {
-      handleNotification({
+      addNotification({
         type: 'success',
         dismissible: true,
         header: "Update " + schemaName,
         content: item_name + " updated successfully.",
-      });
+      })
       updateMain();
       handleResetScreen();
 
@@ -225,9 +212,9 @@ const UserDatabaseTable = (props) => {
     }
   }
 
-  async function handleNewSave(editedItem){
+  async function handleNewSave(editedItem: any) {
     let newItem = Object.assign({}, editedItem);
-    const apiUser = await User.initializeCurrentSession();
+    const apiUser = new UserApiClient();
 
     delete newItem[schemaName + '_id'];
     let resultAdd = await apiUser.postItem(newItem, schemaName);
@@ -235,65 +222,56 @@ const UserDatabaseTable = (props) => {
     if (resultAdd['errors']) {
       console.debug("PUT " + schemaName + " errors");
       console.debug(resultAdd['errors']);
-      let errorsReturned = parsePUTResponseErrors(resultAdd['errors']);
-      handleNotification({
+      let errorsReturned = parsePUTResponseErrors(resultAdd['errors']).join(',');
+      addNotification({
         type: 'error',
         dismissible: true,
         header: "Add " + schemaName,
         content: (errorsReturned)
-      });
+      })
       return false;
     } else {
-      handleNotification({
+      addNotification({
         type: 'success',
         dismissible: true,
         header: "Add " + schemaName,
         content: newItem[schemaName + '_name'] + " added successfully.",
-      });
+      })
       updateMain();
       handleResetScreen();
     }
   }
 
-  async function handleSave(editItem, action) {
+  async function handleSave(editItem: any, action: string) {
 
     let newItem = Object.assign({}, editItem);
     try {
       if (action === 'Edit') {
         await handleEditSave(newItem);
-      }
-      else {
+      } else {
         await handleNewSave(newItem);
       }
 
-    } catch (e) {
-      apiActionErrorHandler(action,e);
+    } catch (e: any) {
+      apiActionErrorHandler(action, schemaName, e, addNotification);
     }
   }
 
-  async function handleRefreshClick(e) {
-    e.preventDefault();
+  async function handleRefreshClick() {
     await updateMain();
   }
 
-  async function handleDeleteItemClick(e) {
-    e.preventDefault();
-    showDeleteConfirmaton();
-  }
+  async function handleDeleteItem() {
+    setDeleteConfirmationModalVisible(false);
 
-  async function handleDeleteItem(e) {
-    e.preventDefault();
-
-    await hideDeleteConfirmaton();
-
-    let currentItem = 0;
+    let currentItem: any = 0;
     let multiReturnMessage = [];
     let notificationId;
 
     try {
-      const apiUser = await User.initializeCurrentSession();
-      if(selectedItems.length > 1) {
-        notificationId = handleNotification({
+      const apiUser = new UserApiClient();
+      if (selectedItems.length > 1) {
+        notificationId = addNotification({
           type: 'success',
           loading: true,
           dismissible: false,
@@ -301,32 +279,32 @@ const UserDatabaseTable = (props) => {
         });
       }
 
-      for(let item in selectedItems) {
+      for (let item in selectedItems) {
         currentItem = item;
         await apiUser.deleteDatabase(selectedItems[item][schemaName + '_id']);
         //Combine notifications into a single message if multi selected used, to save user dismiss clicks.
-        if(selectedItems.length > 1){
+        if (selectedItems.length > 1) {
           multiReturnMessage.push(selectedItems[item][schemaName + '_name']);
         } else {
-          handleNotification({
+          addNotification({
             type: 'success',
             dismissible: true,
             header: schemaName + ' deleted successfully',
             content: selectedItems[item][schemaName + '_name'] + ' was deleted.'
-          });
+          })
         }
 
       }
 
       //Create notification where multi select was used.
-      if(selectedItems.length > 1){
-        handleNotification({
+      if (selectedItems.length > 1) {
+        addNotification({
           id: notificationId,
           type: 'success',
           dismissible: true,
           header: schemaName + ' deleted successfully',
           content: multiReturnMessage.join(", ") + ' were deleted.'
-        });
+        })
       }
 
 
@@ -334,22 +312,21 @@ const UserDatabaseTable = (props) => {
       setSelectedItems([]);
       await updateMain();
 
-    } catch (e) {
+    } catch (e: any) {
       console.log(e);
-        handleNotification({
-            type: 'error',
-            dismissible: true,
-            header: schemaName + ' deletion failed',
-            content: selectedItems[currentItem][schemaName + '_name'] + ' failed to delete.'
-          });
+      addNotification({
+        type: 'error',
+        dismissible: true,
+        header: schemaName + ' deletion failed',
+        content: selectedItems[currentItem][schemaName + '_name'] + ' failed to delete.'
+      })
     }
   }
 
-  function displayItemsViewScreen(){
+  function displayItemsViewScreen() {
     return <SpaceBetween direction="vertical" size="xs">
       <ItemTable
-        sendNotification={handleNotification}
-        schema={props.schema[schemaName]}
+        schema={schemas[schemaName]}
         schemaKeyAttribute={itemIDKey}
         schemaName={schemaName}
         dataAll={dataAll}
@@ -360,34 +337,37 @@ const UserDatabaseTable = (props) => {
         errorLoading={errorMain}
         handleRefreshClick={handleRefreshClick}
         handleAddItem={handleAddItem}
-        handleDeleteItem={handleDeleteItemClick}
+        handleDeleteItem={async function () {
+          setDeleteConfirmationModalVisible(true);
+        }}
         handleEditItem={handleEditItem}
         handleDownloadItems={handleDownloadItems}
-        userAccess={props.userEntityAccess}
-        setHelpPanelContent={props.setHelpPanelContent}
+        userAccess={userEntityAccess}
       />
       <ViewItem
-        schema={props.schema}
+        schema={schemas}
         selectedItems={selectedItems}
         dataAll={dataAll}
       />
     </SpaceBetween>
   }
 
-  function displayItemsScreen(){
-    if (editingItem){
-      return <ItemAmend action={action} schemaName={schemaName} schemas={props.schema} userAccess={props.userEntityAccess} item={focusItem} handleSave={handleSave} handleCancel={handleResetScreen} updateNotification={handleNotification} setHelpPanelContent={props.setHelpPanelContent}/>;
+  function displayItemsScreen() {
+    if (editingItem) {
+      return <ItemAmend action={action} schemaName={schemaName} schemas={schemas}
+                        userAccess={userEntityAccess} item={focusItem} handleSave={handleSave}
+                        handleCancel={handleResetScreen}/>;
     } else {
       return displayItemsViewScreen();
     }
   }
 
-  useEffect( () => {
+  useEffect(() => {
     let selected = [];
 
     if (!isLoadingMain) {
 
-      let item = dataMain.filter(function (entry) {
+      let item = dataMain.filter(function (entry: any) {
         return entry[itemIDKey] === params.id;
       });
 
@@ -408,23 +388,21 @@ const UserDatabaseTable = (props) => {
 
   //Update help tools panel.
   useEffect(() => {
-    if (props?.schema[schemaName].help_content) {
-      let tempContent = props.schema[schemaName].help_content;
-      tempContent.header = props.schema[schemaName].friendly_name ? props.schema[schemaName].friendly_name : capitalize(schemaName);
-      props.setHelpPanelContent(tempContent)
-    }
-  }, [props.schema]);
+    setHelpPanelContentFromSchema(schemas, schemaName);
+  }, [schemas]);
 
   return (
     <div>
-     {props.schemaIsLoading ?
-       <StatusIndicator type="loading">
-         Loading schema...
-       </StatusIndicator>
-       :
-       displayItemsScreen()
-     }
-      <DeleteModal title={'Delete ' + schemaName + 's'} onConfirmation={handleDeleteItem}>{selectedItems.length === 1 ? <p>{'Are you sure you wish to delete the selected ' + schemaName + '?'}</p> : <p>{'Are you sure you wish to delete the {selectedItems.length} selected ' + schemaName +'?'}</p>}</DeleteModal>
+      {displayItemsScreen()}
+      <CMFModal
+        onDismiss={() => setDeleteConfirmationModalVisible(false)}
+        visible={isDeleteConfirmationModalVisible}
+        onConfirmation={handleDeleteItem}
+        header={'Delete databases'}
+      >
+        <p>Are you sure you wish to delete the {selectedItems.length} selected databases?</p>
+      </CMFModal>
+
     </div>
   );
 };

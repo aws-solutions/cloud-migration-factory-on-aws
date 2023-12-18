@@ -4,10 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import {
-  SpaceBetween
-} from '@awsui/components-react';
+import React, {useEffect, useState} from 'react';
+import {SpaceBetween} from '@awsui/components-react';
 import AllAttributes from "./AllAttributes";
 
 const EmbeddedEntityAttribute = ({schemas, parentSchemaType, parentSchemaName, parentUserAccess, embeddedEntitySchema, attribute, embeddedItem, handleUserInput, handleUpdateValidationErrors}) => {

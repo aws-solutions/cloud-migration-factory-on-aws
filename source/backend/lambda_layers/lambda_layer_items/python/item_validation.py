@@ -4,36 +4,59 @@
 import os
 import boto3
 import re
+import query_conditions
+from query_comparator_operations import query_comparator_operations_dictionary
 
 application = os.environ['application']
 environment = os.environ['environment']
 
+ATTRIBUTE_MESSAGE_PREFIX = "Attribute "
+
+class UnSupportedOperationTypeException(Exception):
+    pass
+
+
+def get_function_for_operation(operation):
+    try:
+        return query_comparator_operations_dictionary[operation]
+    except KeyError as key_error:
+        print(key_error)
+        raise UnSupportedOperationTypeException(f"The operation {operation} is not supported")
+
 
 def get_required_attributes(schema, include_conditional=False):
     required_attributes = []
-    schema_system_key = schema['schema_name'] + '_id'
 
+    if not schema:
+        return required_attributes
+    
+    schema_system_key = schema['schema_name'] + '_id'
     if schema['schema_name'] == 'application':
         schema_system_key = 'app_id'
 
-    if schema:
-        for attribute in schema['attributes']:
+    for attribute in schema['attributes']:
+        # Check if mandatory required flag set and not the system key attribute.
+        if ('required' in attribute and attribute['required'] == True) \
+            and not ('hidden' in attribute and attribute['hidden'] == True) \
+            and attribute['name'] != schema_system_key: 
+            required_attributes.append(attribute)
+        # if not mandatory required then is there a conditional required.
+        elif 'conditions' in attribute and include_conditional:
+            required_attributes = append_conditional_attributes(attribute, required_attributes)
 
-            if ('required' in attribute and attribute['required'] == True) \
-                and not ('hidden' in attribute and attribute['hidden'] == True) \
-                and attribute[
-                'name'] != schema_system_key:  # Check if mandatory required flag set and not the system key attribute.
+    return required_attributes
+
+
+def append_conditional_attributes(attribute, required_attributes):
+    if 'outcomes' in attribute['conditions'] and 'true' in attribute['conditions']['outcomes']:                 
+        for outcome in attribute['conditions']['outcomes']['true']:
+            if outcome == 'required':
                 required_attributes.append(attribute)
-            elif 'conditions' in attribute and include_conditional:
-                # if not mandatory required then is there a conditional required.
-                if 'outcomes' in attribute['conditions'] and 'true' in attribute['conditions']['outcomes']:
-                    for outcome in attribute['conditions']['outcomes']['true']:
-                        if outcome == 'required':
-                            required_attributes.append(attribute)
-                if 'outcomes' in attribute['conditions'] and 'false' in attribute['conditions']['outcomes']:
-                    for outcome in attribute['conditions']['outcomes']['false']:
-                        if outcome == 'required':
-                            required_attributes.append(attribute)
+    if 'outcomes' in attribute['conditions'] and 'false' in attribute['conditions']['outcomes']: 
+        for outcome in attribute['conditions']['outcomes']['false']:
+            if outcome == 'required':
+                required_attributes.append(attribute)
+
     return required_attributes
 
 
@@ -47,89 +70,19 @@ def check_attribute_required_conditions(item, conditions):
         return {'required': return_required, 'hidden': return_hidden}
 
     for query in conditions['queries']:
-        if query['comparator'] == '=':
-            if query['attribute'] in item and query['value']:
-                if item[query['attribute']] == query['value']:
-                    if query_result != False:
-                        query_result = True
-                else:
-                    query_result = False
-                    break
-        elif query['comparator'] == '!=':
-            if query['attribute'] in item and query['value']:
-                if item[query['attribute']] != query['value']:
-                    if query_result != False:
-                        query_result = True
-                else:
-                    query_result = False
-                    break
-        elif query['comparator'] == '!empty':
-            if query['attribute'] in item:
-                if isinstance(item[query['attribute']], list):
-                    if len(item[query['attribute']]) != 0:
-                        if query_result != False:
-                            query_result = True
-                    else:
-                        query_result = False
-                        break
-                else:
-                    if item[query['attribute']] != '':
-                        if query_result != False:
-                            query_result = True
-                    else:
-                        query_result = False
-                        break
-        elif query['comparator'] == 'empty':
-            if query['attribute'] in item:
-                if isinstance(item[query['attribute']], list):
-                    if len(item[query['attribute']]) > 0:
-                        if query_result != False:
-                            query_result = True
-                    else:
-                        query_result = False
-                        break
-                else:
-                    if item[query['attribute']] == '':
-                        if query_result != False:
-                            query_result = True
-                    else:
-                        query_result = False
-                        break
-            elif query['attribute'] not in item and 'comparator' in query:
-                if query_result != False:
-                    query_result = True
+        operation = get_function_for_operation(query['comparator'])
+        if operation:
+            query_result = operation(item, query, query_result)
+            if query_result == False:
+                break
 
     if query_result:
         if 'true' in conditions['outcomes']:
-            for outcome in conditions['outcomes']['true']:
-                if outcome == 'required':
-                    return_required = True
-                    continue
-                elif outcome == 'not_required':
-                    return_required = False
-                    continue
-                elif outcome == 'hidden':
-                    return_hidden = True
-                    continue
-                elif outcome == 'not_hidden':
-                    return_hidden = False
-                    continue
-    else:
-        if 'false' in conditions['outcomes']:
-            for outcome in conditions['outcomes']['false']:
-                if outcome == 'required':
-                    return_required = True
-                    continue
-                elif outcome == 'not_required':
-                    return_required = False
-                    continue
-                elif outcome == 'hidden':
-                    return_hidden = True
-                    continue
-                elif outcome == 'not_hidden':
-                    return_hidden = False
-                    continue
-
+            conditions = conditions['outcomes']['true']
+    elif 'false' in conditions['outcomes']:
+        conditions = conditions['outcomes']['false']
+        
+    return_required, return_hidden = query_conditions.parse_outcomes(conditions)
     return {'required': return_required, 'hidden': return_hidden}
 
 
@@ -139,20 +92,16 @@ def check_valid_item_create(item, schema, related_items=None):
     required_attributes = get_required_attributes(schema, True)
 
     for attribute in required_attributes:
+        invalid_attribute_message = f"{ATTRIBUTE_MESSAGE_PREFIX}{attribute['name']} is required and not provided."
+        is_valid = True
         if 'required' in attribute and attribute['required']:
             # Attribute is required.
-            if attribute['name'] in item:
-                if not (item[attribute['name']] != '' and item[attribute['name']] is not None):
-                    invalid_attributes.append("Attribute: " + attribute['name'] + " is required and not provided.")
-            else:
-                # key not in item, missing required attribute.
-                invalid_attributes.append("Attribute: " + attribute['name'] + " is required and not provided.")
+            is_valid = is_required_attribute_valid(item, attribute)
         elif 'conditions' in attribute:
-            conditions_check_result = check_attribute_required_conditions(item, attribute['conditions'])
-            if conditions_check_result['required']:
-                if not (attribute['name'] in item and item[attribute['name']] != '' and item[
-                    attribute['name']] is not None):
-                    invalid_attributes.append("Attribute: " + attribute['name'] + " is required and not provided.")
+            is_valid = is_conditional_attribute_valid(item, attribute)
+
+        if not is_valid:
+            invalid_attributes.append(invalid_attribute_message)
 
     if len(invalid_attributes) > 0:
         return invalid_attributes
@@ -168,6 +117,27 @@ def check_valid_item_create(item, schema, related_items=None):
         return None
 
 
+def is_required_attribute_valid(item, attribute):
+    if attribute['name'] in item:
+        if not (item[attribute['name']] != '' and item[attribute['name']] is not None):
+            return False
+    # key not in item, missing required attribute.
+    else:
+        return False
+
+    return True
+
+
+def is_conditional_attribute_valid(item, attribute):
+    conditions_check_result = check_attribute_required_conditions(item, attribute['conditions'])
+    if conditions_check_result['required'] and  \
+        not (attribute['name'] in item and item[attribute['name']] != '' and item[
+            attribute['name']] is not None):
+            return False
+
+    return True
+
+
 def validate_value(attribute, value):
     std_error = "Error in validation, please check entered value.";
     error = None
@@ -175,9 +145,9 @@ def validate_value(attribute, value):
     if not pattern.match(value):
         # Validation error.
         if 'validation_regex_msg' in attribute:
-            error = "Attribute: " + attribute['name'] + ", " + attribute['validation_regex_msg']
+            error = f"{ATTRIBUTE_MESSAGE_PREFIX}{attribute['name']}, {attribute['validation_regex_msg']}"
         else:
-            error = "Attribute: " + attribute['name'] + ", " + std_error
+            error = f"{ATTRIBUTE_MESSAGE_PREFIX}{attribute['name']}, {std_error}"
 
     return error
 
@@ -270,52 +240,133 @@ def validate_item_related_record(attribute, value, preloaded_related_items=None)
             related_items = preloaded_related_items
         else:
             # No preloaded item provided, load from DDB table.
-            table_name = attribute['rel_entity']
-            if table_name == 'application':
-                table_name = 'app'
-
-            related_table_name = '{}-{}-{}s'.format(application, environment, table_name)
-
-            related_table = boto3.resource('dynamodb').Table(related_table_name)
-            related_items = scan_dynamodb_data_table(related_table)  # get all items from related table.
+            related_items = load_items_from_ddb(attribute)
 
         if 'listMultiSelect' in attribute and attribute['listMultiSelect']:
-            related_records_found = []
-            related_records_not_found = []
-            for related_item in related_items:
-                if related_item[attribute['rel_key']] in value:
-                    related_records_found.append(related_item[attribute['rel_key']])
-
-            for record_id in value:
-                if record_id not in related_records_found:
-                    related_records_not_found.append(record_id)
-
-            if len(related_records_not_found) > 0:
-                message = attribute['name'] + ': The following related record ids do not exist using key ' + \
-                          attribute['rel_key'] + ' - ' + ", ".join(related_records_not_found)
-                return [message]
-            else:
-                #  All related IDs found.
-                return None
+            message = validate_list_multi_select(attribute, related_items, value)
         else:
-            related_record_found = False
-            for related_item in related_items:
-                if related_item[attribute['rel_key']] == str(value):
-                    related_record_found = True
+            message = validate_non_list_multi_select(attribute, related_items, value)
 
-            if not related_record_found:
-                message = attribute['name'] + ':' + value + ' related record does not exist using key ' + \
-                          attribute['rel_key']
-                return [message]
-            else:
-                return None
+        return message
+    
 
-    # return [attribute['name'] + ': Unsupported relationship schema ' + attribute['rel_entity']]  # invalid relationship attribute.
+def load_items_from_ddb(attribute):
+    # No preloaded item provided, load from DDB table.
+    table_name = attribute['rel_entity']
+    if table_name == 'application':
+        table_name = 'app'
+
+    related_table_name = '{}-{}-{}s'.format(application, environment, table_name)
+
+    related_table = boto3.resource('dynamodb').Table(related_table_name)
+    related_items = scan_dynamodb_data_table(related_table)  # get all items from related table.
+    
+    return related_items
+
+
+def validate_list_multi_select(attribute, related_items, value):
+    related_records_found = []
+    related_records_not_found = []
+    for related_item in related_items:
+        if related_item[attribute['rel_key']] in value:
+            related_records_found.append(related_item[attribute['rel_key']])
+
+    for record_id in value:
+        if record_id not in related_records_found:
+            related_records_not_found.append(record_id)
+
+    if len(related_records_not_found) > 0:
+        message = attribute['name'] + ': The following related record ids do not exist using key ' + \
+                    attribute['rel_key'] + ' - ' + ", ".join(related_records_not_found)
+        return [message]
+    else:
+        #  All related IDs found.
+        return None
+
+
+def validate_non_list_multi_select(attribute, related_items, value):
+    related_record_found = False
+    for related_item in related_items:
+        if related_item[attribute['rel_key']] == str(value):
+            related_record_found = True
+
+    if not related_record_found:
+        message = attribute['name'] + ':' + value + ' related record does not exist using key ' + \
+                    attribute['rel_key']
+        return [message]
+    else:
+        return None
+    
+
+def validate_list_type_attribute(item, attribute, key, errors):
+    listvalue = attribute['listvalue'].lower().split(',')
+    if 'listMultiSelect' in attribute and attribute['listMultiSelect'] == True:
+        for item in item[key]:
+            if item.lower() not in listvalue:
+                message = ATTRIBUTE_MESSAGE_PREFIX + key + "'s value does not match any of the allowed values '" + \
+                            attribute['listvalue'] + "' defined in the schema"
+                errors.append(message)
+    else:
+        if item[key] != '' and item[key].lower() not in listvalue:
+                message = ATTRIBUTE_MESSAGE_PREFIX + key + "'s value does not match any of the allowed values '" + \
+                            attribute[
+                                'listvalue'] + "' defined in the schema"
+                errors.append(message)
+
+    return errors
+
+
+def validate_relationship_type_attribute(related_items, item, attribute, key, errors):
+    if related_items and attribute['rel_entity'] in related_items.keys():
+        related_record_validation = validate_item_related_record(
+            attribute, item[key],
+            related_items[attribute['rel_entity']])
+    else:
+        # relationship items not preloaded, validate will have to fetch them.
+        related_record_validation = validate_item_related_record(attribute, item[key])
+
+    if related_record_validation != None:
+        errors.append(related_record_validation)
+
+    return errors
+
+
+def validate_other_type_attribute(item, attribute, key, errors):
+    if 'validation_regex' in attribute and attribute['validation_regex'] != '' \
+        and item[key] != '' and item[key] is not None:
+        if attribute['type'] == 'multivalue-string':
+            errors = validate_multivalue_string_type_attribute(item, attribute, key, errors)
+        else:
+            value_validation_result = validate_value(attribute, item[key])
+            if value_validation_result != None:
+                errors.append(value_validation_result)
+
+    return errors
+
+
+def validate_multivalue_string_type_attribute(item, attribute, key, errors):
+    valid_regex = True
+    for value in item[key]:
+        value_validation_result = validate_value(attribute, value)
+        if value_validation_result != None:
+            valid_regex = False
+    if not valid_regex:
+        errors.append(value_validation_result)
+
+    return errors
+
+
+def append_error_message(check, key, errors):
+    if check == False:
+        message = f"{ATTRIBUTE_MESSAGE_PREFIX}{key} is not defined in the schema."
+        errors.append(message)
+    
+    return errors
 
 
 def validate_item_keys_and_values(item, attributes, related_items=None):
     errors = []
-    std_error = "Error in validation, please check entered value."
+
     for key in item.keys():
         check = False
         if key.startswith('_'):
@@ -325,51 +376,14 @@ def validate_item_keys_and_values(item, attributes, related_items=None):
             if key == attribute['name']:
                 check = True
                 if attribute['type'] == 'list' and 'listvalue' in attribute:
-                    listvalue = attribute['listvalue'].lower().split(',')
-                    if 'listMultiSelect' in attribute and attribute['listMultiSelect'] == True:
-                        for item in item[key]:
-                            if item.lower() not in listvalue:
-                                message = "Attribute " + key + "'s value does not match any of the allowed values '" + \
-                                          attribute['listvalue'] + "' defined in the schema"
-                                errors.append(message)
-                    else:
-                        if item[key] != '':
-                            if item[key].lower() not in listvalue:
-                                message = "Attribute " + key + "'s value does not match any of the allowed values '" + \
-                                          attribute[
-                                              'listvalue'] + "' defined in the schema"
-                                errors.append(message)
+                    errors = validate_list_type_attribute(item, attribute, key, errors)
                 elif attribute['type'] == 'relationship':
-                    if related_items and attribute['rel_entity'] in related_items.keys():
-                        related_record_validation = validate_item_related_record(attribute, item[key],
-                                                                                 related_items[attribute['rel_entity']])
-                    else:
-                        # relationship items not preloaded, validate will have to fetch them.
-                        related_record_validation = validate_item_related_record(attribute, item[key])
-
-                    if related_record_validation != None:
-                        errors.append(related_record_validation)
+                    errors = validate_relationship_type_attribute(related_items, item, attribute, key, errors)
                 else:
-                    if 'validation_regex' in attribute and attribute['validation_regex'] != '' and item[key] != '' and \
-                        item[
-                            key] is not None:
-                        if attribute['type'] == 'multivalue-string':
-                            valid_regex = True
-                            for value in item[key]:
-                                value_validation_result = validate_value(attribute, value)
-                                if value_validation_result != None:
-                                    valid_regex = False
-                            if not valid_regex:
-                                errors.append(value_validation_result)
-                        else:
-                            value_validation_result = validate_value(attribute, item[key])
-                            if value_validation_result != None:
-                                errors.append(value_validation_result)
+                    errors = validate_other_type_attribute(item, attribute, key, errors)
                 break  # Exit loop as key matched to attribute no need to check other attributes.
 
-        if check == False:
-            message = "Attribute: " + key + " is not defined in the schema."
-            errors.append(message)
+        errors = append_error_message(check, key, errors)
 
     return errors
 

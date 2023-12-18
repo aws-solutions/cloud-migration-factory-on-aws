@@ -3,38 +3,21 @@
 
 
 from __future__ import print_function
-import boto3
 import json
-import sys
 import os
 from policy import MFAuth
-from botocore import config
 
-if 'solution_identifier' in os.environ:
-    solution_identifier= json.loads(os.environ['solution_identifier'])
-    user_agent_extra_param = {"user_agent_extra":solution_identifier}
-    boto_config = config.Config(**user_agent_extra_param)
-else:
-    boto_config = None
+import cmf_boto
+from cmf_utils import cors, default_http_headers
 
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
-
-default_http_headers = {
-    'Access-Control-Allow-Origin': cors,
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy' : "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
-}
 application = os.environ['application']
 environment = os.environ['environment']
 servers_table_name = '{}-{}-servers'.format(application, environment)
 apps_table_name = '{}-{}-apps'.format(application, environment)
 waves_table_name = '{}-{}-waves'.format(application, environment)
-servers_table = boto3.resource('dynamodb').Table(servers_table_name)
-apps_table = boto3.resource('dynamodb').Table(apps_table_name)
-waves_table = boto3.resource('dynamodb').Table(waves_table_name)
+servers_table = cmf_boto.resource('dynamodb').Table(servers_table_name)
+apps_table = cmf_boto.resource('dynamodb').Table(apps_table_name)
+waves_table = cmf_boto.resource('dynamodb').Table(waves_table_name)
 
 
 def get_wave_name(waves, body):
@@ -84,7 +67,7 @@ def process_app(app, body, context, wave_name, stack_result_set):
 
         # Later Enchancement to deploy the stack
         template_url = 'https://' + gfbuild_bucket + '.s3.amazonaws.com/' + s3_path
-        s3 = boto3.client('s3')
+        s3 = cmf_boto.client('s3')
         try:
             result = s3.get_bucket_policy(Bucket=gfbuild_bucket)
             data = json.loads(result['Policy'])
@@ -152,7 +135,7 @@ def lambda_handler(event, context):
 
     # Verify user has access to run ec2 replatform functions.
     auth = MFAuth()
-    auth_response = auth.getUserResourceCreationPolicy(event, 'EC2')
+    auth_response = auth.get_user_resource_creation_policy(event, 'EC2')
     if auth_response['action'] != 'allow':
         return {'headers': {**default_http_headers},
                 'statusCode': 401,
@@ -233,19 +216,18 @@ def lambda_handler(event, context):
 def launch_stack(template_url, app_id, app_name, target_account_id):
     # try:
 
-    sts_client = boto3.client('sts')
+    sts_client = cmf_boto.client('sts')
     role_arn_value = "arn:aws:iam::" + target_account_id + ":role/Factory-Replatform-EC2Deploy"
     assumed_role_object = sts_client.assume_role(
         RoleArn=role_arn_value,
         RoleSessionName="AssumeRoleSessionMFReplatform"
         )
     credentials = assumed_role_object['Credentials']
-    cfn = boto3.client(
+    cfn = cmf_boto.client(
         'cloudformation',
         aws_access_key_id=credentials['AccessKeyId'],
         aws_secret_access_key=credentials['SecretAccessKey'],
-        aws_session_token=credentials['SessionToken'],
-        config=boto_config
+        aws_session_token=credentials['SessionToken']
         )
     stack_name = 'Create-EC2-Servers-for-App-Id-' + app_id + app_name
     capabilities = ['CAPABILITY_IAM', 'CAPABILITY_AUTO_EXPAND','CAPABILITY_NAMED_IAM']

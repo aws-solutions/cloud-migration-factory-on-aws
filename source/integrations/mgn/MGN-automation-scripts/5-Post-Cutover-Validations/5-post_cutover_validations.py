@@ -125,9 +125,11 @@ def get_instance_id(serverlist):
                 print("ERROR: server_fqdn does not exist for server: " + factoryserver['server_name'])
                 error = True
             else:
-                sourceserver = mfcommon.get_MGN_Source_Server(factoryserver, mgn_sourceservers)
+                sourceserver = mfcommon.get_mgn_source_server(
+                    factoryserver, mgn_sourceservers)
                 if sourceserver is not None:
                     # Get target instance Id for the source server in Application Migration Service
+                    # TODO: at this point sourceserver['isArchived'] is always false
                     if sourceserver['isArchived'] == False:
                         if 'launchedInstance' in sourceserver:
                             if 'ec2InstanceID' in sourceserver['launchedInstance']:
@@ -171,7 +173,7 @@ def get_win_service_val_status(server, p, report):
             for categories in type.split("|"):
                 if categories == "validationStatus":
                     print("\n")
-                    if report["validationStatus"] == "Fail":
+                    if report["validationStatus"] == "Fail":  # TODO seems unreachable
                         report[categories] = "Fail"
                     else:
                         report[categories] = type.split("|")[1]
@@ -198,7 +200,7 @@ def get_win_service_val_status(server, p, report):
     return report
 
 
-def get_validations_list():
+def get_validations_list(args):
     software_validations = ""
     if args.BootupStatusCheck:
         software_validations = "instance_bootup_status,instance_bootup_screenshot,"
@@ -243,7 +245,7 @@ def validate_windows_servers(parameters):
         print(e)
 
 
-def validate_linux_servers(parameters):
+def validate_linux_servers(parameters, args):
     try:
         server = parameters["server"]
 
@@ -350,16 +352,16 @@ def validate_software_services(args, server_details, report):
 
         try:
 
-            credentials = mfcommon.getServerCredentials(Domain_User, Domain_Password, server_details["server_name"],
-                                                        args.SecretWindows, args.NoPrompts)
+            credentials = mfcommon.get_server_credentials(Domain_User, Domain_Password, server_details["server_name"],
+                                                          args.SecretWindows, args.NoPrompts)
             if credentials['username'] != "":
                 if "\\" not in credentials['username'] and "@" not in credentials['username']:
                     # Assume local account provided, prepend server name to user ID.
                     server_name_only = server_details["server_fqdn"].split(".")[0]
                     credentials['username'] = server_name_only + "\\" + credentials['username']
                     print("INFO: Using local account to connect: " + credentials['username'])
-            else:
-                print("INFO: Using domain account to connect: " + credentials['username'])
+                else:
+                    print("INFO: Using domain account to connect: " + credentials['username'])
             report["serverType"] = "Windows"
             report["Windows_Apps"] = "Windows_Apps"
             report["Win_Wanted_Apps"] = "Win_Wanted_Apps ->"
@@ -377,15 +379,16 @@ def validate_software_services(args, server_details, report):
             return validate_windows_servers(parameters)
 
         except Exception as e:
-            print(f"Unable to connect or Error while parsing the report {server}\n")
-            print(e)
+            message = f"Unable to connect or Error while parsing the report {server}"
+            print(f"{message}: {e}\n ")
+            raise Exception(message)
     else:
         if args.ServiceList:
             ServiceList = args.ServiceList
 
         try:
-            credentials = mfcommon.getServerCredentials(user_name, pass_key, server_details["server_name"],
-                                                        args.SecretLinux, args.NoPrompts)
+            credentials = mfcommon.get_server_credentials(user_name, pass_key, server_details["server_name"],
+                                                          args.SecretLinux, args.NoPrompts)
             server_ip = server_details.get("private_ip", None)
 
             report["serverType"] = "Linux"
@@ -397,7 +400,7 @@ def validate_software_services(args, server_details, report):
             parameters["LinuxPassword"] = credentials['password']
             parameters["has_key"] = has_key
             # validate_linux_servers(parameters)
-            return (validate_linux_servers(parameters))
+            return (validate_linux_servers(parameters, args))
         except TimeoutError:
             print("Unable to connect " + server + "\n")
 
@@ -572,7 +575,7 @@ def get_instance_termination_protection(ec2_client, instance, args, report):
         print(e)
 
 
-def get_instance_tag_details(instance, report):
+def get_instance_tag_details(instance, report, args):
     if args.Tags:
         tag_list = args.Tags
     else:
@@ -621,7 +624,7 @@ def verify_instance_details(account_servers_list, args):
                 for target_instance in account["servers"]:
                     if instance.id == target_instance['target_ec2InstanceID']:
                         # Create Server report from the template
-                        report_dict = get_validations_list()
+                        report_dict = get_validations_list(args)
                         report = report_dict.copy()
 
                         print("")
@@ -641,7 +644,7 @@ def verify_instance_details(account_servers_list, args):
                         # *************************************************************************
 
                         # *********  Validating the Mandatory tags of the instance  ********
-                        get_instance_tag_details(instance, report)
+                        get_instance_tag_details(instance, report, args)
                         # *************************************************************************
 
                         # *********  Validating the Mandatory Softwares/Services in Instance  ********
@@ -699,7 +702,7 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
-def main():
+def main(args):
     # These are global variables, its values are set during pre-requisites check itself.
     global user_name, pass_key, has_key, finalReport
     finalReport = []
@@ -707,7 +710,7 @@ def main():
 
     print("")
     print("*Login to Migration factory*", flush=True)
-    token = mfcommon.Factorylogin()
+    token = mfcommon.factory_login()
 
     print("*** Getting Server List ****", flush=True)
     account_servers_list = mfcommon.get_factory_servers(args.Waveid, token, False, 'Rehost')
@@ -741,4 +744,4 @@ if __name__ == '__main__':
         args.DnsEntryCheck = True
         args.SyslogEntryCheck = True
         args.BootupStatusCheck = True
-    sys.exit(main())
+    sys.exit(main(args))

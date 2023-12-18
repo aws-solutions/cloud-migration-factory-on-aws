@@ -1,55 +1,63 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//Component used for providing generic edit record/item screen.
-// All schema entities use this component.
 
 import React, {useEffect, useState} from 'react';
-import {
-  SpaceBetween,
-  Form,
-  Header,
-  Button
-} from '@awsui/components-react';
+import {Button, Form, Header, SpaceBetween} from '@awsui/components-react';
 
-import {useModal} from '../actions/Modal';
 import AllAttributes from './ui_attributes/AllAttributes'
 import {capitalize, setNestedValuePath} from "../resources/main";
+import {ClickEvent} from "../models/Events";
+import {UserAccess} from "../models/UserAccess";
+import {EntitySchema} from "../models/EntitySchema";
+import {CMFModal} from "./Modal";
 
-const ItemAmend = (props) => {
+// TODO this type has been derived from usage only, should be modified to reflect the intended type
+type ItemAmendParams = {
+  item: any;
+  handleSave: (arg0: any, arg1: any) => any;
+  action: string;
+  handleCancel: () => void;
+  schemaName: string;
+  schemas: Record<string, EntitySchema>;
+  userAccess: UserAccess;
+};
+
+
+//Component used for providing generic edit record/item screen.
+// All schema entities use this component.
+const ItemAmend = (props: ItemAmendParams) => {
 
   const [localItem, setLocalItem] = useState(props.item);
   const [dataChanged, setDataChanged] = useState(false);
   const [validForm, setFormValidation] = useState(false);
-  const [formErrors, setFormErrors] = useState([]); //List of error messages on this form, these are displayed in the bottom of the form.
+  const [formErrors, setFormErrors] = useState<any[]>([]); //List of error messages on this form, these are displayed in the bottom of the form.
   const [isSaving, setIsSaving] = useState(false);
 
-  //Modals
-  const { show: showUnsavedConfirmaton, RenderModal: UnSavedModal } = useModal()
+  const [isUnsavedConfirmationModalVisible, setUnsavedConfirmationModalVisible] = useState(false)
 
-  async function handleUserInput (value){
+
+  async function handleUserInput(value: any[]) {
     let valueArray = [];
     let newRecord = Object.assign({}, localItem);
 
     //Convert non-Array values to array in order to keep procedure simple.
-    if(Array.isArray(value)){
+    if (Array.isArray(value)) {
       valueArray = value;
     } else {
       valueArray.push(value);
     }
 
-    for (const valueItem of valueArray){
-      if (Array.isArray(valueItem.value)){
-        if(valueItem.value.length > 0){
+    for (const valueItem of valueArray) {
+      if (Array.isArray(valueItem.value)) {
+        if (valueItem.value.length > 0) {
           //Check first item to see if tag structure.
-          if((valueItem.value[0].existing === true || valueItem.value[0].existing === false) && 'key' in valueItem.value[0] && 'value' in valueItem.value[0]){
+          if ((valueItem.value[0].existing === true || valueItem.value[0].existing === false) && 'key' in valueItem.value[0] && 'value' in valueItem.value[0]) {
             //It's a tag field!!
-            let updatedTags = valueItem.value.map((item) => {
-              if (item.existing === false)
-              {
+            let updatedTags = valueItem.value.map((item: { existing: boolean | undefined; key: any; value: any; markedForRemoval: any; }) => {
+              if (item.existing === false) {
                 return {key: item.key, value: item.value};
               }
 
@@ -72,8 +80,7 @@ const ItemAmend = (props) => {
           // Array to be emptied. Set as empty.
           setNestedValuePath(newRecord, valueItem.field, []);
         }
-      }
-      else {
+      } else {
         setNestedValuePath(newRecord, valueItem.field, valueItem.value);
       }
     }
@@ -82,7 +89,7 @@ const ItemAmend = (props) => {
     setDataChanged(true);
   }
 
-  async function handleSave (e){
+  const handleSave: any = async (e: ClickEvent) => {
     e.preventDefault();
 
     setIsSaving(true);
@@ -90,24 +97,24 @@ const ItemAmend = (props) => {
     await props.handleSave(localItem, props.action);
 
     setIsSaving(false);
-  }
+  };
 
-  function handleCancel (e){
+  const handleCancel: any = (e: ClickEvent) => {
     e.preventDefault();
 
-    if (dataChanged){
-      showUnsavedConfirmaton();
+    if (dataChanged) {
+      setUnsavedConfirmationModalVisible(true);
     } else {
-      props.handleCancel(e);
+      props.handleCancel();
     }
-  }
+  };
 
-  function handleUpdateFormErrors (newErrors){
+  function handleUpdateFormErrors(newErrors: any[]) {
     setFormErrors(newErrors);
   }
 
   useEffect(() => {
-    if (formErrors.length === 0){
+    if (formErrors.length === 0) {
       setFormValidation(true);
     } else {
       setFormValidation(false);
@@ -126,7 +133,7 @@ const ItemAmend = (props) => {
   }
 
   return (
-    <div>
+    <>
       <Form
         header={<Header variant="h1">{headerText()}</Header>}
         actions={
@@ -138,27 +145,33 @@ const ItemAmend = (props) => {
             </Button>
           </SpaceBetween>
         }
-        errorText={formErrors.length > 0 ? formErrors.map(error => {
+        errorText={formErrors.length > 0 ? formErrors.map((error: any, index: number) => {
             let errorReason = error.validation_regex_msg ? error.validation_regex_msg : 'You must specify a value.';
-            return <p key={error.description + ' - ' + errorReason}>{error.description + ' - ' + errorReason}</p>}): undefined
+          return <p>{error.description + ' - ' + errorReason}</p>
+          }
+        ) : undefined
         }
       >
-          <SpaceBetween size="l">
-            <AllAttributes
-                schema={props.schemas[props.schemaName]}
-                schemaName={props.schemaName}
-                schemas={props.schemas}
-                userAccess={props.userAccess}
-                item={localItem}
-                handleUserInput={handleUserInput}
-                handleUpdateValidationErrors={handleUpdateFormErrors}
-                setHelpPanelContent={props.setHelpPanelContent}
-            />
-
-          </SpaceBetween>
+        <AllAttributes
+          schema={props.schemas[props.schemaName]}
+          schemaName={props.schemaName}
+          schemas={props.schemas}
+          userAccess={props.userAccess}
+          item={localItem}
+          handleUserInput={handleUserInput}
+          handleUpdateValidationErrors={handleUpdateFormErrors}
+        />
       </Form>
-      <UnSavedModal title={'Unsaved changes'} onConfirmation={props.handleCancel}>Changes made will be lost if you continue, are you sure?</UnSavedModal>
-    </div>
+
+      <CMFModal
+        onDismiss={() => setUnsavedConfirmationModalVisible(false)}
+        onConfirmation={props.handleCancel}
+        visible={isUnsavedConfirmationModalVisible}
+        header={'Unsaved changes'}
+      >
+        Changes made will be lost if you continue, are you sure?
+      </CMFModal>
+    </>
   );
 };
 

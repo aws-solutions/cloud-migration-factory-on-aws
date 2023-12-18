@@ -20,10 +20,6 @@
           },
           {
             "attr_type": "application",
-            "attr_name": "cloudendure_projectname"
-          },
-          {
-            "attr_type": "application",
             "attr_name": "aws_accountid"
           },
           {

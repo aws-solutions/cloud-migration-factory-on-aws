@@ -1,39 +1,40 @@
-aws-cloudendure-migration-factory-solution
+Cloud Migration Factory on AWS
+
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-Permission is hereby granted, free of charge, to any person obtaining a copy of this
-software and associated documentation files (the "Software"), to deal in the Software
-without restriction, including without limitation the rights to use, copy, modify,
-merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so.
+Licensed under the Apache License Version 2.0 (the "License"). You may not use this file except
+in compliance with the License. A copy of the License is located at https://www.apache.org/licenses/
+or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or implied. See the License for the
+specific language governing permissions and limitations under the License.
 
 **********************
 THIRD PARTY COMPONENTS
 **********************
 This software includes third party software subject to the following copyrights:
 
-AWS SDK/boto3 under the Apache License Version 2.0
-aws-amplify under the Apache License Version 2.0
-@awsui/components-react under the Apache License Version 2.0
-@awsui/global-styles under the Apache License Version 2.0
-@awsui/jest-preset under the Apache License Version 2.0
-requests under the Apache License Version 2.0
+AWS SDK/boto3 under the Apache License 2.0
+aws-amplify under the Apache License 2.0
+@awsui/components-react under the Apache License 2.0
+@awsui/global-styles under the Apache License 2.0
+@awsui/jest-preset under the Apache License 2.0
+requests under the Apache License 2.0
 simplejson under the Massachusetts Institute of Technology (MIT) license
 uuid under the Massachusetts Institute of Technology (MIT) license
-aws-amplify under the Apache License Version 2.0
+aws-amplify under the Apache License 2.0
 react under the Massachusetts Institute of Technology (MIT) license
 react-dom under the Massachusetts Institute of Technology (MIT) license
 react-router-dom under the Massachusetts Institute of Technology (MIT) license
 react-scripts under the Massachusetts Institute of Technology (MIT) license
-Paramiko under the GNU Lesser General Public License v2.1
+paramiko under the GNU Lesser General Public License v2.1
 troposphere is licensed under the BSD 2-Clause license.
 ace is licensed under the BSD 2-Clause license.
-moto under the Apache License Version 2.0
-coverage under the Apache License Version 2.0
+moto under the Apache License 2.0
+coverage under the Apache License 2.0
 python-jose under the Massachusetts Institute of Technology (MIT) license
 jquery under the Massachusetts Institute of Technology (MIT) license
 jquery-csv under the Massachusetts Institute of Technology (MIT) license
 uuid under the Massachusetts Institute of Technology (MIT) license
-xlsx under the Apache License Version 2.0
+xlsx under the Apache License 2.0
 @babel/preset-env under the Massachusetts Institute of Technology (MIT) license
 @babel/preset-react under the Massachusetts Institute of Technology (MIT) license
 @testing-library/react under the Massachusetts Institute of Technology (MIT) license
@@ -42,7 +43,35 @@ babel-jest under the Massachusetts Institute of Technology (MIT) license
 jest under the Massachusetts Institute of Technology (MIT) license
 jest-sonar-reporter under the Massachusetts Institute of Technology (MIT) license
 jest-environment-jsdom under the Massachusetts Institute of Technology (MIT) license
-jsdoc under the Apache License Version 2.0
+jsdoc under the Apache License 2.0
 react-test-renderer under the Massachusetts Institute of Technology (MIT) license
-source-map-explorer under the Apache License Version 2.0
+source-map-explorer under the Apache License 2.0
 ts-jest under the Massachusetts Institute of Technology (MIT) license
+PyNaCl under the Apache License 2.0
+Jinja2 under the BSD-3-Clause license
+MarkupSafe under the BSD-3-Clause license
+Werkzeug under the BSD License
+aws-lambda-powertools under the Massachusetts Institute of Technology (MIT) license
+bcrypt under the Apache License 2.0
+botocore under the Apache License 2.0
+cffi under the Massachusetts Institute of Technology (MIT) license
+click under the BSD License
+cryptography under the Apache License 2.0
+docker under the Apache License 2.0
+ecdsa under the Massachusetts Institute of Technology (MIT) license
+freezegun under the Apache License 2.0
+jmespath under the Massachusetts Institute of Technology (MIT) license
+pyasn1 under the BSD-2-Clause License
+pycparser under the BSD License
+python-dateutil under the Apache License 2.0 and BSD License
+responses under the Apache License 2.0
+rsa under the Apache License 2.0
+s3transfer under the Apache License 2.0
+typing_extensions under Python Software Foundation License Version 2
+websocket-client under the Apache License 2.0
+xmltodict under the Massachusetts Institute of Technology (MIT) license
+cfn-flip under the Apache License 2.0
+@aws-amplify/api under the Apache License 2.0
+@aws-amplify/auth under the Apache License 2.0
+@aws-amplify/core under the Apache License 2.0
+ace-builds under the BSD-3-Clause license

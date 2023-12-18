@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "(%%SOLUTION_ID%%-waf-be) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution WAF Backend additional security template (Version %%VERSION%%)"
+Description: "(%%SOLUTION_ID%%-waf-be) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution WAF Backend additional security template. Version:%%VERSION%%"
 
 Metadata:
   'AWS::CloudFormation::Interface':

@@ -1,9 +1,0 @@
-wave_id,app_name,cloudendure_projectname,aws_accountid,server_name,server_os_family,server_os_version,server_fqdn,server_tier,server_environment,subnet_IDs,securitygroup_IDs,subnet_IDs_test,securitygroup_IDs_test,instanceType,tenancy
-1,app01-hr,project1,111122223333,Server1,windows,windows server 2012 R2,server1.example.local,web,dev,subnet-1111,sg-1111;sg-2222,subnet-1111,sg-3333,m4.large,Shared
-1,app01-hr,project1,111122223333,Server2,windows,windows server 2012 R2,server2.example.local,db,dev,subnet-1111,sg-1111;sg-2222,subnet-1111,sg-3333,m4.large,Shared
-2,app02-sales,project2,111122223333,Server3,windows,windows server 2016,server3.example.local,web,prod,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared
-2,app02-sales,project2,111122223333,Server4,windows,windows server 2016,server4.example.local,app,prod,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared
-2,app02-sales,project2,111122223333,Server5,windows,windows server 2016,server5.example.local,db,prod,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared
-3,app03-sales,project2,111122223333,Server6,windows,windows server 2016,server6.example.local,db,prod,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared
-3,app03-sales,project2,111122223333,Server7,linux,Red Hat Enterprise Linux 7,server7.example.local,db,prod,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared
-3,app03-sales,project2,111122223333,Server8,linux,Red Hat Enterprise Linux 7,server6.example.local,db,prod,subnet-1111,sg-1111,subnet-1111,sg-3333,m4.large,Shared

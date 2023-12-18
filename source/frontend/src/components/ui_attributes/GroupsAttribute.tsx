@@ -4,10 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import {
-  SpaceBetween, FormField, Multiselect
-} from '@awsui/components-react';
+import React, {useEffect, useState} from 'react';
+import {FormField, Multiselect, SpaceBetween} from '@awsui/components-react';
 import {useValueLists} from "../../actions/ValueListsHook";
 
 const GroupsAttribute = ({attribute, value, isReadonly, errorText, handleUserInput, displayHelpInfoLink}) => {

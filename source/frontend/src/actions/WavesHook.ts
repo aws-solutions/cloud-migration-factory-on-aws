@@ -6,9 +6,7 @@
 import {DataHook, DataState, reducer, requestFailed, requestStarted, requestSuccessful} from '../resources/reducer';
 
 import {useEffect, useReducer} from 'react';
-
-import {Auth} from "@aws-amplify/auth";
-import User from "../actions/user";
+import UserApiClient from "../api_clients/userApiClient";
 
 export const useMFWaves: DataHook = () => {
   const [state, dispatch]: [DataState, React.Dispatch<any>] = useReducer(reducer, {
@@ -17,16 +15,14 @@ export const useMFWaves: DataHook = () => {
     error: null
   });
 
+
   async function update(): Promise<() => void> {
     const myAbortController = new AbortController();
 
     dispatch(requestStarted());
 
     try {
-
-      const session = await Auth.currentSession();
-      let apiUser = new User(session);
-      const response = await apiUser.getWaves();
+      const response = await new UserApiClient().getWaves();
 
       dispatch(requestSuccessful({data: response}));
 
@@ -34,7 +30,7 @@ export const useMFWaves: DataHook = () => {
       if (e.message !== 'Request aborted') {
         console.error('Waves Hook', e);
       }
-      dispatch(requestFailed({ error: e.message }));
+      dispatch(requestFailed({error: e.message}));
 
       return () => {
         myAbortController.abort();
@@ -58,7 +54,7 @@ export const useMFWaves: DataHook = () => {
       cancelledRequest = true;
     };
 
-  },[]);
+  }, []);
 
-  return [state , { update }];
+  return [state, {update}];
 };

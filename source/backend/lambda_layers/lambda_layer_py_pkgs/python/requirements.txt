@@ -1,5 +1,5 @@
-boto3==1.26.153
+boto3==1.33.11
 requests==2.31.0
 python-jose==3.3.0
-simplejson==3.19.1
-botocore==1.29.153
+simplejson==3.19.2
+botocore==1.33.11

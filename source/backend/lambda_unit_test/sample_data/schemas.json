@@ -1,13 +1,13 @@
 [
   {
-   "schema_name": {
-    "S": "server"
-   },
-   "schema_type": {
-    "S": "user"
-   },
-   "attributes": {
-     "L": [
+    "schema_name": {
+      "S": "server"
+    },
+    "schema_type": {
+      "S": "user"
+    },
+    "attributes": {
+      "L": [
         {
           "M": {
             "description": {
@@ -61,31 +61,55 @@
             }
           }
         }
-     ]
-   }
+      ]
+    }
   },
   {
-   "schema_name": {
-     "S": "wave"
-   },
-   "schema_type": {
-     "S": "user"
-   }
- },
- {
-   "schema_name": {
-     "S": "app"
-   },
-   "schema_type": {
-     "S": "user"
-   }
- },
- {
-   "schema_name": {
-     "S": "automation"
-   },
-   "schema_type": {
-     "S": "automation"
-   }
- }
+    "schema_name": {
+      "S": "wave"
+    },
+    "schema_type": {
+      "S": "user"
+    }
+  },
+  {
+    "schema_name": {
+      "S": "app"
+    },
+    "schema_type": {
+      "S": "user"
+    },
+    "attributes": {
+      "L": [
+        {
+          "M": {
+            "name": {
+              "S": "app_id"
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "app_name"
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "schema_name": {
+      "S": "automation"
+    },
+    "schema_type": {
+      "S": "automation"
+    }
+  }
 ]

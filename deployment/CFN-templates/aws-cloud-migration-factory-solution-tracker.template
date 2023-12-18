@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "(%%SOLUTION_ID%%-tracker) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution (Version %%VERSION%%)"
+Description: "(%%SOLUTION_ID%%-tracker) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution. Version:%%VERSION%%"
 
 Parameters:
   CodeBucket: # Upload Code in this bucket
@@ -29,6 +29,19 @@ Parameters:
 
   LambdaLayerStdPythonLibs:
     Type: String
+
+  LambdaLayerMFUtilsLib:
+    Type: String
+
+  LambdaRuntimePython:
+    Type: String
+    Default: python3.10
+
+Mappings:
+  Solution:
+    Data:
+      SolutionID: '%%SOLUTION_ID%%'
+      SolutionVersion: '%%VERSION%%'
 
 Resources:
   MigrationTrackerBucket:
@@ -120,6 +133,8 @@ Resources:
                 Resource: 
                 - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-servers
                 - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-apps
+                - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-waves
+                - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-databases
               - Action:
                 - s3:HeadObject
                 - s3:HeadBucket
@@ -439,6 +454,22 @@ Resources:
                 Effect: Allow
                 Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-apps
               - Action:
+                - dynamodb:DescribeTable
+                - dynamodb:ListTables
+                - dynamodb:Query
+                - dynamodb:Scan
+                - dynamodb:UpdateTable
+                Effect: Allow
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-waves
+              - Action:
+                - dynamodb:DescribeTable
+                - dynamodb:ListTables
+                - dynamodb:Query
+                - dynamodb:Scan
+                - dynamodb:UpdateTable
+                Effect: Allow
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-databases
+              - Action:
                 - s3:GetBucketLocation
                 - s3:ListBucket
                 - s3:ListAllMyBuckets
@@ -558,6 +589,28 @@ Resources:
         DynamoDBTargets:
           - Path: !Sub ${Application}-${Environment}-servers
 
+  MigrationTrackerWaveGlueCrawler:
+    Type: AWS::Glue::Crawler
+    DependsOn: MigrationTrackerAPPGlueCrawler
+    Properties:
+      Name: !Sub ${Application}-${Environment}-wave-crawler
+      Role: !GetAtt GlueServiceRole.Arn
+      DatabaseName: !Sub ${Application}-${Environment}-tracker
+      Targets:
+        DynamoDBTargets:
+          - Path: !Sub ${Application}-${Environment}-waves
+
+  MigrationTrackerDatabaseGlueCrawler:
+    Type: AWS::Glue::Crawler
+    DependsOn: MigrationTrackerAPPGlueCrawler
+    Properties:
+      Name: !Sub ${Application}-${Environment}-database-crawler
+      Role: !GetAtt GlueServiceRole.Arn
+      DatabaseName: !Sub ${Application}-${Environment}-tracker
+      Targets:
+        DynamoDBTargets:
+          - Path: !Sub ${Application}-${Environment}-databases
+
   MigrationTrackerAppGlueJob: 
     Type: AWS::Glue::Job
     DependsOn: CustomLambdaCopyLocal
@@ -596,6 +649,44 @@ Resources:
         "--application_name": !Sub ${Application}
       Role: !GetAtt GlueServiceRole.Arn
 
+  MigrationTrackerWaveGlueJob:
+    Type: AWS::Glue::Job
+    DependsOn: CustomLambdaCopyLocal
+    Properties:
+      Name: !Sub ${Application}-${Environment}-wave-extract
+      Command:
+        Name: glueetl
+        ScriptLocation: !Sub "s3://${MigrationTrackerBucket}/GlueScript/Migration_Tracker_Wave_Extract_Script.py"
+      GlueVersion: '2.0'
+      MaxRetries: 2
+      DefaultArguments:
+        "--job-bookmark-option": "job-bookmark-disable"
+        "--folder_name": "migration_tracker_wave_extract_data"
+        "--bucket_name": !Ref MigrationTrackerBucket
+        "--TempDir": !Sub "s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/"
+        "--environment_name": !Sub ${Environment}
+        "--application_name": !Sub ${Application}
+      Role: !GetAtt GlueServiceRole.Arn
+
+  MigrationTrackerDatabaseGlueJob:
+    Type: AWS::Glue::Job
+    DependsOn: CustomLambdaCopyLocal
+    Properties:
+      Name: !Sub ${Application}-${Environment}-database-extract
+      Command:
+        Name: glueetl
+        ScriptLocation: !Sub "s3://${MigrationTrackerBucket}/GlueScript/Migration_Tracker_Database_Extract_Script.py"
+      GlueVersion: '2.0'
+      MaxRetries: 2
+      DefaultArguments:
+        "--job-bookmark-option": "job-bookmark-disable"
+        "--folder_name": "migration_tracker_database_extract_data"
+        "--bucket_name": !Ref MigrationTrackerBucket
+        "--TempDir": !Sub "s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/"
+        "--environment_name": !Sub ${Environment}
+        "--application_name": !Sub ${Application}
+      Role: !GetAtt GlueServiceRole.Arn
+
   ###################################################
   MigrationTrackerOutputAppTable:
     # Creating the table waits for the database to be created
@@ -614,8 +705,6 @@ Resources:
         StorageDescriptor:
           OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
           Columns:
-          - Name: cloudendure_projectname
-            Type: string
           - Name: app_name
             Type: string
           - Name: aws_accountid
@@ -626,6 +715,70 @@ Resources:
             Type: string	
           InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
           Location: !Sub s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/migration_tracker_app_extract_data/
+          SerdeInfo:
+            Parameters:
+              serialization.format: "1"
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+
+  MigrationTrackerOutputWaveTable:
+    # Creating the table waits for the database to be created
+    DependsOn: MigrationTrackerGlueDatabase
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref MigrationTrackerGlueDatabase
+      TableInput:
+        Name: !Sub ${Application}-${Environment}-wave-extract-table
+        Description: This is the output table for migration tracker data
+        TableType: EXTERNAL_TABLE
+        Parameters: {
+    "classification": "parquet"
+    }
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          Columns:
+          - Name: wave_name
+            Type: string
+          - Name: wave_id
+            Type: string
+          - Name: wave_status
+            Type: string
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Sub s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/migration_tracker_wave_extract_data/
+          SerdeInfo:
+            Parameters:
+              serialization.format: "1"
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+
+  MigrationTrackerOutputDatabaseTable:
+    # Creating the table waits for the database to be created
+    DependsOn: MigrationTrackerGlueDatabase
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref MigrationTrackerGlueDatabase
+      TableInput:
+        Name: !Sub ${Application}-${Environment}-database-extract-table
+        Description: This is the output table for migration tracker data
+        TableType: EXTERNAL_TABLE
+        Parameters: {
+    "classification": "parquet"
+    }
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          Columns:
+          - Name: database_name
+            Type: string
+          - Name: database_id
+            Type: string
+          - Name: database_type
+            Type: string
+          - Name: app_id
+            Type: string
+          - Name: r_type
+            Type: string
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Sub s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/migration_tracker_database_extract_data/
           SerdeInfo:
             Parameters:
               serialization.format: "1"
@@ -666,17 +819,16 @@ Resources:
             Type: string
           - Name: app_id
             Type: string
-          - Name: app_name
-            Type: string
           - Name: server_environment
-            Type: string         	
+            Type: string
+          - Name: r_type
+            Type: string
           InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
           Location: !Sub s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/migration_tracker_server_extract_data/
           SerdeInfo:
             Parameters:
               serialization.format: "1"
             SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
-
 
   MigrationTrackerJobTrigger1:
     Type: AWS::Glue::Trigger
@@ -688,6 +840,8 @@ Resources:
       Schedule: cron(0 13 * * ? *)
       Actions:
         - JobName: !Ref MigrationTrackerAppGlueJob
+        - JobName: !Ref MigrationTrackerDatabaseGlueJob
+        - JobName: !Ref MigrationTrackerWaveGlueJob
         - JobName: !Ref MigrationTrackerServerGlueJob
           Arguments:
             '--job-bookmark-option': job-bookmark-disable
@@ -703,12 +857,12 @@ Resources:
       Schedule: cron(0 5 * * ? *)
       Actions:
         - JobName: !Ref MigrationTrackerAppGlueJob
+        - JobName: !Ref MigrationTrackerDatabaseGlueJob
+        - JobName: !Ref MigrationTrackerWaveGlueJob
         - JobName: !Ref MigrationTrackerServerGlueJob
           Arguments:
             '--job-bookmark-option': job-bookmark-disable
       Name: !Sub ${Application}-${Environment}-JobTrigger2
-  
-
 
   MigrationTrackerWorkGroup:
     Type: AWS::Athena::WorkGroup
@@ -743,6 +897,8 @@ Resources:
         Variables:
           application: !Sub ${Application}
           environment: !Sub ${Environment}
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Code: 
         S3Bucket: !Ref CodeBucket
         S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_migrationtracker_glue_execute.zip"]]
@@ -750,11 +906,12 @@ Resources:
       FunctionName: !Sub ${Application}-${Environment}-TrackerGlueExecute
       Handler: "lambda_migrationtracker_glue_execute.lambda_handler"
       Role: !GetAtt LambdaTrackerIAMRole.Arn
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       MemorySize: 128
       Timeout: 720
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -779,6 +936,8 @@ Resources:
           remote_bucket: !Ref CodeBucket
           local_bucket: !Ref MigrationTrackerBucket
           key_prefix: !Ref KeyPrefix
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Code: 
         S3Bucket: !Ref CodeBucket
         S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_migrationtracker_glue_scriptcopy.zip"]]
@@ -786,11 +945,12 @@ Resources:
       FunctionName: !Sub ${Application}-${Environment}-TrackerGlueScriptCopy
       Handler: "lambda_migrationtracker_glue_scriptcopy.lambda_handler"
       Role: !GetAtt LambdaCopyGlueScriptS3IamRole.Arn
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       MemorySize: 128
       Timeout: 720
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -809,6 +969,8 @@ Resources:
           environment: !Sub ${Environment}
           database: !Sub ${Application}-${Environment}-tracker
           workgroup: !Sub ${Application}-${Environment}-workgroup
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Code: 
         S3Bucket: !Ref CodeBucket
         S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_run_athena_savedquery.zip"]]
@@ -816,11 +978,12 @@ Resources:
       FunctionName: !Sub ${Application}-${Environment}-RunAthenaSavedQuery
       Handler: "lambda_run_athena_savedquery.lambda_handler"
       Role: !GetAtt LambdaRunAthenaQueryIAMRole.Arn
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       MemorySize: 128
       Timeout: 720
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:

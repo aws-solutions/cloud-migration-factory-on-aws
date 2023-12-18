@@ -2,16 +2,11 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 
-import logging
 import json
-import urllib
 import uuid
 
 from urllib import request
-
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+from cmf_logger import logger
 
 
 # Send response function

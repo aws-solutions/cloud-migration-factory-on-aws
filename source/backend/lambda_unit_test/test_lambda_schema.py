@@ -2,27 +2,13 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 
-
-import unittest
 import boto3
-import logging
 import json
 import os
 from unittest import TestCase, mock
 from moto import mock_dynamodb
 
-# This is to get around the relative path import issue.
-# Absolute paths are being used in this file after setting the root directory
-import sys
-from pathlib import Path
-
-file = Path(__file__).resolve()
-package_root_directory = file.parents[1]
-
-# Set log level
-loglevel = logging.INFO
-logging.basicConfig(level=loglevel)
-log = logging.getLogger(__name__)
+from test_common_utils import logger
 
 default_http_headers = {
     'Access-Control-Allow-Origin': '*',
@@ -86,7 +72,7 @@ class LambdaSchemaTest(TestCase):
         from lambda_functions.lambda_schema import lambda_schema
 
         self.event = {"httpMethod": 'GET', "pathParameters": None}
-        log.info("Testing lambda_schema GET schema metadata")
+        logger.info("Testing lambda_schema GET schema metadata")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         data = result
@@ -99,7 +85,7 @@ class LambdaSchemaTest(TestCase):
         from lambda_functions.lambda_schema import lambda_schema
 
         self.event = {"httpMethod": 'PUT', "pathParameters": None}
-        log.info("Testing lambda_schema PUT without providing schema")
+        logger.info("Testing lambda_schema PUT without providing schema")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         data = result
@@ -112,7 +98,7 @@ class LambdaSchemaTest(TestCase):
         from lambda_functions.lambda_schema import lambda_schema
 
         self.event = {"httpMethod": 'GET', "pathParameters": {"schema_name": 'application'}}
-        log.info("Testing lambda_schema GET schema")
+        logger.info("Testing lambda_schema GET schema")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         data = result
@@ -127,7 +113,7 @@ class LambdaSchemaTest(TestCase):
         from lambda_functions.lambda_schema import lambda_schema
 
         self.event = {"httpMethod": 'GET', "pathParameters": {"schema_name": 'bob'}}
-        log.info("Testing lambda_schema GET schema that does not exist")
+        logger.info("Testing lambda_schema GET schema that does not exist")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         data = result
@@ -141,7 +127,7 @@ class LambdaSchemaTest(TestCase):
 
         self.event = {"httpMethod": 'POST', "pathParameters": {"schema_name": 'bob'},
                       "body": '{"schema_name": "bob", "attributes": []}'}
-        log.info("Testing lambda_schema post schema new attribute")
+        logger.info("Testing lambda_schema post schema new attribute")
         print(self.event)
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
@@ -156,7 +142,7 @@ class LambdaSchemaTest(TestCase):
 
         self.event = {"httpMethod": 'POST', "pathParameters": {"schema_name": 'bob'},
                       "body": '{"schema_name": "bob", "attributes": []}'}
-        log.info("Testing lambda_schema post new schema")
+        logger.info("Testing lambda_schema post new schema")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         self.assertEqual(result['statusCode'], 200)
@@ -166,7 +152,7 @@ class LambdaSchemaTest(TestCase):
 
         self.event = {"httpMethod": 'POST', "pathParameters": {"schema_name": 'bob'},
                       "body": '{"schema_name": "bob", "attributes": []}'}
-        log.info("Testing lambda_schema post new schema duplicate name")
+        logger.info("Testing lambda_schema post new schema duplicate name")
         lambda_schema.lambda_handler.data_table = None
         # Create first schema record.
         result_create = lambda_schema.lambda_handler(self.event, '')
@@ -180,7 +166,7 @@ class LambdaSchemaTest(TestCase):
         from lambda_functions.lambda_schema import lambda_schema
 
         self.event = {"httpMethod": 'DELETE', "pathParameters": {"schema_name": 'bob'}}
-        log.info("Testing lambda_schema DELETE schema")
+        logger.info("Testing lambda_schema DELETE schema")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         self.assertEqual(result['statusCode'], 200)
@@ -191,7 +177,7 @@ class LambdaSchemaTest(TestCase):
         self.event = {"httpMethod": 'PUT', "pathParameters": {"schema_name": 'bob'},
                       "body": '{"schema_name": "application", "update_schema": {"friendly_name": "Apps", '
                               '"help_content": "Test content", "attributes": []}}'}
-        log.info("Testing lambda_schema put updated schema friendly name and help content")
+        logger.info("Testing lambda_schema put updated schema friendly name and help content")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         result_body = json.loads(result['body'])
@@ -205,7 +191,7 @@ class LambdaSchemaTest(TestCase):
 
         self.event = {"httpMethod": 'PUT', "pathParameters": {"schema_name": 'bob'},
                       "body": '{"schema_name": "application", "update_schema": {}}'}
-        log.info("Testing lambda_schema put updated schema no updates")
+        logger.info("Testing lambda_schema put updated schema no updates")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         self.assertEqual(result, {'headers': {**default_http_headers},
@@ -217,7 +203,7 @@ class LambdaSchemaTest(TestCase):
         self.event = {"httpMethod": 'PUT', "pathParameters": {"schema_name": 'application'},
                       "body": '{"schema_name": "application", "update_schema": {"friendly_name": "Apps", '
                               '"help_content": "Test content", "attributes": []}}'}
-        log.info("Testing lambda_schema put updated schema friendly name and help content")
+        logger.info("Testing lambda_schema put updated schema friendly name and help content")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         result_body = json.loads(result['body'])
@@ -231,7 +217,7 @@ class LambdaSchemaTest(TestCase):
 
         self.event = {"httpMethod": 'PUT', "pathParameters": {"schema_name": 'application'},
                       "body": '{"event": "DELETE", "name": "application"}'}
-        log.info("Testing lambda_schema put updated schema delete attribute")
+        logger.info("Testing lambda_schema put updated schema delete attribute")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         result_json = json.loads(result['body'])
@@ -242,7 +228,7 @@ class LambdaSchemaTest(TestCase):
 
         self.event = {"httpMethod": 'PUT', "pathParameters": {"schema_name": 'application'},
                       "body": '{"event": "POST", "new": {"name": "unittest_attrib", "type": "string", "description": "unit testing"}}'}
-        log.info("Testing lambda_schema put updated schema add new attribute")
+        logger.info("Testing lambda_schema put updated schema add new attribute")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         print(result)
@@ -254,7 +240,7 @@ class LambdaSchemaTest(TestCase):
 
         self.event = {"httpMethod": 'PUT', "pathParameters": {"schema_name": 'application'},
                       "body": '{"event": "PUT", "name": "unittest", "update": {"name": "unittest", "type": "string", "description": "unit testing"}}'}
-        log.info("Testing lambda_schema put updated schema update existing attribute")
+        logger.info("Testing lambda_schema put updated schema update existing attribute")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         print(result)
@@ -267,7 +253,7 @@ class LambdaSchemaTest(TestCase):
         self.event = {"httpMethod": 'PUT', "pathParameters": {"schema_name": 'application'},
                       "body": '{"event": "PUT", "name": "unittest", "update": {"name": "unittest", "type": "", '
                               '"description": "unit testing"}}'}
-        log.info("Testing lambda_schema put updated schema update existing attribute no type")
+        logger.info("Testing lambda_schema put updated schema update existing attribute no type")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         self.assertEqual(result, {'headers': {**default_http_headers},
@@ -279,7 +265,7 @@ class LambdaSchemaTest(TestCase):
         self.event = {"httpMethod": 'PUT', "pathParameters": {"schema_name": 'application'},
                       "body": '{"event": "PUT", "name": "unittest", "update": {"name": "unittest", "type": "string", '
                               '"description": ""}}'}
-        log.info("Testing lambda_schema put updated schema update existing attribute no description")
+        logger.info("Testing lambda_schema put updated schema update existing attribute no description")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         self.assertEqual(result, {'headers': {**default_http_headers},
@@ -291,7 +277,7 @@ class LambdaSchemaTest(TestCase):
         self.event = {"httpMethod": 'PUT', "pathParameters": {"schema_name": 'application'},
                       "body": '{"event": "PUT", "name": "unittest", "update": {"name": "", "type": "string", '
                               '"description": "test description"}}'}
-        log.info("Testing lambda_schema put updated schema update existing attribute no name")
+        logger.info("Testing lambda_schema put updated schema update existing attribute no name")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         self.assertEqual(result, {'headers': {**default_http_headers},
@@ -303,7 +289,7 @@ class LambdaSchemaTest(TestCase):
         self.event = {"httpMethod": 'PUT', "pathParameters": {"schema_name": 'application'},
                       "body": '{"event": "PUT", "name": "unittest", "update": {"name": "unittest", "type": "list", '
                               '"description": "test description", "listvalue": ""}}'}
-        log.info("Testing lambda_schema put updated schema update existing attribute no listvalues")
+        logger.info("Testing lambda_schema put updated schema update existing attribute no listvalues")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         self.assertEqual(result, {'headers': {**default_http_headers},
@@ -315,7 +301,7 @@ class LambdaSchemaTest(TestCase):
         self.event = {"httpMethod": 'PUT', "pathParameters": {"schema_name": 'application'},
                       "body": '{"event": "PUT", "name": "unittest", "update": {"name": "unittest", "type": "list", '
                               '"description": "test description"}}'}
-        log.info("Testing lambda_schema put updated schema update existing attribute no listvalues missing")
+        logger.info("Testing lambda_schema put updated schema update existing attribute no listvalues missing")
         lambda_schema.lambda_handler.data_table = None
         result = lambda_schema.lambda_handler(self.event, '')
         self.assertEqual(result, {'headers': {**default_http_headers},

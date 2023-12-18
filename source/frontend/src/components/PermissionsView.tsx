@@ -5,26 +5,11 @@
  */
 
 import React from 'react';
-import {
-  Tabs,
-  SpaceBetween,
-  ColumnLayout,
-  Container,
-  Box,
-  Header
- } from '@awsui/components-react';
+import {ColumnLayout, Container, Header, SpaceBetween, Tabs} from '@awsui/components-react';
 
 import Audit from "../components/ui_attributes/Audit";
 import AllViewerAttributes from '../components/ui_attributes/AllViewerAttributes'
 
-const ValueWithLabel = ({ label, children }) => (
-  <div>
-    <Box margin={{ bottom: 'xxxs' }} color="text-label">
-      {label}
-    </Box>
-    <div>{children}</div>
-  </div>
-);
 
 const PermissionsView = (props) => {
 

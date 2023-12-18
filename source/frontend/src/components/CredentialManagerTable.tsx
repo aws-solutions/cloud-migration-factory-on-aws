@@ -1,46 +1,48 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import {useState} from 'react';
+
+import {Box, Button, CollectionPreferences, Pagination, Table, TableProps, TextFilter} from '@awsui/components-react';
 
 import {
-  Box,
-  Button,
-  CollectionPreferences,
-  Pagination,
-  TextFilter,
-  Table
-} from '@awsui/components-react';
-
-import {
-  PAGE_SELECTOR_OPTIONS,
   DEFAULT_PREFERENCES,
   getColumnDefinitions,
-  getContentSelectorOptions
+  getContentSelectorOptions,
+  PAGE_SELECTOR_OPTIONS
 } from '../resources/credential-table-config';
 
-import { useCollection } from '@awsui/collection-hooks';
+import {useCollection} from '@awsui/collection-hooks';
 
 import TableHeader from './TableHeader';
+import {filterCounter, headerCounter} from "../utils/table-utils";
 
-const CredentialManagerTable = (props) => {
+const CredentialManagerTable = (props: {
+  items: readonly unknown[];
+  handleSelectionChange?: (arg0: any[]) => void;
+  isLoading: boolean | undefined;
+  selectedItems: any[] | undefined;
+  handleDeleteItem: any;
+  handleEditItem: any;
+  handleAddItem: any;
+  handleRefresh: any;
+}) => {
 
-  const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
-  const [contentAttributes, ] = useState(getContentSelectorOptions());
+  const [preferences, setPreferences] = useState<any>(DEFAULT_PREFERENCES);
+  const [contentAttributes,] = useState(getContentSelectorOptions());
 
-  const { items, actions, collectionProps, filterProps, paginationProps, filteredItemsCount } = useCollection(
+  const {items, actions, collectionProps, filterProps, paginationProps, filteredItemsCount} = useCollection(
     props.items,
     {
-      pagination: { pageSize: preferences.pageSize },
+      pagination: {pageSize: preferences.pageSize},
       sorting: {},
       filtering: {
         noMatch: (
           <Box textAlign="center" color="inherit">
             <b>No matches</b>
-            <Box color="inherit" margin={{ top: 'xxs', bottom: 's' }}>
+            <Box color="inherit" margin={{top: 'xxs', bottom: 's'}}>
               No results match your query
             </Box>
             <Button onClick={() => actions.setFiltering('')}>Clear filter</Button>
@@ -50,89 +52,75 @@ const CredentialManagerTable = (props) => {
     }
   );
 
-  // Keeps track of how many applications are selected
-  function headerCounter(selectedApps, applications) {
-    return selectedApps.length
-      ? `(${selectedApps.length} of ${applications.length})`
-      : `(${applications.length})`;
-  }
+  const handleSelectionChange = props.handleSelectionChange;
 
-  function filterCounter(count) {
-    return `${count} ${count === 1 ? 'match' : 'matches'}`;
-  }
+  async function handleOnRowClick(detail: TableProps.OnRowClickDetail<any>) {
 
-  //moved up to handler
-  // function handleSelectionChange(detail) {
-  //   detail.preventDefault();
-  //   props.handleSelectionChange(detail.selectedItems);
-  // }
-
-  async function handleOnRowClick(detail) {
-
-    if (props.handleSelectionChange) {
+    if (handleSelectionChange) {
       let selectedItem = []
       selectedItem.push(detail.item);
 
-      await props.handleSelectionChange(selectedItem);
+      handleSelectionChange(selectedItem);
     }
   }
 
-  function handleConfirmPreferences(detail) {
-    let lPreferences = detail;
-
-    lPreferences.trackBy = DEFAULT_PREFERENCES.trackBy;
-
-    setPreferences(lPreferences);
+  function handleConfirmPreferences(detail: any) {
+    setPreferences(detail);
   }
 
+  const tableHeader = <TableHeader
+    title='Secrets'
+    selectedItems={props.selectedItems ? props.selectedItems : undefined}
+    counter={props.selectedItems ? headerCounter(props.selectedItems, items) : undefined}
+    handleDeleteClick={props.handleDeleteItem ? props.handleDeleteItem : undefined}
+    handleEditClick={props.handleEditItem ? props.handleEditItem : undefined}
+    handleAddClick={props.handleAddItem ? props.handleAddItem : undefined}
+    handleRefreshClick={props.handleRefresh ? props.handleRefresh : undefined}
+    description={undefined}
+    handleActionSelection={undefined}
+    actionItems={undefined}
+    handleDownload={undefined}
+    actionsButtonDisabled={undefined}
+    disabledButtons={undefined}
+    info={undefined}/>;
+  const collectionPreferences = <CollectionPreferences
+    title="Preferences"
+    confirmLabel="Confirm"
+    cancelLabel="Cancel"
+    preferences={preferences}
+    onConfirm={({detail}) => handleConfirmPreferences(detail)}
+    pageSizePreference={{
+      title: 'Page size',
+      options: PAGE_SELECTOR_OPTIONS
+    }}
+    visibleContentPreference={{
+      title: 'Select visible columns',
+      options: contentAttributes
+    }}
+    wrapLinesPreference={{
+      label: 'Wrap lines',
+      description: 'Check to see all the text and wrap the lines'
+    }}
+  />;
   return (
     <Table
       {...collectionProps}
-      trackBy={preferences.trackBy}
       columnDefinitions={getColumnDefinitions()}
       visibleColumns={preferences.visibleContent}
       items={items}
       loading={props.isLoading}
-      loadingText={props.error === undefined ? "Loading secrets" : "Error getting data from API"}
+      loadingText={"Loading secrets"}
       resizableColumns
       stickyHeader={true}
-      header={
-        <TableHeader
-          title='Secrets'
-          selectedItems={props.selectedItems ? props.selectedItems : undefined}
-          counter={props.selectedItems ? headerCounter(props.selectedItems, items) : undefined}
-          handleDeleteClick={props.handleDeleteItem ? props.handleDeleteItem : undefined}
-          handleEditClick={props.handleEditItem ? props.handleEditItem : undefined}
-          handleAddClick={props.handleAddItem ? props.handleAddItem : undefined}
-          handleRefreshClick={props.handleRefresh ? props.handleRefresh : undefined}
-        />
-      }
-      preferences={
-        <CollectionPreferences
-          title="Preferences"
-          confirmLabel="Confirm"
-          cancelLabel="Cancel"
-          preferences={preferences}
-          onConfirm={({ detail }) => handleConfirmPreferences(detail)}
-          pageSizePreference={{
-            title: 'Page size',
-            options: PAGE_SELECTOR_OPTIONS
-          }}
-          visibleContentPreference={{
-            title: 'Select visible columns',
-            options: contentAttributes
-          }}
-          wrapLinesPreference={{
-            label: 'Wrap lines',
-            description: 'Check to see all the text and wrap the lines'
-          }}
-        />
-      }
+      header={tableHeader}
+      preferences={collectionPreferences}
       wrapLines={preferences.wrapLines}
       selectedItems={props.selectedItems ? props.selectedItems : []}
-      onSelectionChange={props.handleSelectionChange ? ({ detail }) => props.handleSelectionChange(detail.selectedItems) : null}
-      onRowClick={({ detail }) => handleOnRowClick(detail)}
-      selectionType={props.handleSelectionChange ? 'single' : undefined}
+      onSelectionChange={handleSelectionChange ?
+        ({detail}) => handleSelectionChange(detail.selectedItems)
+        : undefined}
+      onRowClick={({detail}) => handleOnRowClick(detail)}
+      selectionType={handleSelectionChange ? 'single' : undefined}
       pagination={<Pagination {...paginationProps} />}
       filter={
         <TextFilter

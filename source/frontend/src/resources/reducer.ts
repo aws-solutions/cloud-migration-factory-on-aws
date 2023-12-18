@@ -16,9 +16,9 @@ export type DataState = {
 }
 export type DataHook = () => [DataState, UpdateFnWrapper];
 
-export type UpdateFnWrapper = { update: () => Promise<() => void> };
+export type UpdateFnWrapper = { update: (arg0?: any) => Promise<() => void> };
 
-export const reducer = (state: State, action) => {
+export const reducer = (state, action) => {
   // we check the type of each action and return an updated state object accordingly
   switch (action.type) {
     case REQUEST_SUCCESSFUL:

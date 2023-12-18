@@ -1,26 +1,32 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import React from 'react';
-import {
-  Tabs,
-  SpaceBetween,
-  ColumnLayout,
-  Container,
-  Header
- } from '@awsui/components-react';
+import {ColumnLayout, Container, Header, SpaceBetween, Tabs} from '@awsui/components-react';
 
 import TextAttribute from '../components/ui_attributes/TextAttribute'
 import AllViewerAttributes from '../components/ui_attributes/AllViewerAttributes'
 import ItemTable from './ItemTable'
 import Audit from "./ui_attributes/Audit";
+import {EntitySchema} from "../models/EntitySchema";
+import {Application} from "../models/Application";
+import {Wave} from "../models/Wave";
 
-const ApplicationView = (props) => {
+type ApplicationViewParams = {
+  handleTabChange: (arg0: string) => void;
+  selectedTab: any;
+  server?: { server_name: string };
+  schemas: Record<string, EntitySchema>;
+  dataAll: any;
+  app: Application;
+  servers: any,
+  wave: Wave
+};
+const ApplicationView = (props: ApplicationViewParams) => {
 
-  function handleOnTabChange(activeTabId) {
+  function handleOnTabChange(activeTabId: string) {
     if (props.handleTabChange) {
       props.handleTabChange(activeTabId);
     }
@@ -58,7 +64,7 @@ const ApplicationView = (props) => {
         id: "servers",
         content:
           <ItemTable
-            schema={props.schema.server}
+            schema={props.schemas.server}
             schemaName={'server'}
             schemaKeyAttribute={'server_id'}
             items={props.servers.items}
@@ -76,8 +82,8 @@ const ApplicationView = (props) => {
           <ColumnLayout columns={2}>
             <SpaceBetween size="l">
               <AllViewerAttributes
-                  schema={props.schema.wave}
-                  schemas={props.schema}
+                schema={props.schemas.wave}
+                schemas={props.schemas}
                   item={props.wave}
                   dataAll={props.dataAll}
               />
@@ -94,8 +100,8 @@ const ApplicationView = (props) => {
           <ColumnLayout columns={2} variant="text-grid">
               <SpaceBetween size="l">
                 <AllViewerAttributes
-                  schema={props.schema.application}
-                  schemas={props.schema}
+                  schema={props.schemas.application}
+                  schemas={props.schemas}
                   item={props.app}
                   dataAll={props.dataAll}
                 />

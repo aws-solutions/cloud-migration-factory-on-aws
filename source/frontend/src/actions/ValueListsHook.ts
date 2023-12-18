@@ -1,21 +1,16 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  requestStarted,
-  requestSuccessful,
-  reducer } from '../resources/reducer';
+import {reducer, requestStarted, requestSuccessful} from '../resources/reducer';
 
-import { useReducer, useEffect, useState } from 'react';
-
-import { Auth } from "@aws-amplify/auth";
-import Tools from "../actions/tools";
-import Login from "../actions/login";
+import {useEffect, useReducer, useState} from 'react';
+import ToolsApiClient from "../api_clients/toolsApiClient";
+import LoginApiClient from "../api_clients/loginApiClient";
 
 export const useValueLists = () => {
+
   const [state, dispatch] = useReducer(reducer, {
     isLoading: true,
     data: [],
@@ -23,9 +18,9 @@ export const useValueLists = () => {
   });
 
   //Array of APIs that should be used to collect value lists for forms.
-  const [valueListAPIs, setValueListAPIs] = useState([]);
+  const [valueListAPIs, setValueListAPIs] = useState<any>([]);
 
-  function addValueListItem (item){
+  function addValueListItem(item: any) {
 
     //Get current API list.
     let tmpvalueListAPIs = valueListAPIs;
@@ -38,7 +33,7 @@ export const useValueLists = () => {
 
   async function update() {
     const myAbortController = new AbortController();
-
+    
     dispatch(requestStarted());
 
     let tempValueList = [];
@@ -49,16 +44,14 @@ export const useValueLists = () => {
 
       if (vlAPI === '/admin/groups'){
         try {
-
-          const session = await Auth.currentSession();
-          let apiLogin = await new Login(session);
-          const response = await apiLogin.getGroups({ signal: myAbortController.signal });
+          let apiLogin = new LoginApiClient();
+          const response = await apiLogin.getGroups();
           result = {
             values: response,
           }
           tempValueList[vlAPI] = result;
 
-        } catch (e) {
+        } catch (e: any) {
           console.log(e);
 
           return () => {
@@ -68,16 +61,14 @@ export const useValueLists = () => {
         }
       } else {
         try {
-
-          const session = await Auth.currentSession();
-          let apiAutomation = await new Tools(session);
-          const response = await apiAutomation.getTool(vlAPI, { signal: myAbortController.signal });
+          let apiAutomation = new ToolsApiClient();
+          const response = await apiAutomation.getTool(vlAPI);
           result = {
             values: response,
           }
           tempValueList[vlAPI] = result;
 
-        } catch (e) {
+        } catch (e: any) {
           if (e.message !== 'Request aborted') {
             console.error('Value Lists Hook', e);
           }
@@ -95,7 +86,7 @@ export const useValueLists = () => {
     return () => {
       myAbortController.abort();
     };
-  };
+  }
 
   useEffect(() => {
     let cancelledRequest;

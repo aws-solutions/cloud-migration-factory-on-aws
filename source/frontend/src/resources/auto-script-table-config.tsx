@@ -4,11 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-    getNestedValue,
-    sortAscendingComparator,
-    returnLocaleDateTime
-} from '../resources/main'
+import {getNestedValue, returnLocaleDateTime, sortAscendingComparator} from '../resources/main'
 
 export function getColumnDefinitions(schema, provide_link = false){
 

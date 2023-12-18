@@ -7,7 +7,6 @@
 /**
  * Functions declared in this module are for generic factory functionality.
  */
-import * as XLSX from "xlsx";
 
 /**
  * Compares the provided newItem object to the object based in the dataArray of the matching key, returning the difference.
@@ -17,12 +16,12 @@ import * as XLSX from "xlsx";
  * @param keepCalculated - all keys which start with __ will be ignored by default, if set to true they will not be evaluated but returned to the output.
  * @returns {{}|null}
  */
-export function getChanges (newItem, dataArray, key, keepCalculated = false){
+export function getChanges(newItem, dataArray, key, keepCalculated = false) {
 
-  let update = {};
+  let update: Record<string, any> = {};
 
   let currentItem = dataArray.find(item => {
-      if (item[key].toLowerCase() === newItem[key].toLowerCase()){
+    if (item[key].toLowerCase() === newItem[key].toLowerCase()) {
         return true;
       }
     }
@@ -30,11 +29,11 @@ export function getChanges (newItem, dataArray, key, keepCalculated = false){
 
   // Compare the selected server to the original server list and extract key values that are different
   const keys = Object.keys(newItem);
-  for (const i in keys){
+  for (const i in keys) {
     const curkey = keys[i];
     //Ignore any system calculated values as these are never stored in database.
-    if (!curkey.startsWith("_") ) {
-      if (!deepEqual(currentItem[curkey],newItem[curkey])){
+    if (!curkey.startsWith("_")) {
+      if (!deepEqual(currentItem[curkey], newItem[curkey])) {
         update[curkey] = newItem[curkey];
       }
     } else if (curkey.startsWith("__") && keepCalculated) {
@@ -46,60 +45,6 @@ export function getChanges (newItem, dataArray, key, keepCalculated = false){
     return null;
   } else {
     return update;
-  }
-}
-
-/**
- * Merge 2 objects into a single object.
- * @param oldObject
- * @param newObject
- * @returns {{}}
- */
-export function mergeKeys (oldObject, newObject){
-
-  let update = {};
-
-  const keys = Object.keys(newObject);
-  for (const i in keys){
-    const curkey = keys[i];
-    const compare = deepEqualKeysOnly(oldObject[curkey],newObject[curkey]);
-    if (compare !== undefined){
-      update[curkey] = compare;
-    }
-  }
-
-  return update;
-
-}
-
-/**
- * Performs a deep comparison of 2 objects by based on key names, and returns outcome.
- * @param object1
- * @param object2
- * @returns {*|undefined}
- */
-function deepEqualKeysOnly(object1, object2) {
-
-  if ((!object1 && object2)) {
-    //Key is new so add and no need to go forward.
-    return object2;
-  } else if ((object1 && !object2)) {
-    //Key has been removed from the new definition.
-    return undefined;
-  }
-  const keys1 = Object.keys(object1);
-
-  for (const key of keys1) {
-    const val1 = object1[key];
-    const val2 = object2[key];
-    const areObjects = isObject(val1) && isObject(val2);
-    const compare = deepEqualKeysOnly(val1, val2)
-    if (areObjects && compare !== undefined) {
-      return compare;
-    } else if (!areObjects) {
-      //return orginal key and value.
-      return object1;
-    }
   }
 }
 
@@ -116,7 +61,7 @@ export function deepEqual(object1, object2) {
     return false;
   }
 
-  if ((object1 == null && object2 != null) || (object1 != null && object2 == null))  {
+  if ((object1 == null && object2 != null) || (object1 != null && object2 == null)) {
     //if either undefined  return false.
     return false;
   } else if (object1 == null && object2 == null) {
@@ -135,7 +80,7 @@ export function deepEqual(object1, object2) {
     const val1 = object1[key];
     const val2 = object2[key];
     const areObjects = isObject(val1) && isObject(val2);
-    if ( (areObjects && !deepEqual(val1, val2)) || (!areObjects && val1 !== val2)) {
+    if ((areObjects && !deepEqual(val1, val2)) || (!areObjects && val1 !== val2)) {
       return false;
     }
   }
@@ -149,7 +94,7 @@ export function deepEqual(object1, object2) {
  * @returns {boolean}
  */
 function isObject(object) {
-return object != null && typeof object === 'object';
+  return object != null && typeof object === 'object';
 }
 
 /**
@@ -159,53 +104,61 @@ return object != null && typeof object === 'object';
  * @param mainDataSchema
  * @returns {*}
  */
-export function resolveRelationshipValues(relatedData, mainData, mainDataSchema){
+export function resolveRelationshipValues(relatedData, mainData, mainDataSchema) {
   let lMainData = mainData;
 
-  let attributes_with_rels = mainDataSchema.attributes.filter(function (entry) {
-      return entry.type === 'relationship' || entry.type === 'policies';
+  let attributesWithRelations = mainDataSchema.attributes.filter(function (entry) {
+    return entry.type === 'relationship' || entry.type === 'policies';
   })
 
-  for (let attrIndx = 0; attrIndx<attributes_with_rels.length; attrIndx++){
-      for (let itemIndx = 0; itemIndx<lMainData.length; itemIndx++){
-        if (propExists(lMainData[itemIndx],attributes_with_rels[attrIndx].name)){
-          let lRel_Value = getRelationshipValue(relatedData,attributes_with_rels[attrIndx], getNestedValuePath(lMainData[itemIndx], attributes_with_rels[attrIndx].name));
+  for (let attrIndx = 0; attrIndx < attributesWithRelations.length; attrIndx++) {
+    for (let itemIndx = 0; itemIndx < lMainData.length; itemIndx++) {
+      if (propExists(lMainData[itemIndx], attributesWithRelations[attrIndx].name)) {
+        let lRel_Value = getRelationshipValue(
+          relatedData,
+          attributesWithRelations[attrIndx],
+          getNestedValuePath(lMainData[itemIndx], attributesWithRelations[attrIndx].name)
+        );
 
-          //Update last element in key name with __ to reflect names that are path based.
-          let arrName = attributes_with_rels[attrIndx].name.split(".");
-          arrName[arrName.length-1] = '__' + arrName[arrName.length-1];
-          let newName = arrName.join(".");
+        //Update last element in key name with __ to reflect names that are path based.
+        let arrName = attributesWithRelations[attrIndx].name.split(".");
+        arrName[arrName.length - 1] = '__' + arrName[arrName.length - 1];
+        let newName = arrName.join(".");
 
-          if (lRel_Value.status === 'loaded') {
-            setNestedValuePath(lMainData[itemIndx], newName, lRel_Value.value);
-          } else if (lRel_Value.status === 'not found'){
-            setNestedValuePath(lMainData[itemIndx], newName, ' [ERROR: ' + attributes_with_rels[attrIndx].rel_key + ' (' + lRel_Value.value + ') not found in ' +  attributes_with_rels[attrIndx].rel_entity + ' table]');
-          } else {
-            setNestedValuePath(lMainData[itemIndx], newName, lRel_Value.value + ' [resolving...]');
-          }
-
+        if (lRel_Value.status === 'loaded') {
+          setNestedValuePath(lMainData[itemIndx], newName, lRel_Value.value);
+        } else if (lRel_Value.status === 'not found') {
+          setNestedValuePath(lMainData[itemIndx],
+            newName,
+            ` [ERROR: ${attributesWithRelations[attrIndx].rel_key} (${lRel_Value.value}) not found in ${attributesWithRelations[attrIndx].rel_entity} table]`);
+        } else {
+          setNestedValuePath(lMainData[itemIndx], newName, lRel_Value.value + ' [resolving...]');
         }
+
       }
+    }
   }
 
   let attributes_with_tags = mainDataSchema.attributes.filter(function (entry) {
-      return entry.type === 'tag';
+    return entry.type === 'tag';
   })
 
-  for (let attrIndx = 0; attrIndx<attributes_with_tags.length; attrIndx++){
-      for (let itemIndx = 0; itemIndx<lMainData.length; itemIndx++){
-        if (propExists(lMainData[itemIndx],attributes_with_tags[attrIndx].name)){
-          //Update last element in key name with __ to reflect names that are path based.
-          let arrName = attributes_with_tags[attrIndx].name.split(".");
-          arrName[arrName.length-1] = '__' + arrName[arrName.length-1];
-          let newName = arrName.join(".");
+  for (let attrIndx = 0; attrIndx < attributes_with_tags.length; attrIndx++) {
+    for (let itemIndx = 0; itemIndx < lMainData.length; itemIndx++) {
+      if (propExists(lMainData[itemIndx], attributes_with_tags[attrIndx].name)) {
+        //Update last element in key name with __ to reflect names that are path based.
+        let arrName = attributes_with_tags[attrIndx].name.split(".");
+        arrName[arrName.length - 1] = '__' + arrName[arrName.length - 1];
+        let newName = arrName.join(".");
 
-          let value = getNestedValuePath(lMainData[itemIndx], attributes_with_tags[attrIndx].name);
+        let value = getNestedValuePath(lMainData[itemIndx], attributes_with_tags[attrIndx].name);
 
-          let lRel_Value = value.map((tag) => { return tag.key + '=' + tag.value}).join(';');
-          setNestedValuePath(lMainData[itemIndx], newName, lRel_Value.value);
-        }
+        let lRel_Value = value.map((tag) => {
+          return tag.key + '=' + tag.value
+        }).join(';');
+        setNestedValuePath(lMainData[itemIndx], newName, lRel_Value.value);
       }
+    }
   }
 
   return lMainData;
@@ -218,9 +171,8 @@ export function resolveRelationshipValues(relatedData, mainData, mainDataSchema)
  * @param value
  * @returns {{value, status: string}|{value: *, status: string}|{value: null, status: string}|{value: string, status: string}|{value: *[], status: string}|{value: null, status: string}}
  */
-function getRelationshipValue (relatedData, attribute, value) {
-
-  if (!relatedData[attribute.rel_entity]){
+function getRelationshipValue(relatedData, attribute, value) {
+  if (!relatedData[attribute.rel_entity]) {
     return {status: 'error', value: '[' + value + '] ' + attribute.rel_entity + ' entity was not provided in related data.'}
 
   }
@@ -232,7 +184,7 @@ function getRelationshipValue (relatedData, attribute, value) {
     //For policies this is an array of objects that needs special processing.
     if (attribute.type === 'policies') {
       record = relatedData[attribute.rel_entity].data.filter(item => {
-          for (const listItem of value){
+        for (const listItem of value) {
             if (item[attribute.rel_key] === listItem['policy_id']) {
               return true;
             }
@@ -242,7 +194,7 @@ function getRelationshipValue (relatedData, attribute, value) {
     } else if (Array.isArray(value)) {
       // Multiselect relationship value.
       record = relatedData[attribute.rel_entity].data.filter(item => {
-          for (const listItem of value){
+        for (const listItem of value) {
             if (item[attribute.rel_key] === listItem) {
               return true;
             }
@@ -263,19 +215,17 @@ function getRelationshipValue (relatedData, attribute, value) {
         status: 'loaded',
         value: record[attribute.rel_display_attribute]
       } : {status: 'loaded', value: null};
-    }
-    else if (record && (attribute.type === 'policies' || (attribute.type === 'relationship' && attribute.listMultiSelect))){
+    } else if (record && (attribute.type === 'policies' || (attribute.type === 'relationship' && attribute.listMultiSelect))) {
       let returnArray = [];
-      for (const item of record){
+      for (const item of record) {
         if (item[attribute.rel_display_attribute]) {
           returnArray.push(item[attribute.rel_display_attribute])
         }
       }
 
       return returnArray.length > 0 ? {status: 'loaded', value: returnArray} : {status: 'loaded', value: null};
-    }
-    else {
-      return {status: 'not found', value: value} ;
+    } else {
+      return {status: 'not found', value: value};
     }
   }
 
@@ -293,9 +243,9 @@ export function validateValue(value, attribute) {
   let errorMsg = null;
 
   //Validate valuelist.
-  if(attribute.type === 'list' && (value !== '' && value !== undefined && value !== null)) {
+  if (attribute.type === 'list' && (value !== '' && value !== undefined && value !== null)) {
     //Check value is matching list item.
-    if(attribute.listvalue) {
+    if (attribute.listvalue) {
       let attrListValues = attribute.listvalue.split(',');
       let foundAll = null;
 
@@ -305,25 +255,25 @@ export function validateValue(value, attribute) {
         }
       }
 
-      if(!foundAll){
-          errorMsg = 'Value entered is invalid, ' + 'possible values are: ' + attribute.listvalue + '.';
+      if (!foundAll) {
+        errorMsg = 'Value entered is invalid, ' + 'possible values are: ' + attribute.listvalue + '.';
       }
     }
   }
 
   //Validate regex.
-  if(attribute.validation_regex && attribute.validation_regex !== '' && (value !== '' && value !== undefined && value !== null)){
+  if (attribute.validation_regex && attribute.validation_regex !== '' && (value !== '' && value !== undefined && value !== null)) {
     if (!value.match(attribute.validation_regex)) {
-         //Validation error
-         if (attribute.validation_regex_msg) {
-           errorMsg = attribute.validation_regex_msg;
-         } else {
-           errorMsg = stdError
-         }
-     }
-   }
+      //Validation error
+      if (attribute.validation_regex_msg) {
+        errorMsg = attribute.validation_regex_msg;
+      } else {
+        errorMsg = stdError
+      }
+    }
+  }
 
- return errorMsg;
+  return errorMsg;
 
 }
 
@@ -344,8 +294,7 @@ export function getNestedValue(obj, ...args) {
  * @returns {undefined|*}
  */
 export function getNestedValuePath(obj, path) {
-  if (path)
-  {
+  if (path) {
     return path.split(".").reduce((obj, pathElement) => obj && obj[pathElement], obj)
   } else {
     return undefined;
@@ -366,9 +315,9 @@ export function setNestedValuePath(obj, path, value) {
   if (parts.length > 1) {
     for (let i = 0; i < parts.length - 1; i++) {
       if (!o[parts[i]])
-        if(parts[parts.length - 1] === '+1' && i === parts.length - 2){
+        if (parts[parts.length - 1] === '+1' && i === parts.length - 2) {
           o[parts[i]] = [];
-        } else{
+        } else {
           o[parts[i]] = {};
         }
 
@@ -379,14 +328,14 @@ export function setNestedValuePath(obj, path, value) {
   if (value === undefined) {
     if (Array.isArray(o_arr[parts.length - 2])) {
       o_arr[parts.length - 2].splice(parts[parts.length - 1], 1);
-      if(o_arr[parts.length - 2].length === 0){
+      if (o_arr[parts.length - 2].length === 0) {
         //Array now empty, remove key.
         delete o[parts[parts.length - 2]]
       }
     } else {
       delete o[parts[parts.length - 1]]
     }
-  } else if (parts[parts.length - 1] === '+1'){
+  } else if (parts[parts.length - 1] === '+1') {
     o_arr[parts.length - 2].push(value);
   } else {
     o[parts[parts.length - 1]] = value;
@@ -461,12 +410,12 @@ export function sortAscendingComparator(a, b) {
  */
 export function returnLocaleDateTime(stringDateTime, returnObject = false) {
 
-  if(stringDateTime === null || stringDateTime === undefined){
+  if (stringDateTime === null || stringDateTime === undefined) {
     return undefined;
   }
 
   let originalDate = new Date(stringDateTime);
-  let newDate = new Date(originalDate.getTime() - originalDate.getTimezoneOffset()*60*1000);
+  let newDate = new Date(originalDate.getTime() - originalDate.getTimezoneOffset() * 60 * 1000);
 
   if (returnObject) {
     return newDate;
@@ -486,104 +435,6 @@ export const toBase64 = file => new Promise((resolve, reject) => {
   reader.onload = () => resolve(reader.result);
   reader.onerror = error => reject(error);
 });
-
-/**
- * Exports an array of objects to an Excel spreadsheet.
- * @param items
- * @param type
- * @param fileName
- */
-export function exportTable(items, type, fileName){
-
-
-  let updatedItems = JSON.parse(JSON.stringify(items))
-
-  updatedItems = updatedItems.map(item => {
-    for (let key in item){
-      if (key.startsWith('__')){
-        //Remove system computed keys.
-        delete item[key]
-      }
-
-      if (Array.isArray(item[key])){
-        if(item[key].length > 0 && item[key][0].value && item[key][0].key){
-          //tags found
-          item[key] = item[key].map(tag => {
-            return tag.key + '=' + tag.value;
-          });
-
-          item[key] = item[key].join(';');
-        } else{
-          //Flatten Array.
-          item[key] = item[key].join(';');
-        }
-      } else if (item[key] != null && typeof item[key] === 'object') {
-        // Object in field, convert to string
-        item[key] = JSON.stringify(item[key]);
-      }
-
-    }
-    return item;
-  });
-
-  let wb = XLSX.utils.book_new(); // create new workbook
-  wb.SheetNames.push(type); // create new worksheet
-  wb.Sheets[type] = XLSX.utils.json_to_sheet(updatedItems); // load headers array into worksheet
-
-  XLSX.writeFile(wb, fileName + ".xlsx") // export to user
-
-  console.log(type + " exported.")
-}
-
-/**
- * Exports a dict of arrays to Excel spreadsheet. Each key name will be used to create a tab in the output Excel,
- * and then the array items will be the rows of the tab.
- * @param items
- * @param fileName
- */
-export function exportAll(items, fileName){
-
-  let wb = XLSX.utils.book_new(); // create new workbook
-
-  for (const itemType in items){
-    let updatedItems = JSON.parse(JSON.stringify(items[itemType]))
-
-    updatedItems = updatedItems.map(item => {
-      for (let key in item){
-        if (key.startsWith('__')){
-          //Remove system computed keys.
-          delete item[key]
-        }
-
-        if (Array.isArray(item[key])){
-          if(item[key].length > 0 && item[key][0].value && item[key][0].key){
-            //tags found
-            item[key] = item[key].map(tag => {
-              return tag.key + '=' + tag.value;
-            });
-
-            item[key] = item[key].join(';');
-          } else{
-            //Flatten Array.
-            item[key] = item[key].join(';');
-          }
-        } else if (item[key] != null && typeof item[key] === 'object') {
-          // Object in field, convert to string
-          item[key] = JSON.stringify(item[key]);
-        }
-
-      }
-      return item;
-    });
-
-    wb.SheetNames.push(itemType); // create new worksheet
-    wb.Sheets[itemType] = XLSX.utils.json_to_sheet(updatedItems); // load headers array into worksheet
-  }
-
-  XLSX.writeFile(wb, fileName + ".xlsx") // export to user
-
-  console.log("All data exported.")
-}
 
 /**
  * Capitalizes the first letter of the s parameter.

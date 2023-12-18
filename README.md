@@ -33,7 +33,6 @@ https://docs.aws.amazon.com/prescriptive-guidance/latest/migration-factory-cloud
 
 ```
 ***
-
 ## Customization
 
 The steps given below can be followed if you are looking to customize or extend the solution.
@@ -43,10 +42,8 @@ The steps given below can be followed if you are looking to customize or extend 
 To build your customized distributable follow given steps.
 
 - Create two S3 buckets (you can use the CLI commands below).
-- First bucket with the format '<BUCKET-NAME>-reference' to deploy the templates into.
-- Second bucket with the format '<BUCKET-NAME>-<AWS_REGION>' to deploy the assets into. The solution's CloudFormation
-  template will expect the source code to be located in this bucket. <AWS_REGION> is where you are testing the
-  customized solution.
+- First bucket with the format '<BUCKET-NAME>-reference' to deploy the templates into. 
+- Second bucket with the format '<BUCKET-NAME>-<AWS_REGION>' to deploy the assets into. The solution's CloudFormation template will expect the source code to be located in this bucket. <AWS_REGION> is where you are testing the customized solution.
 
 ```
 ACCOUNT_ID=$(aws sts get-caller-identity --output text --query Account --profile <PROFILE_NAME>)
@@ -77,9 +74,8 @@ aws s3api put-public-access-block \
 
 ```
 
-_Note: For PROFILE_NAME, substitute the name of an AWS CLI profile that contains appropriate credentials for deploying
-in your preferred region. Remove `--profile <PROFILE_NAME>` from the command if you have configured the AWS CLI manually
-instead of using a profile._
+_Note: For PROFILE_NAME, substitute the name of an AWS CLI profile that contains appropriate credentials for deploying in your preferred region. Remove `--profile <PROFILE_NAME>` from the command if you have configured the AWS CLI manually instead of using a profile._
+
 
 - Configure the solution name and version number on your terminal:
 
@@ -96,8 +92,7 @@ chmod +x ./build-s3-dist.sh
 ./build-s3-dist.sh $BASE_BUCKET_NAME $SOLUTION_NAME $VERSION
 ```
 
-_✅ All assets are now built. You should see templates under deployment/global-s3-assets and other artifacts (frontend
-and lambda binaries) under deployment/regional-s3-assets_
+_✅ All assets are now built. You should see templates under deployment/global-s3-assets and other artifacts (frontend and lambda binaries) under deployment/regional-s3-assets_
 
 ### Deployment
 
@@ -112,23 +107,23 @@ aws s3 cp regional-s3-assets/  s3://$ASSET_BUCKET_NAME/$SOLUTION_NAME/$VERSION/ 
 
 _✅ All assets are now staged in your S3 bucket. You or any user may use S3 links for deployments_
 
-### Frontend development
 
-In order to run the frontend app locally for development, you need to deploy the solution to your AWS account first
+### Frontend development
+In order to run the frontend app locally for development, you need to deploy the solution to your AWS account first 
 and then configure the local frontend to use the deployed backend in the cloud.
 To do so,
-
 - In the S3 console, locate the S3 bucket with the name `migration-factory-test-<ACOUNT_ID>-front-end`
 - Download the file `env_dev.js` from that bucket and place it under /frontend/public next to the existing `env.js` file
-- Run `npm run start`. The app will become available under `http://localhost:3000` and read the settings
-  from `env_dev.js`
+- Run `npm run start`. The app will become available under `http://localhost:3000` and read the settings from `env_dev.js`
 - Use a browser extension to bypass CORS errors on localhost
 - To log in, create a Cognito user in the AWS Cognito Console as described in the Implementation Guide
+
 
 ***
 
 ## Unit Testing Framework
 The following unit testing frameworks are used in the solution.
+
 ### Javascript/frontend
 Libraries jest with babel are used for all unit tests involving the front end code.
 The configuration of jest and babel is maintained in the following solution files:
@@ -136,27 +131,26 @@ The configuration of jest and babel is maintained in the following solution file
 |-source/
     |-frontend/
         - babel.config.js           [ babel transformation configuration ]
-        - jest.config.js            [ jest transformation configuration ]
+        - package.json              [ jest configuration ]
 ```
+The library mock-service-worker (msw) runs a mock backend to execute the unit tests against. See `src/setupTests.ts`.
+
+
 
 All unit test scripts should be created in the same folder as the script or module that they are testing against. When naming the unit test script the format should be as follows:
 
-[_original script name_].test.js  -  example for the script **Audit.js** the test script filename should be **Audit.test.js**
+[_original script name_].test.ts  -  example for the script **Audit.ts** the test script filename should be **Audit.test.ts**
 
 #### Coverage reporting
-By default, the jest configuration will produce a coverage report when run and which will be processed using the **jest-sonar-reporter** Results Processor in order to output a generic report format that can be ingested into SonarQube.  A readable version is also output to source/frontend/test-report.xml.
+By default, the jest configuration will produce a coverage report when run and which will be processed using the **jest-sonar-reporter** Results Processor in order to output a generic report format that can be ingested into SonarQube.  
+A readable version is also output to source/frontend/coverage/lcov-report/index.html.
 
 #### Running the unit tests
-
-Before running frontend unit tests, jest needs to be installed using the following command, this will install jest and enable it to be run globally from the command line:
-```
-npm install jest -global
-```
-
 To run the unit test, ensure the working directory is set to **/source/frontend** and run the command:
 ```
-jest ./
+npm run test
 ```
+
 ### Python/backend
 python unittest is used alongside the moto library to run unit tests against the Lambda function code within the solution.  All python unit tests for Lambda functions can be found in the following folder.
 ```
@@ -188,14 +182,6 @@ See license [here](./LICENSE.txt)
 
 ***
 
-## Collection of Anonymized Operational Metrics
-
-This solution collects anonymized operational metrics to help AWS improve the quality of features of the solution. For
-more information, including how to disable
-this capability, please see
-the [implementation guide](https://docs.aws.amazon.com/solutions/latest/cloud-migration-factory-on-aws/anonymized-data-collection.html).
-***
-Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
-Licensed under the the MIT-0 License. See the LICENSE file.
-This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions and limitations under the License.
+## Collection of Anonymous Operational Metrics
+This solution collects anonymous operational metrics to help AWS improve the quality of features of the solution. For more information, including how to disable
+this capability, please see the [implementation guide](_https://docs.aws.amazon.com/solutions/latest/cloud-migration-factory-on-aws/collection-of-operational-metrics.html_).

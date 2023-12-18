@@ -22,8 +22,8 @@ def check_linux(linux_servers, secret_name, ssh_port, no_prompts=True):
 
     if len(linux_servers) > 0:
         for server in linux_servers:
-            linux_credentials = mfcommon.getServerCredentials(user_name, pass_key, server, secret_name,
-                                                              no_prompts)
+            linux_credentials = mfcommon.get_server_credentials(user_name, pass_key, server, secret_name,
+                                                                no_prompts)
             failure_count += check_ssh_connectivity(
                 server["server_fqdn"],
                 linux_credentials['username'],
@@ -76,7 +76,7 @@ def main(arguments):
     args = parser.parse_args(arguments)
 
     print("*Login to Migration factory*", flush=True)
-    token = mfcommon.Factorylogin()
+    token = mfcommon.factory_login()
 
     print("*** Getting Server List ****", flush=True)
     get_servers, linux_exist, windows_exist = mfcommon.get_factory_servers(args.Waveid, token)

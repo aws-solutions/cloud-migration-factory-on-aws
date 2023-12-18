@@ -6,16 +6,14 @@
 import os
 import boto3
 import re
-import sys
 import requests
 
 import simplejson as json
 
-from jose import jwt, JWTError
-from boto3.dynamodb.conditions import Key, Attr
+from jose import jwt
 import logging
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)  # //NOSONAR Basic configuration doesn't pose security risk
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -32,13 +30,13 @@ class HttpVerb:
 
 
 class AuthPolicy(object):
-    awsAccountId = ""
+    aws_account_id = ""
     """The AWS account id the policy will be generated for. This is used to create the method ARNs."""
-    principalId = ""
+    principal_id = ""
     """The principal used for the policy, this should be a unique identifier for the end user."""
     version = "2012-10-17"
     """The policy version used for the evaluation. This should always be '2012-10-17'"""
-    pathRegex = "^[/.a-zA-Z0-9-\*]+$"
+    path_regex  = "^[/.a-zA-Z0-9-\*]+$"
     """The regular expression used to validate resource paths for the policy"""
 
     """these are the internal lists of allowed and denied methods. These are lists
@@ -46,55 +44,55 @@ class AuthPolicy(object):
     conditions statement.
     the build method processes these lists and generates the approriate
     statements for the final policy"""
-    allowMethods = []
-    denyMethods = []
+    allow_methods = []
+    deny_methods = []
 
-    restApiId = "*"
+    rest_api_id = "*"
     """The API Gateway API id. By default this is set to '*'"""
     region = "*"
     """The region where the API is deployed. By default this is set to '*'"""
     policy = "*"
     """The name of the policy used in the policy. By default this is set to '*'"""
 
-    def __init__(self, principal, awsAccountId):
-        self.awsAccountId = awsAccountId
-        self.principalId = principal
-        self.allowMethods = []
-        self.denyMethods = []
+    def __init__(self, principal, aws_account_id):
+        self.aws_account_id = aws_account_id
+        self.principal_id = principal
+        self.allow_methods = []
+        self.deny_methods = []
 
-    def _addMethod(self, effect, verb, resource, conditions):
+    def _add_method(self, effect, verb, resource, conditions):
         """Adds a method to the internal lists of allowed or denied methods. Each object in
         the internal list contains a resource ARN and a condition statement. The condition
         statement can be null."""
         if verb != "*" and not hasattr(HttpVerb, verb):
             raise NameError("Invalid HTTP verb " + verb + ". Allowed verbs in HttpVerb class")
-        resourcePattern = re.compile(self.pathRegex)
-        if not resourcePattern.match(resource):
-            raise NameError("Invalid resource path: " + resource + ". Path should match " + self.pathRegex)
+        resource_pattern = re.compile(self.path_regex )
+        if not resource_pattern.match(resource):
+            raise NameError("Invalid resource path: " + resource + ". Path should match " + self.path_regex )
 
         if resource[:1] == "/":
             resource = resource[1:]
 
-        resourceArn = ("arn:aws:execute-api:" +
+        resource_arn = ("arn:aws:execute-api:" +
                        self.region + ":" +
-                       self.awsAccountId + ":" +
-                       self.restApiId + "/" +
+                       self.aws_account_id + ":" +
+                       self.rest_api_id + "/" +
                        self.policy + "/" +
                        verb + "/" +
                        resource)
 
         if effect.lower() == "allow":
-            self.allowMethods.append({
-                'resourceArn': resourceArn,
+            self.allow_methods.append({
+                'resourceArn': resource_arn,
                 'conditions': conditions
             })
         elif effect.lower() == "deny":
-            self.denyMethods.append({
-                'resourceArn': resourceArn,
+            self.deny_methods.append({
+                'resourceArn': resource_arn,
                 'conditions': conditions
             })
 
-    def _getEmptyStatement(self, effect):
+    def _get_empty_statement(self, effect):
         """Returns an empty statement object prepopulated with the correct action and the
         desired effect."""
         statement = {
@@ -105,76 +103,76 @@ class AuthPolicy(object):
 
         return statement
 
-    def _getStatementForEffect(self, effect, methods):
+    def _get_statement_for_effect(self, effect, methods):
         """This function loops over an array of objects containing a resourceArn and
         conditions statement and generates the array of statements for the policy."""
         statements = []
 
         if len(methods) > 0:
-            statement = self._getEmptyStatement(effect)
+            statement = self._get_empty_statement(effect)
 
-            for curMethod in methods:
-                if curMethod['conditions'] is None or len(curMethod['conditions']) == 0:
-                    statement['Resource'].append(curMethod['resourceArn'])
+            for cur_method in methods:
+                if cur_method['conditions'] is None or len(cur_method['conditions']) == 0:
+                    statement['Resource'].append(cur_method['resourceArn'])
                 else:
-                    conditionalStatement = self._getEmptyStatement(effect)
-                    conditionalStatement['Resource'].append(curMethod['resourceArn'])
-                    conditionalStatement['Condition'] = curMethod['conditions']
-                    statements.append(conditionalStatement)
+                    conditional_statement = self._get_empty_statement(effect)
+                    conditional_statement['Resource'].append(cur_method['resourceArn'])
+                    conditional_statement['Condition'] = cur_method['conditions']
+                    statements.append(conditional_statement)
 
             statements.append(statement)
 
         return statements
 
-    def allowAllMethods(self):
+    def allow_all_methods(self):
         """Adds a '*' allow to the policy to authorize access to all methods of an API"""
-        self._addMethod("Allow", HttpVerb.ALL, "*", [])
+        self._add_method("Allow", HttpVerb.ALL, "*", [])
 
-    def denyAllMethods(self):
+    def deny_all_methods(self):
         """Adds a '*' allow to the policy to deny access to all methods of an API"""
-        self._addMethod("Deny", HttpVerb.ALL, "*", [])
+        self._add_method("Deny", HttpVerb.ALL, "*", [])
 
-    def allowMethod(self, verb, resource):
+    def allow_method(self, verb, resource):
         """Adds an API Gateway method (Http verb + Resource path) to the list of allowed
         methods for the policy"""
-        self._addMethod("Allow", verb, resource, [])
+        self._add_method("Allow", verb, resource, [])
 
-    def denyMethod(self, verb, resource):
+    def deny_method(self, verb, resource):
         """Adds an API Gateway method (Http verb + Resource path) to the list of denied
         methods for the policy"""
-        self._addMethod("Deny", verb, resource, [])
+        self._add_method("Deny", verb, resource, [])
 
-    def allowMethodWithConditions(self, verb, resource, conditions):
+    def allow_method_with_conditions(self, verb, resource, conditions):
         """Adds an API Gateway method (Http verb + Resource path) to the list of allowed
         methods and includes a condition for the policy statement. More on AWS policy
         conditions here: http://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements.html#Condition"""
-        self._addMethod("Allow", verb, resource, conditions)
+        self._add_method("Allow", verb, resource, conditions)
 
-    def denyMethodWithConditions(self, verb, resource, conditions):
+    def deny_method_with_conditions(self, verb, resource, conditions):
         """Adds an API Gateway method (Http verb + Resource path) to the list of denied
         methods and includes a condition for the policy statement. More on AWS policy
         conditions here: http://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements.html#Condition"""
-        self._addMethod("Deny", verb, resource, conditions)
+        self._add_method("Deny", verb, resource, conditions)
 
     def build(self):
         """Generates the policy document based on the internal lists of allowed and denied
         conditions. This will generate a policy with two main statements for the effect:
         one statement for Allow and one statement for Deny.
         Methods that includes conditions will have their own statement in the policy."""
-        if ((self.allowMethods is None or len(self.allowMethods) == 0) and
-            (self.denyMethods is None or len(self.denyMethods) == 0)):
+        if ((self.allow_methods is None or len(self.allow_methods) == 0) and
+            (self.deny_methods is None or len(self.deny_methods) == 0)):
             raise NameError("No statements defined for the policy")
 
         policy = {
-            'principalId': self.principalId,
+            'principalId': self.principal_id,
             'policyDocument': {
                 'Version': self.version,
                 'Statement': []
             }
         }
 
-        policy['policyDocument']['Statement'].extend(self._getStatementForEffect("Allow", self.allowMethods))
-        policy['policyDocument']['Statement'].extend(self._getStatementForEffect("Deny", self.denyMethods))
+        policy['policyDocument']['Statement'].extend(self._get_statement_for_effect("Allow", self.allow_methods))
+        policy['policyDocument']['Statement'].extend(self._get_statement_for_effect("Deny", self.deny_methods))
 
         return policy
 
@@ -197,7 +195,6 @@ class MFAuth(object):
         """ Given a token (and optionally an audience), validate and
         return the claims for the token
         """
-        # header, _, _ = get_token_segments(token)
         header = jwt.get_unverified_header(token)
         kid = header['kid']
 
@@ -233,12 +230,8 @@ class MFAuth(object):
             "https://cognito-idp.{}.amazonaws.com/{}".
             format(aws_region, aws_user_pool)
         )
-
-    def getAdminResourcePolicy(self, event):
-        region = os.environ['region']
-        userpool = os.environ['userpool']
-        clientid = os.environ['clientid']
-
+    
+    def get_authorization_token(self, event):
         if 'authorizationToken' in event:
             # support for TOKEN based authentication request from API GW.
             token = event['authorizationToken']
@@ -251,6 +244,9 @@ class MFAuth(object):
             else:
                 token = None
 
+        return token
+
+    def get_access_token(self, event):
         # Check to see if an access token has been provided and extract.
         # Checking for both capitalized and lower-case header is required in some environments.
         if 'authorization-access' in event['headers']:
@@ -260,78 +256,97 @@ class MFAuth(object):
         else:
             access = None
 
+        return access
+
+    def add_methods_for_admin_api(self, api_type, group, email, policy, method, path):
+        if (api_type == 'admin'):
+            logger.info('Admin API Access')
+            if group is not None:
+                is_admin_group = False
+                for g in group:
+                    if 'admin' in g:
+                        is_admin_group = True
+                if is_admin_group == False:
+                    logger.info('Denying Admin API Access, %s', email)
+                    policy.deny_all_methods()
+                else:
+                    logger.info('Allowing Admin API Access, %s', email)
+                    policy.allow_method(method, path)
+            else:
+                logger.info('Denying Admin API, as user is not a member of any Cognito groups: %s', email)
+                policy.deny_all_methods()
+
+    def add_methods_for_login_api(self, api_type, group, email, policy, method, path):
+        if (api_type == 'login'):
+            logger.info('Login API Access')
+            if group is not None:
+                is_admin_group = False
+                for g in group:
+                    if 'admin' in g:
+                        is_admin_group = True
+                if is_admin_group == False:
+                    logger.info('Denying Login API Access: %s', email)
+                    policy.deny_all_methods()
+                else:
+                    logger.info('Allowing Login API Access, %s', email)
+                    policy.allow_method(method, path)
+            else:
+                logger.info('Denying Login API, as user is not a member of any Cognito groups: %s', email)
+                policy.deny_all_methods()
+
+    def get_admin_resource_policy(self, event):
+        region = os.environ['region']
+        userpool = os.environ['userpool']
+        clientid = os.environ['clientid']
+
+        token = self.get_authorization_token(event)
+
+        access = self.get_access_token(event)
+
         arn = event['methodArn'].split(':')
-        apigatwayArn = arn[5].split('/')
+        apigateway_arn = arn[5].split('/')
         logger.debug('API Gateway ARN: %s', arn)
 
-        awsAccountId = arn[4]
+        aws_account_id = arn[4]
 
-        policy = AuthPolicy('', awsAccountId)
-        policy.restApiId = apigatwayArn[0]
+        policy = AuthPolicy('', aws_account_id)
+        policy.rest_api_id = apigateway_arn[0]
         policy.region = arn[3]
-        policy.policy = apigatwayArn[1]
+        policy.policy = apigateway_arn[1]
 
-        method = apigatwayArn[2]
-        apitype = apigatwayArn[3]
+        method = apigateway_arn[2]
+        apitype = apigateway_arn[3]
 
         try:
             claims = self.get_claims(region, userpool, token, clientid, access_token=access)
         except Exception as claim_error:
             logger.error('Denying Admin API Access, Claims Error, %s', claim_error)
-            policy.denyAllMethods()
+            policy.deny_all_methods()
             # Build the policy
-            authResponse = policy.build()
-            return authResponse
+            auth_response = policy.build()
+            return auth_response
 
         if claims.get('token_use') != 'id':
             raise ValueError('Not an ID Token')
 
         email = claims.get('email')
-        group = claims.get('cognito:groups')
-        principalId = claims.get('sub')
-        policy.principalId = principalId
+        group = claims.get('cognito:groups')  # //NOSONAR It is fine to repeat cognito:groups string as a json key name
+        principal_id = claims.get('sub')
+        policy.principal_id = principal_id
         logger.info('Cognito User email: %s', email)
-        logger.debug('Cognito User principalId: %s', principalId)
+        logger.debug('Cognito User principalId: %s', principal_id)
 
-        path = "/" + "/".join(apigatwayArn[3:])
+        path = "/" + "/".join(apigateway_arn[3:])
 
-        if (apitype == 'admin'):
-            logger.info('Admin API Access')
-            if group is not None:
-                check = False
-                for g in group:
-                    if 'admin' in g:
-                        check = True
-                if check == False:
-                    logger.info('Denying Admin API Access, %s', email)
-                    policy.denyAllMethods()
-                else:
-                    logger.info('Allowing Admin API Access, %s', email)
-                    policy.allowMethod(method, path)
-            else:
-                logger.info('Denying Admin API, as user is not a member of any Cognito groups: %s', email)
-                policy.denyAllMethods()
-        if (apitype == 'login'):
-            logger.info('Login API Access')
-            if group is not None:
-                check = False
-                for g in group:
-                    if 'admin' in g:
-                        check = True
-                if check == False:
-                    logger.info('Denying Login API Access: %s', email)
-                    policy.denyAllMethods()
-                else:
-                    logger.info('Allowing Login API Access, %s', email)
-                    policy.allowMethod(method, path)
-            else:
-                logger.info('Denying Login API, as user is not a member of any Cognito groups: %s', email)
-                policy.denyAllMethods()
+        self.add_methods_for_admin_api(
+            apitype, group, email, policy, method, path)
+        self.add_methods_for_login_api(
+            apitype, group, email, policy, method, path)
 
         # Finally, build the policy
-        authResponse = policy.build()
+        auth_response = policy.build()
 
-        return authResponse
+        return auth_response
 
     def aws_key_dict(self, aws_region, aws_user_pool):
 
@@ -346,85 +361,77 @@ class MFAuth(object):
 
         return result
 
-    def getUserResourceCreationPolicy(self, event, schema_name):
+    def get_user_policy(self, event):
+        group_identity = event['requestContext']['authorizer']['claims']['cognito:groups']
+        role_list = self.role_table.scan()
 
-        #  Fix for change of app to application in schema.
-        if schema_name == 'app':
-            schema_name = 'application'
-
-        try:
-            event['requestContext']['authorizer']['claims']
-        except KeyError as error:
-            logger.error('Request is not Authenticated.')
-            return {
-                'action': "deny",
-                'cause': "Request is not Authenticated",
-            }
-
-        try:
-            event['requestContext']['authorizer']['claims']['cognito:groups']
-        except KeyError as error:
-            logger.error('%s: User is not assigned to any Cognito group. Access denied.',
-                         event['requestContext']['authorizer']['claims']['email'])
-            return {
-                'action': "deny",
-                'cause': "User is not assigned to any group. Access denied.",
-            }
-        groupidentity = event['requestContext']['authorizer']['claims']['cognito:groups']
-        # hard coding the staging_id
-        policy_id = '1'
-        rolelist = self.role_table.scan()
-
-        userPolicyList = []
-        logger.debug(rolelist['Items'])
-        logger.debug(groupidentity)
-        for item in rolelist['Items']:
+        user_policy_list = []
+        logger.debug(role_list['Items'])
+        logger.debug(group_identity)
+        for item in role_list['Items']:
             for group in item['groups']:
-                if (group['group_name'] in groupidentity):
+                if (group['group_name'] in group_identity):
                     for policy in item['policies']:
-                        if policy['policy_id'] not in userPolicyList:
-                            userPolicyList.append(policy['policy_id'])
+                        if policy['policy_id'] not in user_policy_list:
+                            user_policy_list.append(policy['policy_id'])
         user = {
-            'userRef': event['requestContext']['authorizer']['claims']['cognito:username'],
+            'userRef': event['requestContext']['authorizer']['claims']['cognito:username'], #NOSONAR It is fine to repeat cognito:username string as a json key name
             'email': event['requestContext']['authorizer']['claims']['email']
         }
 
-        logger.debug('User policies: %s', userPolicyList)
+        logger.debug('User policies: %s', user_policy_list)
+        return user_policy_list, user
 
+    def set_access_level_for_schema(self, schema, schema_name, schema_action, allow_access):
+        is_matching_schema_found = False
+        
+        # Schema is matching, set access level.
+        if schema.get('schema_name') == schema_name:
+            if schema_action and schema.get(schema_action) == True:
+                is_matching_schema_found = True
+                allow_access = True
+            
+        return is_matching_schema_found, allow_access
+
+    def get_access_level_for_schema(self, event, policy, schema_name, allow_access):
+        method_schema_dict ={
+            "PUT": "update",
+            "POST": "create",
+            "DELETE": "delete"}
+        
+        for schema in policy['entity_access']:
+            # Set access level for matching schema, if found.
+            is_matching_schema_found, allow_access = self.set_access_level_for_schema(
+                    schema,
+                    schema_name,
+                    method_schema_dict.get(event['httpMethod']),
+                    allow_access)
+            
+            if is_matching_schema_found == True:
+                break
+
+        return allow_access
+
+    def get_allow_access(self, event, user_policy_list, schema_name):
         policies = self.policy_table.scan()
         allow_access = False
 
         for policy in policies['Items']:
-            for userPolicy in userPolicyList:
-                if policy['policy_id'] == userPolicy:
-                    # Found policy match.
-                    if 'entity_access' in policy:
-                        for schema in policy['entity_access']:
-                            if 'schema_name' in schema and schema_name == schema['schema_name']:
-                                # Schema is matching, check access level.
-                                if event['httpMethod'] == 'PUT':
-                                    if 'update' in schema:
-                                        if schema['update'] == True:
-                                            allow_access = True
-                                            break
-                                if event['httpMethod'] == 'POST':
-                                    if 'create' in schema:
-                                        if schema['create'] == True:
-                                            allow_access = True
-                                            break
-                                if event['httpMethod'] == 'DELETE':
-                                    if 'delete' in schema:
-                                        if schema['delete'] == True:
-                                            allow_access = True
-                                            break
-                        if allow_access:
-                            break
+            for user_policy in user_policy_list:
+                # Found policy match.
+                if policy['policy_id'] == user_policy and 'entity_access' in policy:
+                    allow_access = self.get_access_level_for_schema(
+                        event, policy, schema_name, allow_access)
+                    if allow_access:
+                        break
             if allow_access:
                 # Policy located, no need to check others, exit loop.
                 break
 
-        # Update access type string for return message.
+        return allow_access
 
+    def update_access_type_in_return_message(self, event, allow_access, schema_name, user):
+        # Update access type string for return message.
         allow_access_type = 'unknown'
         if event['httpMethod'] == 'PUT':
             allow_access_type = 'update'
@@ -451,7 +458,88 @@ class MFAuth(object):
                 'user': user
             }
 
-    def getUserAttributePolicy(self, event, schema_name):
+    def get_user_resource_creation_policy(self, event, schema_name):
+
+        #  Fix for change of app to application in schema.
+        if schema_name == 'app':
+            schema_name = 'application'
+
+        try:
+            event['requestContext']['authorizer']['claims']
+        except KeyError as error:
+            logger.error(f'Request is not Authenticated. Error: {error}')
+            return {
+                'action': "deny",
+                'cause': "Request is not Authenticated",
+            }
+
+        try:
+            event['requestContext']['authorizer']['claims']['cognito:groups']
+        except KeyError as error:
+            logger.error(f"{event['requestContext']['authorizer']['claims']['email']}"
+                         ": User is not assigned to any Cognito group. Access denied."
+                         " Error: {error}")
+            return {
+                'action': "deny",
+                'cause': "User is not assigned to any group. Access denied.",
+            }
+        
+        user_policy_list, user = self.get_user_policy(event)
+
+        allow_access = self.get_allow_access(event, user_policy_list, schema_name)
+
+        return_message = self.update_access_type_in_return_message(event, allow_access, schema_name, user)
+
+        return return_message
+
+    def get_user_policy_list(self, event):
+        group_identity = event['requestContext']['authorizer']['claims']['cognito:groups']
+        user_policy_list = []
+
+        role_list = self.role_table.scan()
+        logger.debug('Cognito User email: %s', event['requestContext']['authorizer']['claims']['email'])
+        logger.info('Cognito Username: ' + event['requestContext']['authorizer']['claims']['cognito:username'])
+        logger.debug('All Roles: %s', role_list['Items'])
+        for item in role_list['Items']:
+            for group in item['groups']:
+                if (group['group_name'] in group_identity):
+                    for policy in item['policies']:
+                        if policy['policy_id'] not in user_policy_list:
+                            user_policy_list.append(policy['policy_id'])
+
+        return user_policy_list
+
+    def create_user_allowed_attr_list(self, policy, schema_name, user_allowed_attr_list):
+        for entity in policy['entity_access']:
+            if 'attributes' in entity and entity['schema_name'] == schema_name:
+                # Found schema in entity access list.
+                for attr in entity['attributes']:
+                    user_allowed_attr_list.append(attr['attr_name'])
+                break  # No need to look further as found schema.
+
+        return  user_allowed_attr_list
+
+    def get_user_allowed_attr_list(self, policy_list, user_policy_list, schema_name):
+        user_allowed_attr_list = []
+        for policy in policy_list['Items']:
+            if 'entity_access' in policy and policy['policy_id'] in user_policy_list:
+                user_allowed_attr_list = self.create_user_allowed_attr_list(
+                    policy, schema_name, user_allowed_attr_list)
+
+        return user_allowed_attr_list
+    
+    def get_access_allowed_denied_list(self, attr_list, user_allowed_attr_list):
+        access_allowed_attr_list = []
+        access_denied_attr_list = []
+        for attr in attr_list:
+            if (attr in user_allowed_attr_list):
+                access_allowed_attr_list.append(attr)
+            else:
+                access_denied_attr_list.append(attr)
+
+        return access_allowed_attr_list, access_denied_attr_list
+
+    def get_user_attribute_policy(self, event, schema_name):
 
         # Fix for change of app to application in schema.
         if schema_name == 'app':
@@ -460,7 +548,7 @@ class MFAuth(object):
         try:
             event['requestContext']['authorizer']['claims']['cognito:username']
         except KeyError as error:
-            logger.error('Username not provided. Access denied.')
+            logger.error(f'Username not provided. Access denied. Error: {error}')
             return {
                 'action': "deny",
                 'cause': "Username not provided. Access denied.",
@@ -469,19 +557,16 @@ class MFAuth(object):
         try:
             event['requestContext']['authorizer']['claims']
         except KeyError as error:
-            logger.error('%s Request is not Authenticated',
-                         event['requestContext']['authorizer']['claims']['cognito:username'])
+            logger.error(f"{event['requestContext']['authorizer']['claims']['cognito:username']}"
+                         " Request is not Authenticated. Error: {error}")
             return {
                 'action': "deny",
                 'cause': "Request is not Authenticated",
             }
 
-        if 'body' in event and event['body']:
-            body = json.loads(event['body'])
-        else:
-            body = {}
-        attrList = body.keys()
-        if (len(attrList) == 0):
+        body = json.loads(event['body']) if event.get('body') else {}
+        attr_list = body.keys()
+        if (len(attr_list) == 0):
             logger.error('%s: There are no attributes to update',
                          event['requestContext']['authorizer']['claims']['cognito:username'])
             return {
@@ -492,8 +577,9 @@ class MFAuth(object):
         try:
             event['requestContext']['authorizer']['claims']['cognito:groups']
         except KeyError as error:
-            logger.error('%s: Cognito User is not assigned to any Cognito group. Access denied.',
-                         event['requestContext']['authorizer']['claims']['cognito:username'])
+            logger.error(f"{event['requestContext']['authorizer']['claims']['cognito:username']}"
+                         ": Cognito User is not assigned to any Cognito group. Access denied."
+                         "  Error: {error}")
             return {
                 'action': "deny",
                 'cause': "User is not assigned to any group. Access denied.",
@@ -502,8 +588,9 @@ class MFAuth(object):
         try:
             event['requestContext']['authorizer']['claims']['email']
         except KeyError as error:
-            logger.error('%s: Cognito Email address not provided. Access denied.',
-                         event['requestContext']['authorizer']['claims']['cognito:username'])
+            logger.error(f"{event['requestContext']['authorizer']['claims']['cognito:username']}"
+                         ": Cognito Email address not provided. Access denied."
+                         "  Error: {error}")
             return {
                 'action': "deny",
                 'cause': "Email address not provided. Access denied.",
@@ -514,61 +601,36 @@ class MFAuth(object):
             'email': event['requestContext']['authorizer']['claims']['email']
         }
 
-        groupidentity = event['requestContext']['authorizer']['claims']['cognito:groups']
-        userPolicyList = []
-        accessAllowedAttrList = []
-        accessDeniedAttrList = []
-        userAllowedAttributes = []
+        user_policy_list =  self.get_user_policy_list(event)
 
-        rolelist = self.role_table.scan()
-        logger.debug('Cognito User email: %s', event['requestContext']['authorizer']['claims']['email'])
-        logger.info('Cognito Username: ' + event['requestContext']['authorizer']['claims']['cognito:username'])
-        logger.debug('All Roles: %s', rolelist['Items'])
-        for item in rolelist['Items']:
-            for group in item['groups']:
-                if (group['group_name'] in groupidentity):
-                    for policy in item['policies']:
-                        if policy['policy_id'] not in userPolicyList:
-                            userPolicyList.append(policy['policy_id'])
+        policy_list = self.policy_table.scan()
 
-        policyList = self.policy_table.scan()
-
-        for policy in policyList['Items']:
-            if 'entity_access' in policy and policy['policy_id'] in userPolicyList:
-                for entity in policy['entity_access']:
-                    if 'attributes' in entity and entity['schema_name'] == schema_name:
-                        # Found schema in entity access list.
-                        for attr in entity['attributes']:
-                            userAllowedAttributes.append(attr['attr_name'])
-                        break  # No need to look further as found schema.
+        user_allowed_attr_list = self.get_user_allowed_attr_list(policy_list, user_policy_list, schema_name)
 
         logger.debug('%s Attributes requested: %s', event['requestContext']['authorizer']['claims']['cognito:username'],
-                     attrList)
+                     attr_list)
         logger.debug('%s: Attributes allowed: %s', event['requestContext']['authorizer']['claims']['cognito:username'],
-                     userAllowedAttributes)
+                     user_allowed_attr_list)
 
-        for attr in attrList:
-            if (attr in userAllowedAttributes):
-                accessAllowedAttrList.append(attr)
-            else:
-                accessDeniedAttrList.append(attr)
+        access_allowed_attr_list, access_denied_attr_list = \
+            self.get_access_allowed_denied_list(attr_list, user_allowed_attr_list)
 
-        if (len(accessDeniedAttrList) > 0):
-            errorMsg = 'You do not have permission to update attributes ' + ': ' + ",".join(accessDeniedAttrList)
+        if (len(access_denied_attr_list) > 0):
+            error_msg = 'You do not have permission to update attributes ' + ': ' + ",".join(access_denied_attr_list)
             logger.error('%s: Access Denied: User does not have permission to update: %s',
-                         event['requestContext']['authorizer']['claims']['cognito:username'], accessDeniedAttrList)
+                         event['requestContext']['authorizer']['claims']['cognito:username'], access_denied_attr_list)
             return {
                 'action': "deny",
-                'cause': errorMsg,
+                'cause': error_msg,
                 'user': user
             }
 
-        if (len(accessAllowedAttrList) > 0):
-            sucessMsg = 'You have permission to update attributes ' + ': ' + ",".join(accessAllowedAttrList)
+        if (len(access_allowed_attr_list) > 0):
+            success_msg = 'You have permission to update attributes ' + ': ' + ",".join(access_allowed_attr_list)
             logger.info('%s: Access Granted: User has permission to update: %s',
-                        event['requestContext']['authorizer']['claims']['cognito:username'], accessAllowedAttrList)
+                        event['requestContext']['authorizer']['claims']['cognito:username'], access_allowed_attr_list)
             return {
                 'action': "allow",
-                'cause': sucessMsg,
+                'cause': success_msg,
                 'user': user
             }

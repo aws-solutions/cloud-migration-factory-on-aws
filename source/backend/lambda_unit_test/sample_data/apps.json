@@ -14,6 +14,19 @@
     },
     "wave_id": {
       "S": "1"
+    },
+    "tags": {
+      "L": [
+        {
+          "S": "tag1"
+        },
+        {
+          "S": "tag2"
+        }
+      ]
+    },
+    "description":{
+      "S": "The amazing wordpress"
     }
   },
   {

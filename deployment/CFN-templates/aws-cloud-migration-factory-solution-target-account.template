@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 AWSTemplateFormatVersion: 2010-09-09
-Description: "(%%SOLUTION_ID%%-targetaccount) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution (Version %%VERSION%%)"
+Description: "(%%SOLUTION_ID%%-targetaccount) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution. Version:%%VERSION%%"
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -106,7 +106,18 @@ Resources:
             Action:
               - 'sts:AssumeRole'
       Path: /
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/ResourceGroupsandTagEditorReadOnlyAccess"
       Policies:
+        - PolicyName: LicenseManagerResourceGroups
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'license-manager:GetLicenseConfiguration'
+                Resource:
+                  - 'arn:aws:license-manager:*:*:license-configuration:*'
         -
           PolicyName: MGNSSMAccessPolicy
           PolicyDocument:
@@ -229,16 +240,23 @@ Resources:
                     'aws:ResourceTag/AWSApplicationMigrationServiceManaged': 'false'
               - Effect: Allow
                 Action:
-                  - 'ec2:StartInstances'
                   - 'ec2:StopInstances'
                   - 'ec2:TerminateInstances'
                   - 'ec2:ModifyInstanceAttribute'
                   - 'ec2:GetConsoleOutput'
                   - 'ec2:GetConsoleScreenshot'
-                Resource: 'arn:aws:ec2:*:*:instance/*'
+                Resource:
+                 - 'arn:aws:ec2:*:*:instance/*'
                 Condition:
                   'Null':
                     'aws:ResourceTag/AWSApplicationMigrationServiceManaged': 'false'
+              - Effect: Allow
+                Action:
+                  - 'ec2:StartInstances'
+                Resource:
+                  - 'arn:aws:ec2:*:*:instance/*'
+                  - 'arn:aws:license-manager:*:*:license-configuration:*'
+                  - 'arn:aws:resource-groups:*:*:group/*'
               - Effect: Allow
                 Action:
                   - 'ec2:RevokeSecurityGroupEgress'
@@ -315,6 +333,8 @@ Resources:
                   - 'arn:aws:ec2:*:*:image/*'
                   - 'arn:aws:ec2:*:*:network-interface/*'
                   - 'arn:aws:ec2:*:*:launch-template/*'
+                  - 'arn:aws:license-manager:*:*:license-configuration:*'
+                  - 'arn:aws:resource-groups:*:*:group/*'
               - Effect: Allow
                 Action: 'ec2:CreateTags'
                 Resource:

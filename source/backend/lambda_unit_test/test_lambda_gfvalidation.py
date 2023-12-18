@@ -19,46 +19,46 @@ class LambdaGFValidationTest(LambdaGFCommonTest):
         import lambda_gfvalidation
         super().setUp(lambda_gfvalidation)
 
-    @mock.patch('lambda_gfvalidation.MFAuth.getUserResourceCreationPolicy')
+    @mock.patch('lambda_gfvalidation.MFAuth.get_user_resource_creation_policy')
     def test_lambda_handler_mfAuth_deny(self, mock_MFAuth):
         import lambda_gfvalidation
         self.assert_lambda_handler_mfAuth_deny(lambda_gfvalidation, mock_MFAuth)
 
-    @mock.patch('lambda_gfvalidation.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfvalidation.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_wave_id(self):
         import lambda_gfvalidation
         self.assert_lambda_handler_no_wave_id(lambda_gfvalidation)
 
-    @mock.patch('lambda_gfvalidation.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfvalidation.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_account_id(self):
         import lambda_gfvalidation
         self.assert_lambda_handler_no_account_id(lambda_gfvalidation)
 
-    @mock.patch('lambda_gfvalidation.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfvalidation.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_malformed_input(self):
         import lambda_gfvalidation
         self.assert_lambda_handler_malformed_input(lambda_gfvalidation)
 
-    @mock.patch('lambda_gfvalidation.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfvalidation.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_non_existent_wave_id(self):
         import lambda_gfvalidation
         self.assert_lambda_handler_non_existent_wave_id(lambda_gfvalidation)
 
-    @mock.patch('lambda_gfvalidation.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfvalidation.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_apps_table(self):
         import lambda_gfvalidation
         self.assert_lambda_hander_no_table_fail(lambda_gfvalidation,
                                                 'apps_table',
                                                 'ERROR: Unable to Retrieve Data from Dynamo DB App table')
 
-    @mock.patch('lambda_gfvalidation.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfvalidation.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_servers_table(self):
         import lambda_gfvalidation
         self.assert_lambda_hander_no_table_fail(lambda_gfvalidation,
                                                 'servers_table',
                                                 'ERROR: Unable to Retrieve Data from Dynamo DB Server table')
 
-    @mock.patch('lambda_gfdeploy.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfdeploy.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_waves_table(self):
         import lambda_gfvalidation
         # returns success for this case !
@@ -67,7 +67,7 @@ class LambdaGFValidationTest(LambdaGFCommonTest):
                                            'EC2 Input Validation Completed',
                                            200)
 
-    @mock.patch('lambda_gfvalidation.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfvalidation.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_success(self):
         import lambda_gfvalidation
         response = lambda_gfvalidation.lambda_handler(self.lambda_event_good, None)
@@ -76,7 +76,7 @@ class LambdaGFValidationTest(LambdaGFCommonTest):
         self.assert_servers_table_updated(lambda_gfvalidation.servers_table, 'Validation Completed')
 
     @mock.patch('lambda_gfvalidation.get_server_list')
-    @mock.patch('lambda_gfvalidation.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfvalidation.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_exception_main(self, mock_get_server_list):
         import lambda_gfvalidation
         mock_get_server_list.side_effect = Exception('Exception in get_server_list')

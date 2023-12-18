@@ -3,47 +3,46 @@
 
 
 import json
-import boto3
-import logging
 import os
 import requests
+
+import cmf_boto
+from cmf_logger import logger
 
 ServiceAccountEmail = os.environ['ServiceAccountEmail']
 PoolId = os.environ['UserPoolId']
 CognitoGroup = os.environ['CognitoGroupName']
-log = logging.getLogger()
-log.setLevel(logging.INFO)
 
 
 def lambda_handler(event, context):
     try:
-        log.info('Event:\n {}'.format(event))
-        log.info('Contex:\n {}'.format(context))
+        logger.info('Event:\n {}'.format(event))
+        logger.info('Contex:\n {}'.format(context))
 
         if event['RequestType'] == 'Create':
-            log.info('Create action')
+            logger.info('Create action')
             create_service_account()
             status = 'SUCCESS'
             message = 'Migration Factory Service Account created successfully'
 
         elif event['RequestType'] == 'Update':
-            log.info('Update action')
+            logger.info('Update action')
             status = 'SUCCESS'
             message = 'No update required'
 
         elif event['RequestType'] == 'Delete':
-            log.info('Delete action')
+            logger.info('Delete action')
             status = 'SUCCESS'
             message = 'No deletion required'
 
         else:
-            log.info('SUCCESS!')
+            logger.info('SUCCESS!')
             status = 'SUCCESS'
             message = 'Unexpected event received from CloudFormation'
 
     except Exception as e:
-        log.info('FAILED!')
-        log.info(e)
+        logger.info('FAILED!')
+        logger.info(e)
         status = 'FAILED'
         message = 'Exception during processing'
 
@@ -56,8 +55,8 @@ def lambda_handler(event, context):
 
 
 def create_service_account():
-    client = boto3.client('cognito-idp')
-    secrets_manager_client = boto3.client('secretsmanager')
+    client = cmf_boto.client('cognito-idp')
+    secrets_manager_client = cmf_boto.client('secretsmanager')
 
     # Generate random password for service account
     pwd = secrets_manager_client.get_random_password(
@@ -116,7 +115,7 @@ def respond(event, context, response_status, response_data):
 
     # Convert json object to string and log it
     json_response_body = json.dumps(response_body)
-    log.info('Response body: {}'.format(str(json_response_body)))
+    logger.info('Response body: {}'.format(str(json_response_body)))
 
     # Set response URL
     response_url = event['ResponseURL']
@@ -133,9 +132,9 @@ def respond(event, context, response_status, response_data):
                                 data=json_response_body,
                                 headers=headers,
                                 timeout=30)
-        log.info('Status code: {}'.format(str(response.reason)))
+        logger.info('Status code: {}'.format(str(response.reason)))
         return 'SUCCESS'
 
     except Exception as e:
-        log.error('Failed to put message: {}'.format(str(e)))
+        logger.error('Failed to put message: {}'.format(str(e)))
         return 'FAILED'

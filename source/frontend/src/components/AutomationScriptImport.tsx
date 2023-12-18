@@ -7,16 +7,17 @@
 import React, {useEffect, useState} from 'react';
 
 import {
-  SpaceBetween,
-  Icon,
-  Container,
-  Header,
   Button,
+  Checkbox,
+  Container,
   FormField,
   Grid,
+  Header,
+  Icon,
   Input,
-  Wizard,
-  Link, Checkbox
+  Link,
+  SpaceBetween,
+  Wizard
 } from '@awsui/components-react';
 
 const AutomationScriptImport = (props) => {

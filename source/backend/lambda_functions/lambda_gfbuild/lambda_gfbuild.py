@@ -3,37 +3,28 @@
 
 
 from __future__ import print_function
-import boto3
 import json
-import sys
 import os
 import troposphere.ec2 as ec2
-from troposphere import Base64, Tags, FindInMap, GetAtt, Output, Parameter, Ref, Template
+from troposphere import GetAtt, Output, Parameter, Ref, Template
 from policy import MFAuth
 import traceback
 import re
 import tempfile
 
-headers = {'Content-Type': 'application/json'}
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
+import cmf_boto
+from cmf_utils import cors, default_http_headers
 
-default_http_headers = {
-    'Access-Control-Allow-Origin': cors,
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy': "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
-}
+headers = {'Content-Type': 'application/json'}
 
 application = os.environ['application']
 environment = os.environ['environment']
 servers_table_name = '{}-{}-servers'.format(application, environment)
 apps_table_name = '{}-{}-apps'.format(application, environment)
 waves_table_name = '{}-{}-waves'.format(application, environment)
-servers_table = boto3.resource('dynamodb').Table(servers_table_name)
-apps_table = boto3.resource('dynamodb').Table(apps_table_name)
-waves_table = boto3.resource('dynamodb').Table(waves_table_name)
+servers_table = cmf_boto.resource('dynamodb').Table(servers_table_name)
+apps_table = cmf_boto.resource('dynamodb').Table(apps_table_name)
+waves_table = cmf_boto.resource('dynamodb').Table(waves_table_name)
 template_generated_prefix = '/CFN_Template_'
 template_generated_suffix = '.yaml'
 
@@ -94,7 +85,7 @@ def process_app(app, body, context, wave_name, generated_template_uris):
         print('S3 Path Along with JSON File: ' + s3_path)
 
         # Upload Template into S3 Bucket
-        s3 = boto3.resource('s3')
+        s3 = cmf_boto.resource('s3')
         s3.meta.client.upload_file(lambda_path, gfbuild_bucket.replace(" ", ""), s3_path)
         generated_template_uris.append('s3://' + gfbuild_bucket.replace(" ", "") + '/' + s3_path)
 
@@ -102,7 +93,7 @@ def process_app(app, body, context, wave_name, generated_template_uris):
 def lambda_handler(event, context):
     # Verify user has access to run ec2 replatform functions.
     auth = MFAuth()
-    auth_response = auth.getUserResourceCreationPolicy(event, 'EC2')
+    auth_response = auth.get_user_resource_creation_policy(event, 'EC2')
     if auth_response['action'] != 'allow':
         return {'headers': {**default_http_headers},
                 'statusCode': 401,

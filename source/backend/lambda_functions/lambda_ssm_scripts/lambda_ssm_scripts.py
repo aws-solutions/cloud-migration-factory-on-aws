@@ -2,7 +2,6 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import datetime
-import boto3
 import json
 import base64
 import zipfile
@@ -10,20 +9,14 @@ import os
 import yaml
 import uuid
 import shutil
-import logging
 import tempfile
 from policy import MFAuth
 from boto3.dynamodb.conditions import Key
 from decimal import Decimal
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
+import cmf_boto
+from cmf_logger import logger
+from cmf_utils import cors
 
 default_http_headers = {
     'Access-Control-Allow-Origin': cors,
@@ -56,29 +49,35 @@ bucketName = os.environ['scripts_bucket_name']
 application = os.environ['application']
 environment = os.environ['environment']
 
-s3_resource = boto3.resource('s3')
-s3 = boto3.client('s3')
+s3_resource = cmf_boto.resource('s3')
+s3 = cmf_boto.client('s3')
+lambda_client = cmf_boto.client('lambda')
 
-packages_table = boto3.resource('dynamodb').Table(os.environ['scripts_table'])
+packages_table = cmf_boto.resource('dynamodb').Table(os.environ['scripts_table'])
 # Set maximum size of uncompressed file to 500MBs.
 # This is just under the /tmp max size of 512MB in Lambda.
 ZIP_MAX_SIZE = 500000000
 
+CONST_INVOCATION_AUTH_ERROR = 'Invocation: %s, Authorisation failed: '
 
-def add_script_attribute_to_schema(update_exists_attribute, new_attr):
-    logging_context = 'add_script_attribute_to_schema'
+
+def get_lambda_schema_payload(update_exists_attribute, new_attr):
     if update_exists_attribute:
         schema_method = 'PUT'
         attribute_action = 'update'
     else:
         schema_method = 'POST'
         attribute_action = 'new'
-    lambda_client = boto3.client('lambda')
-    data = {
+    return {
         "event": schema_method,
         "name": new_attr['name'],
         attribute_action: new_attr
     }
+
+
+def add_script_attribute_to_schema(update_exists_attribute, new_attr):
+    logging_context = 'add_script_attribute_to_schema'
+    data = get_lambda_schema_payload(update_exists_attribute, new_attr)
 
     scripts_event = {'httpMethod': 'PUT', 'body': json.dumps(data),
                      'pathParameters': {'schema_name': new_attr['schema']}}
@@ -102,7 +101,7 @@ def add_script_attribute_to_schema(update_exists_attribute, new_attr):
         lambda_response = json.loads(scripts['body'])
         if 'ResponseMetadata' in lambda_response:
             if 'HTTPStatusCode' in lambda_response['ResponseMetadata'] \
-                and lambda_response['ResponseMetadata']['HTTPStatusCode'] != 200:
+                    and lambda_response['ResponseMetadata']['HTTPStatusCode'] != 200:
                 return scripts['body']
 
     logger.info('Invocation: %s, Attribute added/updated in schema: ' + json.dumps(new_attr), logging_context)
@@ -213,7 +212,7 @@ def change_default_script_version(event, package_uuid, default_version):
     logging_context = 'make_default'
     # Update record audit
     auth = MFAuth()
-    auth_response = auth.getUserResourceCreationPolicy(event, 'script')
+    auth_response = auth.get_user_resource_creation_policy(event, 'script')
 
     if auth_response['action'] != 'allow':
         logger.warning(log_invocation_message_prefix + 'Authorisation failed: ' + json.dumps(auth_response), logging_context)
@@ -352,7 +351,7 @@ def extract_script_package(base64_encoded_script_package, package_uuid):
         else:
             with open(temp_path, "rb") as script_package_zip_file:
                 script_package_zip = zipfile.ZipFile(script_package_zip_file)
-                script_package_zip.extractall(script_package_path)
+                script_package_zip.extractall(script_package_path)  # NOSONAR This size of the file is in control
             return {'headers': {**default_http_headers},
                 'statusCode': 200,
                 'body':
@@ -399,110 +398,76 @@ def validate_script_package_yaml(parsed_yaml_file):
     return validation_errors
 
 
-def validate_extracted_script_package(script_package_path):
-    validation_failures = []
-    if os.path.isfile(f"{script_package_path}/{script_package_yaml_file_name}"):
-        # validate further.
-        config_file_path = f"{script_package_path}/{script_package_yaml_file_name}"
-        try:
-            with open(config_file_path) as config_file:
-                parsed_yaml_file = yaml.full_load(config_file)
-        except yaml.YAMLError as error_yaml:
-            if hasattr(error_yaml, 'problem_mark'):
-                mark = error_yaml.problem_mark
-                validation_failures.append(f"Error reading error YAML {script_package_yaml_file_name}. "
-                                           f"Error position: {mark.line + 1}:{mark.column + 1}")
-            else:
-                validation_failures.append(f"Error reading error YAML {script_package_yaml_file_name}.")
-        else:
-
-            package_yaml_validation = validate_script_package_yaml(parsed_yaml_file)
-            if len(package_yaml_validation) > 0:
-                validation_failures.append(f"Missing the following required keys or values in "
-                                           f"{script_package_yaml_file_name}, {','.join(package_yaml_validation)}")
-            else:
-                master_file_exists = check_script_package_master_file_exists(script_package_path,
-                                                                             parsed_yaml_file.get("MasterFileName"))
-                if master_file_exists is False:
-                    validation_failures.append(f"{parsed_yaml_file.get('MasterFileName')} "
-                                               f"not found in root of package, "
-                                               f"and is referenced as the MasterFileName.")
-                try:
-                    check_script_package_dependencies_exist(script_package_path, parsed_yaml_file.get("Dependencies"))
-                except MissingDependencyException as missing_dependency_error:
-                    validation_failures.append(str(missing_dependency_error))
-
-    else:
-        validation_failures.append(f"{script_package_yaml_file_name} not found in root of package, this is required.")
-
-    return validation_failures
-
-
-def load_script_package(event, package_uuid, body, decoded_data_as_byte, new_version=False):
-    logging_context = 'load_script_package'
-    s3_path = f'scripts/{package_uuid}.zip'
-
-    # Get and load the configuration file from the extracted zip
-    config_file_path = f"{tempfile.gettempdir()}/{package_uuid}/{script_package_yaml_file_name}"
+def validate_extracted_script_package_contents(script_package_path, config_file_path, validation_failures):
     try:
         with open(config_file_path) as config_file:
             parsed_yaml_file = yaml.full_load(config_file)
     except yaml.YAMLError as error_yaml:
         if hasattr(error_yaml, 'problem_mark'):
             mark = error_yaml.problem_mark
-            error_msg = f"Error reading error YAML {script_package_yaml_file_name}. " \
-                        f"Error position: {mark.line + 1}:{mark.column + 1}"
-            return {'headers': {**default_http_headers},
-                    'statusCode': 400, 'body': error_msg}
+            validation_failures.append(f"Error reading error YAML {script_package_yaml_file_name}. "
+                                       f"Error position: {mark.line + 1}:{mark.column + 1}")
         else:
-            error_msg = f"Error reading error YAML {script_package_yaml_file_name}."
-            return {'headers': {**default_http_headers},
-                    'statusCode': 400, 'body': error_msg}
+            validation_failures.append(f"Error reading error YAML {script_package_yaml_file_name}.")
+    else:
 
-    # Check if script_name in body
+        package_yaml_validation = validate_script_package_yaml(parsed_yaml_file)
+        if len(package_yaml_validation) > 0:
+            validation_failures.append(f"Missing the following required keys or values in "
+                                       f"{script_package_yaml_file_name}, {','.join(package_yaml_validation)}")
+        else:
+            master_file_exists = check_script_package_master_file_exists(script_package_path,
+                                                                         parsed_yaml_file.get("MasterFileName"))
+            if master_file_exists is False:
+                validation_failures.append(f"{parsed_yaml_file.get('MasterFileName')} "
+                                           f"not found in root of package, "
+                                           f"and is referenced as the MasterFileName.")
+            try:
+                check_script_package_dependencies_exist(script_package_path, parsed_yaml_file.get("Dependencies"))
+            except MissingDependencyException as missing_dependency_error:
+                validation_failures.append(str(missing_dependency_error))
+
+
+def validate_extracted_script_package(script_package_path):
+    validation_failures = []
+    config_file_path = f"{script_package_path}/{script_package_yaml_file_name}"
+    if os.path.isfile(config_file_path):
+        validate_extracted_script_package_contents(script_package_path, config_file_path, validation_failures)
+    else:
+        validation_failures.append(f"{script_package_yaml_file_name} not found in root of package, this is required.")
+
+    return validation_failures
+
+
+class SSMScriptsValidationException(Exception):
+    def __init__(self, info_obj):
+        self.info_obj = info_obj
+
+
+def get_script_name(body, parsed_yaml_file):
     if 'script_name' in body:
         if body['script_name'] == "" or body['script_name'] is None:
             error_msg = 'Script name provided cannot be empty.'
-            return {'headers': {**default_http_headers},
-                    'statusCode': 400, 'body': error_msg}
+            raise SSMScriptsValidationException({
+                'headers': {**default_http_headers},
+                'statusCode': 400,
+                'body': error_msg
+            })
         else:
-            script_name = body['script_name']
+            return body['script_name']
     else:
         if 'Name' in parsed_yaml_file:
-            script_name = parsed_yaml_file.get('Name')
-        else:
+            return parsed_yaml_file.get('Name')
+        else:  # This can't happen as Name is already required in validate_script_package_yaml
             error_msg = 'Either script_name in body or Name in Package-Structure.yaml is required.'
-            return {'headers': {**default_http_headers},
-                    'statusCode': 400, 'body': error_msg}
+            raise SSMScriptsValidationException({
+                'headers': {**default_http_headers},
+                'statusCode': 400,
+                'body': error_msg
+            })
 
-    if does_script_name_exist(script_name, package_uuid):
-        error_msg = 'Script name already defined in another package'
-        return {'headers': {**default_http_headers},
-                'statusCode': 400, 'body': error_msg}
 
-    cleanup_temp(package_uuid)
-
-    # Use decoded data and store in S3 bucket
-    s3_response = s3.put_object(Bucket=bucketName, Key=s3_path, Body=decoded_data_as_byte)
-
-    # create record audit.
-    auth = MFAuth()
-    auth_response = auth.getUserResourceCreationPolicy(event, 'script')
-
-    # Check that auth is successful or that this is not an invocation from the system so authentication not req.
-    if auth_response['action'] != 'allow' and 'headers' in event:
-        logger.warning('Invocation: %s, Authorisation failed: ' + json.dumps(auth_response), logging_context)
-        return {'headers': {**default_http_headers},
-                'statusCode': 401,
-                'body': auth_response['cause']}
-
-    if 'user' in auth_response:
-        created_by = auth_response['user']
-        created_timestamp = datetime.datetime.utcnow().isoformat()
-    else:
-        created_by = {'userRef': '[system]', 'email': '[system]'}
-        created_timestamp = datetime.datetime.utcnow().isoformat()
-
+def validate_attributes(parsed_yaml_file, package_uuid, logging_context):
     script_arguments_validation = []
     for script_argument_idx, script_argument_attribute in enumerate(parsed_yaml_file.get("Arguments")):
         attribute_validation_result = valid_attribute(script_argument_attribute)
@@ -515,12 +480,82 @@ def load_script_package(event, package_uuid, body, decoded_data_as_byte, new_ver
         cleanup_temp(package_uuid)
         logger.error(log_invocation_message_prefix + json.dumps({'errors': [script_arguments_validation]}),
                      logging_context)
+        raise SSMScriptsValidationException({
+            'headers': {**default_http_headers},
+            'statusCode': 400,
+            'body': json.dumps({
+                'errors': [script_arguments_validation]
+            })
+        })
+
+
+def authenticate_and_extract_user(event, logging_context):
+    auth = MFAuth()
+    auth_response = auth.get_user_resource_creation_policy(event, 'script')
+
+    if auth_response['action'] != 'allow' and 'headers' in event:
+        logger.warning(CONST_INVOCATION_AUTH_ERROR + json.dumps(auth_response), logging_context)
+        raise SSMScriptsValidationException({
+            'headers': {**default_http_headers},
+            'statusCode': 401,
+            'body': auth_response['cause']
+        })
+
+    if 'user' in auth_response:
+        created_by = auth_response['user']
+        created_timestamp = datetime.datetime.utcnow().isoformat()
+    else:
+        created_by = {'userRef': '[system]', 'email': '[system]'}
+        created_timestamp = datetime.datetime.utcnow().isoformat()
+
+    return created_by, created_timestamp, auth_response
+
+
+def load_script_package(event, package_uuid, body, decoded_data_as_byte, new_version=False):
+    logging_context = 'load_script_package'
+    s3_path = f'scripts/{package_uuid}.zip'
+
+    # Get and load the configuration file from the extracted zip
+    config_file_path = f"{tempfile.gettempdir()}/{package_uuid}/{script_package_yaml_file_name}"
+    with open(config_file_path) as config_file:
+        parsed_yaml_file = yaml.full_load(config_file)
+
+    try:
+        script_name = get_script_name(body, parsed_yaml_file)
+    except SSMScriptsValidationException as e:
+        return e.info_obj
+
+    if does_script_name_exist(script_name, package_uuid):
+        error_msg = 'Script name already defined in another package'
         return {'headers': {**default_http_headers},
-                'statusCode': 400, 'body': json.dumps({'errors': [script_arguments_validation]})}
+                'statusCode': 400, 'body': error_msg}
+
+    cleanup_temp(package_uuid)
+
+    # Use decoded data and store in S3 bucket
+    s3_response = s3.put_object(Bucket=bucketName, Key=s3_path, Body=decoded_data_as_byte)
+
+    try:
+        created_by, created_timestamp, auth_response = authenticate_and_extract_user(event, logging_context)
+    except SSMScriptsValidationException as e:
+        return e.info_obj
+
+    try:
+        validate_attributes(parsed_yaml_file, package_uuid, logging_context)
+    except SSMScriptsValidationException as e:
+        return e.info_obj
 
     if new_version:
         updated_master_script_package = increment_script_package_version(package_uuid, auth_response)
-        script_package_version = updated_master_script_package["Attributes"]["latest"]
+        if updated_master_script_package is not None:
+            script_package_version = updated_master_script_package["Attributes"]["latest"]
+        else:
+            logger.warning(CONST_INVOCATION_AUTH_ERROR + json.dumps(auth_response), logging_context)
+            return {
+                'headers': {**default_http_headers},
+                'statusCode': 401,
+                'body': auth_response['cause']
+            }
     else:
         script_package_version = 1
         # Define package metadata
@@ -593,10 +628,10 @@ def delete_script_package(event, package_uuid):
     logging_context = 'delete_script_package'
 
     auth = MFAuth()
-    auth_response = auth.getUserResourceCreationPolicy(event, 'script')
+    auth_response = auth.get_user_resource_creation_policy(event, 'script')
 
     if auth_response['action'] != 'allow':
-        logger.warning('Invocation: %s, Authorisation failed: ' + json.dumps(auth_response), logging_context)
+        logger.warning(CONST_INVOCATION_AUTH_ERROR + json.dumps(auth_response), logging_context)
         return {'headers': {**default_http_headers},
                 'statusCode': 401,
                 'body': auth_response['cause']}
@@ -650,101 +685,142 @@ def increment_script_package_version(package_uuid, user_auth):
     return db_response
 
 
-def lambda_handler(event, context):
-    logging_context = event['httpMethod']
-    logger.info('Invocation: %s', logging_context)
-    if event['httpMethod'] == 'GET':
-        response = []
-        # GET all default versions
-        if 'pathParameters' not in event or event['pathParameters'] is None:
-            db_response = get_all_default_scripts()
+def proces_get_download(event, logging_context, item_form_db):
+    logger.info('Invocation: %s, download script requested.', logging_context)
 
-            if db_response["Count"] == 0:
-                return {'headers': {**default_http_headers},
-                        'body': json.dumps(response)}
+    package_uuid = event['pathParameters']['scriptid']
+    package_zip_key = 'scripts/' + package_uuid + '.zip'
 
-            response = sorted(db_response["Items"], key=lambda d: d['script_name'])
+    if 'version_id' in item_form_db:
+        # Version id present get specific version from S3.
+        logger.debug('Invocation: %s, downloading version: ' + item_form_db[
+            'version_id'] + ' of script: ' + package_zip_key, logging_context)
+        s3_object = s3.get_object(Bucket=bucketName, Key='scripts/' + package_uuid + '.zip',
+                                  VersionId=item_form_db['version_id'])
+    else:
+        # version id not present, get current active version.
+        logger.debug(
+            'Invocation: %s, downloading current version of script: ' + package_zip_key,
+            logging_context)
+        s3_object = s3.get_object(Bucket=bucketName, Key=package_zip_key)
+    streaming_body = s3_object["Body"]
 
-        elif 'scriptid' in event['pathParameters'] and 'version' in event['pathParameters'] and 'action' in event[
-            'pathParameters']:
-            db_response = get_script_version(event['pathParameters']['scriptid'],
-                                             int(event['pathParameters']['version']))
+    logger.debug('Invocation: %s, reading S3 object into memory.', logging_context)
+    zip_content = streaming_body.read()
+    logger.debug('Invocation: %s, encoding S3 object, script package to base64.', logging_context)
+    script_zip_encoded = base64.b64encode(zip_content)
 
-            if 'Item' not in db_response:
-                return {'headers': {**default_http_headers},
-                        'body': json.dumps(db_response)}
+    logger.info('Invocation: %s, script download response built successfully.', logging_context)
+    return {
+        'script_name': item_form_db['script_name'],
+        'script_version': event['pathParameters']['version'],
+        'script_file': script_zip_encoded
+    }
 
-            if event['pathParameters']['action'] == 'download':
-                logger.info('Invocation: %s, download script requested.', logging_context)
 
-                package_uuid = event['pathParameters']['scriptid']
-                package_zip_key = 'scripts/' + package_uuid + '.zip'
+def process_get(event, logging_context: str):
+    response = []
+    # GET all default versions
+    if 'pathParameters' not in event or event['pathParameters'] is None:
+        db_response = get_all_default_scripts()
 
-                if 'version_id' in db_response['Item']:
-                    # Version id present get specific version from S3.
-                    logger.debug('Invocation: %s, downloading version: ' + db_response['Item'][
-                        'version_id'] + ' of script: ' + package_zip_key, logging_context)
-                    s3_object = s3.get_object(Bucket=bucketName, Key='scripts/' + package_uuid + '.zip',
-                                              VersionId=db_response['Item']['version_id'])
-                else:
-                    # version id not present, get current active version.
-                    logger.debug(
-                        'Invocation: %s, downloading current version of script: ' + package_zip_key,
-                        logging_context)
-                    s3_object = s3.get_object(Bucket=bucketName, Key=package_zip_key)
-                streaming_body = s3_object["Body"]
+        if db_response["Count"] == 0:
+            return {
+                'headers': {**default_http_headers},
+                'body': json.dumps(response)
+            }
 
-                logger.debug('Invocation: %s, reading S3 object into memory.', logging_context)
-                zip_content = streaming_body.read()
-                logger.debug('Invocation: %s, encoding S3 object, script package to base64.', logging_context)
-                script_zip_encoded = base64.b64encode(zip_content)
+        response = sorted(db_response["Items"], key=lambda d: d['script_name'])
 
-                scripts_event = {
-                    'script_name': db_response['Item']['script_name'],
-                    'script_version': event['pathParameters']['version'],
-                    'script_file': script_zip_encoded
-                }
+    elif 'scriptid' in event['pathParameters'] and 'version' in event['pathParameters'] and \
+            'action' in event['pathParameters']:
+        db_response = get_script_version(event['pathParameters']['scriptid'],
+                                         int(event['pathParameters']['version']))
 
-                response = scripts_event
-                logger.info('Invocation: %s, script download response built successfully.', logging_context)
+        if 'Item' not in db_response:
+            return {
+                'headers': {**default_http_headers},
+                'body': json.dumps(db_response)
+            }
 
-            else:
-                response.append(db_response["Item"])
-
-        # GET single version
-        elif 'scriptid' in event['pathParameters'] and 'version' in event['pathParameters']:
-            logger.info('Invocation: %s, processing request for version:' + event['pathParameters']['version'],
-                        logging_context)
-            db_response = get_script_version(event['pathParameters']['scriptid'],
-                                             int(event['pathParameters']['version']))
-
-            if 'Item' not in db_response:
-                return {'headers': {**default_http_headers},
-                        'body': json.dumps(response)}
-
+        if event['pathParameters']['action'] == 'download':
+            response = proces_get_download(event, logging_context, db_response['Item'])
+        else:
             response.append(db_response["Item"])
 
-        # GET all versions
-        elif 'scriptid' in event['pathParameters']:
-            logger.info('Invocation: %s, processing request for all versions.',
-                        logging_context)
-            db_response = get_scripts(event['pathParameters']['scriptid'])
-            if db_response["Count"] == 0:
-                return {'headers': {**default_http_headers},
-                        'body': json.dumps(response)}
+    # GET single version
+    elif 'scriptid' in event['pathParameters'] and 'version' in event['pathParameters']:
+        logger.info('Invocation: %s, processing request for version:' + str(event['pathParameters']['version']),
+                    logging_context)
+        db_response = get_script_version(event['pathParameters']['scriptid'],
+                                         int(event['pathParameters']['version']))
 
-            response = db_response["Items"]
+        if 'Item' not in db_response:
+            return {
+                'headers': {**default_http_headers},
+                'body': json.dumps(response)
+            }
 
+        response.append(db_response["Item"])
+
+    # GET all versions
+    elif 'scriptid' in event['pathParameters']:
+        logger.info('Invocation: %s, processing request for all versions.',
+                    logging_context)
+        db_response = get_scripts(event['pathParameters']['scriptid'])
+        if db_response["Count"] == 0:
+            return {
+                'headers': {**default_http_headers},
+                'body': json.dumps(response)
+            }
+
+        response = db_response["Items"]
+
+    return {
+        'headers': {**default_http_headers},
+        'body': json.dumps(response, cls=JsonEncoder)
+    }
+
+
+def process_post(event, logging_context: str):
+    # Create uuid for this upload, this is required as if multiple of
+    # files are being loaded they share the same tmp directory before being cleared.
+    package_uuid = str(uuid.uuid4())
+
+    # Set variables
+    body = json.loads(event.get('body'))
+
+    extract_script_package_response = extract_script_package(body['script_file'], package_uuid)
+
+    if extract_script_package_response.get('statusCode') != 200:
+        return extract_script_package_response
+
+    validate_script_resp = validate_extracted_script_package(extract_script_package_response.get('body')
+                                                             .get('scriptPath'))
+    if len(validate_script_resp) != 0:
+        cleanup_temp(package_uuid)
+        logger.error(log_invocation_message_prefix + ','.join(validate_script_resp),
+                     logging_context)
         return {'headers': {**default_http_headers},
-                'body': json.dumps(response, cls=JsonEncoder)}
+                'statusCode': 400, 'body': ','.join(validate_script_resp)}
 
-    elif event['httpMethod'] == 'POST':
-        # Create uuid for this upload, this is required as if multiple of
-        # files are being loaded they share the same tmp directory before being cleared.
-        package_uuid = str(uuid.uuid4())
+    load_script_response = load_script_package(event,
+                                               package_uuid,
+                                               body,
+                                               extract_script_package_response
+                                               .get('body')
+                                               .get('decodedData'))
 
-        # Set variables
-        body = json.loads(event.get('body'))
+    return load_script_response
+
+
+def process_put(event, logging_context: str):
+    package_uuid = event['pathParameters']['scriptid']
+
+    body = json.loads(event.get('body'))
+
+    if body['action'] == 'update_package':
+        logger.debug('Invocation: %s, update package processing started.', logging_context)
 
         extract_script_package_response = extract_script_package(body['script_file'], package_uuid)
 
@@ -760,67 +836,49 @@ def lambda_handler(event, context):
             return {'headers': {**default_http_headers},
                     'statusCode': 400, 'body': ','.join(validate_script_resp)}
 
-        load_script_response = load_script_package(event,
-                                                   package_uuid,
-                                                   body,
-                                                   extract_script_package_response
-                                                   .get('body')
-                                                   .get('decodedData'))
+        load_script_response = load_script_package(
+            event,
+            package_uuid,
+            body,
+            extract_script_package_response
+            .get('body')
+            .get('decodedData'),
+            True)
 
         return load_script_response
 
-    elif event['httpMethod'] == 'PUT':
-        # Set variables
-        package_uuid = event['pathParameters']['scriptid']
-
-        body = json.loads(event.get('body'))
-
-        if body['action'] == 'update_package':
-            logger.debug('Invocation: %s, update package processing started.', logging_context)
-
-            extract_script_package_response = extract_script_package(body['script_file'], package_uuid)
-
-            if extract_script_package_response.get('statusCode') != 200:
-                return extract_script_package_response
-
-            validate_script_resp = validate_extracted_script_package(extract_script_package_response.get('body')
-                                                                     .get('scriptPath'))
-            if len(validate_script_resp) != 0:
-                cleanup_temp(package_uuid)
-                logger.error(log_invocation_message_prefix + ','.join(validate_script_resp),
-                             logging_context)
-                return {'headers': {**default_http_headers},
-                        'statusCode': 400, 'body': ','.join(validate_script_resp)}
-
-            load_script_response = load_script_package(
-                event,
-                package_uuid,
-                body,
-                extract_script_package_response
-                .get('body')
-                .get('decodedData'),
-                True)
-
-            return load_script_response
-
-        elif body['action'] == 'update_default':
-            logger.debug('Invocation: %s, updating default version of package. UUID:' +
-                         event['pathParameters']['scriptid'], logging_context)
-
-            make_default_response = change_default_script_version(event, package_uuid, int(body['default']))
-
-            return make_default_response
-
-        else:
-            error_msg = 'Script update action is not supported.'
-            logger.error(log_invocation_message_prefix + error_msg,
-                         logging_context)
-            return {'headers': {**default_http_headers},
-                    'statusCode': 400, 'body': error_msg}
-
-    elif event['httpMethod'] == 'DELETE':
-        logger.debug('Invocation: %s, deleting package version. UUID:' +
+    elif body['action'] == 'update_default':
+        logger.debug('Invocation: %s, updating default version of package. UUID:' +
                      event['pathParameters']['scriptid'], logging_context)
-        package_uuid = event['pathParameters']['scriptid']
 
-        return delete_script_package(event, package_uuid)
+        make_default_response = change_default_script_version(event, package_uuid, int(body['default']))
+
+        return make_default_response
+
+    else:
+        error_msg = 'Script update action is not supported.'
+        logger.error(log_invocation_message_prefix + error_msg,
+                     logging_context)
+        return {'headers': {**default_http_headers},
+                'statusCode': 400, 'body': error_msg}
+
+
+def process_delete(event, logging_context: str):
+    logger.debug('Invocation: %s, deleting package version. UUID:' +
+                 event['pathParameters']['scriptid'], logging_context)
+    package_uuid = event['pathParameters']['scriptid']
+
+    return delete_script_package(event, package_uuid)
+
+
+def lambda_handler(event, _):
+    logging_context = event['httpMethod']
+    logger.info('Invocation: %s', logging_context)
+    if event['httpMethod'] == 'GET':
+        return process_get(event, logging_context)
+    elif event['httpMethod'] == 'POST':
+        return process_post(event, logging_context)
+    elif event['httpMethod'] == 'PUT':
+        return process_put(event, logging_context)
+    elif event['httpMethod'] == 'DELETE':
+        return process_delete(event, logging_context)

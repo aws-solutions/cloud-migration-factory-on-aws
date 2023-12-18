@@ -10,13 +10,7 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 
 
 def init():
-    import logging
     import os
-
-    global logger
-    LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
-    logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=LOGLEVEL)
-    logger = logging.getLogger('lambda_unit_tests')
 
     # This is to get around the relative path import issue.
     # Absolute paths are being used in this file after setting the root directory
@@ -25,15 +19,16 @@ def init():
 
     file = Path(__file__).resolve()
     package_root_directory = file.parents[1]
-    sys.path.append(str(package_root_directory) + '/lambda_layers/lambda_layer_policy/python/')
-    sys.path.append(str(package_root_directory) + '/lambda_layers/lambda_layer_items/python/')
+    for directory in os.listdir(str(package_root_directory) + '/lambda_layers/'):
+        sys.path.append(str(package_root_directory) + '/lambda_layers/' + directory + '/python')
     for directory in os.listdir(str(package_root_directory) + '/lambda_functions/'):
         sys.path.append(str(package_root_directory) + '/lambda_functions/' + directory)
-    logging.debug(f'sys.path: {list(sys.path)}')
+    from cmf_logger import logger
+    logger.debug(f'sys.path: {list(sys.path)}')
 
 
-logger = None
 init()
+from cmf_logger import logger
 
 default_mock_os_environ = {
     'AWS_ACCESS_KEY_ID': 'testing',
@@ -80,6 +75,20 @@ def create_and_populate_apps(ddb_client, apps_table_name, data_file_name='apps.j
         ],
         AttributeDefinitions=[
             {'AttributeName': 'app_id', 'AttributeType': 'S'},
+        ],
+        GlobalSecondaryIndexes=[
+            {
+                'IndexName': 'app_id-index',
+                'KeySchema': [
+                    {
+                        'AttributeName': 'app_id',
+                        'KeyType': 'HASH'
+                    },
+                ],
+                'Projection': {
+                    'ProjectionType': 'ALL'
+                }
+            }
         ]
     )
     populate_table(ddb_client, apps_table_name, data_file_name)
@@ -169,6 +178,31 @@ def create_and_populate_connection_ids(ddb_client, table_name, data_file_name='c
     populate_table(ddb_client, table_name, data_file_name)
 
 
+def create_and_populate_ssm_scripts(ddb_client, table_name, data_file_name='ssm_scripts.json'):
+    ddb_client.create_table(
+        TableName=table_name,
+        BillingMode='PAY_PER_REQUEST',
+        KeySchema=[
+            {"AttributeName": "package_uuid", "KeyType": "HASH"},
+            {"AttributeName": "version", "KeyType": "RANGE"}
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "package_uuid", "AttributeType": "S"},
+            {"AttributeName": "version", "AttributeType": "N"},
+        ],
+        GlobalSecondaryIndexes=[
+            {"IndexName": "version-index",
+             "KeySchema": [
+                 {"AttributeName": "version", "KeyType": "HASH"}
+             ],
+             "Projection": {
+                 "ProjectionType": "ALL"}
+             }
+        ]
+    )
+    populate_table(ddb_client, table_name, data_file_name)
+
+
 def populate_table(ddb_client, table_name, data_file_name):
     with open(os.path.dirname(os.path.realpath(__file__)) + '/sample_data/' + data_file_name) as json_file:
         sample_items = json.load(json_file)
@@ -223,4 +257,19 @@ def set_cors_flag(test_package: str, value=True):
             del os.environ['cors']
 
 
-test_account_id = '11111111111'
+test_account_id = '111111111111'
+
+
+def mock_get_mf_auth_policy_allow(obj, event, schema):
+    logger.debug(f'mock_get_user_resource_creation_policy_allow({obj}, {event}, {schema})')
+    return {'action': 'allow', 'user': 'testuser@example.com'}
+
+
+def mock_get_mf_auth_policy_allow_no_user(obj, event, schema):
+    logger.debug(f'mock_get_user_resource_creation_policy_allow_no_user({obj}, {event}, {schema})')
+    return {'action': 'allow'}
+
+
+def mock_get_mf_auth_policy_default_deny(obj, event, schema):
+    logger.debug(f'mock_get_user_resource_creation_policy_default_deny({obj}, {event}, {schema})')
+    return {'action': 'deny', 'cause': 'Request is not Authenticated'}

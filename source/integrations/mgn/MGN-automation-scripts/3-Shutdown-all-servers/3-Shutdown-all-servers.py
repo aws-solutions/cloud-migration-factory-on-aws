@@ -27,7 +27,7 @@ import mfcommon
 
 def shutdown_windows_server(server, secret_name, no_prompts):
     success = True
-    windows_credentials = mfcommon.getServerCredentials(
+    windows_credentials = mfcommon.get_server_credentials(
         '',
         '',
         server,
@@ -40,8 +40,8 @@ def shutdown_windows_server(server, secret_name, no_prompts):
             server_name_only = server["server_fqdn"].split(".")[0]
             windows_credentials['username'] = server_name_only + "\\" + windows_credentials['username']
             print("INFO: Using local account to connect: " + windows_credentials['username'])
-    else:
-        print("INFO: Using domain account to connect: " + windows_credentials['username'])
+        else:
+            print("INFO: Using domain account to connect: " + windows_credentials['username'])
     command = "Stop-Computer -Force"
     print("Shutting down server: " + server['server_fqdn'], flush=True)
 
@@ -74,8 +74,8 @@ def process_shutdown_for_linux_servers(cmf_servers, secret_name, no_prompts=True
                 failure_count += len(account["servers_linux"])
                 continue
             for server in account["servers_linux"]:
-                linux_credentials = mfcommon.getServerCredentials('', '', server, secret_name,
-                                                                  no_prompts)
+                linux_credentials = mfcommon.get_server_credentials('', '', server, secret_name,
+                                                                    no_prompts)
                 _, error = mfcommon.execute_cmd_via_ssh(server['server_fqdn'], linux_credentials['username'],
                                                         linux_credentials['password'], "sudo shutdown now",
                                                         linux_credentials['private_key'])
@@ -120,7 +120,7 @@ def main(arguments):
     args = parser.parse_args(arguments)
 
     print("*Login to Migration factory*")
-    token = mfcommon.Factorylogin()
+    token = mfcommon.factory_login()
 
     print("*Getting Server List*")
     get_servers, linux_exist, windows_exist = mfcommon.get_factory_servers(args.Waveid, token)

@@ -1,102 +1,91 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useEffect, useState} from 'react';
-import ReactDOM from 'react-dom'
-import {
-  Modal,
-  Button,
-  SpaceBetween,
-  Box
-} from '@awsui/components-react';
+import React, {ReactNode, useEffect, useState} from 'react';
+import {Box, Button, Modal, SpaceBetween} from '@awsui/components-react';
 import {setNestedValuePath} from "../resources/main";
 import AllAttributes from "./ui_attributes/AllAttributes";
+import {EntitySchema} from "../models/EntitySchema";
+import {UserAccess} from "../models/UserAccess";
 
-type Props = {
-  children: React.ReactChild,
+
+export type AmendItemModalProps = {
+  title: string,
+  onConfirmation: (localObject: any) => void,
   closeModal: () => void,
-  confirmAction: () => void
-};
+  item: any,
+  schemas: Record<string, EntitySchema>,
+  schemaName: string,
+  userAccess: UserAccess,
+  children?: ReactNode
+}
 
-const AmendItemModal = React.memo(({ children, closeModal , confirmAction, title, item, schemas, schemaName, userAccess, action}: Props) => {
-  const domEl = document.getElementById('modal-root')
+const AmendItemModal = (
+  {children, closeModal, onConfirmation, title, item, schemas, schemaName, userAccess}: AmendItemModalProps
+) => {
   const [localObject, setLocalObject] = useState(item);
   const [saving, setSaving] = useState(false);
-  const [formErrors, setFormErrors] = useState([]);
+  const [formErrors, setFormErrors] = useState<any[]>([]);
   const [validForm, setFormValidation] = useState(false);
 
-  function handleUserInput (value){
+  function handleUserInput(value: Array<{ field: any; value: any; }>) {
 
     let newAttr = Object.assign({}, localObject);
-    setNestedValuePath(newAttr, value.field, value.value);
+    setNestedValuePath(newAttr, value[0].field, value[0].value);
 
     setLocalObject(newAttr);
-
   }
 
-  async function handleSave (e){
-
+  async function handleSave() {
     setSaving(true);
-
     closeModal();
-
-    confirmAction(localObject, action);
-
-  }
-
-  function handleUpdateFormErrors (newErrors){
-    setFormErrors(newErrors);
+    onConfirmation(localObject);
   }
 
   useEffect(() => {
-    if (formErrors.length === 0){
+    if (formErrors.length === 0) {
       setFormValidation(true);
     } else {
       setFormValidation(false);
     }
   }, [formErrors]);
 
-  if (!domEl) return null
-
-  return ReactDOM.createPortal(
+  const schema = schemas[schemaName];
+  return (
     <Modal
-      onDismiss={confirmAction ? closeModal : undefined}
+      onDismiss={closeModal}
       visible={true}
       closeAriaLabel="Close"
       size="medium"
-      footer={confirmAction ?
-            (
-              <Box float="right">
-                <SpaceBetween direction="horizontal" size="xs">
-                  <Button onClick={closeModal} variant="link">Cancel</Button>
-                  <Button onClick={handleSave} disabled={!validForm} loading={saving} variant="primary">Add</Button>
-                </SpaceBetween>
-              </Box>
-          )
-          :
-          undefined
+      footer={
+        (
+          <Box float="right">
+            <SpaceBetween direction="horizontal" size="xs">
+              <Button onClick={closeModal} variant="link">Cancel</Button>
+              <Button onClick={handleSave} disabled={!validForm} loading={saving} variant="primary">Add</Button>
+            </SpaceBetween>
+          </Box>
+        )
       }
       header={title}
     >
       <SpaceBetween size="l">
         <AllAttributes
-          schema={schemas[schemaName]}
+          schema={schema}
           schemaName={schemaName}
           schemas={schemas}
           userAccess={userAccess}
           item={localObject}
           handleUserInput={handleUserInput}
           hideAudit={true}
-          handleUpdateValidationErrors={handleUpdateFormErrors}
+          handleUpdateValidationErrors={setFormErrors}
         />
       </SpaceBetween>
       {children}
-    </Modal>,
-    domEl
+    </Modal>
   )
-});
+};
 
 export default AmendItemModal;

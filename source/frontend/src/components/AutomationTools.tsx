@@ -1,48 +1,61 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import React, {useState} from 'react';
-import {
-  SpaceBetween,
-  Form,
-  Container,
-  Header,
-  Button
-} from '@awsui/components-react';
+import {Button, Container, Form, Header, SpaceBetween} from '@awsui/components-react';
 import AllAttributes from './ui_attributes/AllAttributes'
 
-import {useModal} from '../actions/Modal';
 import {setNestedValuePath} from '../resources/main';
+import {EntitySchema} from '../models/EntitySchema';
+import {UserAccess} from '../models/UserAccess';
+import {ClickDetail} from '@awsui/components-react/internal/events';
+import {CMFModal} from "./Modal";
 
-const AutomationTools = (props) => {
+type AutomationToolsParams = {
+  selectedItems: any;
+  schema: EntitySchema;
+  handleAction: (arg0: {}, arg1: any) => void;
+  handleCancel: () => void;
+  performingAction: boolean | undefined;
+  schemas: Record<string, EntitySchema>;
+  schemaName: string;
+  userAccess: UserAccess;
+};
+
+type AttributeUpdateRequest = {
+  field: string;
+  value: any;
+  validationError?: any
+}
+
+const AutomationTools = (props: AutomationToolsParams) => {
 
   const [localTool, setLocalTool] = useState(props.selectedItems ? populateTool(props.selectedItems) : {});
   const [dataChanged, setDataChanged] = useState(false);
   const [validForm, setFormValidation] = useState(true);
 
-  //Modals
-  const { show: showUnsavedConfirmaton, RenderModal: UnSavedModal } = useModal()
+  const [isNoActionModalVisible, setNoActionModalVisible] = useState(false)
 
-
-  function populateTool (items) {
+  function populateTool(items: any[]) {
 
     if (items.length == 0) {
       return {};
     }
 
-    let relationshipAttributes = props.schema.attributes.filter(function (item) {
+    let relationshipAttributes = props.schema.attributes.filter(function (item: {
+      type: string;
+    }) {
       return item.type === 'relationship';
     });
 
-    if (relationshipAttributes.length > 0){
+    if (relationshipAttributes.length > 0) {
       //some values to prepopulate.
-      let newTool = {};
-      for (const relAttribute of relationshipAttributes){
-        if(items[0][relAttribute.rel_key]){
-          newTool[relAttribute.name] = items[0][relAttribute.rel_key];
+      let newTool: any = {};
+      for (const relAttribute of relationshipAttributes) {
+        if (items[0][relAttribute.rel_key!]) {
+          newTool[relAttribute.name] = items[0][relAttribute.rel_key!];
         }
       }
       return newTool;
@@ -52,13 +65,11 @@ const AutomationTools = (props) => {
 
   }
 
-  function handleUserInput (value){
-
+  function handleUserInput(value: AttributeUpdateRequest[] | AttributeUpdateRequest) {
     let newItem = Object.assign({}, localTool);
 
-    if(Array.isArray(value)){
-      //Multiple values set.
-      for (const item of value){
+    if (Array.isArray(value)) {
+      for (const item of value) {
         setNestedValuePath(newItem, item.field, item.value);
       }
     } else {
@@ -70,15 +81,12 @@ const AutomationTools = (props) => {
 
   }
 
-  function handleAction (e, actionId){
-
-
-      props.handleAction(localTool, actionId);
-
+  function handleAction(e: CustomEvent<ClickDetail>, actionId: any) {
+    props.handleAction(localTool, actionId);
   }
 
-  function handleUpdateFormErrors (newErrors){
-    if (newErrors.length > 0){
+  function handleUpdateFormErrors(newErrors: any[]) {
+    if (newErrors.length > 0) {
       setFormValidation(false);
     } else {
       setFormValidation(true);
@@ -86,20 +94,20 @@ const AutomationTools = (props) => {
 
   }
 
-  function handleCancel (e){
-
-    if (dataChanged){
-      showUnsavedConfirmaton();
+  function handleCancel() {
+    if (dataChanged) {
+      setNoActionModalVisible(true);
     } else {
-      props.handleCancel(e);
+      props.handleCancel();
     }
   }
 
   function getActionButtons() {
 
-    return props.schema.actions.map((action, indx) => {
+    return props.schema.actions?.map((action: any) => {
       return (
-        <Button key={action.id} id={action.id} onClick={e => handleAction(e, action.id)} disabled={!validForm} variant={action.awsuiStyle} loading={props.performingAction}>
+        <Button key={action.id} id={action.id} onClick={e => handleAction(e, action.id)} disabled={!validForm}
+                variant={action.awsuiStyle} loading={props.performingAction}>
           {action.name}
         </Button>
       )
@@ -122,19 +130,27 @@ const AutomationTools = (props) => {
           <Container header={<Header variant="h2">{props.schema.friendly_name + ' Attributes'}</Header>}>
             <SpaceBetween size="l">
               <AllAttributes
-                  schema={props.schema}
-                  schemas={props.schemas}
-                  schemaName={props.schemaName}
-                  userAccess={props.userAccess}
-                  hideAudit={true}
-                  item={localTool}
-                  handleUserInput={handleUserInput}
-                  handleUpdateValidationErrors={handleUpdateFormErrors}/>
+                schema={props.schema}
+                schemas={props.schemas}
+                schemaName={props.schemaName}
+                userAccess={props.userAccess}
+                hideAudit={true}
+                item={localTool}
+                handleUserInput={handleUserInput}
+                handleUpdateValidationErrors={handleUpdateFormErrors}/>
             </SpaceBetween>
           </Container>
         </SpaceBetween>
       </Form>
-      <UnSavedModal title={'No action'} onConfirmation={props.handleCancel}>You have not performed an action, are you sure?</UnSavedModal>
+
+      <CMFModal
+        onDismiss={() => setNoActionModalVisible(false)}
+        visible={isNoActionModalVisible}
+        header={'No action'}
+        onConfirmation={props.handleCancel}
+      >
+        You have not performed an action, are you sure?
+      </CMFModal>
     </div>
   );
 };

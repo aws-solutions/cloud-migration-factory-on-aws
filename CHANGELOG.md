@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.2] - 2023-12-18
+### Changed
+- MIGRATION TRACKER: By default migration tracker now contains database and wave data in general view, this allows for more detailed customer dashboards to be created in QuickSight.
+### Fixed
+- JOBS UI: Resolved issue that caused users selected 'show all job records' in the Jobs table settings, to only be shown the last 30 days instead of all.
+- AUTOMATION SCRIPTS: Updated scripts to remove warnings produced when Python >3.12 is used on the automation server; this is caused by the deprecation warning for datetime.datetime.utcfromtimestamp() and utcnow(). Related to this was an update of scripts to ensure that un-escaped backslashes are not present in strings.
+- MGN: AUTOMATION SCRIPTS: Updated scripts for MGN agent prerequisite checks and install to check if WinRM is accessible before connecting. This is to resolve the issue that causes jobs to timeout if WinRM is not accessible.
+### Added
+- SOURCE: Unit-test coverage has now been increased to coverage over 80% of the code base, with this change we have also refactored the majority of the source code to improve maintainability of the solution.
+- ADS AGENT INSTALL: Script now supports WinRM SSL option for installation on Windows systems with WinRM running with SSL.
+- MGN: Added ability to specify resource groups and license configurations in CMF to populate launch templates.
 ## [3.3.1] - 2023-10-23
 ### Changed
 - SOURCE CODE: Significant source code refactoring to improve maintainability to support future releases
