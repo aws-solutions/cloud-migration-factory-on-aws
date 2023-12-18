@@ -5,9 +5,7 @@
  */
 
 import React, {useEffect, useState} from 'react';
-import {
-  Checkbox, SpaceBetween,
-} from '@awsui/components-react';
+import {Checkbox, SpaceBetween,} from '@awsui/components-react';
 
 // Attribute Display message content
 const CheckboxAttribute = ({attribute, value, isReadonly, handleUserInput, displayHelpInfoLink}) => {

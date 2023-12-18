@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "(%%SOLUTION_ID%%) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution (Version %%VERSION%%)"
+Description: "(%%SOLUTION_ID%%) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution. Version:%%VERSION%%"
 
 Metadata:
   'AWS::CloudFormation::Interface':
@@ -135,8 +135,11 @@ Mappings:
   Solution:
     Data:
       SolutionID: '%%SOLUTION_ID%%'
+      SolutionVersion: '%%VERSION%%'
     AppRegistry:
       SolutionName: 'Cloud Migration Factory on AWS'
+    LambdaRuntime:
+      Python: python3.10
 
 Conditions:
   DeployTracker: !Equals [!Ref Tracker, true]
@@ -823,8 +826,6 @@ Resources:
   ToolsAPIDeploy:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
-      - APIMethodCloudEndurePost
-      - APIMethodCloudEndureOPTIONS
       - APIMethodSSMOPTIONS
       - APIMethodSSMGet
       - APIMethodSSMPost
@@ -853,64 +854,6 @@ Resources:
             reason: "As this is for internal use only tool, and very low number of API calls, no usage plan is required"
           - id: W45
             reason: "StageDescription cannot be specified when stage referenced by StageName already exists"
-
-  APIResourceCloudEndure:
-    Type: 'AWS::ApiGateway::Resource'
-    Properties:
-      RestApiId: !Ref ToolsAPI
-      ParentId: !GetAtt ToolsAPI.RootResourceId
-      PathPart: "cloudendure"
-
-  APIMethodCloudEndureOPTIONS:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref ToolsAPI
-      ResourceId: !Ref APIResourceCloudEndure
-      HttpMethod: "OPTIONS"
-      AuthorizationType: "NONE"
-      MethodResponses:
-        - StatusCode: '200'
-          ResponseModels:
-            'application/json': 'Empty'
-          ResponseParameters:
-            'method.response.header.Access-Control-Allow-Origin': false
-            'method.response.header.Access-Control-Allow-Methods': false
-            'method.response.header.Access-Control-Allow-Headers': false
-      Integration:
-        Type: MOCK
-        IntegrationResponses:
-          - StatusCode: '200'
-            ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
-              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
-            ResponseTemplates:
-              'application/json': ''
-        RequestTemplates:
-          "application/json": "{\"statusCode\": 200}"
-
-  APIMethodCloudEndurePost:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref ToolsAPI
-      ResourceId: !Ref APIResourceCloudEndure
-      HttpMethod: "POST"
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref ToolsAuthorizer
-      MethodResponses:
-        - StatusCode: '200'
-          ResponseModels:
-            'application/json': 'Empty'
-          ResponseParameters:
-            'method.response.header.Access-Control-Allow-Origin': false
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        IntegrationResponses:
-          - StatusCode: '200'
-            ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionCloudEndure.Arn}/invocations'
 
   APIResourceSSM:
     Type: 'AWS::ApiGateway::Resource'
@@ -3205,57 +3148,6 @@ Resources:
           - id: W28
             reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
 
-  CloudEndureLambdaRole:
-    Type: 'AWS::IAM::Role'
-    Properties:
-      RoleName: !Sub ${Application}-${Environment}-cloudendure-lambda-role
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          -
-            Effect: Allow
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-            Action:
-              - 'sts:AssumeRole'
-      Path: /
-      Policies:
-        -
-          PolicyName: LambdaRolePolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              -
-                Effect: Allow
-                Action:
-                  - 'dynamodb:GetItem'
-                  - 'dynamodb:PutItem'
-                  - 'dynamodb:Query'
-                  - 'dynamodb:Scan'
-                  - 'dynamodb:UpdateItem'
-                  - 'dynamodb:DescribeTable'
-                Resource:
-                  - !Join ['', [!GetAtt ServersDynamoDBTable.Arn, '*']]
-                  - !Join ['', [!GetAtt AppsDynamoDBTable.Arn, '*']]
-              -
-                Effect: Allow
-                Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
-                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
-              -
-                Effect: Allow
-                Action:
-                  - 'dynamodb:GetItem'
-                  - 'dynamodb:Query'
-                  - 'dynamodb:Scan'
-                  - 'dynamodb:DescribeTable'
-                Resource:
-                  - !Join [ '', [ !GetAtt RoleDynamoDBTable.Arn, '*' ] ]
-                  - !Join [ '', [ !GetAtt PolicyDynamoDBTable.Arn, '*' ] ]
-
   UserAdminLambdaRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -3722,7 +3614,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_role.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-role
       Timeout: 120
       Code:
@@ -3734,6 +3626,8 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -3746,6 +3640,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-role
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3766,7 +3661,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_role_item.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-role-item
       Timeout: 120
       Code:
@@ -3778,6 +3673,8 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -3790,6 +3687,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-role-item
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3810,7 +3708,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_schema.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-schema
       Timeout: 120
       Code:
@@ -3822,6 +3720,8 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -3834,6 +3734,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-schema
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3854,7 +3755,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_policy.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-policy
       Timeout: 120
       Code:
@@ -3866,6 +3767,8 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -3878,6 +3781,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-policy
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3898,7 +3802,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_policy_attr.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-policy-attr
       Timeout: 120
       Code:
@@ -3910,6 +3814,8 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -3922,6 +3828,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-policy-attr
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3942,7 +3849,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_items.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-items
       Timeout: 120
       Code:
@@ -3957,6 +3864,8 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -3971,6 +3880,7 @@ Resources:
         - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
         - !Ref LambdaLayerMFItemsLib
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -3991,7 +3901,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_item.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-item
       Timeout: 120
       Code:
@@ -4006,6 +3916,8 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -4020,6 +3932,7 @@ Resources:
         - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
         - !Ref LambdaLayerMFItemsLib
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4040,7 +3953,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_auth.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-auth
       Timeout: 120
       Code:
@@ -4054,6 +3967,8 @@ Resources:
           userpool: !Ref CognitoUserPool
           application: !Ref Application
           environment: !Ref Environment
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -4067,6 +3982,7 @@ Resources:
       Layers:
         - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4095,7 +4011,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_login.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-login
       Timeout: 120
       Code:
@@ -4107,6 +4023,8 @@ Resources:
           clientId: !Ref CognitoAppClient
           application: !Ref Application
           environment: !Ref Environment
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -4119,6 +4037,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-login
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4139,7 +4058,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_reset.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-reset
       Timeout: 120
       Code:
@@ -4152,6 +4071,8 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -4164,6 +4085,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-reset
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4180,62 +4102,11 @@ Resources:
       Principal: 'apigateway.amazonaws.com'
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LoginAPI}/*"
 
-  LambdaFunctionCloudEndure:
-    Type: 'AWS::Lambda::Function'
-    Properties:
-      Handler: CloudEndure.lambda_handler
-      Runtime: python3.10
-      FunctionName: !Sub ${Application}-${Environment}-cloudendure
-      Timeout: 300
-      MemorySize: '1024'
-      Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_cloudendure.zip"]]
-      Role: !GetAtt CloudEndureLambdaRole.Arn
-      Environment:
-        Variables:
-          login_api: !Ref LoginAPI
-          user_api: !Ref UserAPI
-          region: !Ref 'AWS::Region'
-          application: !Ref Application
-          environment: !Ref Environment
-          AnonymousUsageData: !FindInMap ["Send", "AnonymousUsage", "Data"]
-          solutionUUID: !GetAtt CreateUniqueID.UUID
-          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
-      Tags:
-        -
-          Key: application
-          Value: !Ref Application
-        -
-          Key: environment
-          Value: !Ref Environment
-        -
-          Key: Name
-          Value: !Sub ${Application}-${Environment}-cloudendure
-      Layers:
-        - !Ref LambdaLayerStdPythonLibs
-        - !Ref LambdaLayerMFPolicyLib
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W89
-            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
-          - id: W92
-            reason: "Reserve Concurrent Execution is not needed for this solution"
-
-  LambdaPermissionCloudEndure:
-    Type: 'AWS::Lambda::Permission'
-    Properties:
-      FunctionName: !GetAtt LambdaFunctionCloudEndure.Arn
-      Action: 'lambda:InvokeFunction'
-      Principal: 'apigateway.amazonaws.com'
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
-
   LambdaFunctionUserAdmin:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_user_admin.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-user-admin
       Timeout: 300
       Code:
@@ -4248,6 +4119,8 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -4260,6 +4133,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-user-admin
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4280,7 +4154,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_cognitogroups.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-cognitogroups
       Timeout: 300
       Code:
@@ -4293,6 +4167,8 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -4305,6 +4181,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-cognitogroups
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4325,7 +4202,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_defaultschema.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-default-schema
       Timeout: 120
       Code:
@@ -4337,6 +4214,8 @@ Resources:
           RoleDynamoDBTable: !Ref RoleDynamoDBTable
           SchemaDynamoDBTable: !Ref SchemaDynamoDBTable
           PolicyDynamoDBTable: !Ref PolicyDynamoDBTable
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -4349,6 +4228,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-default-schema
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4361,7 +4241,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_notifications.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-notifications
       Timeout: 120
       Code:
@@ -4376,6 +4256,8 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -4389,6 +4271,7 @@ Resources:
       Layers:
         - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4425,10 +4308,11 @@ Resources:
       Handler: helper.lambda_handler
       FunctionName: !Sub ${Application}-${Environment}-helper
       Role: !GetAtt BuildRole.Arn
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       Timeout: 300
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4446,7 +4330,7 @@ Resources:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_layer_py_pkgs.zip"]]
       CompatibleRuntimes:
-        - python3.10
+        - !FindInMap ["Solution", "LambdaRuntime", "Python"]
 
   LambdaLayerMFPolicyLib:
     Type: AWS::Lambda::LayerVersion
@@ -4457,7 +4341,7 @@ Resources:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_layer_policy.zip"]]
       CompatibleRuntimes:
-        - python3.10
+        - !FindInMap ["Solution", "LambdaRuntime", "Python"]
 
   LambdaLayerMFItemsLib:
     Type: AWS::Lambda::LayerVersion
@@ -4468,13 +4352,24 @@ Resources:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_layer_items.zip"]]
       CompatibleRuntimes:
-        - python3.10
+        - !FindInMap ["Solution", "LambdaRuntime", "Python"]
+
+  LambdaLayerMFUtilsLib:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub ${Application}-${Environment}-Py-Utils
+      Description: MF Utilities Python module.
+      Content:
+        S3Bucket: !Join [ "-", [ !FindInMap [ "SourceCode", "General", "S3Bucket" ], !Ref "AWS::Region" ] ]
+        S3Key: !Join [ "/", [ !FindInMap [ "SourceCode", "General", "KeyPrefix" ], "lambda_layer_utils.zip" ] ]
+      CompatibleRuntimes:
+        - !FindInMap ["Solution", "LambdaRuntime", "Python"]
 
   LambdaFunctionUserUpdate:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_cognito_user_update.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-user-update
       Timeout: 120
       Code:
@@ -4487,6 +4382,8 @@ Resources:
           environment: !Ref Environment
           userpool_id: !Ref CognitoUserPool
           cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -4499,6 +4396,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-user-update
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4519,7 +4417,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_cognito_group_update.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-group-update
       Timeout: 120
       Code:
@@ -4532,6 +4430,8 @@ Resources:
           environment: !Ref Environment
           userpool_id: !Ref CognitoUserPool
           cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         - Key: application
           Value: !Ref Application
@@ -4541,6 +4441,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-group-update
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4561,7 +4462,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_build.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-app-build
       Timeout: 120
       Code:
@@ -4588,7 +4489,8 @@ Resources:
                 - General
                 - KeyPrefix
               - 'fe-%%VERSION%%.zip'
-          VERSION: '%%VERSION%%'
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -4601,6 +4503,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-app-build
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4632,6 +4535,8 @@ Resources:
         CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
         LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
+        LambdaLayerMFUtilsLib: !Ref LambdaLayerMFUtilsLib
+        LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
 
   AppMigService:
     Type: AWS::CloudFormation::Stack
@@ -4660,7 +4565,9 @@ Resources:
         PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
         LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
         LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
+        LambdaLayerMFUtilsLib: !Ref LambdaLayerMFUtilsLib
         CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+        LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
 
   CredentialManager:
     Type: AWS::CloudFormation::Stack
@@ -4687,7 +4594,9 @@ Resources:
         PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
         LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
         LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
+        LambdaLayerMFUtilsLib: !Ref LambdaLayerMFUtilsLib
         CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+        LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
 
   AutomationService:
     Type: AWS::CloudFormation::Stack
@@ -4717,8 +4626,10 @@ Resources:
         PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
         LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
         LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
+        LambdaLayerMFUtilsLib: !Ref LambdaLayerMFUtilsLib
         CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
         IsDeploymentPrivate: !If [ DeploymentPrivate, true, false ]
+        LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
 
   ReplatformService:
     Type: AWS::CloudFormation::Stack
@@ -4751,9 +4662,11 @@ Resources:
         PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
         LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
         LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
+        LambdaLayerMFUtilsLib: !Ref LambdaLayerMFUtilsLib
         SchemaDynamoTableArn: !GetAtt SchemaDynamoDBTable.Arn
         SchemaDynamoTableName: !Ref SchemaDynamoDBTable
         CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+        LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
 
   WAFBEStack:
     Type: AWS::CloudFormation::Stack
@@ -4802,7 +4715,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_service_account.lambda_handler
-      Runtime: python3.10
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
       FunctionName: !Sub ${Application}-${Environment}-service-account
       Timeout: 120
       Code:
@@ -4814,6 +4727,8 @@ Resources:
           ServiceAccountEmail: !Ref ServiceAccountEmail
           UserPoolId: !Ref CognitoUserPool
           CognitoGroupName: !Ref CognitoAdminGroup
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -4826,6 +4741,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-service-account
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:

@@ -6,23 +6,9 @@ import os
 import json
 from typing import Any
 
-import boto3
-import logging
-
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
-
-default_http_headers = {
-    'Access-Control-Allow-Origin': cors,
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy': "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
-}
+import cmf_boto
+from cmf_logger import logger
+from cmf_utils import cors, default_http_headers
 
 application = os.environ['application']
 environment = os.environ['environment']
@@ -30,8 +16,8 @@ environment = os.environ['environment']
 policies_table_name = '{}-{}-policies'.format(application, environment)
 schema_table_name = '{}-{}-schema'.format(application, environment)
 
-policies_table = boto3.resource('dynamodb').Table(policies_table_name)
-schema_table = boto3.resource('dynamodb').Table(schema_table_name)
+policies_table = cmf_boto.resource('dynamodb').Table(policies_table_name)
+schema_table = cmf_boto.resource('dynamodb').Table(schema_table_name)
 
 str_policy_id = 'policy Id: '
 str_doesnt_exit = ' does not exist'

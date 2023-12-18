@@ -4,15 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  FormField,
-  Input,
-  SpaceBetween,
-  Select,
-  Container,
-  Header,
-  Button, Multiselect
-} from "@awsui/components-react";
+import {Button, Container, FormField, Header, Input, Multiselect, Select, SpaceBetween} from "@awsui/components-react";
 import React from "react";
 
 const SchemaAttributeConditionsEdit = ({editingSchemaConditionsTemp, handleUserInputEditSchemaConditions, schemaAttributes, editDisabled}) => {

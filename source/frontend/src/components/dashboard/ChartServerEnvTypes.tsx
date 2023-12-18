@@ -5,10 +5,7 @@
  */
 
 import React from 'react';
-import { PieChart,
-Container,
-Header,
-Box} from '@awsui/components-react';
+import {Box, Container, Header, PieChart} from '@awsui/components-react';
 
 
 // Attribute Display message content

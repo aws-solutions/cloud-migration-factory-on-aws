@@ -1,47 +1,47 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useEffect, useState} from 'react';
-import User from "../actions/user";
+import React, {useContext, useEffect, useState} from 'react';
+import UserApiClient from "../api_clients/userApiClient";
 import {useLocation, useNavigate, useParams} from "react-router-dom";
-
-import { Auth } from "@aws-amplify/auth";
 import ItemAmend from "../components/ItemAmend";
-import {
-  capitalize,
-  exportTable,
-  getChanges
-} from '../resources/main'
-
-import {
-  SpaceBetween,
-  StatusIndicator
-} from '@awsui/components-react';
+import {getChanges} from '../resources/main'
+import {exportTable} from "../utils/xlsx-export";
+import {Box, Button, Modal, SpaceBetween} from '@awsui/components-react';
 
 
 import ApplicationView from '../components/ApplicationView'
-import { useMFApps } from "../actions/ApplicationsHook";
-import { useGetServers } from "../actions/ServersHook";
-import { useMFWaves } from "../actions/WavesHook";
+import {useMFApps} from "../actions/ApplicationsHook";
+import {useGetServers} from "../actions/ServersHook";
+import {useMFWaves} from "../actions/WavesHook";
 import ItemTable from '../components/ItemTable';
-import { useModal } from '../actions/Modal';
-import {parsePUTResponseErrors} from "../resources/recordFunctions";
+import {apiActionErrorHandler, parsePUTResponseErrors} from "../resources/recordFunctions";
+import {NotificationContext} from "../contexts/NotificationContext";
+import {EntitySchema} from "../models/EntitySchema";
+import {ToolsContext} from "../contexts/ToolsContext";
 
-const ViewApplication = (props) => {
-
+type ViewApplicationParams = {
+  selectedItems: any[];
+  dataWaves: any;
+  dataAll: any;
+  dataServers: any;
+  isLoadingServers: any;
+  errorServers: any;
+  schemas: Record<string, EntitySchema>
+};
+const ViewApplication = (props: ViewApplicationParams) => {
   const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
 
-  function getCurrentApplicationWave(selectedItems, dataWaves) {
+  function getCurrentApplicationWave(selectedItems: any[], dataWaves: any[]) {
 
     if (selectedItems.length === 1) {
       let waves = dataWaves.filter(function (entry) {
         return entry.wave_id === selectedItems[0].wave_id;
       });
 
-      if ( waves.length === 1){
+      if (waves.length === 1) {
         return waves[0];
       } else {
         return {};
@@ -50,21 +50,20 @@ const ViewApplication = (props) => {
 
   }
 
-  async function handleViewerTabChange(tabselected)
-  {
-    setViewerCurrentTab(tabselected);
-  }
-
   if (props.selectedItems.length === 1) {
-
     return (
-      <ApplicationView {...props}
-                       app={props.selectedItems[0]}
-                       wave={getCurrentApplicationWave(props.selectedItems, props.dataWaves)}
-                       dataAll={props.dataAll}
-                       servers={{items: props.dataServers, isLoading:  props.isLoadingServers, error: props.errorServers}}
-                       handleTabChange={handleViewerTabChange}
-                       selectedTab={viewerCurrentTab}
+      <ApplicationView
+        schemas={props.schemas}
+        app={props.selectedItems[0]}
+        wave={getCurrentApplicationWave(props.selectedItems, props.dataWaves)}
+        dataAll={props.dataAll}
+        servers={{
+          items: props.dataServers,
+          isLoading: props.isLoadingServers,
+          error: props.errorServers
+        }}
+        handleTabChange={setViewerCurrentTab}
+        selectedTab={viewerCurrentTab}
       />
     );
   } else {
@@ -72,28 +71,46 @@ const ViewApplication = (props) => {
   }
 }
 
-const AppTable = (props) => {
-  let location = useLocation()
-  let navigate = useNavigate();
-  let params = useParams();
+type AppTableParams = {
+  schemas: Record<string, EntitySchema>;
+  userEntityAccess: any;
+  schemaIsLoading?: boolean;
+};
+const AppTable = ({schemas, userEntityAccess}: AppTableParams) => {
+
+  const {addNotification} = useContext(NotificationContext);
+  const {setHelpPanelContentFromSchema} = useContext(ToolsContext);
+
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const urlParams = useParams();
   //Data items for viewer and table.
   //Main table content hook. When duplicating just create a new hook and change the hook function at the end to populate table.
-  const [{ isLoading: isLoadingMain, data: dataMain, error: errorMain }, {update: updateMain} ] = useMFApps();
-  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }, {update: updateServers} ] = useGetServers();
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, ] = useMFWaves();
+  const [{isLoading: isLoadingMain, data: dataMain, error: errorMain}, {update: updateMain}] = useMFApps();
+  const [{
+    isLoading: isLoadingServers,
+    data: dataServers,
+    error: errorServers
+  }, {update: updateServers}] = useGetServers();
+  const [{isLoading: isLoadingWaves, data: dataWaves, error: errorWaves},] = useMFWaves();
 
-  const dataAll = {application: {data: dataMain, isLoading: isLoadingMain, error: errorMain}, server: {data: dataServers, isLoading: isLoadingServers, error: errorServers}, wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}};
+  const dataAll = {
+    application: {data: dataMain, isLoading: isLoadingMain, error: errorMain},
+    server: {data: dataServers, isLoading: isLoadingServers, error: errorServers},
+    wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}
+  };
 
   //Layout state management.
   const [editingItem, setEditingItem] = useState(false);
 
   //Main table state management.
-  const [selectedItems, setSelectedItems] = useState([]);
-  const [focusItem, setFocusItem] = useState([]);
+  const [selectedItems, setSelectedItems] = useState<any[]>([]);
+  const [focusItem, setFocusItem] = useState<any>([]);
 
   //Viewer pane state management.
 
-  const [action, setAction] = useState(['Add']);
+  const [action, setAction] = useState('Add');
 
   //Get base path from the URL, all actions will use this base path.
   const basePath = location.pathname.split('/').length >= 2 ? '/' + location.pathname.split('/')[1] : '/';
@@ -102,46 +119,14 @@ const AppTable = (props) => {
   const schemaName = 'application';
 
   //Modals
-  const { show: showDeleteConfirmaton, hide: hideDeleteConfirmaton, RenderModal: DeleteModal } = useModal()
+  const [modalVisible, setModalVisible] = useState(false);
 
-  function apiActionErrorHandler(action, e){
-    console.error(e);
-    let response = '';
-    if ('response' in e && 'data' in e.response) {
-      //Check if errors key exists from Lambda errors.
-      if (e.response.data.errors)
-      {
-        response = e.response.data.errors;
-        response = parsePUTResponseErrors(response);
-      } else if (e.response.data.cause){
-        response = e.response.data.cause;
-      } else {
-        response = 'Unknown error occurred.';
-      }
-    } else {
-      response = 'Unknown error occurred.';
-    }
-
-    handleNotification({
-      type: 'error',
-      dismissible: true,
-      header: action + " " + schemaName,
-      content: (response)
-    });
-  }
-
-  function handleNotification(notification)
-  {
-    return props.updateNotification('add', notification)
-  }
-
-  async function handleRefreshClick(e) {
+  async function handleRefreshClick(e: any) {
     e.preventDefault();
     await updateMain();
   }
 
-  function handleAddItem()
-  {
+  function handleAddItem() {
     navigate({
       pathname: basePath + '/add'
     })
@@ -151,9 +136,8 @@ const AppTable = (props) => {
 
   }
 
-  function handleDownloadItems()
-  {
-    if (selectedItems.length > 0 ) {
+  function handleDownloadItems() {
+    if (selectedItems.length > 0) {
       // Download selected only.
       exportTable(selectedItems, "Applications", "applications")
     } else {
@@ -162,16 +146,15 @@ const AppTable = (props) => {
     }
   }
 
-  function handleEditItem(selection = null)
-  {
-    if ( selectedItems.length === 1) {
+  function handleEditItem(selection = null) {
+    if (selectedItems.length === 1) {
       navigate({
         pathname: basePath + '/edit/' + selectedItems[0][itemIDKey]
       })
       setAction('Edit')
       setFocusItem(selectedItems[0]);
       setEditingItem(true);
-    } else if ( selection ) {
+    } else if (selection) {
       navigate({
         pathname: basePath + '/edit/' + selection[itemIDKey]
       })
@@ -182,15 +165,14 @@ const AppTable = (props) => {
 
   }
 
-  function handleResetScreen()
-  {
+  function handleResetScreen() {
     navigate({
       pathname: basePath
     })
     setEditingItem(false);
   }
 
-  function handleItemSelectionChange(selection) {
+  function handleItemSelectionChange(selection: Array<any>) {
 
     setSelectedItems(selection);
     if (selection.length === 1) {
@@ -205,22 +187,23 @@ const AppTable = (props) => {
 
   }
 
-  async function handleEditSave(editedItem){
+  async function handleEditSave(editedItem: any): Promise<void> {
+
     let newApp = Object.assign({}, editedItem);
     let app_id = newApp.app_id;
     let app_name = newApp.app_name;
-    const apiUser = await User.initializeCurrentSession();
+    const apiUser = new UserApiClient();
 
-    newApp = getChanges (newApp, dataMain, itemIDKey);
-    if(!newApp){
+    newApp = getChanges(newApp, dataMain, itemIDKey);
+    if (!newApp) {
       // no changes to original record.
-      handleNotification({
+      addNotification({
         type: 'warning',
         dismissible: true,
         header: "Save " + schemaName,
         content: "No updates to save."
-      });
-      return false;
+      })
+      return;
     }
     delete newApp.app_id;
     let resultEdit = await apiUser.putItem(app_id, newApp, schemaName);
@@ -228,21 +211,20 @@ const AppTable = (props) => {
     if (resultEdit['errors']) {
       console.debug("PUT " + schemaName + " errors");
       console.debug(resultEdit['errors']);
-      let errorsReturned = parsePUTResponseErrors(resultEdit['errors']);
-      handleNotification({
+      let errorsReturned = parsePUTResponseErrors(resultEdit['errors']).join(',');
+      addNotification({
         type: 'error',
         dismissible: true,
         header: "Update " + schemaName,
         content: (errorsReturned)
-      });
-      return false;
+      })
     } else {
-      handleNotification({
+      addNotification({
         type: 'success',
         dismissible: true,
         header: "Update " + schemaName,
         content: app_name + " updated successfully.",
-      });
+      })
       updateMain();
       handleResetScreen();
 
@@ -252,9 +234,10 @@ const AppTable = (props) => {
     }
   }
 
-  async function handleNewSave(editedItem){
+  async function handleNewSave(editedItem: any) {
+
     let newApp = Object.assign({}, editedItem);
-    const apiUser = await User.initializeCurrentSession();
+    const apiUser = new UserApiClient();
 
     delete newApp.app_id;
     let resultAdd = await apiUser.postItem(newApp, schemaName);
@@ -262,60 +245,55 @@ const AppTable = (props) => {
     if (resultAdd['errors']) {
       console.debug("PUT " + schemaName + " errors");
       console.debug(resultAdd['errors']);
-      let errorsReturned = parsePUTResponseErrors(resultAdd['errors']);
-      handleNotification({
+      let errorsReturned = parsePUTResponseErrors(resultAdd['errors']).join(',');
+      addNotification({
         type: 'error',
         dismissible: true,
         header: "Add " + schemaName,
         content: (errorsReturned)
-      });
-      return false;
+      })
     } else {
-      handleNotification({
+      addNotification({
         type: 'success',
         dismissible: true,
         header: "Add " + schemaName,
         content: newApp.app_name + " added successfully.",
-      });
+      })
       updateMain();
       handleResetScreen();
     }
   }
 
 
-  async function handleSave(editedItem, action) {
+  async function handleSave(editedItem: any, action: string) {
 
     try {
       if (action === 'Edit') {
         await handleEditSave(editedItem);
-      }
-      else {
+      } else {
         await handleNewSave(editedItem);
       }
-    } catch (e) {
-      apiActionErrorHandler(action, e);
+    } catch (e: any) {
+      apiActionErrorHandler(action, schemaName, e, addNotification);
     }
 
   }
 
-  async function handleDeleteItemClick(e) {
-    e.preventDefault();
-    showDeleteConfirmaton();
+  async function handleDeleteItemClick() {
+    setModalVisible(true);
   }
 
-  async function handleDeleteItem(e) {
-    e.preventDefault();
-    let currentApp = 0;
+  async function handleDeleteItem() {
+    setModalVisible(false);
+
+    let currentApp: any = 0;
     let multiReturnMessage = [];
     let notificationId;
 
-    await hideDeleteConfirmaton();
-
     try {
-      const session = await Auth.currentSession();
-      const apiUser = new User(session);
-      if(selectedItems.length > 1) {
-        notificationId = handleNotification({
+      const apiUser = new UserApiClient();
+      if (selectedItems.length > 1) {
+        notificationId = addNotification({
           type: 'success',
           loading: true,
           dismissible: false,
@@ -323,32 +301,32 @@ const AppTable = (props) => {
         });
       }
 
-      for(let item in selectedItems) {
+      for (let item in selectedItems) {
         currentApp = item;
         await apiUser.deleteApp(selectedItems[item][itemIDKey]);
         //Combine notifications into a single message if multi selected used, to save user dismiss clicks.
-        if(selectedItems.length > 1){
+        if (selectedItems.length > 1) {
           multiReturnMessage.push(selectedItems[item].app_name);
         } else {
-          handleNotification({
+          addNotification({
             type: 'success',
             dismissible: true,
             header: 'Application deleted successfully',
             content: selectedItems[item].app_name + ' was deleted.'
-          });
+          })
         }
 
       }
 
       //Create notification where multi select was used.
-      if(selectedItems.length > 1){
-        handleNotification({
+      if (selectedItems.length > 1) {
+        addNotification({
           id: notificationId,
           type: 'success',
           dismissible: true,
           header: 'Applications deleted successfully',
           content: multiReturnMessage.join(", ") + ' were deleted.'
-        });
+        })
       }
 
       //Unselect applications marked for deletion to clear apps.
@@ -356,22 +334,21 @@ const AppTable = (props) => {
 
       await updateMain();
 
-    } catch (e) {
+    } catch (e: any) {
       console.log(e);
-        handleNotification({
-            type: 'error',
-            dismissible: true,
-            header: 'Application deletion failed',
-            content: selectedItems[currentApp].app_name + ' failed to delete.'
-          });
+      addNotification({
+        type: 'error',
+        dismissible: true,
+        header: 'Application deletion failed',
+        content: selectedItems[currentApp].app_name + ' failed to delete.'
+      })
     }
   }
 
-  function displayItemsViewScreen(){
+  function displayItemsViewScreen() {
     return <SpaceBetween direction="vertical" size="xs">
       <ItemTable
-        sendNotification={handleNotification}
-        schema={props.schema[schemaName]}
+        schema={schemas[schemaName]}
         schemaKeyAttribute={itemIDKey}
         schemaName={schemaName}
         dataAll={dataAll}
@@ -385,72 +362,84 @@ const AppTable = (props) => {
         handleDeleteItem={handleDeleteItemClick}
         handleEditItem={handleEditItem}
         handleDownloadItems={handleDownloadItems}
-        userAccess={props.userEntityAccess}
-        setHelpPanelContent={props.setHelpPanelContent}
+        userAccess={userEntityAccess}
       />
-      <ViewApplication {...props}
-                       dataAll={dataAll}
-                       dataWaves={dataWaves}
-                       dataServers={dataServers}
-                       selectedItems={selectedItems}
-                       isLoadingServers={isLoadingServers}
-                       errorServers={errorServers}
+      <ViewApplication
+        schemas={schemas}
+        dataAll={dataAll}
+        dataWaves={dataWaves}
+        dataServers={dataServers}
+        selectedItems={selectedItems}
+        isLoadingServers={isLoadingServers}
+        errorServers={errorServers}
       />
     </SpaceBetween>
   }
 
-  function displayItemsScreen(){
-    if (editingItem){
-      return <ItemAmend action={action} schemaName={schemaName} schemas={props.schema} userAccess={props.userEntityAccess} item={focusItem} handleSave={handleSave} handleCancel={handleResetScreen} updateNotification={handleNotification} setHelpPanelContent={props.setHelpPanelContent}/>;
+  function displayItemsScreen() {
+    if (editingItem) {
+      return <ItemAmend
+        action={action}
+        schemaName={schemaName}
+        schemas={schemas}
+        userAccess={userEntityAccess}
+        item={focusItem}
+        handleSave={handleSave}
+        handleCancel={handleResetScreen}/>;
     } else {
       return displayItemsViewScreen();
     }
   }
 
-  useEffect( () => {
-    let selected = [];
+  useEffect(() => {
 
     if (!isLoadingMain) {
 
-      let item = dataMain.filter(function (entry) {
-        return entry[itemIDKey] === params.id;
+      const item = dataMain.find((entry: Record<string, any>) => {
+        return entry[itemIDKey] === urlParams.id;
       });
 
-      if (item.length === 1) {
-        selected.push(item[0]);
-        handleItemSelectionChange(selected);
+      if (item) {
+        handleItemSelectionChange([item]);
         //Check if URL contains edit path and switch to amend component.
         if (location?.pathname.match('/edit/')) {
-          handleEditItem(item[0]);
+          handleEditItem(item);
         }
       } else if (location?.pathname.match('/add')) {
         //Add url used, redirect to add screen.
-          handleAddItem();
+        handleAddItem();
       }
     }
 
   }, [dataMain]);
 
-  //Update help tools panel.
+  //Update help tools panel
   useEffect(() => {
-    if (props?.schema[schemaName]?.help_content) {
-      let tempContent = props.schema[schemaName].help_content;
-      tempContent.header = props.schema[schemaName].friendly_name ? props.schema[schemaName].friendly_name : capitalize(schemaName);
-      props.setHelpPanelContent(tempContent)
-    }
-  }, [props.schema]);
+    setHelpPanelContentFromSchema(schemas, schemaName);
+  }, [schemas]);
 
   return (
     <div>
-    {props.schemaIsLoading ?
-      <StatusIndicator type="loading">
-        Loading schema...
-      </StatusIndicator>
-      :
-      displayItemsScreen()
-      }
-
-    <DeleteModal title={'Delete applications'} onConfirmation={handleDeleteItem}>{selectedItems.length === 1 ? <p>Are you sure you wish to delete the selected application?</p> : <p>Are you sure you wish to delete the {selectedItems.length} selected applications?</p>}</DeleteModal>
+      {displayItemsScreen()}
+      {modalVisible ?
+        <Modal
+          visible={true}
+          closeAriaLabel="Close modal"
+          footer={
+            <Box float="right">
+              <SpaceBetween direction="horizontal" size="xs">
+                <Button variant="link" onClick={() => setModalVisible(false)}>Cancel</Button>
+                <Button variant="primary" onClick={handleDeleteItem}>Ok</Button>
+              </SpaceBetween>
+            </Box>
+          }
+          header="Delete applications">
+          {selectedItems.length === 1 ?
+            <p>Are you sure you wish to delete the selected application?</p> :
+            <p>Are you sure you wish to delete the {selectedItems.length} selected applications?</p>
+          }
+        </Modal> :
+        <></>}
     </div>
   );
 };

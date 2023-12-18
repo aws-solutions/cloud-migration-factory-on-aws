@@ -4,11 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import {
-FormField,
-CodeEditor
-} from '@awsui/components-react';
+import React, {useEffect, useState} from 'react';
+import {CodeEditor, FormField} from '@awsui/components-react';
 
 import ace from 'ace-builds';
 import "ace-builds/webpack-resolver";

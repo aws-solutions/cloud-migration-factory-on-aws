@@ -39,7 +39,7 @@ def get(event):
                     statusCode = 200
                     data = json.loads(output)
                     if data['SECRET_TYPE'] == 'OS':
-                        data['PASSWORD'] = "*********"
+                        data['PASSWORD'] = "*********" # NOSONAR This is a password replacement text, not a real password.
                         # data sanitization
                         data['USERNAME'] = data['USERNAME'].replace('\t','\\t')
                         data['USERNAME'] = data['USERNAME'].replace('\n','\\n')
@@ -53,7 +53,7 @@ def get(event):
                     elif data['SECRET_TYPE'] == 'plainText':
                         data['SECRET_STRING'] = "*********"
                     else:
-                        data['PASSWORD'] = "*********"
+                        data['PASSWORD'] = "*********" # NOSONAR This is a password replacement text, not a real password.
                         data['APIKEY'] = "*********"
                     found = True
 

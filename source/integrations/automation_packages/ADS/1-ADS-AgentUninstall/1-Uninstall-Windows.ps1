@@ -1,119 +1,146 @@
- param ($Servername,
+  param ($Servername,
        [string] $windowsuser = [System.Management.Automation.Language.NullString]::Value,
        [string] $windowspwd = [System.Management.Automation.Language.NullString]::Value,
        $harduninstall = 'No',
-       $agent_download_url = [System.Management.Automation.Language.NullString]::Value)
+       $agent_download_url = [System.Management.Automation.Language.NullString]::Value,
+       [bool] $usessl = $false
+ )
 
 # Read Server name #
 
 function agent-uninstall {
-  Param($Servername, [string] $windowsuserl = [System.Management.Automation.Language.NullString]::Value,
-  [string] $windowspwdl = [System.Management.Automation.Language.NullString]::Value)
-  $ScriptPath = "c:\Scripts\"
-  if ("" -ne $windowsuserl)
+  $sessionoptions = New-PSSessionOption -SkipCACheck
+  $sessionoption_wsman = New-WSManSessionOption -SkipCACheck
+
+  # If windowsuser is not set then the script will use intergarted authentication based on the the credentials of the user running the script.
+  # when run through SSM this will be the localsystem account which will restrict the access and capabilities of the script.
+  if ("" -ne $windowsuser)
   {
-    if ($Servername -ne "") {
+    $creds = New-Object System.Management.Automation.PSCredential($windowsuser, (ConvertTo-SecureString $windowspwd -AsPlainText -Force))
+  }
+  else
+  {
+    $creds = $null
+  }
 
-      $creds = New-Object System.Management.Automation.PSCredential($windowsuserl, (ConvertTo-SecureString $windowspwdl -AsPlainText -Force))
+  if ($Servername -ne "") {
+    foreach ($machine in $Servername) {
+      $parameters_test_installed = @{
+        ComputerName  = $machine
+        UseSSL        = $usessl
+        ScriptBlock   = {Get-WmiObject -Class Win32_Product | Where-Object{ $_.Name -eq "AWS Discovery Agent" }}
+        SessionOption = $sessionoptions
+        Credential    = $creds
+      }
 
-      foreach ($machine in $Servername) {
-        if (!(Invoke-Command -ComputerName $machine -ScriptBlock {Get-WmiObject -Class Win32_Product | Where-Object{$_.Name -eq "AWS Discovery Agent"}} -Credential $creds)) {
-          write-host
-          write-host "** Agent not installed skipping uninstallation for : $machine **"
-          write-host
-        }
-        else {
-         write-host
-         write-host "** Uninstalling ADS agent from : $machine **"
-         write-host
-         if ($harduninstall -eq 'Yes'){
+      if (!(Invoke-Command @parameters_test_installed)) {
+        write-host
+        write-host "** Agent not installed skipping uninstallation for : $machine **"
+        write-host
+      } else {
+        write-host
+        write-host "** Uninstalling ADS agent from : $machine **"
+        write-host
+        if ($harduninstall -eq 'Yes') {
           write-host "** Downloading installer to perform complete removal of ADS **"
           # Download original installer and run uninstall to completely remove the agent.
-          if (!(Invoke-Command -ComputerName $machine -ScriptBlock {Test-path "c:\Scripts\"} -Credential $creds)) {Invoke-Command -ComputerName $machine -ScriptBlock {New-Item -Path "c:\Scripts\" -ItemType directory} -Credential $creds}
-          $download_command = "(New-Object System.Net.WebClient).DownloadFile('" + $agent_download_url + "','C:\Scripts\AWSDiscoveryAgentInstaller.exe')"
-          $scriptblock = $executioncontext.invokecommand.NewScriptBlock($download_command)
-          Invoke-Command -ComputerName $machine -ScriptBlock $scriptblock -Credential $creds
-          $fileexist = Invoke-Command -ComputerName $machine -ScriptBlock {Test-path "c:\Scripts\AWSDiscoveryAgentInstaller.exe"} -Credential $creds
+          $parameters_test_path = @{
+            ComputerName = $machine
+            UseSSL = $usessl
+            ScriptBlock = { Test-path "c:\Scripts\" }
+            SessionOption = $sessionoptions
+            Credential = $creds
+          }
+          $parameters_create_path = @{
+            ComputerName = $machine
+            UseSSL = $usessl
+            ScriptBlock = { New-Item -Path "c:\Scripts\" -ItemType directory }
+            SessionOption = $sessionoptions
+            Credential = $creds
+          }
+          if (!(Invoke-Command @parameters_test_path))
+          {
+            Invoke-Command @parameters_create_path
+          }
+          $download_command = {
+            param($agent_download_url)
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            (New-Object System.Net.WebClient).DownloadFile("$agent_download_url", "c:\Scripts\AWSDiscoveryAgentInstaller.exe")
+          }
+          $parameters_download = @{
+            ComputerName = $machine
+            UseSSL = $usessl
+            ScriptBlock = $download_command
+            SessionOption = $sessionoptions
+            Credential = $creds
+            ArgumentList = $agent_download_url
+          }
+          Invoke-Command @parameters_download
 
-          $arguments = @()
-          $arguments += "/uninstall"
-          $arguments += "/quiet"
+          $parameters_test_path.ScriptBlock = { Test-path "c:\Scripts\AWSDiscoveryAgentInstaller.exe" }
+          $fileexist = Invoke-Command @parameters_test_path
 
-          $command = {
+          if ($fileexist -eq "true")
+          {
+            $message = "** Successfully downloaded Agent installer for: " + $machine + " **"
+            Write-Host $message
+            write-host
+
+            $arguments = @()
+            $arguments += "/uninstall"
+            $arguments += "/quiet"
+
+            $command = {
               param($arguments)
 
-              $result = Start-Process -FilePath "C:\Scripts\AWSDiscoveryAgentInstaller.exe" -ArgumentList $arguments -Wait -WorkingDirectory "C:\Scripts\"
+              $result = Start-Process -FilePath "c:\Scripts\AWSDiscoveryAgentInstaller.exe" -ArgumentList $arguments -Wait -WorkingDirectory "c:\Scripts\"
               write-host $result
+            }
+
+            $parameters_uninstall = @{
+              ComputerName = $machine
+              UseSSL = $usessl
+              ScriptBlock = $command
+              SessionOption = $sessionoptions
+              Credential = $creds
+              ArgumentList = @(,$arguments)
+            }
+
+            $result = Invoke-Command @parameters_uninstall
+
+          } else {
+            $message = "** Agent Installer was not found on: " + $machine + " **"
+            Write-Host $message
           }
-           $result = Invoke-Command -ComputerName $machine -ScriptBlock $command -ArgumentList @(,$arguments)-Credential $creds
-         } else {
-           write-host "** Removing ADS services and stopping processes **"
-           # soft uninstall this will remove services and stop processes, but if reinstall required then a repair of package is needed.
-           $command = {
-            $Prod = Get-WMIObject -Classname Win32_Product | Where-Object Name -Match  'AWS Discovery Agent'
+        } else {
+          write-host "** Removing ADS services and stopping processes **"
+          # soft uninstall this will remove services and stop processes, but if reinstall required then a repair of package is needed.
+
+          $command = {
+            $Prod = Get-WMIObject -Classname Win32_Product | Where-Object Name -Match  $AgentWMIName
             $Prod.UnInstall()
-           }
-            $install_return = Invoke-Command -ComputerName $machine -ScriptBlock $command -Credential $creds
-         }
+          }
+
+          $parameters_uninstall = @{
+            ComputerName = $machine
+            UseSSL = $usessl
+            ScriptBlock = $command
+            SessionOption = $sessionoptions
+            Credential = $creds
+            ArgumentList = @(,$arguments)
+          }
+
+          $install_return = Invoke-Command @parameters_uninstall
+        }
 
          write-host
          write-host "** Uninstallation finished for : $machine **"
          write-host
-        }
-      }
-    }
-  }
-  else
-  {
-    if ($Servername -ne "") {
-      foreach ($machine in $Servername) {
-        if (!(Invoke-Command -ComputerName $machine -ScriptBlock {Get-WmiObject -Class Win32_Product | Where-Object{$_.Name -eq "AWS Discovery Agent"}})) {
-          write-host
-          write-host "** Agent not installed skipping uninstallation for : $machine **"
-          write-host
-
-        }
-        else {
-          write-host
-          write-host "** Uninstalling ADS agent from : $machine **"
-          write-host
-         if ($harduninstall -eq 'Yes'){
-          # Download original installer and run uninstall to completely remove the agent.
-          write-host "** Downloading installer to perform complete removal of ADS **"
-          if (!(Invoke-Command -ComputerName $machine -ScriptBlock {Test-path "c:\Scripts\"})) {Invoke-Command -ComputerName $machine -ScriptBlock {New-Item -Path "c:\Scripts\" -ItemType directory}}
-          $download_command = "(New-Object System.Net.WebClient).DownloadFile('" + $agent_download_url + "','C:\Scripts\AWSDiscoveryAgentInstaller.exe')"
-          $scriptblock = $executioncontext.invokecommand.NewScriptBlock($download_command)
-          Invoke-Command -ComputerName $machine -ScriptBlock $scriptblock
-          $fileexist = Invoke-Command -ComputerName $machine -ScriptBlock {Test-path "c:\Scripts\AWSDiscoveryAgentInstaller.exe"}
-
-          $arguments = @()
-          $arguments += "/uninstall"
-          $arguments += "/quiet"
-
-          $command = {
-              param($arguments)
-
-              $result = Start-Process -FilePath "C:\Scripts\AWSDiscoveryAgentInstaller.exe" -ArgumentList $arguments -Wait -WorkingDirectory "C:\Scripts\"
-              write-host $result
-          }
-          $result = Invoke-Command -ComputerName $machine -ScriptBlock $command -ArgumentList @(,$arguments)
-         } else {
-           # soft uninstall this will remove services and stop processes, but if reinstall required then a repair of package is needed.
-           write-host "** Removing ADS services and stopping processes **"
-           $command = {
-            $Prod = Get-WMIObject -Classname Win32_Product | Where-Object Name -Match  'AWS Discovery Agent'
-            $Prod.UnInstall()
-           }
-           $install_return = Invoke-Command -ComputerName $machine -ScriptBlock $command
-         }
-          write-host
-          write-host "** Uninstallation finished for : $machine **"
-          write-host
-        }
       }
     }
   }
 }
 
-agent-uninstall $Servername $windowsuser $windowspwd $harduninstall $agent_download_url
+agent-uninstall
+
 

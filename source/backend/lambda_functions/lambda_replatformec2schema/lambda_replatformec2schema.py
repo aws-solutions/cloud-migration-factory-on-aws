@@ -1,12 +1,14 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-import factory
-import json, boto3, logging, os
-import requests
+import json
+import os
 
-log = logging.getLogger()
-log.setLevel(logging.INFO)
+import cmf_boto
+import requests
+from cmf_logger import logger
+
+import factory
 
 SCHEMA_TABLE = os.getenv('SchemaDynamoDBTable')
 
@@ -495,14 +497,14 @@ def set_default_attributes(server_schema, attributes):
 
 
 def load_schema():
-    client = boto3.client('dynamodb')
+    client = cmf_boto.client('dynamodb')
 
     for item in factory.schema:
         client.put_item(
             TableName=SCHEMA_TABLE,
             Item=item
         )
-    schema_table = boto3.resource('dynamodb').Table(SCHEMA_TABLE)
+    schema_table = cmf_boto.resource('dynamodb').Table(SCHEMA_TABLE)
     resp = schema_table.get_item(Key={'schema_name': 'server'})
     if 'Item' in resp:
         attributes = resp['Item']['attributes']
@@ -520,7 +522,7 @@ def load_schema():
 
 
 def delete_schema():
-    schema_table = boto3.resource('dynamodb').Table(SCHEMA_TABLE)
+    schema_table = cmf_boto.resource('dynamodb').Table(SCHEMA_TABLE)
     schema_table.delete_item(Key={'schema_name': 'EC2'})
     resp = schema_table.get_item(Key={'schema_name': 'server'})
     if 'Item' in resp:
@@ -541,34 +543,34 @@ def delete_schema():
 
 def lambda_handler(event, context):
     try:
-        log.info('Event:\n {}'.format(event))
-        log.info('Contex:\n {}'.format(context))
+        logger.info('Event:\n {}'.format(event))
+        logger.info('Contex:\n {}'.format(context))
 
         if event['RequestType'] == 'Create':
-            log.info('Create action')
+            logger.info('Create action')
             load_schema()
             status = 'SUCCESS'
             message = 'Default schema loaded successfully for Replatform Stack'
 
         elif event['RequestType'] == 'Update':
-            log.info('Update action')
+            logger.info('Update action')
             status = 'SUCCESS'
             message = 'No update required'
 
         elif event['RequestType'] == 'Delete':
-            log.info('Delete action')
+            logger.info('Delete action')
             delete_schema()
             status = 'SUCCESS'
             message = 'EC2 Replatform Schema has been deleted'
 
         else:
-            log.info('SUCCESS!')
+            logger.info('SUCCESS!')
             status = 'SUCCESS'
             message = 'Unexpected event received from CloudFormation'
 
     except Exception as e:
-        log.info('FAILED!')
-        log.info(e)
+        logger.info('FAILED!')
+        logger.info(e)
         status = 'FAILED'
         message = 'Exception during processing'
 
@@ -594,7 +596,7 @@ def respond(event, context, response_status, response_data):
 
     # Convert json object to string and log it
     json_response_body = json.dumps(response_body)
-    log.info('Response body: {}'.format(str(json_response_body)))
+    logger.info('Response body: {}'.format(str(json_response_body)))
 
     # Set response URL
     response_url = event['ResponseURL']
@@ -611,9 +613,9 @@ def respond(event, context, response_status, response_data):
                                 data=json_response_body,
                                 headers=headers,
                                 timeout=30)
-        log.info('Status code: {}'.format(str(response.reason)))
+        logger.info('Status code: {}'.format(str(response.reason)))
         return 'SUCCESS'
 
     except Exception as e:
-        log.error('Failed to put message: {}'.format(str(e)))
+        logger.error('Failed to put message: {}'.format(str(e)))
         return 'FAILED'

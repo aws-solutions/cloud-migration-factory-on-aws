@@ -115,8 +115,10 @@ def process_user_remove_for_linux_servers(cmf_servers, current_user_secret, remo
     for server in cmf_servers:
         status = True
         host = server["server_fqdn"]
-        cred = mfcommon.getServerCredentials("", "", server, current_user_secret, no_prompts)
-        new_user = mfcommon.getServerCredentials("", "", server, remove_user_secret, no_prompts)
+        cred = mfcommon.get_server_credentials(
+            "", "", server, current_user_secret, no_prompts)
+        new_user = mfcommon.get_server_credentials(
+            "", "", server, remove_user_secret, no_prompts)
         status = delete_linux_user(host, cred['username'], cred['password'], cred['private_key'],
                                    new_user['username'])
         if not status:
@@ -130,7 +132,8 @@ def process_user_remove_for_windows_servers(cmf_servers, current_user_secret, re
     failure_count = 0
     for server in cmf_servers:
         try:
-            cred = mfcommon.getServerCredentials("", "", server, current_user_secret, no_prompts)
+            cred = mfcommon.get_server_credentials(
+                "", "", server, current_user_secret, no_prompts)
             if cred['username'] != "":
                 if "\\" not in cred['username'] and "@" not in cred['username']:
                     # Assume local account provided, prepend server name to user ID.
@@ -138,8 +141,10 @@ def process_user_remove_for_windows_servers(cmf_servers, current_user_secret, re
                     cred['username'] = server_name_only + "\\" + cred['username']
                     print("INFO: Using local account to connect: " + cred['username'])
                 else:
-                    print("INFO: Using domain account to connect: " + cred['username'])
-            local_user = mfcommon.getServerCredentials("", "", server, remove_user_secret, no_prompts)
+                    print("INFO: Using domain account to connect: " +
+                          cred['username'])
+            local_user = mfcommon.get_server_credentials(
+                "", "", server, remove_user_secret, no_prompts)
             creds = " -Credential (New-Object System.Management.Automation.PSCredential('" + cred[
                 'username'] + "', (ConvertTo-SecureString '" + cred['password'] + "' -AsPlainText -Force)))"
             mfcommon.add_windows_servers_to_trusted_hosts([server["server_fqdn"]])
@@ -199,7 +204,7 @@ def main(arguments):
     args = parser.parse_args(arguments)
 
     print("*Login to Migration factory*")
-    token = mfcommon.Factorylogin()
+    token = mfcommon.factory_login()
 
     print("*Getting Server List*", flush=True)
     get_servers, _, _ = mfcommon.get_factory_servers(args.Waveid, token, True, 'Rehost')

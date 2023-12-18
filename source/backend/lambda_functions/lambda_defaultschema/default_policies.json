@@ -51,16 +51,6 @@
                                             "S": "application"
                                         },
                                         "attr_name": {
-                                            "S": "cloudendure_projectname"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "application"
-                                        },
-                                        "attr_name": {
                                             "S": "aws_accountid"
                                         }
                                     }
@@ -463,6 +453,16 @@
                                             "S": "database_type"
                                         }
                                     }
+                                },
+                                {
+                                    "M": {
+                                        "attr_type": {
+                                            "S": "database"
+                                        },
+                                        "attr_name": {
+                                            "S": "r_type"
+                                        }
+                                    }
                                 }
                             ]
                         },
@@ -484,16 +484,6 @@
                         },
                         "schema_name": {
                             "S": "mgn"
-                        }
-                    }
-                },
-                {
-                    "M": {
-                        "create": {
-                            "BOOL": true
-                        },
-                        "schema_name": {
-                            "S": "ce"
                         }
                     }
                 },

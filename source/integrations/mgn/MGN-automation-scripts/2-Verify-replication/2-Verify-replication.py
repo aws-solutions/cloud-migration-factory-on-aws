@@ -9,7 +9,7 @@ import sys
 import argparse
 import boto3
 import botocore.exceptions
-from datetime import datetime
+from datetime import datetime, UTC
 import time
 import mfcommon
 
@@ -17,7 +17,7 @@ timeout = 60 * 60
 
 
 def unix_time_millis(dt):
-    epoch = datetime.utcfromtimestamp(0)
+    epoch = datetime.fromtimestamp(0, UTC)
     return (dt - epoch).total_seconds()
 
 
@@ -63,7 +63,7 @@ def get_mgn_source_servers(mgn_client_base):
 def verify_replication(serverlist):
     not_finished = True
     count_fail = 0
-    current_time = datetime.utcnow()
+    current_time = datetime.now(UTC)
     while not_finished:
         not_finished = False
         replication_status = []
@@ -86,9 +86,11 @@ def verify_replication(serverlist):
                     print("ERROR: server_fqdn does not exist for server: " + factoryserver['server_name'], flush=True)
                 else:
 
-                    sourceserver = mfcommon.get_MGN_Source_Server(factoryserver, mgn_sourceservers)
+                    sourceserver = mfcommon.get_mgn_source_server(
+                        factoryserver, mgn_sourceservers)
 
                     if sourceserver is not None:
+                        # TODO: at this point sourceserver['isArchived'] is always false
                         if sourceserver['isArchived'] == False:
                             if 'dataReplicationInfo' in sourceserver:
                                 replication_state = sourceserver['dataReplicationInfo']['dataReplicationState']
@@ -110,8 +112,8 @@ def verify_replication(serverlist):
                                         if 'etaDateTime' in sourceserver['dataReplicationInfo']:
                                             a = int(sourceserver['dataReplicationInfo']['etaDateTime'][11:13])
                                             b = int(sourceserver['dataReplicationInfo']['etaDateTime'][14:16])
-                                            x = int(datetime.utcnow().isoformat()[11:13])
-                                            y = int(datetime.utcnow().isoformat()[14:16])
+                                            x = int(datetime.now(UTC).isoformat()[11:13])
+                                            y = int(datetime.now(UTC).isoformat()[14:16])
                                             result = (a - x) * 60 + (b - y)
                                             if result < 60:
                                                 machine_status[factoryserver["server_name"]] = msg + str(
@@ -147,19 +149,20 @@ def verify_replication(serverlist):
                         print("Server " + factoryserver["server_name"] + " replication status: " + machine_status[
                             factoryserver["server_name"]], flush=True)
 
-                        updateserver = mfcommon.update_server_replication_status(
-                            mfcommon.Factorylogin(),
-                            factoryserver['server_id'],
-                            machine_status[factoryserver["server_name"]]
-                        )
+                        if factoryserver.get('replication_status') != machine_status[factoryserver["server_name"]]:
+                            updateserver = mfcommon.update_server_replication_status(
+                                mfcommon.factory_login(),
+                                factoryserver['server_id'],
+                                machine_status[factoryserver["server_name"]]
+                            )
+                            if updateserver.status_code == 401:
+                                print("Error: Access to replication_status attribute is denied", flush=True)
+                            elif updateserver.status_code != 200:
+                                print("Error: Update replication_status attribute failed", flush=True)
+
                         if machine_status[factoryserver["server_name"]] != "Healthy":
                             replication_not_finished = True
-                        if updateserver.status_code == 401:
-                            print("Error: Access to replication_status attribute is denied", flush=True)
-                            sys.exit(1)
-                        elif updateserver.status_code != 200:
-                            print("Error: Update replication_status attribute failed", flush=True)
-                            sys.exit(1)
+
                         replication_status.append(replication_not_finished)
                     # else:
 
@@ -171,7 +174,7 @@ def verify_replication(serverlist):
             print("Replication in progress - next check in 1 minute.", flush=True)
             time.sleep(60)
         print("")
-        new_time = datetime.utcnow()
+        new_time = datetime.now(UTC)
         time_elapsed = unix_time_millis(new_time) - unix_time_millis(current_time)
         print(str(time_elapsed) + " seconds elapsed")
         print("")
@@ -191,7 +194,7 @@ def main(arguments):
 
     print("")
     print("*Login to Migration factory*", flush=True)
-    token = mfcommon.Factorylogin()
+    token = mfcommon.factory_login()
 
     print("*** Getting Server List ****", flush=True)
     get_servers = mfcommon.get_factory_servers(args.Waveid, token, False, 'Rehost')

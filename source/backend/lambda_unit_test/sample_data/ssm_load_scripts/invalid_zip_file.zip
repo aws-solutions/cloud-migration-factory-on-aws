@@ -1,0 +1,81 @@
+#########################################################################################
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.                    #
+# SPDX-License-Identifier: MIT-0                                                        #
+#                                                                                       #
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this  #
+# software and associated documentation files (the "Software"), to deal in the Software #
+# without restriction, including without limitation the rights to use, copy, modify,    #
+# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to    #
+# permit persons to whom the Software is furnished to do so.                            #
+#                                                                                       #
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,   #
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A         #
+# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT    #
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION     #
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE        #
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
+#########################################################################################
+
+# Version: 17MAY2021.01
+
+from __future__ import print_function
+import sys
+import argparse
+import json
+import time
+import mfcommon
+import os
+
+with open('FactoryEndpoints.json') as json_file:
+  endpoints = json.load(json_file)
+
+serverendpoint = mfcommon.serverendpoint
+appendpoint = mfcommon.appendpoint
+
+def main(arguments):
+  parser = argparse.ArgumentParser(
+    description=__doc__,
+    formatter_class=argparse.RawDescriptionHelpFormatter)
+  parser.add_argument('--MyMessage', required=True)
+  parser.add_argument('--NoPrompts', default=False, type=bool, help='Specify if user prompts for passwords are allowed. Default = False')
+
+  args = parser.parse_args(arguments)
+
+  UserHOST = ""
+  region = ""
+  # Get MF endpoints from FactoryEndpoints.json file
+  if 'UserApiUrl' in endpoints:
+    UserHOST = endpoints['UserApiUrl']
+  else:
+    print("ERROR: Invalid FactoryEndpoints.json file, please update UserApiUrl")
+    sys.exit()
+
+  # Get region value from FactoryEndpoint.json file if migration execution server is on prem
+
+  if 'Region' in endpoints:
+    region = endpoints['Region']
+  else:
+    print("ERROR: Invalid FactoryEndpoints.json file, please update region")
+    sys.exit()
+  print("Factory region: " + region)
+
+  print("")
+  print("****************************")
+  print("*Login to Migration factory*")
+  print("****************************")
+  token = mfcommon.factory_login()
+
+  print("")
+  print("********************************")
+  print("*Message: " + args.MyMessage + "*")
+  print("********************************")
+  print("")
+
+  print(os.environ)
+
+  time.sleep(5)
+  print("Message has been printed")
+  return 0
+
+if __name__ == '__main__':
+  sys.exit(main(sys.argv[1:]))

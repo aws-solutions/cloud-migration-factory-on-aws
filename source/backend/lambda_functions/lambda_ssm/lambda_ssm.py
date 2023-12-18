@@ -2,35 +2,15 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import os
-import boto3
 import json
 from datetime import datetime
 import uuid
 from policy import MFAuth
-from botocore import config
-import logging
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+import cmf_boto
+from cmf_logger import logger
+from cmf_utils import cors, default_http_headers
 
-if 'solution_identifier' in os.environ:
-    solution_identifier = json.loads(os.environ['solution_identifier'])
-    user_agent_extra_param = {"user_agent_extra": solution_identifier}
-    boto_config = config.Config(**user_agent_extra_param)
-else:
-    boto_config = None
-
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
-
-default_http_headers = {
-    'Access-Control-Allow-Origin': cors,
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy': "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
-}
 application = os.environ['application']
 environment = os.environ['environment']
 ssm_bucket = os.environ['ssm_bucket']
@@ -43,10 +23,10 @@ mf_cognitouserpoolid = os.environ['userpool']
 mf_region = os.environ['region']
 mf_cognitouserpoolclientid = os.environ['clientid']
 
-lambda_client = boto3.client('lambda')
+lambda_client = cmf_boto.client('lambda')
 
-ssm = boto3.client("ssm", config=boto_config)
-ec2 = boto3.client('ec2')
+ssm = cmf_boto.client("ssm")
+ec2 = cmf_boto.client('ec2')
 
 
 def lambda_handler(event, _):
@@ -63,7 +43,7 @@ def lambda_handler(event, _):
 
         # Get record audit
         auth = MFAuth()
-        auth_response = auth.getUserResourceCreationPolicy(event, 'ssm_job')
+        auth_response = auth.get_user_resource_creation_policy(event, 'ssm_job')
 
         if auth_response['action'] == 'allow':
 

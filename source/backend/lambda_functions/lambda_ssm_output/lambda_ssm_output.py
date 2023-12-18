@@ -4,20 +4,17 @@
 import gzip
 import json
 import base64
-import boto3
 import botocore
 import os
 import time
 from datetime import datetime
-import logging
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+import cmf_boto
+from cmf_logger import logger
 
 application = os.environ["application"]
 environment = os.environ["environment"]
-dynamodb = boto3.resource("dynamodb")
+dynamodb = cmf_boto.resource("dynamodb")
 connectionIds_table_name = '{}-{}-ssm-connectionIds'.format(application, environment)
 connectionIds_table = dynamodb.Table(connectionIds_table_name)
 ssm_jobs_table_name = '{}-{}-ssm-jobs'.format(application, environment)
@@ -29,7 +26,7 @@ socket_url = os.environ["socket_url"]
 if 'wss://' not in socket_url:
     gatewayapi = None
 else:
-    gatewayapi = boto3.client("apigatewaymanagementapi", endpoint_url=socket_url)
+    gatewayapi = cmf_boto.client("apigatewaymanagementapi", endpoint_url=socket_url)
 
 
 def unix_time_seconds(dt):

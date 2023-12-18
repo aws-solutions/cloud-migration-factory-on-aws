@@ -2,15 +2,17 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 
-import json, boto3, logging, os
-from botocore.exceptions import ClientError
-import requests
-import zipfile
+import boto3
+import json
 import mimetypes
+import os
 import tempfile
+import zipfile
 
-log = logging.getLogger()
-log.setLevel(logging.INFO)
+import cmf_boto
+import requests
+from botocore.exceptions import ClientError
+from cmf_logger import logger
 
 USER_API = os.getenv('USER_API')
 ADMIN_API = os.getenv('ADMIN_API')
@@ -24,7 +26,7 @@ COGNITO_HOSTED_UI_URL = os.getenv('COGNITO_HOSTED_UI_URL')
 FRONTEND_BUCKET = os.getenv('FRONTEND_BUCKET')
 SOURCE_BUCKET = os.getenv('SOURCE_BUCKET')
 SOURCE_KEY = os.getenv('SOURCE_KEY')
-VERSION = os.getenv('VERSION')
+VERSION = os.getenv('SOLUTION_VERSION')
 
 FRONTEND_CONFIG_FILENAME = 'env.js'
 FRONTEND_INDEX_FILENAME = 'index.html'
@@ -44,7 +46,7 @@ PLACEHOLDER_VPCE = '{{vpce-id}}'
 temp_directory_name = tempfile.gettempdir() + '/frontend/'
 temp_path = tempfile.gettempdir() + '/frontend.zip'
 
-s3 = boto3.client('s3')
+s3 = cmf_boto.client('s3')
 
 ZIP_MAX_SIZE = 500000000  # Set maximum size of uncompressed file to 500MBs. This is just under the /tmp max size of 512MB in Lambda.
 
@@ -95,7 +97,7 @@ def update_configuration_file():
 def update_index_html():
     session = boto3.session.Session()
     region = session.region_name
-    log.info("Updating index.html CSP with API GW URLs")
+    logger.info("Updating index.html CSP with API GW URLs")
 
     with open(temp_directory_name + FRONTEND_INDEX_FILENAME, encoding='utf8') as r:
         index_html = r.read()
@@ -122,71 +124,71 @@ def update_index_html():
 
 
 def remove_static_site():
-    log.info('Removing S3 site content.')
+    logger.info('Removing S3 site content.')
     try:
-        s3 = boto3.resource('s3')
+        s3 = cmf_boto.resource('s3')
         s3_bucket = s3.Bucket(FRONTEND_BUCKET)
         bucket_versioning = s3.BucketVersioning(FRONTEND_BUCKET)
         if bucket_versioning.status == 'Enabled':
             s3_bucket.object_versions.delete()
         else:
             s3_bucket.objects.all().delete()
-        log.info('CMF S3 site content deleted.')
+        logger.info('CMF S3 site content deleted.')
     except (ClientError) as e:
-        log.error(e)
+        logger.error(e)
         raise e
 
 
 def deploy_static_site():
-    log.info('Downloading source zip.')
+    logger.info('Downloading source zip.')
     try:
         s3.download_file(SOURCE_BUCKET, SOURCE_KEY, temp_path)
     except (ClientError) as e:
-        log.error(e)
+        logger.error(e)
         raise e
 
-    log.info('Extracting source zip.')
+    logger.info('Extracting source zip.')
     fe_zip_file = open(temp_path, "rb")
     try:
         fe_zip = zipfile.ZipFile(fe_zip_file)
         total_uncompressed_size = sum(file.file_size for file in fe_zip.infolist())
         if total_uncompressed_size > ZIP_MAX_SIZE:
             error_msg = f'Zip file uncompressed contents exceeds maximum size of {ZIP_MAX_SIZE / 1e+6}MBs.'
-            log.error(error_msg)
-        fe_zip.extractall(temp_directory_name)
+            logger.error(error_msg)
+        fe_zip.extractall(temp_directory_name)  # NOSONAR This size of the file is in control
     except (IOError, zipfile.BadZipfile) as e:
         error_msg = 'Invalid zip file.'
-        log.error(error_msg)
+        logger.error(error_msg)
         raise e
 
     update_configuration_file()
     update_index_html()
 
     files_to_copy = get_files(temp_directory_name)
-    log.debug('Files to copy')
-    log.debug(files_to_copy)
+    logger.debug('Files to copy')
+    logger.debug(files_to_copy)
 
     for file_name in files_to_copy:
         try:
-            log.debug(f"Copying file: {file_name}")
+            logger.debug(f"Copying file: {file_name}")
             mimetype, _ = mimetypes.guess_type(file_name)
             if mimetype is None:
-                log.error(f"Failed to guess mimetype for file {file_name} Defaulting to application/json.")
+                logger.error(f"Failed to guess mimetype for file {file_name} Defaulting to application/json.")
                 mimetype = 'application/json'
             s3.upload_file(file_name, FRONTEND_BUCKET, file_name.replace(temp_directory_name, ""),
                            ExtraArgs={"ContentType": mimetype})
         except ClientError as e:
-            log.error(e)
+            logger.error(e)
             raise e
 
 
 def lambda_handler(event, context):
     try:
-        log.info(f"Event:\n {event}")
-        log.info(f"Context:\n {context}")
+        logger.info(f"Event:\n {event}")
+        logger.info(f"Context:\n {context}")
 
         if event['RequestType'] == 'Create':
-            log.info('Create action')
+            logger.info('Create action')
 
             deploy_static_site()
 
@@ -194,7 +196,7 @@ def lambda_handler(event, context):
             message = 'Frontend deployment process complete.'
 
         elif event['RequestType'] == 'Update':
-            log.info('Update action')
+            logger.info('Update action')
 
             deploy_static_site()
 
@@ -202,7 +204,7 @@ def lambda_handler(event, context):
             message = 'Frontend redeployed from AWS master.'
 
         elif event['RequestType'] == 'Delete':
-            log.info('Delete action')
+            logger.info('Delete action')
 
             #             remove_static_site()
 
@@ -210,13 +212,13 @@ def lambda_handler(event, context):
             message = f"S3 Bucket should be manually emptied : {FRONTEND_BUCKET}"
 
         else:
-            log.info('SUCCESS!')
+            logger.info('SUCCESS!')
             status = 'SUCCESS'
             message = 'Unexpected event received from CloudFormation'
 
     except Exception as e:
-        log.info('FAILED!')
-        log.info(e)
+        logger.info('FAILED!')
+        logger.info(e)
         status = 'FAILED'
         message = 'Exception during processing'
 
@@ -242,7 +244,7 @@ def respond(event, context, response_status, response_data):
 
     # Convert json object to string and log it
     json_response_body = json.dumps(response_body)
-    log.info(f"Response body: {str(json_response_body)}")
+    logger.info(f"Response body: {str(json_response_body)}")
 
     # Set response URL
     response_url = event['ResponseURL']
@@ -259,9 +261,9 @@ def respond(event, context, response_status, response_data):
                                 data=json_response_body,
                                 headers=headers,
                                 timeout=30)
-        log.info(f"Status code: {str(response.reason)}")
+        logger.info(f"Status code: {str(response.reason)}")
         return 'SUCCESS'
 
     except Exception as e:
-        log.error(f"Failed to put message: {str(e)}")
+        logger.error(f"Failed to put message: {str(e)}")
         return 'FAILED'

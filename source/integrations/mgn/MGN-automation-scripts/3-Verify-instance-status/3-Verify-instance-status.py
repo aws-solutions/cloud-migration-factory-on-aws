@@ -11,13 +11,13 @@ import boto3
 import botocore.exceptions
 import time
 import mfcommon
-from datetime import datetime
+from datetime import datetime, UTC
 
 TIME_OUT = 60 * 60
 
 
 def unix_time_millis(dt):
-    epoch = datetime.utcfromtimestamp(0)
+    epoch = datetime.fromtimestamp(0, UTC)
     return (dt - epoch).total_seconds()
 
 
@@ -72,9 +72,11 @@ def get_instance_id(server_list):
                 print("ERROR: server_fqdn does not exist for server: " + factoryserver['server_name'])
                 sys.exit()
             else:
-                sourceserver = mfcommon.get_MGN_Source_Server(factoryserver, mgn_sourceservers)
+                sourceserver = mfcommon.get_mgn_source_server(
+                    factoryserver, mgn_sourceservers)
                 if sourceserver is not None:
                     # Get target instance Id for the source server in Application Migration Service
+                    # TODO: at this point sourceserver['isArchived'] is always false
                     if sourceserver['isArchived'] == False:
                         if 'launchedInstance' in sourceserver:
                             if 'ec2InstanceID' in sourceserver['launchedInstance']:
@@ -100,7 +102,7 @@ def get_instance_id(server_list):
 
 def verify_instance_status(get_servers, token):
     instance_not_ready = 1
-    current_time = datetime.utcnow()
+    current_time = datetime.now(UTC)
     while instance_not_ready > 0:
         instance_not_ready = 0
         failure_status = 0
@@ -117,6 +119,7 @@ def verify_instance_status(get_servers, token):
 
             ec2_client = target_account_session.client("ec2", region_name=account['aws_region'])
             instance_ids = []
+            resp = None
             for server in account['servers']:
                 if 'target_ec2InstanceID' in server:
                     if server['target_ec2InstanceID'] != '':
@@ -127,14 +130,14 @@ def verify_instance_status(get_servers, token):
                 if e.response['Error']['Code'] == 'InvalidInstanceID.NotFound':
                     print("")
                     print(
-                        "*** Target instance IDs in MGN are no longer available, this is most likely due to the status being reverted and instances terminated. ***")
-                    return
+                        "*** Target instance IDs in MGN are no longer available or instance not yet created, "
+                        "this is most likely due to the status being reverted and instances terminated. ***")
                 else:
                     raise e
 
             for instance in account['servers']:
                 if 'target_ec2InstanceID' in instance:
-                    if instance['target_ec2InstanceID'] != '':
+                    if instance['target_ec2InstanceID'] != '' and resp and 'InstanceStatuses' in resp:
                         for status in resp['InstanceStatuses']:
                             if status['InstanceState']['Name'] == "running":
                                 if instance['target_ec2InstanceID'] == status['InstanceId']:
@@ -237,7 +240,7 @@ def verify_instance_status(get_servers, token):
         if failure_status == 0:
             return failure_status
         else:
-            new_time = datetime.utcnow()
+            new_time = datetime.now(UTC)
             time_elapsed = unix_time_millis(new_time) - unix_time_millis(current_time)
             print(str(time_elapsed) + " seconds elapsed")
             print("")
@@ -259,7 +262,7 @@ def main(arguments):
 
     print("")
     print("*Login to Migration factory*", flush=True)
-    token = mfcommon.Factorylogin()
+    token = mfcommon.factory_login()
 
     print("*** Getting Server List ****", flush=True)
     get_servers = mfcommon.get_factory_servers(args.Waveid, token, False, 'Rehost')

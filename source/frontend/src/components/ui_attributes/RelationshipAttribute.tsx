@@ -4,13 +4,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import {
-  SpaceBetween, FormField, Multiselect, Grid, Select, Button
-} from '@awsui/components-react';
+import React, {useEffect, useState} from 'react';
+import {Button, FormField, Grid, Multiselect, Select, SpaceBetween} from '@awsui/components-react';
 import RelatedRecordPopover from "./RelatedRecordPopover";
 
-const RelationshipAttribute = ({schemas, attribute, value, options, record, isReadonly, errorText, handleUserInput, displayHelpInfoLink}) => {
+const RelationshipAttribute = ({
+                                 schemas,
+                                 attribute,
+                                 value,
+                                 options,
+                                 record,
+                                 isReadonly,
+                                 errorText,
+                                 handleUserInput,
+                                 displayHelpInfoLink
+                               }) => {
 
   const [localValue, setLocalValue] = useState(value);
   const [localRelatedRecord, setLocalRelatedRecord] = useState(record);
@@ -18,23 +26,24 @@ const RelationshipAttribute = ({schemas, attribute, value, options, record, isRe
   const [currentErrorText, setCurrentErrorText] = useState(errorText);
   const [localOptions, setLocalOptions] = useState([]);
 
-  async function handleUpdate(event){
+  async function handleUpdate(event) {
     setLocalValue(event.detail.selectedOption.value);
     handleUserInput(attribute, event.detail.selectedOption.value, currentErrorText)
   }
 
-  function handleClearSelection(){
+  function handleClearSelection() {
     setLocalValue('');
     handleUserInput(attribute, '', currentErrorText)
   }
 
-  function displayRelatedRecordPopover(record){
-    if ((localValue && localValue !== '') && !((record===null) || (attribute.listMultiSelect) || (attribute?.listvalue && attribute?.listvalue.includes(localValue)))){
+  function displayRelatedRecordPopover(record) {
+    if ((localValue && localValue !== '') && !((record === null) || (attribute.listMultiSelect) || (attribute?.listvalue && attribute?.listvalue.includes(localValue)))) {
       //TODO Implement way to provide this functionality with multiselect.
-      return <RelatedRecordPopover key={attribute.name}
-                            item={localRelatedRecord}
-                            schema={localSchemas[attribute.rel_entity]}
-                            schemas={localSchemas}>
+      return <RelatedRecordPopover
+        key={attribute.name}
+        item={localRelatedRecord}
+        schema={localSchemas[attribute.rel_entity]}
+        schemas={localSchemas}>
         Related details
       </RelatedRecordPopover>
     } else {
@@ -42,37 +51,40 @@ const RelationshipAttribute = ({schemas, attribute, value, options, record, isRe
     }
   }
 
-  function getUpdatedPolicies(event){
-    if(event.detail.selectedOptions.length > 0 && event.detail.selectedOptions.find(valueItem => {return valueItem.value === '__system_all'})){
+  function getUpdatedPolicies(event) {
+    if (event.detail.selectedOptions.length > 0 && event.detail.selectedOptions.find(valueItem => {
+      return valueItem.value === '__system_all'
+    })) {
       return localOptions
-        .filter(valueItem => {return valueItem.value !== '__system_all'})  // remove __system_all from the list as only used to select all.
+        .filter(valueItem => {
+          return valueItem.value !== '__system_all'
+        })  // remove __system_all from the list as only used to select all.
         .map(valueItem => valueItem.value)
-    } else if (event.detail.selectedOptions.length > 0){
+    } else if (event.detail.selectedOptions.length > 0) {
       return event.detail.selectedOptions.map(valueItem => valueItem.value)
     } else {
       return [];
     }
   }
 
-  function getPlaceholder(attribute, value){
-    if (value?.value && value.value.length > 0){
+  function getPlaceholder(attribute, value) {
+    if (value?.value && value.value.length > 0) {
       return value.value.length + ' ' + attribute.description + ' selected'
     } else {
       return "Select " + attribute.description
     }
   }
 
-  function getSelectedOptions(){
-    if (localRelatedRecord !== null){
-      let selectedOptions = localRelatedRecord.map(item =>
-      {
+  function getSelectedOptions() {
+    if (localRelatedRecord !== null) {
+      let selectedOptions = localRelatedRecord.map(item => {
         return {'label': item[attribute.rel_display_attribute], 'value': item[attribute.rel_key]}
       })
-      if (localValue.invalid.length === 0){
+      if (localValue.invalid.length === 0) {
         return selectedOptions;
       } else {
-        for (const value of localValue.invalid){
-            selectedOptions.push({'label': 'Invalid Id :' + value, 'value': value})
+        for (const value of localValue.invalid) {
+          selectedOptions.push({'label': 'Invalid Id :' + value, 'value': value})
         }
         return selectedOptions;
       }
@@ -84,20 +96,20 @@ const RelationshipAttribute = ({schemas, attribute, value, options, record, isRe
     setCurrentErrorText(errorText);
   }, [errorText]);
 
-  useEffect( () => {
-      setLocalValue(value);
+  useEffect(() => {
+    setLocalValue(value);
   }, [value]);
 
 
-  useEffect( () => {
+  useEffect(() => {
     setLocalRelatedRecord(record);
   }, [record]);
 
-  useEffect( () => {
+  useEffect(() => {
     setLocalOptions(options);
   }, [options]);
 
-  useEffect( () => {
+  useEffect(() => {
     setLocalSchemas(schemas);
   }, [schemas]);
 
@@ -105,7 +117,18 @@ const RelationshipAttribute = ({schemas, attribute, value, options, record, isRe
 
     <FormField
       key={attribute.name}
-      label={attribute.description ? <SpaceBetween direction='horizontal' size='xs'>{attribute.description}{displayHelpInfoLink(attribute)} </SpaceBetween> :<SpaceBetween direction='horizontal' size='xs'>{attribute.name}{displayHelpInfoLink(attribute)} </SpaceBetween>}
+      label={attribute.description ?
+        <SpaceBetween
+          direction='horizontal'
+          size='xs'
+        >{attribute.description}{displayHelpInfoLink(attribute)}
+        </SpaceBetween>
+        :
+        <SpaceBetween
+          direction='horizontal'
+          size='xs'
+        >{attribute.name}{displayHelpInfoLink(attribute)}
+        </SpaceBetween>}
       description={attribute.long_desc}
       errorText={currentErrorText}
     >
@@ -127,13 +150,14 @@ const RelationshipAttribute = ({schemas, attribute, value, options, record, isRe
         />
         :
         <Grid
-          gridDefinition={[{ colspan: 10}, { colspan: 2 }]}
+          gridDefinition={[{colspan: 10}, {colspan: 2}]}
         >
           <SpaceBetween
             size="xxxs"
             key={attribute.name}
           >
             <Select
+              key={attribute.name + 'select'}
               selectedOption={localValue}
               onChange={event => handleUpdate(event)}
               loadingText={"Loading " + attribute.rel_entity + "s"}
@@ -147,7 +171,12 @@ const RelationshipAttribute = ({schemas, attribute, value, options, record, isRe
               displayRelatedRecordPopover(attribute)
             }
           </SpaceBetween>
-          <Button iconName="close" variant="normal" disabled={isReadonly} onClick={() => handleClearSelection()}>Clear</Button>
+          <Button
+            key={attribute.name + 'clear'}
+            iconName="close"
+            variant="normal"
+            disabled={isReadonly}
+            onClick={() => handleClearSelection()}>Clear</Button>
         </Grid>
       }
     </FormField>

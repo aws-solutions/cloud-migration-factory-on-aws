@@ -1,62 +1,118 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, {useContext, useState} from 'react';
 
 import {
   Box,
   Button,
+  Checkbox,
   CollectionPreferences,
-  Pagination,
-  TextFilter,
-  Table,
+  CollectionPreferencesProps,
   Link,
-  Checkbox
+  Pagination,
+  Table,
+  TableProps,
+  TextFilter
 } from '@awsui/components-react';
 
- import {
-   getColumnDefinitions,
-   getContentSelectorOptions,
-   getPageSelectorOptions,
-   getDefaultPreferences
-} from '../resources/ItemTableConfig';
-import { useCollection } from '@awsui/collection-hooks';
-
 import {
-  resolveRelationshipValues,
-  capitalize
-} from '../resources/main'
+  getColumnDefinitions,
+  getContentSelectorOptions,
+  getDefaultPreferences,
+  getPageSelectorOptions
+} from '../resources/ItemTableConfig';
+import {useCollection} from '@awsui/collection-hooks';
+
+import {capitalize, resolveRelationshipValues} from '../resources/main'
 
 
 import TableHeader from './TableHeader';
+import {filterCounter, headerCounter} from "../utils/table-utils";
+import {CancelableEventHandler, ClickDetail} from '@awsui/components-react/internal/events';
+import {EntitySchema} from '../models/EntitySchema';
+import {EntityAccess, UserAccess} from "../models/UserAccess";
+import {ClickEvent} from "../models/Events";
+import {ToolsContext} from "../contexts/ToolsContext";
 
-const ItemTable = (props) => {
+
+type ItemTableParams = {
+  actionItems?: any;
+  actionsButtonDisabled?: any;
+  dataAll: any;
+  description?: any;
+  errorLoading: string;
+  handleAction?: any;
+  handleAddItem?: CancelableEventHandler<ClickDetail>;
+  handleDaysFilterChange?: (arg0: any) => void;
+  handleDeleteItem?: any;
+  handleDownloadItems?: any;
+  handleEditItem?: any;
+  handleRefreshClick?: (arg0: any) => any;
+  handleSelectionChange?: (arg0: any[]) => void;
+  isLoading?: boolean;
+  items: readonly any[];
+  provideLink?: boolean;
+  schema: EntitySchema;
+  schemaKeyAttribute: string;
+  schemaName: string;
+  selectedItems?: any[];
+  selectionType?: any;
+  userAccess?: UserAccess;
+};
+const ItemTable = ({
+                     actionItems,
+                     actionsButtonDisabled,
+                     dataAll,
+                     description,
+                     errorLoading,
+                     handleAction,
+                     handleAddItem,
+                     handleDaysFilterChange,
+                     handleDeleteItem,
+                     handleDownloadItems,
+                     handleEditItem,
+                     handleRefreshClick,
+                     handleSelectionChange,
+                     isLoading,
+                     items,
+                     provideLink,
+                     schema,
+                     schemaKeyAttribute,
+                     schemaName,
+                     selectedItems,
+                     selectionType,
+                     userAccess
+                   }: ItemTableParams) => {
+
+  const {setHelpPanelContent} = useContext(ToolsContext);
 
   const locaStorageKeys = {
-    tablePrefs: props.schemaName + "_table_prefs",
-    tableAttributes: props.schemaName + "_table_attributes"
+    tablePrefs: schemaName + "_table_prefs",
+    tableAttributes: schemaName + "_table_attributes"
   }
 
-  const [preferences, setPreferences] = useState(localStorage[locaStorageKeys.tablePrefs] ? JSON.parse(localStorage.getItem(locaStorageKeys.tablePrefs)) : getDefaultPreferences(props.schema, props.schemaKeyAttribute));
-  const [contentAttributes, ] = useState(getContentSelectorOptions(props.schema));
+  const [preferences, setPreferences] = useState(localStorage[locaStorageKeys.tablePrefs] ?
+    JSON.parse(localStorage.getItem(locaStorageKeys.tablePrefs)!) :
+    getDefaultPreferences(schema, schemaKeyAttribute));
+  const [contentAttributes,] = useState(getContentSelectorOptions(schema));
 
   React.useEffect(() => {
     localStorage.setItem(locaStorageKeys.tablePrefs, JSON.stringify(preferences));
   }, [preferences]);
 
-  const { items, actions, collectionProps, filterProps, paginationProps, filteredItemsCount } = useCollection(
-    props.items,
+  const {items: collectionItems, actions, collectionProps, filterProps, paginationProps, filteredItemsCount} = useCollection(
+    items,
     {
-      pagination: { pageSize: preferences.pageSize },
+      pagination: {pageSize: preferences.pageSize},
       sorting: {},
       filtering: {
         noMatch: (
           <Box textAlign="center" color="inherit">
             <b>No matches</b>
-            <Box color="inherit" margin={{ top: 'xxs', bottom: 's' }}>
+            <Box color="inherit" margin={{top: 'xxs', bottom: 's'}}>
               No results match your query
             </Box>
             <Button onClick={() => actions.setFiltering('')}>Clear filter</Button>
@@ -66,94 +122,80 @@ const ItemTable = (props) => {
     }
   );
 
-  // Keeps track of how many items are selected
-  function headerCounter(selectedItems, items) {
-    if(selectedItems !== undefined){
-      return selectedItems.length
-        ? `(${selectedItems.length} of ${items.length})`
-        : `(${items.length})`;
-    } else {
-      return undefined;
-    }
-  }
 
-  function filterCounter(count) {
-    return `${count} ${count === 1 ? 'match' : 'matches'}`;
-  }
-
-  async function handleRefresh(e) {
+  async function handleRefresh(e: ClickEvent) {
     e.preventDefault();
-    await props.handleRefreshClick(e);
+    if (!handleRefreshClick || !handleSelectionChange) return;
+    await handleRefreshClick(e);
     // Force update of current item to ensure latest data is available on viewer.
 
     // Search for previously selected items, and update based on refreshed data.
     let updatedItems = []
-    if (props.selectedItems.length > 0) {
-      for (const selectedItem of props.selectedItems) {
-        const findResult = items.find(item => item[props.schemaKeyAttribute] === selectedItem[props.schemaKeyAttribute])
+    if (selectedItems?.length) {
+      for (const selectedItem of selectedItems) {
+        const findResult = collectionItems.find(item => item[schemaKeyAttribute] === selectedItem[schemaKeyAttribute])
 
         if (findResult) {
           updatedItems.push(findResult);
         }
       }
-      await props.handleSelectionChange(updatedItems);
+      handleSelectionChange(updatedItems);
     }
   }
 
-  async function handleOnRowClick(detail) {
-    if (props.handleSelectionChange){
+  async function handleOnRowClick(detail: TableProps.OnRowClickDetail<any>) {
+    if (handleSelectionChange) {
       let selectedItem = []
       selectedItem.push(detail.item);
 
-      await props.handleSelectionChange(selectedItem);
+      handleSelectionChange(selectedItem);
     }
   }
 
-  function handleConfirmPreferences(detail) {
-    let lPreferences = detail;
-    let defaults = getDefaultPreferences(props.schema, props.schemaKeyAttribute);
+  function handleConfirmPreferences(detail: CollectionPreferencesProps.Preferences<any>) {
+    let lPreferences: any = detail;
+    let defaults = getDefaultPreferences(schema, schemaKeyAttribute);
 
     lPreferences.trackBy = defaults.trackBy;
 
-    if (props.handleDaysFilterChange){
-      props.handleDaysFilterChange(lPreferences.custom)
+    if (handleDaysFilterChange) {
+      handleDaysFilterChange(lPreferences.custom)
     }
 
     setPreferences(lPreferences);
   }
 
   function getEntityAccess() {
-    let disabledButtons = {}
-    if (props.userAccess) {
+    let disabledButtons: EntityAccess = {}
+    if (userAccess) {
       //access permissions provided.
-      if (props.userAccess[props.schemaName]) {
+      if (userAccess[schemaName]) {
 
-        if (props.userAccess[props.schemaName].create) {
-          if (props.userAccess[props.schemaName].create == false){
+        if (userAccess[schemaName].create) {
+          if (!userAccess[schemaName].create) {
             disabledButtons.add = true;
           }
-        } else{
+        } else {
           //user does not have this right defined, disable button.
           disabledButtons.add = true;
         }
-        if (props.userAccess[props.schemaName].update) {
-          if (props.userAccess[props.schemaName].update == false) {
+        if (userAccess[schemaName].update) {
+          if (!userAccess[schemaName].update) {
             disabledButtons.edit = true;
           }
         } else {
           //user does not have this right defined, disable button.
           disabledButtons.edit = true;
         }
-        if (props.userAccess[props.schemaName].delete) {
-          if (props.userAccess[props.schemaName].delete == false) {
+        if (userAccess[schemaName].delete) {
+          if (!userAccess[schemaName].delete) {
             disabledButtons.delete = true;
           }
-        } else{
+        } else {
           //user does not have this right defined, disable button.
           disabledButtons.delete = true;
         }
-      } else
-      {
+      } else {
         //access permissions provided but schema not present so default to no buttons enabled.
         disabledButtons.add = true;
         disabledButtons.edit = true;
@@ -164,108 +206,111 @@ const ItemTable = (props) => {
   }
 
   //If attribute passed has a help_content key then the info link will be displayed.
-  function displayHelpInfoLink(){
+  function displayHelpInfoLink() {
 
-    if (!props.setHelpPanelContent || !props.schema.help_content){
+    if (!schema.help_content) {
       //SetHelp not provided so do not display.
       return undefined;
     }
 
-    return <Link variant="info" onFollow={() => props.setHelpPanelContent(props.schema.help_content, false)}>Info</Link>
+    return <Link variant="info" onFollow={() => setHelpPanelContent(schema.help_content, false)}>Info</Link>
   }
 
-  function getSelectionType(){
+  function getSelectionType() {
 
-    if (props.selectedItems && props.selectionType){
-      return props.selectionType;
-    } else if (props.selectedItems) {
+    if (selectedItems && selectionType) {
+      return selectionType;
+    } else if (selectedItems) {
       return 'multi';
     } else {
       return undefined;
     }
   }
 
+  const onSelectionChange = handleSelectionChange ? ({detail}: any) => handleSelectionChange(detail.selectedItems) : undefined;
   return (
-      <Table
-        {...collectionProps}
-        trackBy={preferences.trackBy}
-        columnDefinitions={getColumnDefinitions(props.schemaName, props.schema, props.provideLink ? props.provideLink : false)}
-        visibleColumns={preferences.visibleContent}
-        items={resolveRelationshipValues(props.dataAll, items, props.schema)}
-        loading={!props.errorLoading ? props.isLoading : true}
-        loadingText={!props.errorLoading ? "Loading " + props.schemaName + "s" : "Error getting data from API : " + props.errorLoading}
-        resizableColumns={true}
-        stickyHeader={true}
-        empty={
-          <Box textAlign="center" color="inherit">
-            <b>No {props.schemaName + "s"}</b>
-            <Box
-              padding={{ bottom: "s" }}
-              variant="p"
-              color="inherit"
-            >
-              No {props.schemaName + "s"} to display.
-            </Box>
-            {props.handleAddItem ? <Button onClick={props.handleAddItem}>Add {props.schemaName}</Button> : undefined}
+    <Table
+      {...collectionProps}
+      trackBy={preferences.trackBy}
+      columnDefinitions={getColumnDefinitions(schemaName, schema, provideLink ? provideLink : false)}
+      visibleColumns={preferences.visibleContent}
+      items={resolveRelationshipValues(dataAll, collectionItems, schema)}
+      loading={!errorLoading ? isLoading : true}
+      loadingText={!errorLoading ? "Loading " + schemaName + "s" : "Error getting data from API : " + errorLoading}
+      resizableColumns={true}
+      stickyHeader={true}
+      empty={
+        <Box textAlign="center" color="inherit">
+          <b>No {schemaName + "s"}</b>
+          <Box
+            padding={{bottom: "s"}}
+            variant="p"
+            color="inherit"
+          >
+            No {schemaName + "s"} to display.
           </Box>
-        }
-        header={
-          <TableHeader
-            title={props.schema.friendly_name ? props.schema.friendly_name + "s" : capitalize(props.schemaName + "s")}
-            description={props.description ? props.description : undefined}
-            selectedItems={props.selectedItems ? props.selectedItems : undefined}
-            counter={headerCounter(props.selectedItems, props.items)}
-            info={displayHelpInfoLink()}
-            handleActionSelection={props.handleAction ? props.handleAction : undefined}
-            actionsButtonDisabled={props.actionsButtonDisabled}
-            actionItems={props.actionItems ? props.actionItems : []}
-            handleRefreshClick={props.handleRefreshClick ? handleRefresh : undefined}
-            handleDeleteClick={props.handleDeleteItem ? props.handleDeleteItem : undefined}
-            handleEditClick={props.handleEditItem ? props.handleEditItem : undefined}
-            handleAddClick={props.handleAddItem ? props.handleAddItem : undefined}
-            handleDownload={props.handleDownloadItems ? props.handleDownloadItems : undefined}
-            disabledButtons={getEntityAccess()}
-            />
-        }
-        preferences={
-          <CollectionPreferences
-            title="Preferences"
-            confirmLabel="Confirm"
-            cancelLabel="Cancel"
-            preferences={preferences}
-            onConfirm={({ detail }) => handleConfirmPreferences(detail)}
-            customPreference={props.handleDaysFilterChange ?
-              (customValue, setCustomValue) => (<Checkbox checked={customValue} onChange={({ detail }) => setCustomValue(detail.checked)}>Display all jobs [default is last 30 days]</Checkbox>)
-              : undefined
+          {handleAddItem ? <Button onClick={handleAddItem}>Add {schemaName}</Button> : undefined}
+        </Box>
+      }
+      header={
+        <TableHeader
+          title={schema.friendly_name ? schema.friendly_name + "s" : capitalize(schemaName + "s")}
+          description={description ? description : undefined}
+          selectedItems={selectedItems ? selectedItems : undefined}
+          counter={headerCounter(selectedItems || [], items)}
+          info={displayHelpInfoLink()}
+          handleActionSelection={handleAction ? handleAction : undefined}
+          actionsButtonDisabled={actionsButtonDisabled}
+          actionItems={actionItems ? actionItems : []}
+          handleRefreshClick={handleRefresh}
+          handleDeleteClick={handleDeleteItem ? handleDeleteItem : undefined}
+          handleEditClick={handleEditItem ? handleEditItem : undefined}
+          handleAddClick={handleAddItem ? handleAddItem : undefined}
+          handleDownload={handleDownloadItems ? handleDownloadItems : undefined}
+          disabledButtons={getEntityAccess()}
+        />
+      }
+      preferences={
+        <CollectionPreferences
+          title="Preferences"
+          confirmLabel="Confirm"
+          cancelLabel="Cancel"
+          preferences={preferences}
+          onConfirm={({detail}) => handleConfirmPreferences(detail)}
+          customPreference={handleDaysFilterChange ?
+            (customValue, setCustomValue) => (
+              <Checkbox checked={customValue} onChange={({detail}) => setCustomValue(detail.checked)}>Display all jobs
+                [default is last 30 days]</Checkbox>)
+            : undefined
           }
-            pageSizePreference={{
-              title: 'Page size',
-              options: getPageSelectorOptions(props.schemaName)
-            }}
-            visibleContentPreference={{
-              title: 'Select visible columns',
-              options: contentAttributes
-            }}
-            wrapLinesPreference={{
-              label: 'Wrap lines',
-              description: 'Check to see all the text and wrap the lines'
-            }}
-          />
-        }
-        wrapLines={preferences.wrapLines}
-        selectedItems={props.selectedItems ? props.selectedItems : []}
-        onSelectionChange={props.handleSelectionChange ? ({ detail }) => props.handleSelectionChange(detail.selectedItems) : null}
-        onRowClick={({ detail }) => handleOnRowClick(detail)}
-        selectionType={getSelectionType()} //If selectionItems not provided then selection disabled for table. Default to multi select if selectionType not provided.
-        pagination={<Pagination {...paginationProps} />}
-        filter={
-          <TextFilter
-            {...filterProps}
-            countText={filterCounter(filteredItemsCount)}
-            filteringPlaceholder={"Search " + props.schemaName + "s"}
-          />
-        }
-      />
+          pageSizePreference={{
+            title: 'Page size',
+            options: getPageSelectorOptions(schemaName)
+          }}
+          visibleContentPreference={{
+            title: 'Select visible columns',
+            options: contentAttributes as any
+          }}
+          wrapLinesPreference={{
+            label: 'Wrap lines',
+            description: 'Check to see all the text and wrap the lines'
+          }}
+        />
+      }
+      wrapLines={preferences.wrapLines}
+      selectedItems={selectedItems ? selectedItems : []}
+      onSelectionChange={onSelectionChange}
+      onRowClick={({detail}) => handleOnRowClick(detail)}
+      selectionType={getSelectionType()} //If selectionItems not provided then selection disabled for table. Default to multi select if selectionType not provided.
+      pagination={<Pagination {...paginationProps} />}
+      filter={
+        <TextFilter
+          {...filterProps}
+          countText={filterCounter(filteredItemsCount)}
+          filteringPlaceholder={"Search " + schemaName + "s"}
+        />
+      }
+    />
   );
 };
 

@@ -199,28 +199,6 @@
                 {
                     "M": {
                         "description": {
-                            "S": "CloudEndure Project Name"
-                        },
-                        "listvalue": {
-                            "S": "project1,project2"
-                        },
-                        "name": {
-                            "S": "cloudendure_projectname"
-                        },
-                        "type": {
-                            "S": "list"
-                        },
-                        "system": {
-                            "BOOL": true
-                        },
-                        "group": {
-                          "S": "Target"
-                        }
-                    }
-                },
-                {
-                    "M": {
-                        "description": {
                             "S": "AWS Account Id"
                         },
                         "listvalue": {
@@ -1164,6 +1142,28 @@
                         }
                     }
                 },
+                                {
+                     "M": {
+                         "description": {
+                             "S": "Migration Strategy"
+                         },
+                         "listvalue": {
+                             "S": "Retire,Retain,Relocate,Rehost,Repurchase,Replatform,Rearchitect,TBC"
+                         },
+                         "name": {
+                             "S": "r_type"
+                         },
+                         "type": {
+                             "S": "list"
+                         },
+                         "system": {
+                             "BOOL": true
+                         },
+                         "required": {
+                             "BOOL": false
+                         }
+                     }
+                 },
                 {
                     "M": {
                         "description": {
@@ -1888,276 +1888,6 @@
               },
               "long_desc": {
                 "S": "Access"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "schema_name": {
-        "S": "ce"
-      },
-      "schema_type": {
-        "S": "automation"
-      },
-      "friendly_name": {
-        "S": "CloudEndure"
-      },
-      "attributes": {
-        "L": [
-          {
-            "M": {
-              "system": {
-                "BOOL": true
-              },
-              "validation_regex": {
-                "S": "^(?!\\s*$).+"
-              },
-              "name": {
-                "S": "userapitoken"
-              },
-              "description": {
-                "S": "CloudEndure API Token"
-              },
-              "validation_regex_msg": {
-                "S": "CE token must be provided."
-              },
-              "type": {
-                "S": "password"
-              },
-              "required": {
-                "BOOL": true
-              },
-              "long_desc": {
-                "S": "CloudEndure API token."
-              }
-            }
-          },
-          {
-            "M": {
-              "rel_display_attribute": {
-                "S": "cloudendure_projectname"
-              },
-              "system": {
-                "BOOL": true
-              },
-              "validation_regex": {
-                "S": "^(?!\\s*$).+"
-              },
-              "rel_key": {
-                "S": "cloudendure_projectname"
-              },
-              "source_filter_attribute_name": {
-                "S": "waveid"
-              },
-              "name": {
-                "S": "projectname"
-              },
-              "description": {
-                "S": "CloudEndure project name"
-              },
-              "rel_entity": {
-                "S": "application"
-              },
-              "validation_regex_msg": {
-                "S": "CE project name must be provided."
-              },
-              "rel_filter_attribute_name": {
-                "S": "wave_id"
-              },
-              "type": {
-                "S": "relationship"
-              },
-              "required": {
-                "BOOL": true
-              }
-            }
-          },
-          {
-            "M": {
-              "rel_display_attribute": {
-                "S": "wave_name"
-              },
-              "system": {
-                "BOOL": true
-              },
-              "validation_regex": {
-                "S": "^(?!\\s*$).+"
-              },
-              "rel_key": {
-                "S": "wave_id"
-              },
-              "name": {
-                "S": "waveid"
-              },
-              "description": {
-                "S": "Wave"
-              },
-              "rel_entity": {
-                "S": "wave"
-              },
-              "validation_regex_msg": {
-                "S": "Wave must be provided."
-              },
-              "type": {
-                "S": "relationship"
-              },
-              "required": {
-                "BOOL": true
-              }
-            }
-          },
-          {
-            "M": {
-              "system": {
-                "BOOL": true
-              },
-              "validation_regex": {
-                "S": "^(?!\\s*$).+"
-              },
-              "listvalue": {
-                "S": "yes, no"
-              },
-              "name": {
-                "S": "dryrun"
-              },
-              "description": {
-                "S": "Dryrun"
-              },
-              "validation_regex_msg": {
-                "S": "You must choose if this is a dry run or not."
-              },
-              "type": {
-                "S": "list"
-              },
-              "required": {
-                "BOOL": true
-              }
-            }
-          },
-          {
-            "M": {
-              "system": {
-                "BOOL": true
-              },
-              "validation_regex": {
-                "S": "^(?!\\s*$).+"
-              },
-              "listvalue": {
-                "S": "test, cutover"
-              },
-              "name": {
-                "S": "launchtype"
-              },
-              "description": {
-                "S": "Launch type"
-              },
-              "validation_regex_msg": {
-                "S": "You must select a Launch type."
-              },
-              "type": {
-                "S": "list"
-              },
-              "required": {
-                "BOOL": true
-              }
-            }
-          },
-          {
-            "M": {
-              "name": {
-                "S": "relaunch"
-              },
-              "description": {
-                "S": "Enforce a server relaunch"
-              },
-              "system": {
-                "BOOL": true
-              },
-              "type": {
-                "S": "checkbox"
-              }
-            }
-          }
-        ]
-      },
-      "group": {
-        "S": "Rehost"
-      },
-      "description": {
-        "S": "CloudEndure server migration"
-      },
-      "actions": {
-        "L": [
-          {
-            "M": {
-              "name": {
-                "S": "Status check"
-              },
-              "apiMethod": {
-                "S": "post"
-              },
-              "id": {
-                "S": "statuscheck"
-              },
-              "awsuistyle": {
-                "S": "normal"
-              },
-              "additionalData": {
-                "M": {
-                  "statuscheck": {
-                    "S": "yes"
-                  }
-                }
-              },
-              "apiPath": {
-                "S": "/cloudendure"
-              }
-            }
-          },
-          {
-            "M": {
-              "name": {
-                "S": "Remove servers from CE"
-              },
-              "apiMethod": {
-                "S": "post"
-              },
-              "id": {
-                "S": "cleanup"
-              },
-              "awsuistyle": {
-                "S": "normal"
-              },
-              "additionalData": {
-                "M": {
-                  "cleanup": {
-                    "S": "yes"
-                  }
-                }
-              },
-              "apiPath": {
-                "S": "/cloudendure"
-              }
-            }
-          },
-          {
-            "M": {
-              "name": {
-                "S": "Launch"
-              },
-              "apiMethod": {
-                "S": "post"
-              },
-              "id": {
-                "S": "launch"
-              },
-              "awsuistyle": {
-                "S": "primary"
-              },
-              "apiPath": {
-                "S": "/cloudendure"
               }
             }
           }

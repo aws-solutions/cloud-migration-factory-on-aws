@@ -23,6 +23,7 @@ pip3 install --quiet -U pip
 echo "  ---- Installing dependency"
 source_code="$PWD"
 pip install -r ./source/integrations/integration_unit_tests/requirements.txt
+pip install -r ./source/integrations/integration_unit_tests/requirements_dev.txt
 echo "  ---- Changing working directory to the test directory"
 cd source/integrations/integration_unit_tests/
 echo "Updating source path $source_code"
@@ -36,13 +37,18 @@ else
 fi
 
 echo "  ---- Running tests..."
-coverage run --data-file=./coverage/.coverage -m unittest discover
+coverage run -m unittest discover -p "test_*.py"
 echo "  ---- Please make sure all the test cases above pass"
 echo
 echo
+echo "  ---- Waiting for 1 minutes for coverage journaling to complete."
+sleep 60
+echo
+echo "  ---- Combining coverage file for multiprocessing..."
+coverage combine
 echo "  ---- Unit test Coverage report"
-coverage report --data-file=./coverage/.coverage
-coverage xml --data-file=./coverage/.coverage -o./coverage/coverage.xml
+coverage report
+coverage xml -o./coverage/coverage.xml
 deactivate
 echo "Removing source path $source_code"
 replace="s#$source_code#%%SOURCE_PATH%%#g"

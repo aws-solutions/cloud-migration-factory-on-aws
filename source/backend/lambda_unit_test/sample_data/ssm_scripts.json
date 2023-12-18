@@ -1,0 +1,237 @@
+[
+  {
+    "package_uuid": {
+      "S": "9bd96f83-8510-44a9-be5e-d34f20982143"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "description": {
+              "S": "Argument 1"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "long_desc": {
+              "S": "Argument 1 long description."
+            },
+            "name": {
+              "S": "argument1"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        }
+      ]
+    },
+    "script_dependencies": {
+      "NULL": true
+    },
+    "script_description": {
+      "S": "This is a test script."
+    },
+    "script_group": {
+      "S": "Test"
+    },
+    "script_masterfile": {
+      "S": "test-masterfile.py"
+    },
+    "script_name": {
+      "S": "test"
+    },
+    "script_update_url": {
+      "NULL": true
+    },
+    "version_id": {
+      "S": "YWOD5U3Wn4XO4e8ApSSetwmtq0I_4maw"
+    },
+    "_history": {
+      "M": {
+        "createdBy": {
+          "M": {
+            "email": {
+              "S": "someone@example.com"
+            },
+            "userRef": {
+              "S": "someone"
+            }
+          }
+        },
+        "createdTimestamp": {
+          "S": "2023-05-26T07:50:06.396959"
+        },
+        "lastModifiedBy": {
+          "M": {
+            "email": {
+              "S": "someone@example.com"
+            },
+            "userRef": {
+              "S": "someone"
+            }
+          }
+        },
+        "lastModifiedTimestamp": {
+          "S": "2023-05-26T08:01:35.441261"
+        }
+      }
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "9bd96f83-8510-44a9-be5e-d34f20982143"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "description": {
+              "S": "Argument 1 updated to version 1"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "long_desc": {
+              "S": "Argument 1 long description."
+            },
+            "name": {
+              "S": "argument1"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        }
+      ]
+    },
+    "script_dependencies": {
+      "NULL": true
+    },
+    "script_description": {
+      "S": "This is a test script version 1."
+    },
+    "script_group": {
+      "S": "Cutover"
+    },
+    "script_masterfile": {
+      "S": "test-masterfile.py"
+    },
+    "script_name": {
+      "S": "test"
+    },
+    "script_update_url": {
+      "NULL": true
+    },
+    "version_id": {
+      "S": "YWOD5U3Wn4XO4e8ApSSetwmtq0I_4maw"
+    },
+    "_history": {
+      "M": {
+        "createdBy": {
+          "M": {
+            "email": {
+              "S": "someone@example.com"
+            },
+            "userRef": {
+              "S": "someone"
+            }
+          }
+        },
+        "createdTimestamp": {
+          "S": "2023-05-26T07:50:06.396959"
+        }
+      }
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "11196f83-8510-44a9-be5e-d34f20982143"
+    },
+    "version": {
+      "N": "0"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "description": {
+              "S": "Argument 1 of package 2"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "long_desc": {
+              "S": "Argument 1 long description."
+            },
+            "name": {
+              "S": "argument1"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        }
+      ]
+    },
+    "script_dependencies": {
+      "NULL": true
+    },
+    "script_description": {
+      "S": "This is a test script."
+    },
+    "script_group": {
+      "S": "Cutover"
+    },
+    "script_masterfile": {
+      "S": "test-masterfile.py"
+    },
+    "script_name": {
+      "S": "test"
+    },
+    "script_update_url": {
+      "NULL": true
+    },
+    "version_id": {
+      "S": "YWOD5U3Wn4XO4e8ApSSetwmtq0I_4maw"
+    },
+    "_history": {
+      "M": {
+        "createdBy": {
+          "M": {
+            "email": {
+              "S": "someone@example.com"
+            },
+            "userRef": {
+              "S": "someone"
+            }
+          }
+        },
+        "createdTimestamp": {
+          "S": "2023-05-26T07:50:06.396959"
+        }
+      }
+    }
+  }
+]

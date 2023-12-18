@@ -7,6 +7,7 @@ import sys
 import unittest
 from unittest import mock
 from unittest.mock import patch, ANY
+import json
 
 import boto3
 from moto import mock_dynamodb
@@ -56,6 +57,15 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         self.table_role = os.getenv('RoleDynamoDBTable')
         self.table_schema = os.getenv('SchemaDynamoDBTable')
         self.table_policy = os.getenv('PolicyDynamoDBTable')
+
+        dir_lambda_defaultschema = [d for d in sys.path if d.endswith('lambda_defaultschema')][0]
+        with open(dir_lambda_defaultschema + '/default_schema.json') as json_schema_file:
+            self.json_schema = json.load(json_schema_file)
+        with open(dir_lambda_defaultschema + '/default_policies.json') as json_policies_file:
+            self.json_policies = json.load(json_policies_file)
+        with open(dir_lambda_defaultschema + '/default_roles.json') as json_roles:
+            self.json_roles = json.load(json_roles)
+
         # create the dynamodb tables
         self.ddb_client = boto3.client('dynamodb')
         self.ddb_client.create_table(
@@ -138,15 +148,15 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         roles = []
         for page in paginator.paginate(TableName=self.table_role):
             roles.extend(page['Items'])
-        self.assertEqual(2, len(roles))
+        self.assertEqual(len(self.json_roles), len(roles))
         schemas = []
         for page in paginator.paginate(TableName=self.table_schema):
             schemas.extend(page['Items'])
-        self.assertEqual(14, len(schemas))
+        self.assertEqual(len(self.json_schema), len(schemas))
         policies = []
         for page in paginator.paginate(TableName=self.table_policy):
             policies.extend(page['Items'])
-        self.assertEqual(2, len(policies))
+        self.assertEqual(len(self.json_policies), len(policies))
 
     def assert_table_contents_empty(self):
         paginator = self.ddb_client.get_paginator('scan')

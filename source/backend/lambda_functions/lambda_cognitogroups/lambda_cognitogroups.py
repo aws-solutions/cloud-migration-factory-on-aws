@@ -3,20 +3,11 @@
 
 
 import json
-import logging
-
-import boto3
 import os
 
-
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
+import cmf_boto
+from cmf_logger import logger
+from cmf_utils import cors
 
 default_http_headers = {
     'Access-Control-Allow-Origin': cors,
@@ -27,7 +18,7 @@ default_http_headers = {
 
 def lambda_handler(event, context):
     logger.debug(f'event: {event}, context: {context}')
-    client = boto3.client('cognito-idp')
+    client = cmf_boto.client('cognito-idp')
     response = client.list_groups(
         UserPoolId=os.environ['userpool_id']
     )

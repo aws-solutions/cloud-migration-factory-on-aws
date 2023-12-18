@@ -1,23 +1,25 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import {
-  requestStarted,
-  requestSuccessful,
+  PermissionsReducerState,
+  reducer,
   requestFailed,
-  reducer } from '../resources/permissionsReducer';
+  requestStarted,
+  requestSuccessful
+} from '../resources/permissionsReducer';
 
-import { useReducer, useEffect } from 'react';
+import {useEffect, useReducer} from 'react';
+import AdminApiClient from "../api_clients/adminApiClient";
+import LoginApiClient from "../api_clients/loginApiClient";
 
-import { Auth } from "@aws-amplify/auth";
-import Admin from "./admin";
-import Login from "./login";
+export type PermissionsModel = { roles: any[]; policies: any[]; groups: any[]; users: any[] };
 
-export const useAdminPermissions = () => {
-  const emptyPermissions = {
+export const useAdminPermissions: () => [PermissionsReducerState, { update: () => Promise<unknown> }] = () => {
+
+  const emptyPermissions: PermissionsModel = {
     policies: [],
     roles: [],
     groups: [],
@@ -32,58 +34,45 @@ export const useAdminPermissions = () => {
 
   async function update() {
     const myAbortController = new AbortController();
-
-    let permissions = {};
-
-    let session = null;
-
-    try {
-      session = await Auth.currentSession();
-    }
-    catch(e) {
-      if (session !== null) {
-        console.error('Admin Permissions Hook', e);
-        return;
-      }
-    }
+    const permissions = {...emptyPermissions};
 
     dispatch(requestStarted());
 
     try {
-      let apiAdmin = await new Admin(session);
+      let apiAdmin = new AdminApiClient();
 
-      permissions.roles = await apiAdmin.getRoles({ signal: myAbortController.signal });
-      permissions.policies = await apiAdmin.getPolicies({ signal: myAbortController.signal });
-      permissions.users = await apiAdmin.getUsers({ signal: myAbortController.signal });
+      permissions.roles = await apiAdmin.getRoles();
+      permissions.policies = await apiAdmin.getPolicies();
+      permissions.users = await apiAdmin.getUsers();
 
-    } catch (e) {
+    } catch (e: any) {
       if (e.message !== 'Request aborted') {
         console.error('Admin Permissions Hook', e);
       }
-      dispatch(requestFailed({data: emptyPermissions, error: e}));
-
+      dispatch(requestFailed({error: e}));
     }
 
-    try{
+    try {
+      let apiLogin = new LoginApiClient();
+      const response = await apiLogin.getGroups();
+      permissions.groups = response.map((group: any) => {
+        return {group_name: group}
+      });
 
-      let apiLogin = await new Login(session);
-      const response = await apiLogin.getGroups({ signal: myAbortController.signal });
-      permissions.groups = response.map(group => {return {group_name: group}});
+      dispatch(requestSuccessful({data: permissions}));
 
-      dispatch(requestSuccessful({ data : permissions}));
-
-    } catch (e) {
+    } catch (e: any) {
       if (e.message !== 'Request aborted') {
         console.error('Admin Permissions Hook', e);
       }
-      dispatch(requestFailed({data: emptyPermissions, error: e}));
+      dispatch(requestFailed({error: e}));
     }
 
     return () => {
       myAbortController.abort();
     };
 
-  };
+  }
 
   useEffect(() => {
     let cancelledRequest;
@@ -97,7 +86,7 @@ export const useAdminPermissions = () => {
       cancelledRequest = true;
     };
 
-  },[]);
+  }, []);
 
-  return [state , { update }];
+  return [state, {update}];
 };

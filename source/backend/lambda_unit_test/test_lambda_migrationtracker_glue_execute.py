@@ -1,6 +1,6 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
-
+import os
 from unittest import mock
 from unittest.mock import patch, ANY
 
@@ -12,6 +12,8 @@ from test_lambda_migrationtracker_glue_base import mock_os_environ, StringContai
     RequestsResponse, LambdaMigrationTrackerGlueBaseTest
 
 
+SIMULATED_EXCEPTION_STRING = 'Simulated Exception'
+
 @mock.patch.dict('os.environ', mock_os_environ)
 @mock_glue
 class LambdaMigrationTrackerGlueTest(LambdaMigrationTrackerGlueBaseTest):
@@ -21,36 +23,24 @@ class LambdaMigrationTrackerGlueTest(LambdaMigrationTrackerGlueBaseTest):
         super().setUp()
         import lambda_migrationtracker_glue_execute
         self.glue_client = boto3.client('glue')
-        self.glue_client.create_crawler(Name=lambda_migrationtracker_glue_execute.glue_app_crawler_name,
+        for schema in lambda_migrationtracker_glue_execute.SCHEMAS:
+            self.glue_client.create_crawler(Name=f"{os.environ['application']}-{os.environ['environment']}-{schema}-crawler",
+                                            Role='RoleABC',
+                                            Targets={
+                                                'DynamoDBTargets': [
+                                                    {
+                                                        'Path': 'MyDatabase',
+                                                    },
+                                                ]
+                                            })
+
+        for schema in lambda_migrationtracker_glue_execute.SCHEMAS:
+            self.glue_client.create_job(Name=f"{os.environ['application']}-{os.environ['environment']}-{schema}-extract",
                                         Role='RoleABC',
-                                        Targets={
-                                            'DynamoDBTargets': [
-                                                {
-                                                    'Path': 'MyDatabase',
-                                                },
-                                            ]
+                                        Command={
+                                            'Name': 'MyCommand',
+                                            'ScriptLocation': 'MyS3location'
                                         })
-        self.glue_client.create_crawler(Name=lambda_migrationtracker_glue_execute.glue_server_crawler_name,
-                                        Role='RoleABC',
-                                        Targets={
-                                            'DynamoDBTargets': [
-                                                {
-                                                    'Path': 'MyDatabase',
-                                                },
-                                            ]
-                                        })
-        self.glue_client.create_job(Name=lambda_migrationtracker_glue_execute.glue_app_job_name,
-                                    Role='RoleABC',
-                                    Command={
-                                        'Name': 'MyCommand',
-                                        'ScriptLocation': 'MyS3location'
-                                    })
-        self.glue_client.create_job(Name=lambda_migrationtracker_glue_execute.glue_server_job_name,
-                                    Role='RoleABC',
-                                    Command={
-                                        'Name': 'MyCommand',
-                                        'ScriptLocation': 'MyS3location'
-                                    })
 
     def assert_lambda_handler_create_success(self, lambda_event, mock_requests):
         import lambda_migrationtracker_glue_execute
@@ -117,7 +107,7 @@ class LambdaMigrationTrackerGlueTest(LambdaMigrationTrackerGlueBaseTest):
     @patch('lambda_migrationtracker_glue_execute.requests')
     def test_lambda_handler_create_swallowed_exception(self, mock_requests, mock_time):
         import lambda_migrationtracker_glue_execute
-        mock_requests.put.side_effect = Exception('Simulated Exception')
+        mock_requests.put.side_effect = Exception(SIMULATED_EXCEPTION_STRING)
         response = lambda_migrationtracker_glue_execute.lambda_handler(self.event_create, self.lamda_context)
         self.assert_requests_called_with_success_part_match(mock_requests)
         self.assert_response(response)
@@ -127,7 +117,7 @@ class LambdaMigrationTrackerGlueTest(LambdaMigrationTrackerGlueBaseTest):
     @patch('lambda_migrationtracker_glue_execute.run_glue_crawler_job')
     def test_lambda_handler_exception(self, mock_run_glue_crawler_job, mock_requests):
         import lambda_migrationtracker_glue_execute
-        mock_run_glue_crawler_job.side_effect = Exception('Simulated Exception')
+        mock_run_glue_crawler_job.side_effect = Exception(SIMULATED_EXCEPTION_STRING)
         mock_requests.put.return_value = RequestsResponse('OK')
         response = lambda_migrationtracker_glue_execute.lambda_handler(self.event_create, self.lamda_context)
         self.assert_requests_called_with_failure(mock_requests, 'Exception: Simulated Exception')
@@ -137,7 +127,7 @@ class LambdaMigrationTrackerGlueTest(LambdaMigrationTrackerGlueBaseTest):
     @patch('lambda_migrationtracker_glue_execute.run_glue_crawler_job')
     def test_lambda_handler_exception_with_physical_resource_id(self, mock_run_glue_crawler_job, mock_requests):
         import lambda_migrationtracker_glue_execute
-        mock_run_glue_crawler_job.side_effect = Exception('Simulated Exception')
+        mock_run_glue_crawler_job.side_effect = Exception(SIMULATED_EXCEPTION_STRING)
         mock_requests.put.return_value = RequestsResponse('OK')
         self.event_create['PhysicalResourceId'] = self.event_create['LogicalResourceId']
         response = lambda_migrationtracker_glue_execute.lambda_handler(self.event_create, self.lamda_context)

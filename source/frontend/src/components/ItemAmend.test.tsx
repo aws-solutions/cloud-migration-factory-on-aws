@@ -1,17 +1,15 @@
-// @ts-nocheck
-
-
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// ItemAmend.test
-import {cleanup, screen, render, fireEvent} from '@testing-library/react';
+import {cleanup, fireEvent, render, screen} from '@testing-library/react';
 import ItemAmend from "./ItemAmend";
 import React from "react";
+import {mockNotificationContext} from "../__tests__/TestUtils";
+import {NotificationContext} from '../contexts/NotificationContext';
 
-let props = {};
+let props: any = {};
 props.schema = {};
 props.schema['server'] = {
   "schema_type": "user",
@@ -575,37 +573,35 @@ let schemaName = 'server';
 
 afterEach(cleanup);
 
-let testItem = {}
+let testItem: any = {}
 let cancelled = false;
 
-async function stub(){
+async function stub() {
 
 }
 
-async function stubSave(localItem, action){
-  console.debug(localItem);
-  console.debug(action);
-
-  testItem= {testItem, ...localItem};
+async function stubSave(localItem: any, _: string) {
+  testItem = {testItem, ...localItem};
 }
 
-async function stubCancel(){
+async function stubCancel() {
   cancelled = true;
 }
 
-const setup = (inputAriaText) => {
-  const comp =  render(
-    <ItemAmend
-      action={'Add'}
-      schemaName={schemaName}
-      schemas={props.schema}
-      userAccess={props.userEntityAccess}
-      item={testItem}
-      handleSave={stubSave}
-      handleCancel={stubCancel}
-      updateNotification={stub}
-      setHelpPanelContent={props.setHelpPanelContent}/>)
-  const input = screen.getByLabelText(inputAriaText)
+const setup = (inputAriaText: string) => {
+  const comp = render(
+    <NotificationContext.Provider value={mockNotificationContext}>
+      <ItemAmend
+        action={'Add'}
+        schemaName={schemaName}
+        schemas={props.schema}
+        userAccess={props.userEntityAccess}
+        item={testItem}
+        handleSave={stubSave}
+        handleCancel={stubCancel}/>
+    </NotificationContext.Provider>)
+
+  const input = screen.getByLabelText(inputAriaText) as HTMLInputElement
   return {
     ...comp,
     input
@@ -613,25 +609,23 @@ const setup = (inputAriaText) => {
 }
 
 const setupTag = () => {
-  const comp =  render(
-    <ItemAmend
-      action={'Add'}
-      schemaName={schemaName}
-      schemas={props.schema}
-      userAccess={props.userEntityAccess}
-      item={testItem}
-      handleSave={stubSave}
-      handleCancel={stubCancel}
-      updateNotification={stub}
-      setHelpPanelContent={props.setHelpPanelContent}/>)
+  const comp = render(
+    <NotificationContext.Provider value={mockNotificationContext}>
+      <ItemAmend
+        action={'Add'}
+        schemaName={schemaName}
+        schemas={props.schema}
+        userAccess={props.userEntityAccess}
+        item={testItem}
+        handleSave={stubSave}
+        handleCancel={stubCancel}/>
+    </NotificationContext.Provider>)
   const input = screen.getByText('Add new tag')
   return {
     ...comp,
     input
   }
 }
-
-
 
 
 test('ItemAmend displays the generic items amend component and populates with some dummy server data', () => {
@@ -653,13 +647,13 @@ test('Click save', () => {
   const saveButton = screen.getByLabelText('save')
   console.debug(saveButton);
   fireEvent.click(saveButton)
-  expect(testItem['server_name']==='newvalue').toBeTruthy();
+  expect(testItem['server_name'] === 'newvalue').toBeTruthy();
 });
 
 test('Update tag to verify array update code', () => {
   const {input} = setupTag()
   fireEvent.click(input)
-  const tagKeyInput = screen.getByPlaceholderText('Enter key')
+  const tagKeyInput = screen.getByPlaceholderText('Enter key') as HTMLInputElement;
 
   fireEvent.change(tagKeyInput, {target: {value: 'newvalue'}})
   expect(tagKeyInput.value).toBe('newvalue')

@@ -1,0 +1,36 @@
+  # Node - Logs
+*.log
+npm-debug.log*
+
+# Node - Dependencies
+node_modules
+
+# Temporary folder
+/tmp
+
+# OS - OSX
+.DS_Store
+
+# OS - Windows
+Thumbs.db
+ehthumbs.db
+
+# OS - Linux (KDE directory preferences)
+.directory
+# Webstorm IDE files
+.idea
+/source/frontend/test-report.xml
+
+# Frontend configuration file for local development
+/source/frontend/public/env_dev.js
+
+# Local build output
+/deployment/global-s3-assets/*
+/deployment/regional-s3-assets/*
+/source/backend/lambda_layers/lambda_layer_py_pkgs/.build
+
+#SonarQube
+.scannerwork/
+
+# Testing environment
+testing-venv

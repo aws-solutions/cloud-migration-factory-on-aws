@@ -2,15 +2,14 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 
-import boto3
 import json
-import logging
 import os
 
 import requests
 
-log = logging.getLogger()
-log.setLevel(logging.INFO)
+import cmf_boto
+from cmf_logger import logger
+
 
 ROLE_TABLE = os.getenv('RoleDynamoDBTable')
 SCHEMA_TABLE = os.getenv('SchemaDynamoDBTable')
@@ -30,7 +29,7 @@ with open('default_roles.json') as json_roles_file:
 
 
 def load_schema():
-    client = boto3.client('dynamodb')
+    client = cmf_boto.client('dynamodb')
 
     for item in default_schema:
         client.put_item(
@@ -53,33 +52,33 @@ def load_schema():
 
 def lambda_handler(event, context):
     try:
-        log.info('Event:\n {}'.format(event))
-        log.info('Context:\n {}'.format(context))
+        logger.info('Event:\n {}'.format(event))
+        logger.info('Context:\n {}'.format(context))
 
         if event['RequestType'] == 'Create':
-            log.info('Create action')
+            logger.info('Create action')
             load_schema()
             status = 'SUCCESS'
             message = 'Default schema loaded successfully'
 
         elif event['RequestType'] == 'Update':
-            log.info('Update action')
+            logger.info('Update action')
             status = 'SUCCESS'
             message = 'No update required'
 
         elif event['RequestType'] == 'Delete':
-            log.info('Delete action')
+            logger.info('Delete action')
             status = 'SUCCESS'
             message = 'No deletion required'
 
         else:
-            log.info('SUCCESS!')
+            logger.info('SUCCESS!')
             status = 'SUCCESS'
             message = 'Unexpected event received from CloudFormation'
 
     except Exception as e:
-        log.info('FAILED!')
-        log.info(e)
+        logger.info('FAILED!')
+        logger.info(e)
         status = 'FAILED'
         message = 'Exception during processing'
 
@@ -104,7 +103,7 @@ def respond(event, context, response_status, response_data):
 
     # Convert json object to string and log it
     json_response_body = json.dumps(response_body)
-    log.info('Response body: {}'.format(str(json_response_body)))
+    logger.info('Response body: {}'.format(str(json_response_body)))
 
     # Set response URL
     response_url = event['ResponseURL']
@@ -121,9 +120,9 @@ def respond(event, context, response_status, response_data):
                                 data=json_response_body,
                                 headers=headers,
                                 timeout=30)
-        log.info('Status code: {}'.format(str(response.reason)))
+        logger.info('Status code: {}'.format(str(response.reason)))
         return 'SUCCESS'
 
     except Exception as e:
-        log.error('Failed to put message: {}'.format(str(e)))
+        logger.error('Failed to put message: {}'.format(str(e)))
         return 'FAILED'

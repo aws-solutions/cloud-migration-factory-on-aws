@@ -1,46 +1,59 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import {useState} from 'react';
 
 import {
   Box,
   Button,
   CollectionPreferences,
+  CollectionPreferencesProps,
   Pagination,
-  TextFilter,
-  Table
+  Table,
+  TableProps,
+  TextFilter
 } from '@awsui/components-react';
 
- import {
-   PAGE_SELECTOR_OPTIONS,
-   DEFAULT_PREFERENCES,
-   getColumnDefinitions,
-   getContentSelectorOptions
+import {
+  DEFAULT_PREFERENCES,
+  getColumnDefinitions,
+  getContentSelectorOptions,
+  PAGE_SELECTOR_OPTIONS
 } from '../resources/schemaattr-table-config';
 
-import { useCollection } from '@awsui/collection-hooks';
+import {useCollection} from '@awsui/collection-hooks';
 
 import TableHeader from './TableHeader';
+import {filterCounter, headerCounter} from "../utils/table-utils";
 
-const SchemaAttributesTable = (props) => {
+type SchemaAttributesTableParams = {
+  items: unknown[];
+  handleSelectionChange?: (selectedItems: any[]) => void;
+  isLoading: boolean | undefined;
+  error: string | undefined;
+  selectedItems: any[];
+  handleDeleteItem: any;
+  handleEditItem: any;
+  handleAddItem: any;
+};
+const SchemaAttributesTable = (props: SchemaAttributesTableParams) => {
 
-  const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
-  const [contentAttributes, ] = useState(getContentSelectorOptions());
+  const [preferences, setPreferences] =
+    useState<CollectionPreferencesProps.Preferences>(DEFAULT_PREFERENCES);
+  const [contentAttributes,] = useState(getContentSelectorOptions());
 
-    const { items, actions, collectionProps, filterProps, paginationProps, filteredItemsCount } = useCollection(
+  const {items, actions, collectionProps, filterProps, paginationProps, filteredItemsCount} = useCollection(
     props.items,
     {
-      pagination: { pageSize: preferences.pageSize },
+      pagination: {pageSize: preferences.pageSize},
       sorting: {},
       filtering: {
         noMatch: (
           <Box textAlign="center" color="inherit">
             <b>No matches</b>
-            <Box color="inherit" margin={{ top: 'xxs', bottom: 's' }}>
+            <Box color="inherit" margin={{top: 'xxs', bottom: 's'}}>
               No results match your query
             </Box>
             <Button onClick={() => actions.setFiltering('')}>Clear filter</Button>
@@ -50,45 +63,32 @@ const SchemaAttributesTable = (props) => {
     }
   );
 
-  // Keeps track of how many applications are selected
-  function headerCounter(selectedApps, applications) {
-    return selectedApps.length
-      ? `(${selectedApps.length} of ${applications.length})`
-      : `(${applications.length})`;
-  }
+  async function handleOnRowClick(detail: TableProps.OnRowClickDetail<any>) {
 
-  function filterCounter(count) {
-    return `${count} ${count === 1 ? 'match' : 'matches'}`;
-  }
-
-  //moved up to handler
-  // function handleSelectionChange(detail) {
-  //   detail.preventDefault();
-  //   props.handleSelectionChange(detail.selectedItems);
-  // }
-
-  async function handleOnRowClick(detail) {
-
-    if (props.handleSelectionChange){
+    if (props.handleSelectionChange) {
       let selectedItem = []
       selectedItem.push(detail.item);
 
-      await props.handleSelectionChange(selectedItem);
+      props.handleSelectionChange(selectedItem);
     }
   }
 
-  function handleConfirmPreferences(detail) {
-    let lPreferences = detail;
+  const header = <TableHeader
+    title='Attributes'
+    selectedItems={props.selectedItems ? props.selectedItems : undefined}
+    counter={props.selectedItems ? headerCounter(props.selectedItems, items) : undefined}
+    handleDeleteClick={props.handleDeleteItem ? props.handleDeleteItem : undefined}
+    handleEditClick={props.handleEditItem ? props.handleEditItem : undefined}
+    handleAddClick={props.handleAddItem ? props.handleAddItem : undefined} description={undefined}
+    handleRefreshClick={undefined} handleActionSelection={undefined} actionItems={undefined} handleDownload={undefined}
+    actionsButtonDisabled={undefined} disabledButtons={undefined} info={undefined}/>;
 
-    lPreferences.trackBy = DEFAULT_PREFERENCES.trackBy;
-
-    setPreferences(lPreferences);
-  }
+  const handleSelectionChange = props.handleSelectionChange;
 
   return (
       <Table
         {...collectionProps}
-        trackBy={preferences.trackBy}
+        trackBy={'name'}
         columnDefinitions={getColumnDefinitions()}
         visibleColumns={preferences.visibleContent}
         items={items}
@@ -96,23 +96,14 @@ const SchemaAttributesTable = (props) => {
         loadingText={props.error === undefined ? "Loading attributes" : "Error getting data from API"}
         resizableColumns
         stickyHeader={true}
-        header={
-          <TableHeader
-            title='Attributes'
-            selectedItems={props.selectedItems ? props.selectedItems : undefined}
-            counter={props.selectedItems ? headerCounter(props.selectedItems, items) : undefined}
-            handleDeleteClick={props.handleDeleteItem ? props.handleDeleteItem : undefined}
-            handleEditClick={props.handleEditItem ? props.handleEditItem : undefined}
-            handleAddClick={props.handleAddItem ? props.handleAddItem : undefined}
-          />
-        }
+        header={header}
         preferences={
           <CollectionPreferences
             title="Preferences"
             confirmLabel="Confirm"
             cancelLabel="Cancel"
             preferences={preferences}
-            onConfirm={({ detail }) => handleConfirmPreferences(detail)}
+            onConfirm={({detail}) => setPreferences(detail)}
             pageSizePreference={{
               title: 'Page size',
               options: PAGE_SELECTOR_OPTIONS
@@ -129,7 +120,7 @@ const SchemaAttributesTable = (props) => {
         }
         wrapLines={preferences.wrapLines}
         selectedItems={props.selectedItems ? props.selectedItems : []}
-        onSelectionChange={props.handleSelectionChange ? ({ detail }) => props.handleSelectionChange(detail.selectedItems) : null}
+        onSelectionChange={handleSelectionChange ? ({detail}) => handleSelectionChange(detail.selectedItems) : undefined}
         onRowClick={({ detail }) => handleOnRowClick(detail)}
         selectionType={props.handleSelectionChange ? 'single' : undefined}
         pagination={<Pagination {...paginationProps} />}

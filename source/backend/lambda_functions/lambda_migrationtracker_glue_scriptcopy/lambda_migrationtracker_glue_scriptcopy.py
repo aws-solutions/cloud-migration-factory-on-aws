@@ -4,20 +4,19 @@
 
 import json
 import boto3
-import logging
 import os
-import datetime
-import time
 import requests
 
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger()
+import cmf_boto
+from cmf_logger import logger
 
 application = os.environ['application']
 environment = os.environ['environment']
 local_bucket = os.environ['local_bucket']
 remote_bucket = os.environ['remote_bucket']
 key_prefix = os.environ['key_prefix']
+
+GLUE_JOBS = ["Server", "App", "Wave", "Database"]
 
 
 def lambda_handler(event, context):
@@ -26,9 +25,9 @@ def lambda_handler(event, context):
 
     Returns: HTTP PUT request to s3-presigned URL
     """
-    log.info('Function Starting')
-    log.info(f'Incoming Event:\n{json.dumps(event,indent=2)}')
-    log.info(f'Context Object:\n{vars(context)}')
+    logger.info('Function Starting')
+    logger.info(f'Incoming Event:\n{json.dumps(event,indent=2)}')
+    logger.info(f'Context Object:\n{vars(context)}')
     try:
         if (event['RequestType'] == 'Create') or (event['RequestType'] == 'Update'):
             response_data = copy_glue_script_to_local()
@@ -41,14 +40,14 @@ def lambda_handler(event, context):
             response_data = None
 
         else:
-            log.info('SUCCESS!')
+            logger.info('SUCCESS!')
             response_status = 'SUCCESS'
             response_reason = 'Unknown request type'
             response_data = None
 
     except Exception as E:
         response_reason = f'Exception: {str(E)}'
-        log.exception(response_reason)
+        logger.exception(response_reason)
         response_status = 'FAILED'
         response_data = None
 
@@ -59,37 +58,32 @@ def lambda_handler(event, context):
 
 
 def copy_glue_script_to_local():
-    """Copy Glue script from remote bucket to local S3"""
+    """Copy Glue scripts from remote bucket to local S3"""
 
-    s3 = boto3.resource('s3')
-    app_key = key_prefix + "/Migration_Tracker_App_Extract_Script.py"
-    server_key = key_prefix + "/Migration_Tracker_Server_Extract_Script.py"
-    copy_source = {
-        'Bucket': remote_bucket,
-        'Key': app_key
-    }
-    print("This is local bucket: " + local_bucket + " This is remote bucket: " +
-          remote_bucket + " and this is the copy source")
-    response = s3.meta.client.copy(copy_source, local_bucket,
-                                   'GlueScript/Migration_Tracker_App_Extract_Script.py')
-    print("**** App Script Copy ****")
-    print(response)
-    copy_source = {
-        'Bucket': remote_bucket,
-        'Key': server_key
-    }
-    response = s3.meta.client.copy(copy_source, local_bucket,
-                                   'GlueScript/Migration_Tracker_Server_Extract_Script.py')
-    print("**** Server Script Copy ****")
-    print(response)
+    s3 = cmf_boto.resource('s3')
+
+    response = None
+    for job in GLUE_JOBS:
+        key = f"{key_prefix}/Migration_Tracker_{job}_Extract_Script.py"
+        copy_source = {
+            'Bucket': remote_bucket,
+            'Key': key
+        }
+        print("This is local bucket: " + local_bucket + " This is remote bucket: " +
+              remote_bucket + " and this is the copy source")
+        response = s3.meta.client.copy(copy_source, local_bucket,
+                                       f"GlueScript/Migration_Tracker_{job}_Extract_Script.py")
+        print(f"{job} Script Copy complete")
+        print(response)
+
     return response
 
 
 def send_response(event, context, response_status, response_reason, response_data):
     """Send response to CloudFormation via S3 presigned URL."""
-    log.info('Sending response to CloudFormation')
+    logger.info('Sending response to CloudFormation')
     response_url = event['ResponseURL']
-    log.info(f'Response URL: {response_url}')
+    logger.info(f'Response URL: {response_url}')
 
     response_body = {'Status': response_status,
                      'PhysicalResourceId': context.aws_request_id,
@@ -104,7 +98,7 @@ def send_response(event, context, response_status, response_reason, response_dat
 
     json_response_body = json.dumps(response_body)
 
-    log.info("Response body:\n" + json_response_body)
+    logger.info("Response body:\n" + json_response_body)
 
     headers = {
         'content-type': '',
@@ -116,6 +110,6 @@ def send_response(event, context, response_status, response_reason, response_dat
                                 data=json_response_body,
                                 headers=headers,
                                 timeout=5)
-        log.info(f'HTTP PUT Response status code: {response.reason}')
+        logger.info(f'HTTP PUT Response status code: {response.reason}')
     except Exception as E:
-        log.error(f'CloudFormation Response API call failed:\n{E}')
+        logger.error(f'CloudFormation Response API call failed:\n{E}')

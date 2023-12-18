@@ -5,14 +5,7 @@
  */
 
 import React from 'react';
-import {
-  Tabs,
-  SpaceBetween,
-  ColumnLayout,
-  Container,
-  Header,
-  Textarea
- } from '@awsui/components-react';
+import {ColumnLayout, Container, Header, SpaceBetween, Tabs, Textarea} from '@awsui/components-react';
 
 import AllViewerAttributes from '../components/ui_attributes/AllViewerAttributes'
 import Audit from "./ui_attributes/Audit";

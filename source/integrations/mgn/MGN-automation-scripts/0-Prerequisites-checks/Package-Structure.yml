@@ -54,3 +54,8 @@ Arguments:
     type: "standard"
     required: false
     group_order: "6"
+  - name: "UseSSL"
+    description: "Optional - Windows only - Force SSL for WinRM"
+    long_desc: "Force SSL to be used for all WinRM communication, SSL listeners need to be configure on each target server."
+    type: "checkbox"
+    group_order: "7"

@@ -1,21 +1,17 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  requestStarted,
-  requestSuccessful,
-  reducer
-} from '../resources/reducer';
-import { useReducer, useEffect } from 'react';
-import Tools from "./tools";
+import {reducer, requestStarted, requestSuccessful} from '../resources/reducer';
+import {Dispatch, useEffect, useReducer} from 'react';
+import ToolsApiClient from "../api_clients/toolsApiClient";
 
 export const useCredentialManager = () => {
-  const [state, dispatch] = useReducer(reducer, {
+
+  const [state, dispatch]: [any, Dispatch<any>] = useReducer(reducer, {
     isLoading: true,
-    data: [] ,
+    data: [],
     error: null
   });
 
@@ -27,12 +23,12 @@ export const useCredentialManager = () => {
 
     try {
 
-      let toolsAPI = await Tools.initializeCurrentSession();
-      credentialManagerData = await toolsAPI.getCredentials({ signal: myAbortController.signal })
+      let toolsAPI = new ToolsApiClient();
+      credentialManagerData = await toolsAPI.getCredentials();
 
       dispatch(requestSuccessful({ data: credentialManagerData }));
 
-    } catch (e) {
+    } catch (e: any) {
       if (e.name !== 'AbortError') {
         console.error('Credential Manager Hook', e);
       }

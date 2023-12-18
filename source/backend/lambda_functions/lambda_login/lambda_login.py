@@ -3,31 +3,18 @@
 
 
 import json
-import boto3
 import os
-import logging
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
-
-default_http_headers = {
-    'Access-Control-Allow-Origin': cors,
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy' : "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
-}
+import cmf_boto
+from cmf_logger import logger
+from cmf_utils import cors, default_http_headers
 
 
 def lambda_handler(event, _):
     response = {}
     try:
         body = json.loads(event['body'])
-        client = boto3.client('cognito-idp')
+        client = cmf_boto.client('cognito-idp')
 
         if 'mfacode' in body:
             # This is a response to MFA request on previous login attempt.

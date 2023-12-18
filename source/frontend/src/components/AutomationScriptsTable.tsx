@@ -4,31 +4,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, {useEffect, useState} from 'react';
+
+import {Box, Button, CollectionPreferences, Pagination, Table, TextFilter,} from '@awsui/components-react';
 
 import {
-  Box,
-  Button,
-  CollectionPreferences,
-  Pagination,
-  TextFilter,
-  Table,
-} from '@awsui/components-react';
-
- import {
-   PAGE_SELECTOR_OPTIONS,
-   DEFAULT_PREFERENCES,
-   getColumnDefinitions,
-   getContentSelectorOptions
+  DEFAULT_PREFERENCES,
+  getColumnDefinitions,
+  getContentSelectorOptions,
+  PAGE_SELECTOR_OPTIONS
 } from '../resources/auto-script-table-config';
 
-import {
-  resolveRelationshipValues
-} from '../resources/main'
+import {resolveRelationshipValues} from '../resources/main'
 
-import { useCollection } from '@awsui/collection-hooks';
+import {useCollection} from '@awsui/collection-hooks';
 
 import TableHeader from './TableHeader';
+import {filterCounter, headerCounter} from "../utils/table-utils";
 
 const AutomationJobsTable = (props) => {
 
@@ -63,20 +55,6 @@ const AutomationJobsTable = (props) => {
     }
   );
 
-  // Keeps track of how many items are selected
-  function headerCounter(selectedItems, items) {
-    if(selectedItems != undefined){
-      return selectedItems.length
-        ? `(${selectedItems.length} of ${items.length})`
-        : `(${items.length})`;
-    } else {
-      return undefined;
-    }
-  }
-
-  function filterCounter(count) {
-    return `${count} ${count === 1 ? 'match' : 'matches'}`;
-  }
   async function handleRefresh(e) {
     e.preventDefault();
     await props.handleRefreshClick(e);

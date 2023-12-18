@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -8,27 +7,16 @@ import React, {useEffect, useState} from "react";
 import {Auth} from "@aws-amplify/auth";
 
 import {useNavigate} from "react-router-dom";
-import {
-  Box,
-  Button,
-  Container,
-  Form,
-  FormField,
-  Grid,
-  Header,
-  Input,
-  SpaceBetween
-} from "@awsui/components-react";
+import {Box, Button, Container, Form, FormField, Grid, Header, Input, SpaceBetween} from "@awsui/components-react";
 
-const ForgotPassword = (props) => {
-  let navigate = useNavigate();
-  console.log(props);
+const ForgotPassword = () => {
+  const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [code, setCode] = useState('');
-  const [passwordError, setPasswordError] = useState(null);
+  const [code, setCode] = useState<string>('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const handleForgotPassword = async () => {
 
@@ -37,17 +25,17 @@ const ForgotPassword = (props) => {
         await Auth.forgotPassword(email);
         setPasswordError("Check registered/verified email or phone number for password reset code.");
       }
-    } catch (e) {
+    } catch (e: any) {
       setPasswordError(e.message);
     }
   }
-  const handleSubmit = async event => {
+  const handleSubmit = async (event: { preventDefault: () => void; }) => {
     event.preventDefault();
 
     try {
       await Auth.forgotPasswordSubmit(email, code, password);
       navigate("/login");
-    } catch (e) {
+    } catch (e: any) {
       setPasswordError(e.message)
     }
   }
@@ -55,13 +43,13 @@ const ForgotPassword = (props) => {
   //Remove errors if user updates form data.
   useEffect(() => {
     setPasswordError(null);
-
   },[email, password, confirmPassword, email, code]);
 
+  const formInputIsValid = !passwordError && email && code && password && confirmPassword && password === confirmPassword;
   return(
     <Grid
       gridDefinition={[
-        { colspan: { default: 12, xxs: 6 }, offset: { xxs: 3 } }
+        {colspan: {default: 12, s: 6}, offset: {s: 3}}
       ]}
     >
       <Box margin="xxl" padding="xxl">
@@ -77,15 +65,15 @@ const ForgotPassword = (props) => {
             // located at the bottom of the form
             <SpaceBetween direction="horizontal" size="xs">
               <Button disabled={!email} onClick={handleForgotPassword}>Request password reset code</Button>
-              <Button disabled={!passwordError && email && code && password && confirmPassword && password === confirmPassword ? false : true} variant={'primary'} onClick={handleSubmit}>Reset password</Button>
+              <Button
+                disabled={!formInputIsValid}
+                variant={'primary'} onClick={handleSubmit}>Reset password</Button>
               <Button onClick={() => navigate("/login")}>Cancel</Button>
             </SpaceBetween>
           }
           errorText={passwordError ? passwordError : null}
         >
-          <Container
-
-          >
+          <Container>
             <SpaceBetween size={'xl'} direction={'vertical'}>
               <SpaceBetween size={'xxs'} direction={'vertical'}>
                 <FormField
@@ -105,7 +93,6 @@ const ForgotPassword = (props) => {
                   <Input
                     value={code}
                     onChange={event => setCode(event.detail.value)}
-                    type="code"
                   />
                 </FormField>
 

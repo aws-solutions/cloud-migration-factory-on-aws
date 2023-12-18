@@ -4,33 +4,19 @@
 
 import os
 import json
-import uuid
-import boto3
-from boto3.dynamodb.conditions import Key, Attr
-import logging
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+import cmf_boto
+from cmf_logger import logger
+from cmf_utils import cors, default_http_headers
 
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
-
-default_http_headers = {
-    'Access-Control-Allow-Origin': cors,
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy': "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
-}
 application = os.environ['application']
 environment = os.environ['environment']
 
 roles_table_name = '{}-{}-roles'.format(application, environment)
 policies_table_name = '{}-{}-policies'.format(application, environment)
 
-roles_table = boto3.resource('dynamodb').Table(roles_table_name)
-policy_table = boto3.resource('dynamodb').Table(policies_table_name)
+roles_table = cmf_boto.resource('dynamodb').Table(roles_table_name)
+policy_table = cmf_boto.resource('dynamodb').Table(policies_table_name)
 
 
 def process_get(event):

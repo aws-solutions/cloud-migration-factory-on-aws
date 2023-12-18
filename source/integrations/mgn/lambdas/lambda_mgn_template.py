@@ -4,18 +4,19 @@
 
 from __future__ import print_function
 import os
-import boto3
-import botocore.exceptions
-import lambda_mgn
 import multiprocessing
 import logging
 import json
+import lambda_mgn_utils
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
+DEDICATED_HOST_STRING = "dedicated host"
 
-def add_server_validation_error(factoryserver, return_dict, error, additional_context=None):
+
+def add_server_validation_error(factoryserver, return_dict,
+                                error, additional_context=None):
     if additional_context:
         # Append : to message.
         additional_context += ": "
@@ -23,13 +24,15 @@ def add_server_validation_error(factoryserver, return_dict, error, additional_co
         # init to null string.
         additional_context = ""
 
+    pid_message = lambda_mgn_utils.build_pid_message(
+        True, f"{factoryserver['server_name']}: {additional_context}")
+
     if ":" in str(error):
         err = ''
         msgs = str(error).split(":")[1:]
         for msg in msgs:
             err = err + msg
-        log.error(
-            "Pid: " + str(os.getpid()) + " - ERROR: " + factoryserver['server_name'] + ": " + additional_context + err)
+        log.error(f"{pid_message}{err}")
         if factoryserver['server_name'] in return_dict:
             # Server has errors already, append additional error.
             mgs_update = return_dict[factoryserver['server_name']]
@@ -40,9 +43,7 @@ def add_server_validation_error(factoryserver, return_dict, error, additional_co
             errors = ["ERROR: " + additional_context + err]
             return_dict[factoryserver['server_name']] = errors
     else:
-        log.error(
-            "Pid: " + str(os.getpid()) + " - ERROR: " + factoryserver['server_name'] + ": " + additional_context + str(
-                error))
+        log.error(f"{pid_message}{str(error)}")
         if factoryserver['server_name'] in return_dict:
             # Server has errors already, append additional error.
             mgs_update = return_dict[factoryserver['server_name']]
@@ -55,12 +56,13 @@ def add_server_validation_error(factoryserver, return_dict, error, additional_co
 
 
 def add_error(return_dict, error, error_type='non-specific'):
+    pid_message = lambda_mgn_utils.build_pid_message(True, "")
     if ":" in str(error):
         err = ''
         msgs = str(error).split(":")[1:]
         for msg in msgs:
             err = err + msg
-        log.error("Pid: " + str(os.getpid()) + " - ERROR: " + err)
+        log.error(f"{pid_message}{err}")
         if error_type in return_dict:
             # error_type record has errors already, append additional error.
             mgs_update = return_dict[error_type]
@@ -71,7 +73,7 @@ def add_error(return_dict, error, error_type='non-specific'):
             errors = ["ERROR: " + str(error)]
             return_dict[error_type] = errors
     else:
-        log.error("Pid: " + str(os.getpid()) + " - ERROR: " + error_type + " - " + str(error))
+        log.error(f"{pid_message}{error_type} - {str(error)}")
         if error_type in return_dict:
             # Server has errors already, append additional error.
             mgs_update = return_dict[error_type]
@@ -83,28 +85,120 @@ def add_error(return_dict, error, error_type='non-specific'):
             return_dict[error_type] = errors
 
 
-def validate_server_networking_settings(ec2_client, factoryserver, network_interface_attr_name, sg_attr_name,
-                                        subnet_attr_name, type, return_dict):
+def verify_eni_sg_combination(factoryserver, network_interface_attr_name,
+                              sg_attr_name, subnet_attr_name, server_type, return_dict):
     server_has_error = False
-
-    print(factoryserver)
-
-    if (network_interface_attr_name in factoryserver and factoryserver[network_interface_attr_name] is not None and
-        factoryserver[network_interface_attr_name] != '') \
-        and ((sg_attr_name in factoryserver and (
-        factoryserver[sg_attr_name] is not None and factoryserver[sg_attr_name] != '')) or (
-                 subnet_attr_name in factoryserver and (
-                 factoryserver[subnet_attr_name] is not None and factoryserver[subnet_attr_name][0] != ''))):
+    is_valid = True
+    if factoryserver.get(network_interface_attr_name) \
+        and ((factoryserver.get(sg_attr_name) and factoryserver[sg_attr_name][0] != '') \
+             or (factoryserver.get(subnet_attr_name) and factoryserver[subnet_attr_name][0] != '')):
         # user has specified both ENI and SGs but this is not a valid combination.
-        msg = "ERROR: Validation failed - Specifying " + type + " ENI and also " + type + " Security Group or Subnet is not supported. ENIs will inherit the SGs and Subnet of the ENI."
+        msg = (f"ERROR: Validation failed - Specifying {server_type} ENI and also {server_type} "
+               f"Security Group or Subnet is not supported. ENIs will inherit the SGs and Subnet of the ENI.")
         server_has_error = True
         add_server_validation_error(factoryserver, return_dict, msg)
-        # Exit and do not validate other settings as invalid configuration and waste of resource time until resolved.
+        is_valid = False
+
+    return is_valid, server_has_error
+
+
+def verify_subnets(subnet_attr_name, factoryserver, ec2_client,
+                   return_dict, server_has_error, server_type):
+    type_subnet = f"{server_type} subnet"
+    verify_subnet = {}
+    subnet_vpc = ""
+    if subnet_attr_name in factoryserver:
+        if len(factoryserver[subnet_attr_name]) > 0:
+            try:
+                verify_subnet = ec2_client.describe_subnets(
+                    SubnetIds=factoryserver[subnet_attr_name])
+                subnet_vpc = verify_subnet['Subnets'][0]['VpcId']
+            except Exception as error:
+                # Error validating subnet.
+                server_has_error = True
+                add_server_validation_error(
+                    factoryserver, return_dict, error, type_subnet)
+        else:
+            server_has_error = True
+            msg = "ERROR: " + subnet_attr_name + " attribute is empty."
+            add_server_validation_error(
+                factoryserver, return_dict, msg, type_subnet)
+    else:
+        server_has_error = True
+        msg = "ERROR: " + subnet_attr_name + " does not exist for server."
+        add_server_validation_error(
+            factoryserver, return_dict, msg, type_subnet)
+
+    return verify_subnet, subnet_vpc, server_has_error
+
+
+def verify_vpc_for_subnet_sg(verify_sgs, subnet_vpc, verify_subnet,
+                             factoryserver, return_dict, type_sg,
+                             server_has_error):
+    subnet_id = ""
+    if verify_subnet:
+        subnet_id = verify_subnet['Subnets'][0]['SubnetId']
+    if 'SecurityGroups' in verify_sgs:
+        for sg in verify_sgs['SecurityGroups']:
+            if subnet_vpc != sg['VpcId']:
+                server_has_error = True
+                msg = "ERROR: Subnet and Security groups must be in the same VPC: " + \
+                      subnet_id + ", " + sg['GroupId']
+                add_server_validation_error(factoryserver, return_dict, msg, type_sg)
+
+    return server_has_error
+
+
+def verify_security_group(factoryserver, sg_attr_name, ec2_client,
+                          return_dict, subnet_vpc, verify_subnet,
+                          server_has_error, server_type):
+    type_sg = f"{server_type} security groups"
+    if sg_attr_name in factoryserver:
+        if len(factoryserver[sg_attr_name]) > 0:
+            verify_sgs = {}
+            try:
+                verify_sgs = ec2_client.describe_security_groups(
+                    GroupIds=factoryserver[sg_attr_name])
+            except Exception as error:
+                # Error validating SGs.
+                server_has_error = True
+                add_server_validation_error(
+                    factoryserver, return_dict, error, type_sg)
+
+            server_has_error = verify_vpc_for_subnet_sg(
+                verify_sgs, subnet_vpc, verify_subnet,
+                factoryserver, return_dict, type_sg,
+                server_has_error)
+
+        else:
+            server_has_error = True
+            msg = "ERROR: " + sg_attr_name + " attribute is empty."
+            add_server_validation_error(
+                factoryserver, return_dict, msg, type_sg)
+    else:
+        server_has_error = True
+        msg = "ERROR: " + sg_attr_name + " does not exist for server: " + factoryserver['server_name']
+        add_server_validation_error(
+            factoryserver, return_dict, msg, type_sg)
+
+    return server_has_error
+
+
+def validate_server_networking_settings(ec2_client, factoryserver, network_interface_attr_name, sg_attr_name,
+                                        subnet_attr_name, server_type, return_dict):
+    print(factoryserver)
+
+    # Identify invalid combination of ENI and security groups
+    is_valid, server_has_error = verify_eni_sg_combination(
+        factoryserver, network_interface_attr_name,
+        sg_attr_name, subnet_attr_name, server_type, return_dict)
+
+    # Exit and do not validate other settings as invalid configuration and waste of resource time until resolved.
+    if not is_valid:
         return False
 
     # Check if ENI specified.
-    if network_interface_attr_name in factoryserver and factoryserver[network_interface_attr_name] is not None and \
-        factoryserver[network_interface_attr_name] != '':
+    if factoryserver.get(network_interface_attr_name):
         # Check ENI exist
         try:
             ec2_client.describe_network_interfaces(
@@ -112,64 +206,45 @@ def validate_server_networking_settings(ec2_client, factoryserver, network_inter
         except Exception as error:
             # Error validating ENI.
             server_has_error = True
-            add_server_validation_error(factoryserver, return_dict, error, type + ' ENI')
-            pass
+            add_server_validation_error(
+                factoryserver, return_dict, error, server_type + ' ENI')
     else:
-        # Verify Subnets and SGs.
-        if subnet_attr_name in factoryserver:
-            if len(factoryserver[subnet_attr_name]) > 0:
-                try:
-                    verify_subnet = ec2_client.describe_subnets(SubnetIds=factoryserver[subnet_attr_name])
-                    subnet_vpc = verify_subnet['Subnets'][0]['VpcId']
-                except Exception as error:
-                    # Error validating subnet.
-                    server_has_error = True
-                    add_server_validation_error(factoryserver, return_dict, error, type + ' subnet')
-                    pass
-            else:
-                server_has_error = True
-                msg = "ERROR: " + subnet_attr_name + " attribute is empty."
-                add_server_validation_error(factoryserver, return_dict, msg, type + ' subnet')
-        else:
-            server_has_error = True
-            msg = "ERROR: " + subnet_attr_name + " does not exist for server."
-            add_server_validation_error(factoryserver, return_dict, msg, type + ' subnet')
+        # Verify Subnets
+        verify_subnet, subnet_vpc, server_has_error = verify_subnets(
+            subnet_attr_name, factoryserver, ec2_client,
+            return_dict, server_has_error, server_type)
 
-        if sg_attr_name in factoryserver:
-            if len(factoryserver[sg_attr_name]) > 0:
-                verify_sgs = {}
-                try:
-                    verify_sgs = ec2_client.describe_security_groups(GroupIds=factoryserver[sg_attr_name])
-                except Exception as error:
-                    # Error validating SGs.
-                    server_has_error = True
-                    add_server_validation_error(factoryserver, return_dict, error, type + " security groups")
-                    pass
-
-                if 'SecurityGroups' in verify_sgs:
-                    for sg in verify_sgs['SecurityGroups']:
-                        if subnet_vpc != sg['VpcId']:
-                            server_has_error = True
-                            msg = "ERROR: Subnet and Security groups must be in the same VPC: " + \
-                                  verify_subnet['Subnets'][0]['SubnetId'] + ", " + sg['GroupId']
-                            add_server_validation_error(factoryserver, return_dict, msg, type + ' security groups')
-
-            else:
-                server_has_error = True
-                msg = "ERROR: " + sg_attr_name + " attribute is empty."
-                add_server_validation_error(factoryserver, return_dict, msg, type + ' security groups')
-        else:
-            server_has_error = True
-            msg = "ERROR: " + sg_attr_name + " does not exist for server: " + factoryserver['server_name']
-            add_server_validation_error(factoryserver, return_dict, msg, type + ' security groups')
+        # Verify SGs
+        server_has_error = verify_security_group(
+            factoryserver, sg_attr_name, ec2_client, return_dict,
+            subnet_vpc, verify_subnet, server_has_error, server_type)
 
     return not server_has_error
+
+
+def check_errors(return_dict, action, final_status, total_servers_count):
+    if len(return_dict.items()) > 0:
+        log.error("ERROR: Launch templates validation failed - " + str(
+            len(return_dict.items())) + " servers with errors.")
+        print(str(return_dict.items()))
+        return json.dumps(return_dict.items())
+    else:
+        if action.strip() == 'Validate Launch Template':
+            if final_status == total_servers_count:
+                msg = "SUCCESS: Launch templates validated for all servers in this Wave"
+                log.info(msg)
+                return msg
+            else:
+                msg = "ERROR: Launch templates validation failed"
+                log.error(msg)
+                return msg
 
 
 def update_launch_template(factoryservers, action):
     try:
         # Check if the action is launch servers or validate launch template
-        if action.strip() != 'Launch Test Instances' and action.strip() != 'Launch Cutover Instances' and action.strip() != 'Validate Launch Template':
+        actions = ['Launch Test Instances', 'Launch Cutover Instances', 'Validate Launch Template']
+        if action.strip() not in actions:
             return
         # Enable multithreading
         processes = []
@@ -182,14 +257,15 @@ def update_launch_template(factoryservers, action):
         # Update all servers that have a dedicated host with the total capacity required for the complete wave for the same host and instance type.
         # This is to ensure that we know straight away that we will not have capacity to complete the migration.
         # Needs to be performed here to take into account dedicated hosts shared across accounts.
-        # TODO We need to make this check more complex in future to include ensuring that a host supporting multiple instance types is calculated correctly. Example if the same host has capacity for 1 large and 2 small and we migrate 1 large and 1 small this is not detected until we try to launch them.
+        # To be done: We need to make this check more complex in future to include ensuring that a host supporting multiple instance types is calculated correctly. Example if the same host has capacity for 1 large and 2 small and we migrate 1 large and 1 small this is not detected until we try to launch them.
         populate_dedicated_host_requirements(factoryservers)
 
         for account in factoryservers:
             # Get total number of servers in each account
             total_servers_count = total_servers_count + len(account['servers'])
             # Assume role in the target account
-            target_account_creds = lambda_mgn.assume_role(str(account['aws_accountid']), str(account['aws_region']))
+            target_account_creds = lambda_mgn_utils.assume_role(str(account['aws_accountid']),
+                                                                str(account['aws_region']))
 
             print("####################################################################################")
             print(
@@ -198,20 +274,16 @@ def update_launch_template(factoryservers, action):
             print("####################################################################################")
 
             # Splitting the list into smaller chunks, max 30 chunks
+            chunk_size = max_threads
             if len(account['servers']) < max_threads:
-                for serverlist in chunks(account['servers'], len(account['servers'])):
-                    print(serverlist)
-                    p = multiprocessing.Process(target=multiprocessing_update, args=(
-                        serverlist, target_account_creds, account['aws_region'], action, return_dict, status_list))
-                    processes.append(p)
-                    p.start()
-            else:
-                for serverlist in chunks(account['servers'], max_threads):
-                    print(serverlist)
-                    p = multiprocessing.Process(target=multiprocessing_update, args=(
-                        serverlist, target_account_creds, account['aws_region'], action, return_dict, status_list))
-                    processes.append(p)
-                    p.start()
+                chunk_size = len(account['servers'])
+            for serverlist in lambda_mgn_utils.chunks(
+                account['servers'], chunk_size):
+                print(serverlist)
+                p = multiprocessing.Process(target=multiprocessing_update, args=(
+                    serverlist, target_account_creds, account['aws_region'], action, return_dict, status_list))
+                processes.append(p)
+                p.start()
 
         # Waiting for all processes to finish
         for process in processes:
@@ -222,47 +294,75 @@ def update_launch_template(factoryservers, action):
         print("")
 
         # Check if any errors in the updating process
-        if len(return_dict.items()) > 0:
-            log.error("ERROR: Launch templates validation failed - " + str(
-                len(return_dict.items())) + " servers with errors.")
-            print(str(return_dict.items()))
-            return json.dumps(return_dict.items())
-        else:
-            if action.strip() == 'Validate Launch Template':
-                if final_status == total_servers_count:
-                    msg = "SUCCESS: Launch templates validated for all servers in this Wave"
-                    log.info(msg)
-                    return msg
-                else:
-                    msg = "ERROR: Launch templates validation failed"
-                    log.error(msg)
-                    return msg
+        error_result = check_errors(return_dict, action, final_status, total_servers_count)
+        return error_result
 
     except Exception as error:
-        if ":" in str(error):
-            err = ''
-            msgs = str(error).split(":")[1:]
-            for msg in msgs:
-                err = err + msg
-            msg = "ERROR: " + err
-            log.error(msg)
-            return msg
+        error_message = lambda_mgn_utils.handle_error(
+            error, "ERROR: UpdateLaunchTemplate:", "", True)
+        return error_message
+
+
+def check_server_os_family(factoryserver, server_has_error, return_dict):
+    if 'server_os_family' in factoryserver:
+        if factoryserver['server_os_family'].lower().strip() != 'windows' and factoryserver[
+            'server_os_family'].lower().strip() != 'linux':
+            server_has_error = True
+            msg = "ERROR: server_os_family only supports Windows or Linux."
+            add_server_validation_error(factoryserver, return_dict, msg)
+    else:
+        server_has_error = True
+        msg = "ERROR: server_os_family does not exist for server."
+
+        pid_message = lambda_mgn_utils.build_pid_message(False, f"- {msg}")
+
+        log.error(pid_message)
+        add_server_validation_error(factoryserver, return_dict, msg)
+
+    return server_has_error
+
+
+def verify_iam_instance_profile(factoryserver, iam_client, server_has_error,
+                                return_dict, validated_count, action,
+                                new_launch_template, launch_template_data_latest,
+                                mgn_client, ec2_client, launch_template_latest_ver,
+                                rg_client, license_client):
+    verify_instance_profile = []
+    if 'iamRole' in factoryserver:
+        verify_instance_profile = iam_client.get_instance_profile(
+            InstanceProfileName=factoryserver['iamRole'])
+
+    if server_has_error:
+        print(
+            factoryserver['server_name'] + " : Validation errors occurred skipping update of launch template.")
+    else:
+        create_template = create_launch_template(factoryserver, action, new_launch_template,
+                                                 launch_template_data_latest, mgn_client, ec2_client,
+                                                 verify_instance_profile, launch_template_latest_ver,
+                                                 rg_client, license_client)
+
+        if create_template is not None and "ERROR" in create_template:
+            add_server_validation_error(factoryserver, return_dict, create_template)
         else:
-            msg = "ERROR: " + str(error)
-            log.error(msg)
-            return msg
+            validated_count = validated_count + 1
+
+    return validated_count
 
 
 def multiprocessing_update(serverlist, creds, region, action, return_dict, status_list):
     ec2_client = None
     iam_client = None
     mgn_client = None
+    rg_client = None
+    license_client = None
 
     try:
-        target_account_session = lambda_mgn.get_session(creds, region)
+        target_account_session = lambda_mgn_utils.get_session(creds, region)
         ec2_client = target_account_session.client('ec2', region)
         iam_client = target_account_session.client('iam')
         mgn_client = target_account_session.client("mgn", region)
+        rg_client = target_account_session.client('resource-groups')
+        license_client = target_account_session.client('license-manager')
 
     except Exception as error:
         add_error(return_dict, error, "target account boto sessions")
@@ -285,10 +385,6 @@ def multiprocessing_update(serverlist, creds, region, action, return_dict, statu
                                                              Versions=[str(launch_template_latest_ver)])[
                     'LaunchTemplateVersions'][0]['LaunchTemplateData']
 
-            # Verify Launch templates inputs
-            subnet_vpc = ""
-            subnet_vpc_test = ""
-
             # Validate networking settings
             if not validate_server_networking_settings(ec2_client, factoryserver, 'network_interface_id',
                                                        'securitygroup_IDs', 'subnet_IDs', 'Live',
@@ -301,21 +397,12 @@ def multiprocessing_update(serverlist, creds, region, action, return_dict, statu
                 server_has_error = True
 
             # Check server OS family is supported
-            if 'server_os_family' in factoryserver:
-                if factoryserver['server_os_family'].lower().strip() != 'windows' and factoryserver[
-                    'server_os_family'].lower().strip() != 'linux':
-                    server_has_error = True
-                    msg = "ERROR: server_os_family only supports Windows or Linux."
-                    add_server_validation_error(factoryserver, return_dict, msg)
-            else:
-                server_has_error = True
-                msg = "ERROR: server_os_family does not exist for server."
-                log.error("Pid: " + str(os.getpid()) + " - " + msg)
-                add_server_validation_error(factoryserver, return_dict, msg)
+            server_has_error = check_server_os_family(
+                factoryserver, server_has_error, return_dict)
 
             # Verify Instance type
             if 'instanceType' in factoryserver:
-                verify_instance_type = ec2_client.describe_instance_types(InstanceTypes=[factoryserver['instanceType']])
+                ec2_client.describe_instance_types(InstanceTypes=[factoryserver['instanceType']])
                 mgn_client.update_launch_configuration(targetInstanceTypeRightSizingMethod='NONE',
                                                        sourceServerID=factoryserver['source_server_id'])
             else:
@@ -323,88 +410,129 @@ def multiprocessing_update(serverlist, creds, region, action, return_dict, statu
                                                        sourceServerID=factoryserver['source_server_id'])
 
             # Verify IAM instance profile
-            verify_instance_profile = []
-            if 'iamRole' in factoryserver:
-                verify_instance_profile = iam_client.get_instance_profile(InstanceProfileName=factoryserver['iamRole'])
-
-            if server_has_error:
-                print(
-                    factoryserver['server_name'] + " : Validation errors occurred skipping update of launch template.")
-            else:
-                create_template = create_launch_template(factoryserver, action, new_launch_template,
-                                                         launch_template_data_latest, mgn_client, ec2_client,
-                                                         verify_instance_profile, launch_template_latest_ver)
-
-                if create_template is not None and "ERROR" in create_template:
-                    add_server_validation_error(factoryserver, return_dict, create_template)
-                else:
-                    validated_count = validated_count + 1
+            validated_count = verify_iam_instance_profile(
+                factoryserver, iam_client, server_has_error, return_dict, validated_count,
+                action, new_launch_template, launch_template_data_latest, mgn_client,
+                ec2_client, launch_template_latest_ver, rg_client, license_client)
 
         except Exception as error:
             add_server_validation_error(factoryserver, return_dict, error, "unhandled")
-            pass
 
     status_list.append(validated_count)
+
+
+def get_dedicated_host_capacity(factoryserver, dedicated_host_capacity):
+    if factoryserver.get('dedicated_host_id'):
+        if factoryserver['dedicated_host_id'] + ';' + factoryserver[
+            'instanceType'] in dedicated_host_capacity:
+            dedicated_host_capacity[
+                factoryserver['dedicated_host_id'] + ';' + factoryserver['instanceType']] += 1
+        else:
+            dedicated_host_capacity[
+                factoryserver['dedicated_host_id'] + ';' + factoryserver['instanceType']] = 1
+    elif factoryserver.get('host_resource_group_arn'):
+        if factoryserver['host_resource_group_arn'] + ';' + factoryserver[
+            'instanceType'] in dedicated_host_capacity:
+            dedicated_host_capacity[
+                factoryserver['host_resource_group_arn'] + ';' + factoryserver['instanceType']] += 1
+        else:
+            dedicated_host_capacity[
+                factoryserver['host_resource_group_arn'] + ';' + factoryserver['instanceType']] = 1
+
+    return dedicated_host_capacity
 
 
 # reviews MF serverlist and returns dict with all dedicated instances with instance types required for servers.
 def get_dedicated_host_requirements(serverlist):
     dedicated_host_capacity = {}
 
-    #   Build list of dedicated host requirements.
+    # Build list of dedicated host requirements.
     for factoryserver in serverlist:
         # Check update total dedicated host capacity requirements.
-        if 'tenancy' in factoryserver:
-            if factoryserver["tenancy"].lower() == "dedicated host":
-                if 'dedicated_host_id' in factoryserver:
-                    if 'instanceType' in factoryserver:
-                        if factoryserver['dedicated_host_id'] + ';' + factoryserver[
-                            'instanceType'] in dedicated_host_capacity:
-                            dedicated_host_capacity[
-                                factoryserver['dedicated_host_id'] + ';' + factoryserver['instanceType']] += 1
-                        else:
-                            dedicated_host_capacity[
-                                factoryserver['dedicated_host_id'] + ';' + factoryserver['instanceType']] = 1
+        if 'tenancy' in factoryserver and \
+            factoryserver["tenancy"].lower() == DEDICATED_HOST_STRING and \
+            'instanceType' in factoryserver:
+            dedicated_host_capacity = get_dedicated_host_capacity(
+                factoryserver, dedicated_host_capacity)
+
     return dedicated_host_capacity
+
+
+def get_all_accounts_dedicated_hosts(accounts):
+    all_accounts_dedicated_hosts = {}
+
+    for account in accounts:
+        # Build list of dedicated host requirements for the account.
+        dedicated_host_capacity = get_dedicated_host_requirements(account['servers'])
+        for dedicated_host, instance_capacity in dedicated_host_capacity.items():
+            if dedicated_host in all_accounts_dedicated_hosts:
+                # Add to total capacity required.
+                all_accounts_dedicated_hosts[dedicated_host] += instance_capacity
+            else:
+                # Not already included so add.
+                all_accounts_dedicated_hosts[dedicated_host] = instance_capacity
+
+    return all_accounts_dedicated_hosts
+
+
+def update_server_capacity_requirements(factoryserver, all_accounts_dedicated_hosts):
+    if factoryserver.get('dedicated_host_id'):
+        if factoryserver['dedicated_host_id'] + ';' + factoryserver[
+            'instanceType'] in all_accounts_dedicated_hosts:
+            # Update server with total capacity required for this dedicated host and type for the server list.
+            # This means that during the check we validate against the total capacity requirements each time rather than individual server.
+            factoryserver['dedicated_host_required_capacity'] = all_accounts_dedicated_hosts[
+                factoryserver['dedicated_host_id'] + ';' + factoryserver['instanceType']]
+    elif factoryserver.get('host_resource_group_arn'):
+        if factoryserver['host_resource_group_arn'] + ';' + factoryserver[
+            'instanceType'] in all_accounts_dedicated_hosts:
+            # Update server with total capacity required for this dedicated host and type for the server list.
+            # This means that during the check we validate against the total capacity requirements each time rather than individual server.
+            factoryserver['dedicated_host_required_capacity'] = all_accounts_dedicated_hosts[
+                factoryserver['host_resource_group_arn'] + ';' + factoryserver['instanceType']]
+
+    return factoryserver
 
 
 def populate_dedicated_host_requirements(accounts):
     try:
 
-        all_accounts_dedicated_hosts = {}
-
         # First we need to loop all accounts to gather requirements total.
         # This is needed to as we need to check if a dedicated host is shared across account we factor this into the calculation.
-        for account in accounts:
-            # Build list of dedicated host requirements for the account.
-            dedicated_host_capacity = get_dedicated_host_requirements(account['servers'])
-            for dedicated_host, instance_capacity in dedicated_host_capacity.items():
-                if dedicated_host in all_accounts_dedicated_hosts:
-                    # Add to total capacity required.
-                    all_accounts_dedicated_hosts[dedicated_host] += instance_capacity
-                else:
-                    # Not already included so add.
-                    all_accounts_dedicated_hosts[dedicated_host] = instance_capacity
+        all_accounts_dedicated_hosts = get_all_accounts_dedicated_hosts(accounts)
 
         # Once we have the dedicated host requirements for all accounts we can now update the capacity requirements on each server.
         for account in accounts:
             for factoryserver in account['servers']:
                 # Check update total dedicated host capacity requirements.
-                if 'tenancy' in factoryserver:
-                    if factoryserver["tenancy"].lower() == "dedicated host":
-                        if 'dedicated_host_id' in factoryserver:
-                            if 'instanceType' in factoryserver:
-                                if factoryserver['dedicated_host_id'] + ';' + factoryserver[
-                                    'instanceType'] in all_accounts_dedicated_hosts:
-                                    # Update server with total capacity required for this dedicated host and type for the server list.
-                                    # This means that during the check we validate against the total capacity requirements each time rather than individual server.
-                                    factoryserver['dedicated_host_required_capacity'] = all_accounts_dedicated_hosts[
-                                        factoryserver['dedicated_host_id'] + ';' + factoryserver['instanceType']]
+                if 'tenancy' in factoryserver and \
+                    factoryserver["tenancy"].lower() == DEDICATED_HOST_STRING and \
+                    'instanceType' in factoryserver:
+                    factoryserver = update_server_capacity_requirements(
+                        factoryserver, all_accounts_dedicated_hosts)
+
+        log.info(f'Dedicated host requirements for wave: {all_accounts_dedicated_hosts}')
 
         return
     except Exception as error:
-        log.error("Pid: " + str(os.getpid()) + " - ERROR: " + str(error))
+        pid_message = lambda_mgn_utils.build_pid_message(True, str(error))
+        log.error(pid_message)
         return "ERROR: " + str(error)
+
+
+def check_instance_capacity(dedicated_hosts, requested_instance_type,
+                            requested_capacity, dedicated_host_id):
+    available_capacity = dedicated_hosts['Hosts'][0]['AvailableCapacity']['AvailableInstanceCapacity']
+    for instance_capacity in available_capacity:
+        if instance_capacity['InstanceType'] == requested_instance_type:
+            if instance_capacity['AvailableCapacity'] >= requested_capacity:
+                return 'SUCCESS: Host Id: ' + dedicated_host_id + ' available capacity of instance type ' + requested_instance_type + ' (Available=' + str(
+                    instance_capacity['AvailableCapacity']) + ', Total Requested=' + str(
+                    requested_capacity) + ').'
+            else:
+                return 'ERROR: Host Id: ' + dedicated_host_id + ' does not have available capacity of instance type ' + requested_instance_type + ' (Available=' + str(
+                    instance_capacity['AvailableCapacity']) + ', Total Requested for Wave=' + str(
+                    requested_capacity) + ').'
 
 
 # Verify that the provided dedicated host ID exists and that the instance type is supported.
@@ -413,45 +541,423 @@ def verify_dedicated_host(ec2_client, dedicated_host_id, requested_instance_type
 
         dedicated_hosts = ec2_client.describe_hosts(HostIds=[dedicated_host_id])
 
-        if 'Hosts' in dedicated_hosts:
-            if len(dedicated_hosts['Hosts']) == 1:
-                # Check that the instance type is matching this dedicated host.
-                Instance_family = dedicated_hosts['Hosts'][0]['HostProperties']['InstanceFamily']
-                if requested_instance_type.split(".")[0] != Instance_family:
-                    return 'ERROR: Host Supported Instance Family does not match required (Host=' + Instance_family + ', Requested=' + \
-                           requested_instance_type.split(".")[0] + ')'
+        if dedicated_hosts.get('Hosts'):
+            # Check that the instance type is matching this dedicated host.
+            instance_family = dedicated_hosts['Hosts'][0]['HostProperties']['InstanceFamily']
+            if requested_instance_type.split(".")[0] != instance_family:
+                return 'ERROR: Host Supported Instance Family does not match required (Host=' + instance_family + ', Requested=' + \
+                    requested_instance_type.split(".")[0] + ')'
 
-                # Check that capacity is currently available for this instance type.
-                available_capacity = dedicated_hosts['Hosts'][0]['AvailableCapacity']['AvailableInstanceCapacity']
-                for instance_capacity in available_capacity:
-                    if instance_capacity['InstanceType'] == requested_instance_type:
-                        if instance_capacity['AvailableCapacity'] >= requested_capacity:
-                            return 'SUCCESS: Host Id: ' + dedicated_host_id + ' available capacity of instance type ' + requested_instance_type + ' (Available=' + str(
-                                instance_capacity['AvailableCapacity']) + ', Total Requested=' + str(
-                                requested_capacity) + ').'
-                        else:
-                            return 'ERROR: Host Id: ' + dedicated_host_id + ' does not have available capacity of instance type ' + requested_instance_type + ' (Available=' + str(
-                                instance_capacity['AvailableCapacity']) + ', Total Requested for Wave=' + str(
-                                requested_capacity) + ').'
-            else:
-                return 'ERROR: Host Id not found.'
+            # Check that capacity is currently available for this instance type.
+            message = check_instance_capacity(dedicated_hosts, requested_instance_type,
+                                              requested_capacity, dedicated_host_id)
+            return message
         else:
-            return 'ERROR: Host Id not found.'
+            return f'ERROR: Dedicated Host Id ({dedicated_host_id}) not found.'
     except Exception as error:
-        if ":" in str(error):
-            err = ''
-            msgs = str(error).split(":")[1:]
-            for msg in msgs:
-                err = err + msg
-            log.error("Pid: " + str(os.getpid()) + " - ERROR: " + err)
-            return "ERROR: " + err
+        error_message = lambda_mgn_utils.handle_error_with_pid(error, "")
+        return error_message
+
+
+def update_disk_type(factoryserver, new_launch_template):
+    ebs_volume_type = "gp3"
+    if 'ebs_volume_type' in factoryserver:
+        ebs_volume_type = factoryserver['ebs_volume_type']
+
+    ebs_iops = 3000
+    if 'ebs_iops' in factoryserver:
+        ebs_iops = factoryserver['ebs_iops']
+
+    ebs_throughput = 125
+    if 'ebs_throughput' in factoryserver:
+        ebs_throughput = factoryserver['ebs_throughput']
+
+    ebs_encrypted = False
+    if 'ebs_encrypted' in factoryserver:
+        ebs_encrypted = factoryserver['ebs_encrypted']
+        if 'ebs_kms_key_id' in factoryserver:
+            ebs_kms_key_id = factoryserver['ebs_kms_key_id']
         else:
-            log.error("Pid: " + str(os.getpid()) + " - ERROR: " + str(error))
-            return "ERROR: " + str(error)
+            ebs_kms_key_id = ""  # replace with default key id if required.
+
+    for blockdevice in new_launch_template['BlockDeviceMappings']:
+        blockdevice['Ebs']['VolumeType'] = ebs_volume_type
+        blockdevice['Ebs']['Iops'] = int(ebs_iops)
+        blockdevice['Ebs']['Throughput'] = int(ebs_throughput)
+        if ebs_encrypted:
+            blockdevice['Ebs']['Encrypted'] = ebs_encrypted
+            blockdevice['Ebs']['KmsKeyId'] = ebs_kms_key_id
+        elif 'Encrypted' in blockdevice['Ebs']:
+            blockdevice['Ebs']['Encrypted'] = False
+            blockdevice['Ebs']['KmsKeyId'] = ''
+
+    return new_launch_template
 
 
-def create_launch_template(factoryserver, action, new_launch_template, launch_template_data_latest, mgn_client,
-                           ec2_client, verify_instance_profile, launch_template_latest_ver):
+def update_metadata_options(factoryserver, metadata_options,
+                            factory_server_tag, metadata_tag,
+                            tag_value_1, tag_value_2):
+    if factoryserver.get(factory_server_tag):
+        metadata_options[metadata_tag] = tag_value_1
+    else:
+        metadata_options[metadata_tag] = tag_value_2
+
+    return metadata_options
+
+
+def update_http_put_response_hop_limit(factoryserver, metadata_options):
+    if 'instance_metadata_options_http_hop_limit' in factoryserver:
+        try:
+            metadata_options['HttpPutResponseHopLimit'] = int(
+                factoryserver['instance_metadata_options_http_hop_limit'])
+        except ValueError:
+            # incorrect value entered, needs to be int.
+            metadata_options['HttpPutResponseHopLimit'] = 1
+    return metadata_options
+
+
+def update_template(new_launch_template, metadata_options, factoryserver):
+    # Update metadata options
+    if metadata_options:
+        new_launch_template['MetadataOptions'] = metadata_options
+
+    # Enable EBS Optimization
+    if 'ebs_optimized' in factoryserver:
+        new_launch_template['EbsOptimized'] = factoryserver['ebs_optimized']
+
+    # update instance type
+    if 'instanceType' in factoryserver:
+        new_launch_template['InstanceType'] = factoryserver['instanceType']
+
+    return new_launch_template
+
+
+def check_eni(factoryserver, mgn_client, live_eni_used, test_eni_used):
+    # This is live ENI
+    if factoryserver.get('network_interface_id'):
+        live_eni_used = True
+
+    #  This is testing ENI
+    if factoryserver.get('network_interface_id_test'):
+        test_eni_used = True
+
+    if factoryserver.get('server_boot_mode_uefi'):
+        mgn_client.update_launch_configuration(
+            bootMode='UEFI',
+            sourceServerID=factoryserver['source_server_id'])
+    else:
+        mgn_client.update_launch_configuration(
+            bootMode='LEGACY_BIOS',
+            sourceServerID=factoryserver['source_server_id'])
+
+    return live_eni_used, test_eni_used
+
+
+def verify_host(factoryserver, p_tenancy, ec2_client, rg_client, pid_message):
+    if factoryserver.get('dedicated_host_id'):
+        if 'instanceType' in factoryserver:
+            return_message = verify_dedicated_host(
+                ec2_client, factoryserver['dedicated_host_id'],
+                factoryserver['instanceType'],
+                factoryserver['dedicated_host_required_capacity'])
+            if not return_message.startswith('ERROR'):
+                p_tenancy['HostId'] = factoryserver['dedicated_host_id']
+            else:
+                log.error(f"{pid_message}{return_message}")
+                return factoryserver['server_name'] + ' - ' + return_message, p_tenancy
+        else:
+            msg = "ERROR: Instance Type is required if specifying dedicated host ID."
+            log.error(f"{pid_message}{msg}")
+            return msg, p_tenancy
+    elif factoryserver.get('host_resource_group_arn'):
+        return_message = verify_host_resource_group_resources(rg_client, factoryserver['host_resource_group_arn'])
+        if not return_message.startswith('ERROR'):
+            p_tenancy['HostResourceGroupArn'] = factoryserver['host_resource_group_arn']
+        else:
+            log.error(f"{pid_message}{return_message}")
+            return factoryserver['server_name'] + ' - ' + return_message, p_tenancy
+    elif factoryserver.get('license_configuration_arn') is None or \
+        factoryserver.get('license_configuration_arn') == '':
+        msg = "ERROR: Dedicated host ID, Host Resource Group ARN or License Configuration ARN is required if specifying tenancy as dedicated host."
+        log.error(f"{pid_message}{msg}")
+        return msg, p_tenancy
+
+    return None, p_tenancy
+
+
+def update_tenancy(factoryserver, ec2_client, mgn_client, rg_client, pid_message_prefix):
+    p_tenancy = {}
+
+    if 'tenancy' in factoryserver:
+        license_mgn = {}
+        if factoryserver["tenancy"].lower() == "dedicated":
+            p_tenancy['Tenancy'] = 'dedicated'
+            license_mgn = {'osByol': False}
+        elif factoryserver["tenancy"].lower() == DEDICATED_HOST_STRING:
+            p_tenancy['Tenancy'] = 'host'
+            license_mgn = {'osByol': True}
+            pid_message = f"{pid_message_prefix}{factoryserver['server_name']}:"
+            msg, p_tenancy = verify_host(factoryserver, p_tenancy, ec2_client,
+                                         rg_client, pid_message)
+            if msg is not None:
+                return msg
+        else:  # Default is always shared and license provided.
+            p_tenancy['Tenancy'] = 'default'
+            license_mgn = {'osByol': False}
+
+        if factoryserver['server_os_family'].lower() == 'linux':
+            license_mgn = {'osByol': True}
+
+        mgn_client.update_launch_configuration(
+            licensing=license_mgn, sourceServerID=factoryserver['source_server_id'])
+    else:
+        p_tenancy['Tenancy'] = 'default'
+
+    return p_tenancy
+
+
+def update_instance_profile(verify_instance_profile, new_launch_template):
+    if len(verify_instance_profile) > 0:
+        instance_profile_name = {}
+        instance_profile_name['Arn'] = verify_instance_profile['InstanceProfile']['Arn']
+        new_launch_template['IamInstanceProfile'] = instance_profile_name
+    return new_launch_template
+
+
+def update_license_specifications(factoryserver, license_client,
+                                  new_launch_template, pid_message_prefix):
+    if factoryserver.get('license_configuration_arn'):
+        return_message = verify_license_configuration(
+            license_client, factoryserver['license_configuration_arn'])
+        if not return_message.startswith('ERROR'):
+            new_launch_template['LicenseSpecifications'] = [
+                {
+                    'LicenseConfigurationArn': factoryserver.get('license_configuration_arn')
+                },
+            ]
+        else:
+            log.error(f"{pid_message_prefix}{return_message}")
+            return factoryserver['server_name'] + ' - ' + return_message, new_launch_template
+
+    return None, new_launch_template
+
+
+def update_termination_protection(factoryserver, new_launch_template,
+                                  termination_tag_name):
+    if termination_tag_name in factoryserver:
+        new_launch_template['DisableApiTermination'] = \
+            factoryserver[termination_tag_name]
+    else:
+        if 'DisableApiTermination' in new_launch_template:
+            del new_launch_template['DisableApiTermination']
+
+    return new_launch_template
+
+
+def update_launch_template_for_test_instance(
+    factoryserver, new_launch_template, pid_message_prefix,
+    ec2_client, launch_template_latest_ver):
+    # update tags into template
+    add_tags_to_launch_template(factoryserver, new_launch_template, 'test')
+
+    # Update termination protection
+    new_launch_template = update_termination_protection(
+        factoryserver, new_launch_template, 'termination_protection_test')
+
+    add_network_interfaces_to_launch_template(factoryserver, new_launch_template, True)
+
+    log.info(f"{pid_message_prefix}*** Create New Test Launch Template data: ***")
+    print(new_launch_template)
+    new_template = ec2_client.create_launch_template_version(
+        LaunchTemplateId=factoryserver['launch_template_id'],
+        SourceVersion=str(launch_template_latest_ver),
+        LaunchTemplateData=new_launch_template)
+    new_template_ver = new_template['LaunchTemplateVersion']['VersionNumber']
+    if new_template['ResponseMetadata']['HTTPStatusCode'] != 200:
+        msg = "ERROR: Update Failed - Test Launch Template for server: " + factoryserver['server_name']
+        log.error(f"{pid_message_prefix}{msg}")
+        return msg, new_launch_template
+    else:
+        msg = "Update SUCCESS: Test Launch template updated for server: " + factoryserver['server_name']
+        log.info(f"{pid_message_prefix}{msg}")
+    log.info(f"{pid_message_prefix}Test Template updated, the latest version is: {str(new_template_ver)}")
+    ec2_client.modify_launch_template(
+        LaunchTemplateId=factoryserver['launch_template_id'],
+        DefaultVersion=str(new_template_ver))
+
+
+def update_launch_template_for_cutover_instance(
+    factoryserver, new_launch_template, pid_message_prefix,
+    ec2_client, launch_template_latest_ver):
+    # update tags into template
+    add_tags_to_launch_template(factoryserver, new_launch_template, 'live')
+
+    # Update termination protection
+    new_launch_template = update_termination_protection(
+        factoryserver, new_launch_template, 'termination_protection')
+
+    add_network_interfaces_to_launch_template(factoryserver, new_launch_template, False)
+
+    log.info(f"{pid_message_prefix}*** Create New Cutover Launch Template data: ***")
+    print(new_launch_template)
+    new_template = ec2_client.create_launch_template_version(
+        LaunchTemplateId=factoryserver['launch_template_id'],
+        SourceVersion=str(launch_template_latest_ver),
+        LaunchTemplateData=new_launch_template)
+    new_template_ver = new_template['LaunchTemplateVersion']['VersionNumber']
+    if new_template['ResponseMetadata']['HTTPStatusCode'] != 200:
+        msg = "ERROR: Update Failed - Cutover Launch Template for server: " + factoryserver['server_name']
+        log.error(f"{pid_message_prefix}{msg}")
+        return msg
+    else:
+        msg = "Update SUCCESS: Cutover Launch template updated for server: " + factoryserver['server_name']
+        log.info(f"{pid_message_prefix}{msg}")
+    log.info(f"{pid_message_prefix}Cutover Template updated, the latest version is: {str(new_template_ver)}")
+    ec2_client.modify_launch_template(LaunchTemplateId=factoryserver['launch_template_id'],
+                                      DefaultVersion=str(new_template_ver))
+
+
+def check_eni_sg_combination(eni_used, is_live_eni_used, factoryserver,
+                             pid_message_prefix, status):
+    this_status = status
+    eni_type = "Test"
+    sg_id_tag = "securitygroup_IDs_test"
+    subnet_id_tag = "subnet_IDs_test"
+    if is_live_eni_used:
+        eni_type = "Live"
+        sg_id_tag = "securitygroup_IDs"
+        subnet_id_tag = "subnet_IDs"
+
+    if eni_used and (
+        (factoryserver.get(sg_id_tag) and factoryserver[sg_id_tag][0] != '') or
+            (subnet_id_tag in factoryserver and factoryserver[subnet_id_tag][0] != '')):
+        # user has specified both ENI and SGs but this is not a valid combination.
+        this_status = False
+        msg = (f"ERROR: Validation failed - Specifying {eni_type} ENI and also {eni_type} "
+               f"Security Group or Subnet is not supported. ENIs will inherit the SGs and Subnet of the ENI: {factoryserver['server_name']}")
+        log.error(f"{pid_message_prefix}{msg}")
+        return msg, this_status
+
+    return None, this_status
+
+
+def modify_template(is_cutover, pid_message_prefix, new_launch_template,
+                    factoryserver, template_ver, ec2_client):
+    eni_type = "Test"
+    if is_cutover:
+        eni_type = 'Cutover'
+
+    log.info(f"{pid_message_prefix}*** Validate New {eni_type} Launch Template data: ***")
+    print(new_launch_template)
+    new_template = ec2_client.create_launch_template_version(
+        LaunchTemplateId=factoryserver['launch_template_id'],
+        SourceVersion=str(template_ver),
+        LaunchTemplateData=new_launch_template)
+    new_template_ver = new_template['LaunchTemplateVersion']['VersionNumber']
+    log.info(f"{pid_message_prefix}{eni_type} Template updated, the latest version is: {str(new_template_ver)}")
+    if new_template['ResponseMetadata']['HTTPStatusCode'] != 200:
+        status = False
+        msg = f"ERROR: Validation failed - {eni_type} Launch Template data for server: " + factoryserver[
+            'server_name']
+        log.error(f"{pid_message_prefix}{msg}")
+        return msg, status, new_template_ver
+    else:
+        msg = f"SUCCESS: {eni_type} Launch template validated for server: " + factoryserver['server_name']
+        log.info(f"{pid_message_prefix}{msg}")
+        status = True
+
+    ec2_client.modify_launch_template(
+        LaunchTemplateId=factoryserver['launch_template_id'],
+        DefaultVersion=str(new_template_ver))
+
+    return None, status, new_template_ver
+
+
+def revert_template(ec2_client, factoryserver, new_template_ver_cutover,
+                    launch_template_data_latest, pid_message_prefix):
+    latest_template = ec2_client.create_launch_template_version(
+        LaunchTemplateId=factoryserver['launch_template_id'],
+        SourceVersion=str(new_template_ver_cutover),
+        LaunchTemplateData=launch_template_data_latest)
+    latest_template_ver = latest_template['LaunchTemplateVersion']['VersionNumber']
+    log.info("Pid: " + str(
+        os.getpid()) + " - Template reverted back after validation, the latest version is: " + str(
+        latest_template_ver))
+    if latest_template['ResponseMetadata']['HTTPStatusCode'] != 200:
+        status = False
+        msg = "ERROR: Revert to old version failed for server: " + factoryserver['server_name']
+        log.error(f"{pid_message_prefix}{msg}")
+        return msg
+    else:
+        status = True
+
+    ec2_client.modify_launch_template(
+        LaunchTemplateId=factoryserver['launch_template_id'],
+        DefaultVersion=str(latest_template_ver))
+
+    msg = "SUCCESS: All Launch templates validated for server: " + factoryserver['server_name']
+    if status == False:
+        msg = "ERROR: Launch template validation failed for server: " + factoryserver['server_name']
+    log.info(f"{pid_message_prefix}{msg}")
+    return msg
+
+
+def update_launch_template_for_test_and_cutover_instances(
+    factoryserver, new_launch_template, pid_message_prefix,
+    ec2_client, launch_template_latest_ver, test_eni_used,
+    live_eni_used, launch_template_data_latest):
+    status = False
+
+    # update tags into template
+    add_tags_to_launch_template(factoryserver, new_launch_template, 'test')
+
+    # Update termination protection
+    new_launch_template = update_termination_protection(
+        factoryserver, new_launch_template, 'termination_protection_test')
+
+    # Validate that the server does not have both ENI and Subnet specified.
+    msg, status = check_eni_sg_combination(test_eni_used, False, factoryserver,
+                                           pid_message_prefix, status)
+    if msg is not None:
+        return msg
+
+    add_network_interfaces_to_launch_template(factoryserver, new_launch_template, True)
+
+    msg, status, new_template_ver_test = modify_template(
+        False, pid_message_prefix, new_launch_template, factoryserver,
+        launch_template_latest_ver, ec2_client)
+    if msg is not None:
+        return msg
+
+    # update tags into template
+    add_tags_to_launch_template(factoryserver, new_launch_template, 'live')
+
+    ## Update termination protection
+    new_launch_template = update_termination_protection(
+        factoryserver, new_launch_template, 'termination_protection')
+
+    msg, status = check_eni_sg_combination(live_eni_used, True, factoryserver,
+                                           pid_message_prefix, status)
+    if msg is not None:
+        return msg
+
+    add_network_interfaces_to_launch_template(factoryserver, new_launch_template, False)
+
+    msg, status, new_template_ver_cutover = modify_template(
+        True, pid_message_prefix, new_launch_template, factoryserver,
+        new_template_ver_test, ec2_client)
+    if msg is not None:
+        return msg
+
+    ### Revert Launch template back to old version
+    msg = revert_template(ec2_client, factoryserver, new_template_ver_cutover,
+                          launch_template_data_latest, pid_message_prefix)
+    return msg
+
+
+def create_launch_template(factoryserver, action, new_launch_template, launch_template_data_latest,
+                           mgn_client, ec2_client, verify_instance_profile, launch_template_latest_ver,
+                           rg_client, license_client):
     test_eni_used = False
     live_eni_used = False
 
@@ -475,352 +981,101 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
         # tags_live as tag (these are combined with the tags attribute)
         # tags_test as tag (these are combined with the tags attribute)
         # server_boot_mode_uefi as checkbox
+        # license_configuration_arn as string
+        # host_resource_group_arn as string
 
         # Update disk type
-        ebs_volume_type = "gp3"
-        if 'ebs_volume_type' in factoryserver:
-            ebs_volume_type = factoryserver['ebs_volume_type']
-
-        ebs_iops = 3000
-        if 'ebs_iops' in factoryserver:
-            ebs_iops = factoryserver['ebs_iops']
-
-        ebs_throughput = 125
-        if 'ebs_throughput' in factoryserver:
-            ebs_throughput = factoryserver['ebs_throughput']
-
-        ebs_encrypted = False
-        if 'ebs_encrypted' in factoryserver:
-            ebs_encrypted = factoryserver['ebs_encrypted']
-            if 'ebs_kms_key_id' in factoryserver:
-                ebs_kms_key_id = factoryserver['ebs_kms_key_id']
-            else:
-                ebs_kms_key_id = ""  # replace with default key id if required.
-
-        for blockdevice in new_launch_template['BlockDeviceMappings']:
-            blockdevice['Ebs']['VolumeType'] = ebs_volume_type
-            blockdevice['Ebs']['Iops'] = int(ebs_iops)
-            blockdevice['Ebs']['Throughput'] = int(ebs_throughput)
-            if ebs_encrypted:
-                blockdevice['Ebs']['Encrypted'] = ebs_encrypted
-                blockdevice['Ebs']['KmsKeyId'] = ebs_kms_key_id
-            elif 'Encrypted' in blockdevice['Ebs']:
-                blockdevice['Ebs']['Encrypted'] = False
-                blockdevice['Ebs']['KmsKeyId'] = ''
+        new_launch_template = update_disk_type(factoryserver, new_launch_template)
 
         # Read any metadata options.
         metadata_options = {}
-        if 'instance_metadata_options_tags' in factoryserver:
-            if factoryserver['instance_metadata_options_tags']:
-                metadata_options['InstanceMetadataTags'] = 'enabled'
-            else:
-                metadata_options['InstanceMetadataTags'] = 'disabled'
+        metadata_options = update_metadata_options(
+            factoryserver, metadata_options,
+            'instance_metadata_options_tags',
+            'InstanceMetadataTags',
+            'enabled', 'disabled')
 
-        if 'instance_metadata_options_http_endpoint' in factoryserver:
-            if factoryserver['instance_metadata_options_http_endpoint']:
-                metadata_options['HttpEndpoint'] = 'enabled'
-            else:
-                metadata_options['HttpEndpoint'] = 'disabled'
+        metadata_options = update_metadata_options(
+            factoryserver, metadata_options,
+            'instance_metadata_options_http_endpoint',
+            'HttpEndpoint',
+            'enabled', 'disabled')
 
-        if 'instance_metadata_options_http_v6' in factoryserver:
-            if factoryserver['instance_metadata_options_http_v6']:
-                metadata_options['HttpProtocolIpv6'] = 'enabled'
-            else:
-                metadata_options['HttpProtocolIpv6'] = 'disabled'
+        metadata_options = update_metadata_options(
+            factoryserver, metadata_options,
+            'instance_metadata_options_http_v6',
+            'HttpProtocolIpv6',
+            'enabled', 'disabled')
 
-        if 'instance_metadata_options_http_hop_limit' in factoryserver:
-            try:
-                metadata_options['HttpPutResponseHopLimit'] = int(
-                    factoryserver['instance_metadata_options_http_hop_limit'])
-            except ValueError:
-                # incorrect value entered, needs to be int.
-                metadata_options['HttpPutResponseHopLimit'] = 1
+        metadata_options = update_http_put_response_hop_limit(
+            factoryserver, metadata_options)
 
-        if 'instance_metadata_options_http_tokens' in factoryserver:
-            if factoryserver['instance_metadata_options_http_tokens']:
-                metadata_options['HttpTokens'] = 'required'
-            else:
-                metadata_options['HttpTokens'] = 'optional'
+        metadata_options = update_metadata_options(
+            factoryserver, metadata_options,
+            'instance_metadata_options_http_tokens',
+            'HttpTokens',
+            'required', 'optional')
 
-        if metadata_options:
-            new_launch_template['MetadataOptions'] = metadata_options
+        # Update metadata options, EBS optimization,
+        # and instance type in new launch template
+        new_launch_template = update_template(
+            new_launch_template, metadata_options, factoryserver)
 
-        ## Enable EBS Optimization
-        if 'ebs_optimized' in factoryserver:
-            new_launch_template['EbsOptimized'] = factoryserver['ebs_optimized']
+        # check if ENIs provided for test or live
+        live_eni_used, test_eni_used = check_eni(factoryserver, mgn_client,
+                                                 live_eni_used, test_eni_used)
 
-        ## update instance type
-        if 'instanceType' in factoryserver:
-            new_launch_template['InstanceType'] = factoryserver['instanceType']
+        # update tenancy
+        pid_message_prefix = lambda_mgn_utils.build_pid_message(False, " - ")
+        new_launch_template['Placement'] = update_tenancy(
+            factoryserver, ec2_client, mgn_client, rg_client, pid_message_prefix)
 
-        ## check if ENIs provided for test or live
-        if 'network_interface_id' in factoryserver and factoryserver['network_interface_id'] is not None and \
-            factoryserver['network_interface_id'] != '':
-            live_eni_used = True
+        # update instance profile
+        new_launch_template = update_instance_profile(
+            verify_instance_profile, new_launch_template)
 
-        if 'network_interface_id_test' in factoryserver and factoryserver['network_interface_id_test'] is not None and \
-            factoryserver['network_interface_id_test'] != '':
-            test_eni_used = True
-
-        if 'server_boot_mode_uefi' in factoryserver and factoryserver['server_boot_mode_uefi']:
-            mgn_client.update_launch_configuration(bootMode='UEFI', sourceServerID=factoryserver['source_server_id'])
-        else:
-            mgn_client.update_launch_configuration(bootMode='LEGACY_BIOS',
-                                                   sourceServerID=factoryserver['source_server_id'])
-
-        ## update tenancy
-        p_tenancy = {}
-        if 'tenancy' in factoryserver:
-            os_license = {}
-            if factoryserver["tenancy"].lower() == "shared":
-                p_tenancy['Tenancy'] = 'default'
-                os_license = {'osByol': False}
-            elif factoryserver["tenancy"].lower() == "dedicated":
-                p_tenancy['Tenancy'] = 'dedicated'
-                os_license = {'osByol': False}
-            elif factoryserver["tenancy"].lower() == "dedicated host":
-                p_tenancy['Tenancy'] = 'host'
-                os_license = {'osByol': True}
-                if 'dedicated_host_id' in factoryserver:
-                    if 'instanceType' in factoryserver:
-                        return_message = verify_dedicated_host(ec2_client, factoryserver['dedicated_host_id'],
-                                                               factoryserver['instanceType'],
-                                                               factoryserver['dedicated_host_required_capacity'])
-                        if return_message[:5] != 'ERROR':
-                            p_tenancy['HostId'] = factoryserver['dedicated_host_id']
-                        else:
-                            log.error("Pid: " + str(os.getpid()) + " - " + factoryserver[
-                                'server_name'] + ':' + return_message)
-                            return factoryserver['server_name'] + ' - ' + return_message
-                    else:
-                        msg = "ERROR: Instance Type is required if specifying dedicated host ID."
-                        log.error("Pid: " + str(os.getpid()) + " - " + factoryserver['server_name'] + ':' + msg)
-                        return msg
-                else:
-                    msg = "ERROR: Dedicated host ID is required if specifying tenancy as dedicated host."
-                    log.error("Pid: " + str(os.getpid()) + " - " + factoryserver['server_name'] + ':' + msg)
-                    return msg
-            else:
-                p_tenancy['Tenancy'] = 'default'
-                os_license = {'osByol': False}
-            if factoryserver['server_os_family'].lower() == 'linux':
-                os_license = {'osByol': True}
-            mgn_client.update_launch_configuration(licensing=os_license, sourceServerID=factoryserver['source_server_id'])
-        else:
-            p_tenancy['Tenancy'] = 'default'
-        new_launch_template['Placement'] = p_tenancy
-        ## update instance profile
-        if len(verify_instance_profile) > 0:
-            instance_profile_name = {}
-            instance_profile_name['Arn'] = verify_instance_profile['InstanceProfile']['Arn']
-            new_launch_template['IamInstanceProfile'] = instance_profile_name
+        # update license specifications
+        msg, new_launch_template = update_license_specifications(
+            factoryserver, license_client, new_launch_template, pid_message_prefix)
+        if msg is not None:
+            return msg
 
         ## Update Launch template with Test SG and subnet
         if action.strip() == "Launch Test Instances":
-
-            # update tags into template
-            add_tags_to_launch_template(factoryserver, new_launch_template, 'test')
-
-            ## Update termination protection
-            if 'termination_protection_test' in factoryserver:
-                new_launch_template['DisableApiTermination'] = factoryserver['termination_protection_test']
-            else:
-                if 'DisableApiTermination' in new_launch_template:
-                    del new_launch_template['DisableApiTermination']
-
-            add_network_interfaces_to_launch_template(factoryserver, new_launch_template, True)
-
-            log.info("Pid: " + str(os.getpid()) + " - *** Create New Test Launch Template data: ***")
-            print(new_launch_template)
-            new_template = ec2_client.create_launch_template_version(
-                LaunchTemplateId=factoryserver['launch_template_id'], SourceVersion=str(launch_template_latest_ver),
-                LaunchTemplateData=new_launch_template)
-            new_template_ver = new_template['LaunchTemplateVersion']['VersionNumber']
-            if new_template['ResponseMetadata']['HTTPStatusCode'] != 200:
-                msg = "ERROR: Update Failed - Test Launch Template for server: " + factoryserver['server_name']
-                log.error("Pid: " + str(os.getpid()) + " - " + msg)
-                return msg
-            else:
-                msg = "Update SUCCESS: Test Launch template updated for server: " + factoryserver['server_name']
-                log.info("Pid: " + str(os.getpid()) + " - " + msg)
-            log.info("Pid: " + str(os.getpid()) + " - Test Template updated, the latest version is: " + str(
-                new_template_ver))
-            ec2_client.modify_launch_template(LaunchTemplateId=factoryserver['launch_template_id'],
-                                                                DefaultVersion=str(new_template_ver))
+            msg = update_launch_template_for_test_instance(
+                factoryserver, new_launch_template, pid_message_prefix,
+                ec2_client, launch_template_latest_ver)
+            return msg
 
         # Update Launch template with Cutover SG and subnet
         elif action.strip() == "Launch Cutover Instances":
-
-            # update tags into template
-            add_tags_to_launch_template(factoryserver, new_launch_template, 'live')
-
-            ## Update termination protection
-            if 'termination_protection' in factoryserver:
-                new_launch_template['DisableApiTermination'] = factoryserver['termination_protection']
-            else:
-                if 'DisableApiTermination' in new_launch_template:
-                    del new_launch_template['DisableApiTermination']
-
-            add_network_interfaces_to_launch_template(factoryserver, new_launch_template, False)
-
-            log.info("Pid: " + str(os.getpid()) + " - *** Create New Cutover Launch Template data: ***")
-            print(new_launch_template)
-            new_template = ec2_client.create_launch_template_version(
-                LaunchTemplateId=factoryserver['launch_template_id'], SourceVersion=str(launch_template_latest_ver),
-                LaunchTemplateData=new_launch_template)
-            new_template_ver = new_template['LaunchTemplateVersion']['VersionNumber']
-            if new_template['ResponseMetadata']['HTTPStatusCode'] != 200:
-                msg = "ERROR: Update Failed - Cutover Launch Template for server: " + factoryserver['server_name']
-                log.error("Pid: " + str(os.getpid()) + " - " + msg)
-                return msg
-            else:
-                msg = "Update SUCCESS: Cutover Launch template updated for server: " + factoryserver['server_name']
-                log.info("Pid: " + str(os.getpid()) + " - " + msg)
-            log.info("Pid: " + str(os.getpid()) + " - Cutover Template updated, the latest version is: " + str(
-                new_template_ver))
-            set_default_ver = ec2_client.modify_launch_template(LaunchTemplateId=factoryserver['launch_template_id'],
-                                                                DefaultVersion=str(new_template_ver))
+            msg = update_launch_template_for_cutover_instance(
+                factoryserver, new_launch_template, pid_message_prefix,
+                ec2_client, launch_template_latest_ver)
+            return msg
 
         ## Validating Launch template with both test and cutover info
         elif action.strip() == "Validate Launch Template":
-            status = False
-
-            # update tags into template
-            add_tags_to_launch_template(factoryserver, new_launch_template, 'test')
-
-            ## Update termination protection
-            if 'termination_protection_test' in factoryserver:
-                new_launch_template['DisableApiTermination'] = factoryserver['termination_protection_test']
-            else:
-                if 'DisableApiTermination' in new_launch_template:
-                    del new_launch_template['DisableApiTermination']
-
-            # Validate that the server does not have both ENI and Subnet specified.
-            if test_eni_used and (
-                ('securitygroup_IDs_test' in factoryserver and factoryserver['securitygroup_IDs_test'] != '') or (
-                'subnet_IDs_test' in factoryserver and factoryserver['subnet_IDs_test'][0] != '')):
-                # user has specified both ENI and SGs but this is not a valid combination.
-                status = False
-                msg = "ERROR: Validation failed - Specifying Test ENI and also Test Security Group or Subnet is not supported. ENIs will inherit the SGs and Subnet of the ENI : " + \
-                      factoryserver['server_name']
-                log.error("Pid: " + str(os.getpid()) + " - " + msg)
-                return msg
-
-            add_network_interfaces_to_launch_template(factoryserver, new_launch_template, True)
-
-            log.info("Pid: " + str(os.getpid()) + " - *** Validate New Test Launch Template data: ***")
-            print(new_launch_template)
-            new_template_test = ec2_client.create_launch_template_version(
-                LaunchTemplateId=factoryserver['launch_template_id'], SourceVersion=str(launch_template_latest_ver),
-                LaunchTemplateData=new_launch_template)
-            new_template_ver_test = new_template_test['LaunchTemplateVersion']['VersionNumber']
-            log.info("Pid: " + str(os.getpid()) + " - Test Template updated, the latest version is: " + str(
-                new_template_ver_test))
-            if new_template_test['ResponseMetadata']['HTTPStatusCode'] != 200:
-                status = False
-                msg = "ERROR: Validation failed - Test Launch Template data for server: " + factoryserver['server_name']
-                log.error("Pid: " + str(os.getpid()) + " - " + msg)
-                return msg
-            else:
-                msg = "SUCCESS: Test Launch template validated for server: " + factoryserver['server_name']
-                log.info("Pid: " + str(os.getpid()) + " - " + msg)
-                status = True
-
-            ec2_client.modify_launch_template(
-                LaunchTemplateId=factoryserver['launch_template_id'], DefaultVersion=str(new_template_ver_test))
-
-            # update tags into template
-            add_tags_to_launch_template(factoryserver, new_launch_template, 'live')
-
-            ## Update termination protection
-            if 'termination_protection' in factoryserver:
-                new_launch_template['DisableApiTermination'] = factoryserver['termination_protection']
-            else:
-                if 'DisableApiTermination' in new_launch_template:
-                    del new_launch_template['DisableApiTermination']
-
-            if live_eni_used and (
-                ('securitygroup_IDs' in factoryserver and factoryserver['securitygroup_IDs'] != '') or (
-                'subnet_IDs' in factoryserver and factoryserver['subnet_IDs'][0] != '')):
-                # user has specified both ENI and SGs but this is not a valid combination.
-                status = False
-                msg = "ERROR: Validation failed - Specifying Live ENI and also Live Security Group or Subnet is not supported. ENIs will inherit the SGs and Subnet of the ENI : " + \
-                      factoryserver['server_name']
-                log.error("Pid: " + str(os.getpid()) + " - " + msg)
-                return msg
-
-            add_network_interfaces_to_launch_template(factoryserver, new_launch_template, False)
-
-            log.info("Pid: " + str(os.getpid()) + " - *** Validate New Cutover Launch Template data: ***")
-            print(new_launch_template)
-            new_template_cutover = ec2_client.create_launch_template_version(
-                LaunchTemplateId=factoryserver['launch_template_id'], SourceVersion=str(new_template_ver_test),
-                LaunchTemplateData=new_launch_template)
-            new_template_ver_cutover = new_template_cutover['LaunchTemplateVersion']['VersionNumber']
-            log.info("Pid: " + str(os.getpid()) + " - Cutover Template updated, the latest version is: " + str(
-                new_template_ver_cutover))
-            if new_template_cutover['ResponseMetadata']['HTTPStatusCode'] != 200:
-                status = False
-                msg = "ERROR: Validation failed - Cutover Launch Template data for server: " + factoryserver[
-                    'server_name']
-                log.error("Pid: " + str(os.getpid()) + " - " + msg)
-                return msg
-            else:
-                msg = "SUCCESS: Cutover Launch template validated for server: " + factoryserver['server_name']
-                log.info("Pid: " + str(os.getpid()) + " - " + msg)
-                status = True
-
-            ec2_client.modify_launch_template(
-                LaunchTemplateId=factoryserver['launch_template_id'], DefaultVersion=str(new_template_ver_cutover))
-
-            ### Revert Launch template back to old version
-            latest_template = ec2_client.create_launch_template_version(
-                LaunchTemplateId=factoryserver['launch_template_id'], SourceVersion=str(new_template_ver_cutover),
-                LaunchTemplateData=launch_template_data_latest)
-            latest_template_ver = latest_template['LaunchTemplateVersion']['VersionNumber']
-            log.info("Pid: " + str(
-                os.getpid()) + " - Template reverted back after validation, the latest version is: " + str(
-                latest_template_ver))
-            if latest_template['ResponseMetadata']['HTTPStatusCode'] != 200:
-                status = False
-                msg = "ERROR: Revert to old version failed for server: " + factoryserver['server_name']
-                log.error("Pid: " + str(os.getpid()) + " - " + msg)
-                return msg
-            else:
-                status = True
-            ec2_client.modify_launch_template(
-                LaunchTemplateId=factoryserver['launch_template_id'], DefaultVersion=str(latest_template_ver))
-
-            if status == True:
-                msg = "SUCCESS: All Launch templates validated for server: " + factoryserver['server_name']
-                log.info("Pid: " + str(os.getpid()) + " - " + msg)
-                return msg
-            else:
-                msg = "ERROR: Launch template validation failed for server: " + factoryserver['server_name']
-                log.error("Pid: " + str(os.getpid()) + " - " + msg)
-                return msg
+            msg = update_launch_template_for_test_and_cutover_instances(
+                factoryserver, new_launch_template, pid_message_prefix,
+                ec2_client, launch_template_latest_ver, test_eni_used,
+                live_eni_used, launch_template_data_latest)
+            return msg
 
     except Exception as error:
+        message_suffix = ""
         if ":" in str(error):
-            err = ''
-            msgs = str(error).split(":")[1:]
-            for msg in msgs:
-                err = err + msg
-            log.error("Pid: " + str(os.getpid()) + " - ERROR: " + err + ' full: ' + str(error))
-            return "ERROR: " + err + ' full: ' + str(error)
-        else:
-            log.error("Pid: " + str(os.getpid()) + " - ERROR: " + str(error))
-            return "ERROR: " + str(error)
-
-
-def chunks(l, n):
-    for i in range(0, n):
-        yield l[i::n]
+            message_suffix = f" full:  {str(error)})"
+        error_message = lambda_mgn_utils.handle_error_with_pid(error, message_suffix)
+        return error_message
 
 
 def add_tags_to_launch_template(factory_server, new_launch_template, additional_tags=None):
     base_tags_key = 'tags'
     factory_server_all_tags = []
+
+    pid_message_prefix = lambda_mgn_utils.build_pid_message(False, " - ")
+    pid_message_suffix = f" on server: {factory_server['server_name']}"
 
     # Add base tags to be added.
     if base_tags_key in factory_server:
@@ -836,12 +1091,10 @@ def add_tags_to_launch_template(factory_server, new_launch_template, additional_
         if tags['ResourceType'] == 'instance' or tags['ResourceType'] == 'volume':
             remaining_tags = []
             for tag in tags['Tags']:
-                log.debug("Pid: " + str(os.getpid()) + " - checking tag " + tag['Key'] + " on server: "
-                          + factory_server['server_name'])
+                log.debug(f"{pid_message_prefix}checking tag {tag['Key']}{pid_message_suffix}")
                 if tag['Key'].lower().startswith('aws') or tag['Key'].lower() == 'name':
                     # Removed tag as it is not AWS provided or called name
-                    log.debug("Pid: " + str(os.getpid()) + " - keeping tag " + tag['Key'] + " on server: "
-                              + factory_server['server_name'])
+                    log.debug(f"{pid_message_prefix}keeping tag {tag['Key']}{pid_message_suffix}")
                     remaining_tags.append(tag)
             tags['Tags'] = remaining_tags
 
@@ -855,15 +1108,14 @@ def add_tags_to_launch_template(factory_server, new_launch_template, additional_
                 if 'value' in item:
                     item['Value'] = item['value']
                     del item['value']
-                log.debug("Pid: " + str(os.getpid()) + " - checking tag: " + item['Value'] + " on server: "
-                          + factory_server['server_name'])
+                log.debug(f"{pid_message_prefix}checking tag: {item['Value']}{pid_message_suffix}")
                 tag_exist = False
                 for tag in tags['Tags']:
                     if item['Key'].lower() == tag['Key'].lower():
                         tag['Value'] = item['Value']
                         tag_exist = True
-                        log.info("Pid: " + str(os.getpid()) + " - Replaced existing value for tag: " + tag[
-                            'Key'] + " on server: " + factory_server['server_name'])
+                        log.info(
+                            f"{pid_message_prefix}Replaced existing value for tag: {tag['Key']}{pid_message_suffix}")
                 if tag_exist == False:
                     tags['Tags'].append(item)
 
@@ -876,32 +1128,95 @@ def add_network_interfaces_to_launch_template(factory_server, new_launch_templat
         test_attribute_suffix = '_test'
 
     # check if ENIs provided
-    if 'network_interface_id' + test_attribute_suffix in factory_server and factory_server['network_interface_id' + test_attribute_suffix] is not None and factory_server['network_interface_id' + test_attribute_suffix] != '':
+    network_interface_id_str = 'network_interface_id' + test_attribute_suffix
+    if factory_server.get(network_interface_id_str):
         eni_used = True
 
     if eni_used:
         # update ENI if provided, removes other interfaces and replaces with ENI provided, this will use subnet and SGs defined for ENI.
-        network_interfaces = []
-        network_interface = {}
-        network_interface['NetworkInterfaceId'] = factory_server['network_interface_id' + test_attribute_suffix]
-        network_interface['DeviceIndex'] = 0
-        network_interfaces.append(network_interface)
-        new_launch_template['NetworkInterfaces'] = network_interfaces
+        update_launch_template_network_interfaces_eni(
+            new_launch_template, factory_server[network_interface_id_str])
     else:
         # Update network interfaces with subnet, security groups and private IP addresses if specified.
-        for nic in new_launch_template['NetworkInterfaces']:
-            # Update private IP address if specified.
-            if 'private_ip' + test_attribute_suffix in factory_server and factory_server['private_ip' + test_attribute_suffix] is not None and factory_server['private_ip' + test_attribute_suffix].strip() != '':
-                ipaddrs = []
-                ip = {}
-                ip['Primary'] = True
-                ip['PrivateIpAddress'] = factory_server['private_ip' + test_attribute_suffix]
-                ipaddrs.append(ip)
-                nic['PrivateIpAddresses'] = ipaddrs
-            else:
-                if 'PrivateIpAddresses' in nic:
-                    del nic['PrivateIpAddresses']
+        update_launch_template_network_interfaces_no_eni(
+            factory_server, new_launch_template, test_attribute_suffix)
 
-            # Update Subnet Id and security group Ids if no ENI provided.
-            nic['Groups'] = factory_server['securitygroup_IDs' + test_attribute_suffix]
-            nic['SubnetId'] = factory_server['subnet_IDs' + test_attribute_suffix][0]
+
+def update_launch_template_network_interfaces_eni(launch_template, network_interface_id):
+    network_interfaces = []
+    network_interface = {'NetworkInterfaceId': network_interface_id,
+                         'DeviceIndex': 0}
+    network_interfaces.append(network_interface)
+    launch_template['NetworkInterfaces'] = network_interfaces
+
+
+def update_launch_template_network_interfaces_no_eni(factory_server, launch_template, test_attribute_suffix=''):
+    for nic in launch_template['NetworkInterfaces']:
+        # Update private IP address if specified.
+        if factory_server.get('private_ip' + test_attribute_suffix) is not None and factory_server[
+            'private_ip' + test_attribute_suffix].strip() != '':
+            ipaddrs = []
+            ip = {'Primary': True, 'PrivateIpAddress': factory_server['private_ip' + test_attribute_suffix]}
+            ipaddrs.append(ip)
+            nic['PrivateIpAddresses'] = ipaddrs
+        else:
+            if 'PrivateIpAddresses' in nic:
+                del nic['PrivateIpAddresses']
+
+        # Update Subnet Id and security group Ids if no ENI provided.
+        nic['Groups'] = factory_server['securitygroup_IDs' + test_attribute_suffix]
+        nic['SubnetId'] = factory_server['subnet_IDs' + test_attribute_suffix][0]
+
+
+def get_host_resource_group_resources(rg_client, host_resource_group_arn):
+    resources = []
+    paginator = rg_client.get_paginator('list_group_resources')
+    page_iterator = paginator.paginate(
+        Group=host_resource_group_arn,
+        Filters=[
+            {
+                'Name': 'resource-type',
+                'Values': [
+                    'AWS::EC2::Host',
+                ]
+            }
+        ],
+    )
+    for page in page_iterator:
+        resources.extend(page['Resources'])
+    return resources
+
+
+def verify_host_resource_group_resources(rg_client, host_resource_group_arn):
+    try:
+        resources = get_host_resource_group_resources(rg_client, host_resource_group_arn)
+    except rg_client.exceptions.NotFoundException:
+        return f'ERROR: Host Resource Group ARN ({host_resource_group_arn}) not found.'
+
+    if len(resources) > 0:
+        return f'SUCCESS: Host Resource Group ARN ({host_resource_group_arn}) found and has len(resources) hosts.'
+
+    msg = f'WARNING: Host Resource Group ARN ({host_resource_group_arn}) has no hosts allocated currently.'
+    log.warning(msg)
+
+    return msg
+
+
+def verify_license_configuration(license_client, license_configuration_arn):
+    # get license configuration from AWS boto3
+    try:
+        license_configuration = license_client.get_license_configuration(
+            LicenseConfigurationArn=license_configuration_arn)
+    except license_client.exceptions.InvalidParameterValueException:
+        return f'ERROR: License Configuration ARN ({license_configuration_arn}) not found.'
+
+    log.debug(license_configuration)
+
+    license_configuration_status = license_configuration['Status']
+    if license_configuration_status == 'AVAILABLE':
+        return f'SUCCESS: License Configuration ARN ({license_configuration_arn}) has license configuration status AVAILABLE.'
+    else:
+        msg = f'ERROR: License Configuration ARN ({license_configuration_arn}) status not AVAILABLE.'
+        log.error(msg)
+
+    return msg

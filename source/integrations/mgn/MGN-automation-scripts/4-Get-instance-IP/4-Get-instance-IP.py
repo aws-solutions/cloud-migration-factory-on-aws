@@ -64,9 +64,11 @@ def get_instance_id(serverlist):
                 print("ERROR: server_fqdn does not exist for server: " + factoryserver['server_name'])
                 sys.exit(1)
             else:
-                sourceserver = mfcommon.get_MGN_Source_Server(factoryserver, mgn_sourceservers)
+                sourceserver = mfcommon.get_mgn_source_server(
+                    factoryserver, mgn_sourceservers)
                 if sourceserver is not None:
                     # Get target instance Id for the source server in Application Migration Service
+                    # TODO: at this point sourceserver['isArchived'] is always false
                     if sourceserver['isArchived'] == False:
                         if 'launchedInstance' in sourceserver:
                             if 'ec2InstanceID' in sourceserver['launchedInstance']:
@@ -156,7 +158,7 @@ def main(arguments):
 
     print("")
     print("*Login to Migration factory*")
-    token = mfcommon.Factorylogin()
+    token = mfcommon.factory_login()
 
     print("*** Getting Server List ****")
     get_servers = mfcommon.get_factory_servers(args.Waveid, token, False, 'Rehost')

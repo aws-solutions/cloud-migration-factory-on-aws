@@ -1,14 +1,8 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-
-import os
 from policy import MFAuth
-import logging
-
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+from cmf_logger import logger
 
 
 def lambda_handler(event, _):
@@ -17,6 +11,6 @@ def lambda_handler(event, _):
     else:
         logger.info('Authenticating non-API Gateway request')
     auth = MFAuth()
-    auth_response = auth.getAdminResourcePolicy(event)
+    auth_response = auth.get_admin_resource_policy(event)
     logger.info(auth_response)
     return auth_response

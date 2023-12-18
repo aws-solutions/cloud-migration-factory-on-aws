@@ -42,6 +42,37 @@ MSG_SUDO_PERMISSION = 'SUDO permission'
 OUTPUT_ERROR_KEY = 'final_result'
 
 
+def is_winrm_accessible(s_result, winrm_use_ssl=False):
+    messages = []
+
+    command_wsman = "Test-WSMan -ComputerName " + s_result["server_name"]
+    if winrm_use_ssl:
+        command_wsman += " -UseSSL"
+
+    p_wsman = subprocess.Popen(["powershell.exe", command_wsman], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    for line in p_wsman.stdout.readlines():
+        messages.append(line)
+
+    for line in p_wsman.stderr.readlines():
+        messages.append(line)
+    retval = p_wsman.wait()
+    p_wsman.communicate()
+
+    for message in messages:
+        # Ignore certificate errors if present.
+        if 'unknown certificate authority' in str(message):
+            retval = 0
+
+    if retval != 0:
+        s_result['test_results'].append({'test': "WinRM Accessible", 'result': "Fail", 'error': messages})
+        s_result['success'] = False
+        return False
+    else:
+        s_result['test_results'].append({'test': "WinRM Accessible", 'result': "Pass"})
+        s_result['success'] = True
+        return True
+
+
 def check_windows(parameters):
     mgn_endpoint = parameters["MGNEndpoint"]
     s3_endpoint = parameters["S3Endpoint"]
@@ -55,14 +86,20 @@ def check_windows(parameters):
     windows_fail = False
     print("")
 
-    credentials = mfcommon.getServerCredentials(domain_user, domain_password, s, secret_name, no_user_prompts)
-
     s_result = {
         "server_id": s["server_id"],
         "server_name": s["server_fqdn"],
         "test_results": [],
         "success": True
     }
+
+    if not is_winrm_accessible(s_result, parameters["winrm_use_ssl"]):
+        s_result['success'] = False
+        windows_fail = True
+        return s_result, windows_fail
+
+    credentials = mfcommon.get_server_credentials(
+        domain_user, domain_password, s, secret_name, no_user_prompts)
 
     command = "Invoke-Command -ComputerName " + s["server_fqdn"] + \
               " -FilePath 0-Prerequisites-Windows.ps1 -ArgumentList " + \
@@ -288,7 +325,8 @@ def check_linux(parameters):
         "success": True
     }
 
-    credentials = mfcommon.getServerCredentials(user_name, pass_key, s, secret_name, no_user_prompts)
+    credentials = mfcommon.get_server_credentials(
+        user_name, pass_key, s, secret_name, no_user_prompts)
 
     # This checks network connectivity, if we can SSH to the source machine
     ssh = check_ssh_connectivity(s["server_fqdn"], credentials['username'], credentials['password'],
@@ -313,7 +351,7 @@ def check_linux(parameters):
             check_freespace(ssh, '/', 2.0, s_result)
 
             # Check if /tmp directory have more than 500MB free space
-            check_freespace(ssh, '/tmp', 0.5, s_result)  # nosec B108
+            check_freespace(ssh, '/tmp', 0.5, s_result)  # //NOSONAR nosec B108
 
             # Check if dhclient package is installed.
             check_dhclient(ssh, s_result)
@@ -401,6 +439,17 @@ def print_results(label, results, token, status):
     print("", flush=True)
 
 
+def parse_boolean(value):
+    value = value.lower()
+
+    if value in ["true", "yes", "y", "1", "t"]:
+        return True
+    elif value in ["false", "no", "n", "0", "f"]:
+        return False
+
+    return False
+
+
 def parse_arguments(arguments):
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -408,18 +457,19 @@ def parse_arguments(arguments):
     parser.add_argument('--Waveid', required=True)
     parser.add_argument('--ReplicationServerIP', required=True)
     # Removed as new credentials function deals with this parser.add_argument('--WindowsUser', default="")
-    parser.add_argument('--NoPrompts', default=False, type=bool,
+    parser.add_argument('--NoPrompts', default=False, type=parse_boolean,
                         help='Specify if user prompts for passwords are allowed. Default = False')
     parser.add_argument('--SecretWindows', default=None)
     parser.add_argument('--SecretLinux', default=None)
     parser.add_argument('--S3Endpoint', default=None)
     parser.add_argument('--MGNEndpoint', default=None)
+    parser.add_argument('--UseSSL', default=False, type=parse_boolean)
     # parser.add_argument('--Verbose', default=False, type=bool, help='For detailed logging, use True')
     args = parser.parse_args(arguments)
     return args
 
 
-def get_install_endpoint_parameters(account):
+def get_install_endpoint_parameters(account, args):
     parameters = {}
     if args.MGNEndpoint:
         parameters["MGNEndpoint"] = args.MGNEndpoint
@@ -434,19 +484,19 @@ def get_install_endpoint_parameters(account):
     return parameters
 
 
-def main():
+def main(args):
 
     print("")
     print("Login to Migration factory")
     print("", flush=True)
-    token = mfcommon.Factorylogin()
+    token = mfcommon.factory_login()
 
     print("****************************")
     print("*** Getting Server List ****")
     print("****************************")
     print("", flush=True)
     get_servers, linux_exist, windows_exist = mfcommon.get_factory_servers(
-        args.Waveid, token, osSplit=True, rtype='Rehost'
+        args.Waveid, token, os_split=True, rtype='Rehost'
     )
     user_name = ''
     pass_key = ''
@@ -472,13 +522,14 @@ def main():
         for account in get_servers:
             if len(account["servers_windows"]) > 0:
                 # Parameters to be passed to the thread
-                parameters = get_install_endpoint_parameters(account)
+                parameters = get_install_endpoint_parameters(account, args)
                 parameters["servers_windows"] = account["servers_windows"]
                 parameters["MGNServerIP"] = args.ReplicationServerIP
                 parameters["user_name"] = ""
                 parameters["windows_password"] = ""
                 parameters["secret_name"] = args.SecretWindows
                 parameters["no_user_prompts"] = args.NoPrompts
+                parameters["winrm_use_ssl"] = args.UseSSL
 
                 mfcommon.add_windows_servers_to_trusted_hosts(account["servers_windows"])
 
@@ -514,7 +565,7 @@ def main():
 
         for account in get_servers:
             if len(account["servers_linux"]) > 0:
-                parameters = get_install_endpoint_parameters(account)
+                parameters = get_install_endpoint_parameters(account, args)
                 parameters["Servers_Linux"] = account["servers_linux"]
                 parameters["MGNServerIP"] = args.ReplicationServerIP
                 parameters["user_name"] = user_name
@@ -563,4 +614,4 @@ def main():
 
 if __name__ == '__main__':
     args = parse_arguments(sys.argv[1:])
-    sys.exit(main())
+    sys.exit(main(args))

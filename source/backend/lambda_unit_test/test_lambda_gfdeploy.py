@@ -30,22 +30,22 @@ class LambdaGFDeployTest(LambdaGFCommonTest):
         super().setUp(lambda_gfdeploy)
         LambdaGFDeployTest.CreateStackCalledWith = []
 
-    @mock.patch('lambda_gfdeploy.MFAuth.getUserResourceCreationPolicy')
+    @mock.patch('lambda_gfdeploy.MFAuth.get_user_resource_creation_policy')
     def test_lambda_handler_mfAuth_deny(self, mock_MFAuth):
         import lambda_gfdeploy
         self.assert_lambda_handler_mfAuth_deny(lambda_gfdeploy, mock_MFAuth)
 
-    @mock.patch('lambda_gfdeploy.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfdeploy.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_wave_id(self):
         import lambda_gfdeploy
         self.assert_lambda_handler_no_wave_id(lambda_gfdeploy)
 
-    @mock.patch('lambda_gfdeploy.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfdeploy.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_account_id(self):
         import lambda_gfdeploy
         self.assert_lambda_handler_no_account_id(lambda_gfdeploy)
 
-    @mock.patch('lambda_gfdeploy.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfdeploy.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_malformed_input(self):
         import lambda_gfdeploy
         self.assert_lambda_handler_malformed_input(lambda_gfdeploy)
@@ -62,7 +62,7 @@ class LambdaGFDeployTest(LambdaGFCommonTest):
 
     # mock cloudformation calls because the createstack call with templateURL fails on moto's mock_cloudformation
     @patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
-    @mock.patch('lambda_gfdeploy.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfdeploy.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_success(self):
         import lambda_gfdeploy
         self.upload_to_s3(os.path.dirname(os.path.realpath(__file__)) + '/sample_data/CFN_Template_1_Wordpress.yaml',
@@ -83,7 +83,7 @@ class LambdaGFDeployTest(LambdaGFCommonTest):
         self.assertEqual(expected_call_params, actual_call_params)
         self.assert_servers_table_updated(lambda_gfdeploy.servers_table, 'CF Deployment Submitted')
 
-    @mock.patch('lambda_gfdeploy.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfdeploy.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_non_existent_wave_id(self):
         import lambda_gfdeploy
         wave_id = '101'
@@ -99,34 +99,34 @@ class LambdaGFDeployTest(LambdaGFCommonTest):
         self.assertEqual(200, response['statusCode'])
         self.assertEqual('EC2 Deployment has been completed', response['body'])
 
-    @mock.patch('lambda_gfdeploy.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfdeploy.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_apps_table(self):
         import lambda_gfdeploy
         self.assert_lambda_hander_no_table_fail(lambda_gfdeploy,
                                                 'apps_table',
                                                 'Unable to Retrieve Data from Dynamo DB App Table')
 
-    @mock.patch('lambda_gfdeploy.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfdeploy.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_servers_table(self):
         import lambda_gfdeploy
         self.assert_lambda_hander_no_table_fail(lambda_gfdeploy,
                                                 'servers_table',
                                                 'Unable to Retrieve Data from Dynamo DB Server Table')
 
-    @mock.patch('lambda_gfdeploy.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfdeploy.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_waves_table(self):
         import lambda_gfdeploy
         self.assert_lambda_hander_no_table_fail(lambda_gfdeploy,
                                                 'waves_table',
                                                 'Unable to Retrieve Data from Dynamo DB Wave Table')
 
-    @mock.patch('lambda_gfdeploy.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfdeploy.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_exception_main(self):
         import lambda_gfdeploy
         self.assert_lambda_handler_exception_main(lambda_gfdeploy)
 
     @mock.patch('lambda_gfdeploy.launch_stack')
-    @mock.patch('lambda_gfdeploy.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfdeploy.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_exception_launch_stack(self, mock_launch_stack):
         import lambda_gfdeploy
         error_launch_stack = 'ERROR in launch_stack'

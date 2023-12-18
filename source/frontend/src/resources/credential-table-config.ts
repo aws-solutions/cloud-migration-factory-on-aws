@@ -23,15 +23,12 @@ const COLUMN_DEFINITIONS = [
     id: 'secretname',
     header: 'Secret name',
     cell: item => item.Name,
-    minWidth: '20%',
-    maxWidth: '25%',
     sortingField: 'Name'
   },
   {
     id: 'secrettype',
     header: 'Secret Type',
     cell: item => getSecretType(item),
-    width: '14%',
     sortingField: 'data',
     sortingComparator: (item1, item2) => sortAscendingComparator(returnLocaleDateTime(getSecretType(item1),true), returnLocaleDateTime(getSecretType(item2),true))
   },
@@ -39,15 +36,12 @@ const COLUMN_DEFINITIONS = [
     id: 'description',
     header: 'Description',
     cell: item => item.Description,
-    minWidth: '20%',
-    maxWidth: '30%',
     sortingField: 'Description'
   },
   {
     id: 'createdon',
     header: 'Created on',
     cell: item => returnLocaleDateTime(item.LastChangedDate),
-    width: '19%',
     sortingField: 'LastChangedDate',
     sortingComparator: (item1, item2) => sortAscendingComparator(returnLocaleDateTime(getNestedValue(item1, 'LastChangedDate'),true), returnLocaleDateTime(getNestedValue(item2, 'LastChangedDate'),true))
   },
@@ -55,7 +49,6 @@ const COLUMN_DEFINITIONS = [
     id: 'lastretrieved',
     header: 'Last retrieved',
     cell: item => returnLocaleDateTime(item.LastAccessedDate),
-    width: '19%',
     sortingField: 'LastAccessedDate',
     sortingComparator: (item1, item2) => sortAscendingComparator(returnLocaleDateTime(getNestedValue(item1, 'LastAccessedDate'),true), returnLocaleDateTime(getNestedValue(item2, 'LastAccessedDate'),true))
   }
@@ -64,7 +57,6 @@ const COLUMN_DEFINITIONS = [
 export function getColumnDefinitions() {
 
   return COLUMN_DEFINITIONS;
-
 }
 
 export function getContentSelectorOptions() {
@@ -73,29 +65,22 @@ export function getContentSelectorOptions() {
     options: []
   };
 
-  let options = COLUMN_DEFINITIONS.map((attr, index) => {
-    let column = {
+  contentSelectorOptions.options = COLUMN_DEFINITIONS.map((attr, index) => {
+    return {
       id: attr.id,
       label: attr.header,
       editable: true
     };
-    return column;
-  })
-
-  contentSelectorOptions.options = options;
+  });
 
   return [contentSelectorOptions];
-
-};
-export const CONTENT_SELECTOR_OPTIONS = getContentSelectorOptions();
+}
 
 export const PAGE_SELECTOR_OPTIONS = [
   { value: 10, label: '10 Items' },
   { value: 30, label: '30 Items' },
   { value: 50, label: '50 Items' }
 ];
-
-export const CUSTOM_PREFERENCE_OPTIONS = [{ value: 'table', label: 'Table' }, { value: 'cards', label: 'Cards' }];
 
 export const DEFAULT_PREFERENCES = {
   pageSize: 30,

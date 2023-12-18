@@ -1,73 +1,61 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import ReactDOM from 'react-dom'
-import {
-  Modal,
-  Button,
-  SpaceBetween,
-  Box,
-  FormField,
-  Multiselect,
-} from '@awsui/components-react';
+import React, {useState} from 'react';
+import {Box, Button, FormField, Modal, Multiselect, SpaceBetween,} from '@awsui/components-react';
 import {setNestedValuePath} from "../resources/main";
 
-type Props = {
-  children: React.ReactChild,
+type UserGroupsModalProps = {
+  groups: string[],
+  header: string;
+  visible: boolean,
   closeModal: () => void,
-  confirmAction: () => void
-};
+  onConfirmation: (attribute: any) => void,
+}
 
-const UserGroupsModal = React.memo(({ children, closeModal , confirmAction, title, groups , action}: Props) => {
-  const domEl = document.getElementById('modal-root')
-  const [localObject, setLocalObject] = useState({});
+export const UserGroupsModal = (
+  {
+    closeModal, onConfirmation, header, groups, visible
+  }: UserGroupsModalProps
+) => {
+  const [localObject, setLocalObject] = useState<any>({});
   const [saving, setSaving] = useState(false);
 
-
-  function handleUserInput (value){
+  function handleUserInput(value: { field: any; value: any; }) {
 
     let newAttr = Object.assign({}, localObject);
     setNestedValuePath(newAttr, value.field, value.value);
 
     setLocalObject(newAttr);
-
   }
 
-  async function handleSave (e){
-
+  async function handleSave() {
     setSaving(true);
-
     closeModal();
-
-    confirmAction(localObject, action);
-
+    onConfirmation(localObject);
   }
 
-  if (!domEl) return null
+  if (!visible) return <></>;
 
-  return ReactDOM.createPortal(
+  return (
     <Modal
-      onDismiss={confirmAction ? closeModal : undefined}
+      onDismiss={closeModal}
       visible={true}
       closeAriaLabel="Close"
       size="medium"
-      footer={confirmAction ?
-            (
-              <Box float="right">
-                <SpaceBetween direction="horizontal" size="xs">
-                  <Button onClick={closeModal} variant="link">Cancel</Button>
-                  <Button onClick={handleSave} loading={saving} variant="primary">Update</Button>
-                </SpaceBetween>
-              </Box>
-          )
-          :
-          undefined
+      footer={
+        (
+          <Box float="right">
+            <SpaceBetween direction="horizontal" size="xs">
+              <Button onClick={closeModal} variant="link">Cancel</Button>
+              <Button onClick={handleSave} loading={saving} variant="primary">Update</Button>
+            </SpaceBetween>
+          </Box>
+        )
       }
-      header={title}
+      header={header}
     >
       <SpaceBetween size="l">
         <FormField
@@ -86,11 +74,7 @@ const UserGroupsModal = React.memo(({ children, closeModal , confirmAction, titl
             filteringType="auto"
           />
         </FormField>
-        </SpaceBetween>
-      {children}
-    </Modal>,
-    domEl
+      </SpaceBetween>
+    </Modal>
   )
-});
-
-export default UserGroupsModal;
+};

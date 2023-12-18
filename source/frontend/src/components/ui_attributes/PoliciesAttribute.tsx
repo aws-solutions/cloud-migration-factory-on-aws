@@ -4,10 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import {
-  SpaceBetween, FormField, Multiselect, Spinner
-} from '@awsui/components-react';
+import React, {useEffect, useState} from 'react';
+import {FormField, Multiselect, SpaceBetween, Spinner} from '@awsui/components-react';
 
 const PoliciesAttribute = ({attribute, value, isReadonly, options, errorText, handleUserInput, displayHelpInfoLink}) => {
 

@@ -2,18 +2,15 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import json
-import boto3
 import os
 import time
 import urllib
 import datetime
 from jose import jwk, jwt
 from jose.utils import base64url_decode
-import logging
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+import cmf_boto
+from cmf_logger import logger
 
 region = os.environ['region']
 userpool_id = os.environ['userpool_id']
@@ -27,7 +24,7 @@ keys = json.loads(response.read())['keys']
 
 application = os.environ["application"]
 environment = os.environ["environment"]
-dynamodb = boto3.resource("dynamodb")
+dynamodb = cmf_boto.resource("dynamodb")
 connectionIds_table_name = '{}-{}-ssm-connectionIds'.format(application, environment)
 
 

@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "(%%SOLUTION_ID%%-gfield) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution (Version %%VERSION%%)"
+Description: "(%%SOLUTION_ID%%-gfield) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution. Version:%%VERSION%%"
 
 Parameters:
   CodeBucket: # Upload Code in this bucket
@@ -87,6 +87,9 @@ Parameters:
   LambdaLayerMFPolicyLib:
     Type: String
 
+  LambdaLayerMFUtilsLib:
+    Type: String
+
   SchemaDynamoTableArn:
     Type: String
     Description: Schema DynamoDB Table Arn
@@ -97,6 +100,16 @@ Parameters:
 
   CORS:
     Type: String
+
+  LambdaRuntimePython:
+    Type: String
+    Default: python3.10
+
+Mappings:
+  Solution:
+    Data:
+      SolutionID: '%%SOLUTION_ID%%'
+      SolutionVersion: '%%VERSION%%'
 
 Resources:
 
@@ -518,7 +531,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_gfbuild.lambda_handler
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       FunctionName: !Sub ${Application}-${Environment}-gfbuild
       Timeout: '300'
       Code:
@@ -530,8 +543,9 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           region: !Ref 'AWS::Region'
-          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
           cors: !Ref CORS
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -545,6 +559,7 @@ Resources:
       Layers:
         - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -557,7 +572,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_gfdeploy.lambda_handler
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       FunctionName: !Sub ${Application}-${Environment}-gfdeploy
       Timeout: '300'
       Code:
@@ -569,8 +584,9 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           region: !Ref 'AWS::Region'
-          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
           cors: !Ref CORS
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -584,6 +600,7 @@ Resources:
       Layers:
         - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -596,7 +613,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_gfvalidation.lambda_handler
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       FunctionName: !Sub ${Application}-${Environment}-gfvalidation
       Timeout: '300'
       Code:
@@ -608,8 +625,9 @@ Resources:
           application: !Ref Application
           environment: !Ref Environment
           region: !Ref 'AWS::Region'
-          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
           cors: !Ref CORS
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -623,6 +641,7 @@ Resources:
       Layers:
         - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -708,7 +727,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_replatformec2schema.lambda_handler
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       FunctionName: !Sub ${Application}-${Environment}-replatform-ec2-schema
       Timeout: 120
       Code:
@@ -718,7 +737,8 @@ Resources:
       Environment:
         Variables:
           SchemaDynamoDBTable: !Ref SchemaDynamoTableName
-          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
         -
           Key: application
@@ -731,6 +751,7 @@ Resources:
           Value: !Sub ${Application}-${Environment}-default-schema
       Layers:
         - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:

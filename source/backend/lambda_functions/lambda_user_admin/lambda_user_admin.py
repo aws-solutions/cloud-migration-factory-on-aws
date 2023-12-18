@@ -3,21 +3,12 @@
 
 
 import json
-import boto3
 import os
 from json import JSONEncoder
 import datetime
 
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
-
-default_http_headers = {
-    'Access-Control-Allow-Origin': cors,
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy': "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
-}
+import cmf_boto
+from cmf_utils import cors, default_http_headers
 
 
 # subclass JSONEncoder
@@ -46,7 +37,7 @@ def get_user_groups(client, username):
 
 def lambda_handler(event, context):
     print(f'lambda_handler with {event}, {context}')
-    client = boto3.client('cognito-idp')
+    client = cmf_boto.client('cognito-idp')
     response = client.list_users(
         UserPoolId=os.environ['userpool_id']
     )

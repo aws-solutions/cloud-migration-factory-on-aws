@@ -26,17 +26,15 @@ npm --version
 
 echo "  ---- Installing NPM Dependencies"
 npm install
-npm install jest --global
 
 echo "  ---- Running NPM audit"
 npm audit
 
-npm run test -- --watchAll=false
 echo "------------------------------------------------------------------------------"
 echo "[Unit Tests] Running Frontend Unit Tests"
 echo "------------------------------------------------------------------------------"
 
-jest
+npm run test -- --watchAll=false
 if [ $? -eq 0 ]
   then
     echo "  ---- SUCCESS: Frontend Unit tests passed."

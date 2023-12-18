@@ -4,25 +4,24 @@
 import os
 import boto3
 import json
-from datetime import datetime
 import uuid
 import base64
-import logging
 import shutil
 import zipfile
 import requests
 import tempfile
 
-log = logging.getLogger()
-log.setLevel(logging.INFO)
+import cmf_boto
+from cmf_logger import logger
+
 
 application = os.environ['application']
 environment = os.environ['environment']
 code_bucket = os.environ['code_bucket_name']
 key_prefix = os.environ['key_prefix']
 
-lambda_client = boto3.client('lambda')
-s3 = boto3.client('s3')
+lambda_client = cmf_boto.client('lambda')
+s3 = cmf_boto.client('s3')
 
 CONST_DEFAULT_SCRIPTS_FILE_NANE = 'default_scripts.zip'
 
@@ -52,7 +51,7 @@ def respond(event, context, response_status, response_data):
 
     # Convert json object to string and log it
     json_response_body = json.dumps(response_body)
-    log.info('Response body: {}'.format(str(json_response_body)))
+    logger.info('Response body: {}'.format(str(json_response_body)))
 
     # Set response URL
     response_url = event['ResponseURL']
@@ -69,11 +68,11 @@ def respond(event, context, response_status, response_data):
                                 data=json_response_body,
                                 headers=headers,
                                 timeout=30)
-        log.info('Status code: {}'.format(str(response.reason)))
+        logger.info('Status code: {}'.format(str(response.reason)))
         return 'SUCCESS'
 
     except Exception as e:
-        log.error('Failed to put message: {}'.format(str(e)))
+        logger.error('Failed to put message: {}'.format(str(e)))
         return 'FAILED'
 
 
@@ -103,7 +102,7 @@ def import_script_packages():
             if total_uncompressed_size > ZIP_MAX_SIZE:
                 error_msg = f'Zip file uncompressed contents exceeds maximum size of {ZIP_MAX_SIZE/1e+6}MBs.'
                 print(error_msg)
-            zip_file.extractall(tempfile.gettempdir() + '/default_scripts/')
+            zip_file.extractall(tempfile.gettempdir() + '/default_scripts/')    # NOSONAR This size of the file is in control
         except (IOError, zipfile.BadZipfile) as e:
             error_msg = 'Invalid zip file.'
             print(error_msg)
@@ -131,7 +130,7 @@ def import_script_packages():
                                                 InvocationType='RequestResponse',
                                                 Payload=json.dumps(scripts_event, cls=JsonEncoder))
 
-                # Decode return payload message and print to log.
+                # Decode return payload message and print to logger.
                 scripts_response_payload = scripts_response['Payload']
                 scripts_response_payload_text = scripts_response_payload.read()
                 print(scripts_response_payload_text)
@@ -139,41 +138,41 @@ def import_script_packages():
         cleanup_temp(temp_uuid)
     except Exception as e:
         print(e)
-        log.info('FAILED!')
-        log.info(e)
+        logger.info('FAILED!')
+        logger.info(e)
 
 
 def lambda_handler(event, context):
 
     try:
-        log.info('Event:\n {}'.format(event))
-        log.info('Contex:\n {}'.format(context))
+        logger.info('Event:\n {}'.format(event))
+        logger.info('Contex:\n {}'.format(context))
 
         if event['RequestType'] == 'Create':
-            log.info('Create action')
+            logger.info('Create action')
             import_script_packages()
             status = 'SUCCESS'
             message = 'Default script packages loaded successfully'
 
         elif event['RequestType'] == 'Update':
-            log.info('Update action')
+            logger.info('Update action')
             import_script_packages()
             status = 'SUCCESS'
             message = 'No update required'
 
         elif event['RequestType'] == 'Delete':
-            log.info('Delete action')
+            logger.info('Delete action')
             status = 'SUCCESS'
             message = 'No deletion required'
 
         else:
-            log.info('SUCCESS!')
+            logger.info('SUCCESS!')
             status = 'SUCCESS'
             message = 'Unexpected event received from CloudFormation'
 
     except Exception as e:
-        log.info('FAILED!')
-        log.info(e)
+        logger.info('FAILED!')
+        logger.info(e)
         status = 'FAILED'
         message = 'Exception during processing'
 

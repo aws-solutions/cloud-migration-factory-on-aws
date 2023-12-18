@@ -3,26 +3,14 @@
 
 
 import json
-import boto3
 import botocore
 import os
-import logging
 import urllib.parse
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.DEBUG)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+import cmf_boto
+from cmf_logger import logger
+from cmf_utils import cors, default_http_headers
 
-if 'cors' in os.environ:
-    cors = os.environ['cors']
-else:
-    cors = '*'
-
-default_http_headers = {
-    'Access-Control-Allow-Origin': cors,
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy': "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
-}
 
 
 def create_groups(body, client):
@@ -59,7 +47,7 @@ def create_groups(body, client):
 
 
 def lambda_handler(event, _):
-    client = boto3.client('cognito-idp')
+    client = cmf_boto.client('cognito-idp')
     if 'body' in event and event['body']:
         body = json.loads(event['body'])
     else:

@@ -20,28 +20,28 @@ class LambdaGFBuildTest(LambdaGFCommonTest):
         import lambda_gfbuild
         super().setUp(lambda_gfbuild)
 
-    @mock.patch('lambda_gfbuild.MFAuth.getUserResourceCreationPolicy')
+    @mock.patch('lambda_gfbuild.MFAuth.get_user_resource_creation_policy')
     def test_lambda_handler_mfAuth_deny(self, mock_MFAuth):
         import lambda_gfbuild
         self.assert_lambda_handler_mfAuth_deny(lambda_gfbuild, mock_MFAuth)
 
-    @mock.patch('lambda_gfbuild.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfbuild.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_wave_id(self):
         import lambda_gfbuild
         self.assert_lambda_handler_no_wave_id(lambda_gfbuild)
 
 
-    @mock.patch('lambda_gfbuild.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfbuild.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_account_id(self):
         import lambda_gfbuild
         self.assert_lambda_handler_no_account_id(lambda_gfbuild)
 
-    @mock.patch('lambda_gfbuild.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfbuild.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_malformed_input(self):
         import lambda_gfbuild
         self.assert_lambda_handler_malformed_input(lambda_gfbuild)
 
-    @mock.patch('lambda_gfbuild.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfbuild.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_success(self):
         import lambda_gfbuild
         response = lambda_gfbuild.lambda_handler(self.lambda_event_good, self.lambda_context)
@@ -61,39 +61,39 @@ class LambdaGFBuildTest(LambdaGFCommonTest):
         self.assertEqual(expected_template_as_str, template_as_str)
         self.assert_servers_table_updated(lambda_gfbuild.servers_table, 'CF Template Generated')
 
-    @mock.patch('lambda_gfbuild.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfbuild.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_non_existent_wave_id(self):
         import lambda_gfbuild
         self.assert_lambda_handler_non_existent_wave_id(lambda_gfbuild)
 
-    @mock.patch('lambda_gfbuild.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfbuild.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_apps_table(self):
         import lambda_gfbuild
         self.assert_lambda_hander_no_table_fail(lambda_gfbuild,
                                                 'apps_table',
                                                 'ERROR: Unable to Retrieve Data from Dynamo DB App table')
 
-    @mock.patch('lambda_gfbuild.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfbuild.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_servers_table(self):
         import lambda_gfbuild
         self.assert_lambda_hander_no_table_fail(lambda_gfbuild,
                                                 'servers_table',
                                                 'ERROR: Unable to Retrieve Data from Dynamo DB Server table')
 
-    @mock.patch('lambda_gfbuild.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfbuild.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_no_waves_table(self):
         import lambda_gfbuild
         self.assert_lambda_hander_no_table_fail(lambda_gfbuild,
                                                 'waves_table',
                                                 'Unable to Retrieve Data from Dynamo DB Wave Table')
 
-    @mock.patch('lambda_gfbuild.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfbuild.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_exception_main(self):
         import lambda_gfbuild
         self.assert_lambda_handler_exception_main(lambda_gfbuild)
 
     @mock.patch('lambda_gfbuild.Template')
-    @mock.patch('lambda_gfbuild.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfbuild.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_get_server_list_fail(self, mock_template):
         import lambda_gfbuild
         test_exception_message = 'Simulated template object creation error in get server list'
@@ -104,7 +104,7 @@ class LambdaGFBuildTest(LambdaGFCommonTest):
         self.assertEqual(lambda_gfbuild.default_http_headers, response['headers'])
 
     @mock.patch('lambda_gfbuild.Template.add_output')
-    @mock.patch('lambda_gfbuild.MFAuth.getUserResourceCreationPolicy', new=mock_getUserResourceCreationPolicy)
+    @mock.patch('lambda_gfbuild.MFAuth.get_user_resource_creation_policy', new=mock_getUserResourceCreationPolicy)
     def test_lambda_handler_template_gen_fail(self, mock_template):
         import lambda_gfbuild
         test_exception_message = 'Simulated Template Generation Error'

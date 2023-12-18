@@ -1,11 +1,10 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import React from "react";
-import { Route, Routes } from "react-router-dom";
+import {Route, Routes} from "react-router-dom";
 import UserTableApps from "./containers/UserTableApps";
 import UserServerTable from "./containers/UserTableServers";
 import UserDatabaseTable from "./containers/UserTableDatabases";
@@ -15,15 +14,14 @@ import UserAutomationScripts from "./containers/UserAutomationScripts";
 import UserDashboard from "./containers/UserDashboard";
 import UserImport from "./containers/UserImport";
 import UserExport from "./containers/UserExport";
-import NotFound from "./containers/NotFound";
 import Login from "./containers/Login";
 import AdminPermissions from "./containers/AdminPermissions";
 import AdminSchemaMgmt from "./containers/AdminSchemaMgmt"
 import ChangePassword from "./containers/ChangePassword";
 import CredentialManager from "./containers/CredentialManager";
-import Secrets from "./containers/Secrets";
+import {AppChildProps} from "./models/AppChildProps";
 
-export default ({ childProps }) => {
+export default ({childProps}: { childProps: AppChildProps }) => {
 
   return (
 
@@ -31,13 +29,13 @@ export default ({ childProps }) => {
       <Route
         path="/"
         element={
-            <UserDashboard {...childProps}/>
-      }
+          <UserDashboard/>
+        }
       />
       <Route
         path="/applications"
         element={
-            <UserTableApps {...childProps}/>
+          <UserTableApps {...childProps}/>
         }
       />
       <Route
@@ -139,13 +137,7 @@ export default ({ childProps }) => {
       <Route
         path="/export"
         element={
-          <UserExport {...childProps}/>
-        }
-      />
-      <Route
-        path="/secrets"
-        element={
-          <Secrets {...childProps}/>
+          <UserExport/>
         }
       />
       <Route
@@ -172,13 +164,13 @@ export default ({ childProps }) => {
           <UserAutomationScripts {...childProps}/>
         }
       />
-      <Route path="/login" exact render={(props) => (
-        <Login {...props} props={childProps} />
-      )} />
+      <Route path="/login" element={
+        <Login/>
+      }/>
       <Route
         path="/change/pwd"
         element={
-          <ChangePassword {...childProps}/>
+          <ChangePassword/>
         }
       />
       childProps.userGroups ?
@@ -199,10 +191,14 @@ export default ({ childProps }) => {
       <Route
         path="/admin/credential-manager"
         element={
-          <CredentialManager {...childProps}/>
+          <CredentialManager/>
         }
       />
       { /* Finally, catch all unmatched routes */}
-      <Route component={NotFound} />
+      <Route element={
+        <div style={{paddingTop: '100px', textAlign: 'center'}}>
+          <h3>Sorry, page not found!</h3>
+        </div>
+      }/>
     </Routes>)
 };

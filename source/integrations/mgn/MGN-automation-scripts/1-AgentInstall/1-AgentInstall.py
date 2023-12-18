@@ -261,8 +261,8 @@ def add_linux_servers_to_install_queue(account, pool, linux_secret_name, s3_endp
         agent_linux_download_url = f"https://aws-application-migration-service-{account['aws_region']}." \
                                    f"s3.amazonaws.com/latest/linux/aws-replication-installer-init.py"
     for server in account['servers_linux']:
-        linux_credentials = mfcommon.getServerCredentials('', '', server,
-                                                          linux_secret_name, no_user_prompts)
+        linux_credentials = mfcommon.get_server_credentials('', '', server,
+                                                            linux_secret_name, no_user_prompts)
 
         server_parameters = base_parameters.copy()
         server_parameters["server"] = server
@@ -315,8 +315,8 @@ def add_window_servers_to_install_queue(account, pool, windows_secret_name, s3_e
     mfcommon.add_windows_servers_to_trusted_hosts(account['servers_windows'])
 
     for server in account['servers_windows']:
-        windows_credentials = mfcommon.getServerCredentials('', '', server,
-                                                            windows_secret_name, no_user_prompts)
+        windows_credentials = mfcommon.get_server_credentials('', '', server,
+                                                              windows_secret_name, no_user_prompts)
 
         server_parameters = base_parameters.copy()
         server_parameters["server"] = server
@@ -408,7 +408,8 @@ def install_mgn_agents(reinstall, get_servers, linux_secret_name=None, windows_s
 def is_server_registered_with_mgn(cmf_server, mgn_source_servers, update_status=False):
     is_registered = False
     try:
-        sourceserver = mfcommon.get_MGN_Source_Server(cmf_server, mgn_source_servers)
+        sourceserver = mfcommon.get_mgn_source_server(
+            cmf_server, mgn_source_servers)
 
         if sourceserver is not None:
             print("-- SUCCESS: MGN Agent verified in MGN console for server: " + cmf_server['server_fqdn'])
@@ -629,7 +630,7 @@ def main(arguments):
     print("".rjust(LOG_PADDING, LOG_PADDING_CHAR))
     print("Login to Migration factory".center(LOG_PADDING, LOG_PADDING_CHAR))
     print("".rjust(LOG_PADDING, LOG_PADDING_CHAR), flush=True)
-    cmf_api_access_token = mfcommon.Factorylogin()
+    cmf_api_access_token = mfcommon.factory_login()
 
     print("".rjust(LOG_PADDING, LOG_PADDING_CHAR))
     print("Getting Server List".center(LOG_PADDING, LOG_PADDING_CHAR))
@@ -668,9 +669,16 @@ def main(arguments):
     time.sleep(5)
     mgn_failure_count = agent_check(get_servers)
 
-    if mgn_failure_count > 0 or failure_count.value > 0:
-        print(str(mgn_failure_count) + " server agents could not be validated with the MGN console. "
-                                       "Check log for details.")
+    if mgn_failure_count > 0 and failure_count.value > 0:
+        print(f"{str(failure_count.value)} agents reported issues during installation, and {str(mgn_failure_count)} "
+              f"server agents could not be validated with the MGN console. Check log for details.")
+        return 1
+    elif mgn_failure_count == 0 and failure_count.value > 0:
+        print(f"{str(failure_count.value)} server agents reported issues during installation. Check log for details.")
+        return 1
+    elif mgn_failure_count > 0 and failure_count.value == 0:
+        print(f"{str(mgn_failure_count)} "
+              f"server agents could not be validated with the MGN console. Check log for details.")
         return 1
     else:
         print("All servers have had MGN Agents installed successfully.")

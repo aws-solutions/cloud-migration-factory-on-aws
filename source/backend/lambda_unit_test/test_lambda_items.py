@@ -2,211 +2,432 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 
+import json
+from time import sleep
+from unittest import mock
+
+from moto import mock_dynamodb, mock_s3
+from test_lambda_item_common import LambdaItemCommonTest, mock_item_check_valid_item_create_valid, \
+    mock_item_check_valid_item_create_in_valid
+from test_common_utils import logger, default_mock_os_environ as mock_os_environ, \
+    mock_get_mf_auth_policy_allow, mock_get_mf_auth_policy_default_deny, mock_get_mf_auth_policy_allow_no_user
 
 
-import unittest
-import boto3
-import logging
-import os
-from unittest import TestCase, mock
-from moto import mock_dynamodb
+def mock_scan_dynamodb_data_table(table):
+    return table.scan(Limit=5)['Items']
 
 
-# This is to get around the relative path import issue.
-# Absolute paths are being used in this file after setting the root directory
-import sys  
-from pathlib import Path
-file = Path(__file__).resolve()  
-package_root_directory = file.parents [1]  
-sys.path.append(str(package_root_directory))  
-sys.path.append(str(package_root_directory)+'/lambda_layers/lambda_layer_policy/python/')
-sys.path.append(str(package_root_directory)+'/lambda_layers/lambda_layer_items/python/')
+def mock_scan_dynamodb_data_table_error(table):
+    raise Exception('Simulated Error')
 
 
-# Set log level
-loglevel = logging.INFO
-logging.basicConfig(level=loglevel)
-log = logging.getLogger(__name__)
+def mock_get_relationship_data(attribute_names, attributes):
+    logger.debug(f'mock_get_relationship_data({attribute_names}, {attributes})')
+    return []
 
-default_http_headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-    'Content-Security-Policy' : "base-uri 'self'; upgrade-insecure-requests; default-src 'none'; object-src 'none'; connect-src none; img-src 'self' data:; script-src blob: 'self'; style-src 'self'; font-src 'self' data:; form-action 'self';"
-}
 
-@mock.patch('lambda_items.MFAuth')
-def mock_getUserResourceCreationPolicy():
-    return {'action': 'allow'}
-
-@mock.patch('lambda_items.MFAuth')
-def mock_getUserAttributePolicy():
-    return {'action': 'allow'}
-
-@mock.patch('lambda_items.item_validation')
-def mock_item_validation():
-    return {'action': 'allow'}
-  
-# Setting the default AWS region environment variable required by the Python SDK boto3
-@mock.patch.dict(os.environ, {'AWS_DEFAULT_REGION': 'us-east-1','region':'us-east-1', 'application': 'cmf', 'environment': 'unittest'})
-
+@mock.patch.dict('os.environ', mock_os_environ)
+@mock_s3
 @mock_dynamodb
-class LambdaItemTestGet(TestCase):
-    def setUp(self):
-        # Setup dynamoDB tables and put items required for test cases
-        self.table_name = '{}-{}-'.format('cmf', 'unittest') + 'apps'
-        boto3.setup_default_session()
-        self.event = {"httpMethod": 'GET', 'pathParameters': {'appid': '1', 'schema': 'app'}}
-        self.table_name = '{}-{}-'.format('cmf', 'unittest') + 'apps'
-        self.client = boto3.client("dynamodb",region_name='us-east-1')
-        self.client.create_table(
-            TableName='{}-{}-'.format('cmf', 'unittest') + 'apps',
-            BillingMode='PAY_PER_REQUEST',
-            KeySchema=[
-              {"AttributeName": "app_id", "KeyType": "HASH"},
-            ],
-            AttributeDefinitions=[
-              {"AttributeName": "app_id", "AttributeType": "S"},
-            ],
-            GlobalSecondaryIndexes=[
-                    {
-                        'IndexName': 'app_id-index',
-                        'KeySchema': [
-                            {
-                                'AttributeName': 'app_id',
-                                'KeyType': 'HASH'
-                            },
-                        ],
-                        'Projection': {
-                            'ProjectionType': 'ALL'
-                        }
-                    }
-                    ]
-        )
-        self.client.put_item(
-               TableName=self.table_name,
-               Item={'app_id': {'S': '3'}, 'app_name': {'S': 'test app'}})
-        self.schema_table_name = '{}-{}-'.format('cmf', 'unittest') + 'schema'
-        # Creating schema table and creating schema item to test out schema types
-        self.schema_client = boto3.client("dynamodb",region_name='us-east-1')
-        self.schema_client.create_table(
-            TableName=self.schema_table_name,
-            BillingMode='PAY_PER_REQUEST',
-            KeySchema=[
-              {"AttributeName": "schema_name", "KeyType": "HASH"},
-            ],
-            AttributeDefinitions=[
-              {"AttributeName": "schema_name", "AttributeType": "S"},
-            ],
-        )
-        self.schema_client.put_item(
-              TableName=self.schema_table_name,
-              Item={'schema_name': {'S': 'app'}, 'schema_type': {'S': 'user'},'attributes':{'L':[{'M': {'name': {'S': 'app_id'}, 'type': {'S' : 'string'}}},{'M': {'name': {'S': 'app_name'}, 'type': {'S' : 'string'}}}]}})
-                
-        self.role_table_name = '{}-{}-'.format('cmf', 'unittest') + 'roles'
-        self.role_client = boto3.client("dynamodb",region_name='us-east-1')
-        self.role_client.create_table(
-            TableName=self.role_table_name,
-            BillingMode='PAY_PER_REQUEST',
-            KeySchema=[
-              {"AttributeName": "role_id", "KeyType": "HASH"},
-            ],
-            AttributeDefinitions=[
-              {"AttributeName": "role_id", "AttributeType": "S"},
-            ],
-        )
-        self.role_client.put_item(
-              TableName=self.role_table_name,
-              Item={'role_id': {'S': '1'}, 'role_name': {'S': 'FactoryAdmin'},'groups': {'L':[ { "M" : { "group_name" : { "S" : "admin" } } } ]}, 'policies':{"L" : [ { "M" : { "policy_id" : { "S" : "1" } } } ]}  })
- 
- 
+class LambdaItemsTest(LambdaItemCommonTest):
 
-        self.policy_table_name = '{}-{}-'.format('cmf', 'unittest') + 'policies'
-        self.policy_client = boto3.client("dynamodb",region_name='us-east-1')
-        self.policy_client.create_table(
-            TableName=self.policy_table_name,
-            BillingMode='PAY_PER_REQUEST',
-            KeySchema=[
-              {"AttributeName": "policy_id", "KeyType": "HASH"},
-            ],
-            AttributeDefinitions=[
-              {"AttributeName": "policy_id", "AttributeType": "S"},
-            ],
-        )
-        self.policy_client.put_item(
-              TableName=self.policy_table_name,
-              Item={'policy_id': {'S': '1'}, 'policy_name': {'S': 'Administrator'}, \
-                    'entity_access': {"L": [{"M": {"attributes": {"L": [{"M": {"attr_name": {"S": "app_id"},"attr_type": {"S": "application"}}}, \
-                    {"M": {"attr_name": {"S": "app_name"},"attr_type": {"S": "application"}}}]}, \
-                    "delete": {"BOOL": True },"update": {"BOOL": True },"create": {"BOOL": True },"read": {"BOOL": True },"schema_name": {"S": "application"}}}]}  }) 
-    
-    
-    def tearDown(self):
-        """
-        Delete database resource and mock table
-        """
-        print("Tearing down")
-        self.client.delete_table(TableName=self.table_name)
-        self.policy_client.delete_table(TableName=self.policy_table_name)
-        self.role_client.delete_table(TableName=self.role_table_name)
-        self.schema_client.delete_table(TableName=self.schema_table_name)
-        self.dynamodb = None
-        print("Teardown complete")
-  
+    @mock.patch.dict('os.environ', mock_os_environ)
+    def setUp(self) -> None:
+        super().setUp()
+        self.init_event_objects()
 
-    def test_lambda_handler_incorrect_id(self):
-        from lambda_functions.lambda_items import lambda_items
-        log.info("Testing lambda_app_items GET with incorrect app_id")
-        lambda_items.lambda_handler.data_table = None
-        result = lambda_items.lambda_handler(self.event,'')
-        data = result
-        print("Result data: ", data)
-        expected_response = {'headers': {**default_http_headers}, 'body': '[{"app_id": "3", "app_name": "test app"}]'}
-        self.assertEqual(data, expected_response)
+    def init_event_objects(self):
 
-    def test_lambda_handler_correct_id(self):
-        from lambda_functions.lambda_items import lambda_items
-        log.info("Testing lambda_app_items GET with correct app_id")
-        lambda_items.lambda_handler.data_table = None
-        self.event = {"httpMethod": 'GET', 'pathParameters': {'appid': '3', 'schema': 'app'}}
-        result = lambda_items.lambda_handler(self.event,'')
-        data = result
-        print("Result data: ",data)
-        expected_response = {'headers': {**default_http_headers}, 'body': '[{"app_id": "3", "app_name": "test app"}]'}
-        self.assertEqual(data, expected_response)
-        
+        self.event_no_schema_provided = {
+            'pathParameters': {
+            }
+        }
+
+        self.event_get = {
+            'httpMethod': 'GET',
+            'pathParameters': {
+                'schema': 'app',
+            }
+        }
+        self.event_post = {
+            'httpMethod': 'POST',
+            'pathParameters': {
+                'schema': 'app'
+            },
+            'body': json.dumps({
+                'app_name': 'App Number 3',
+                'new_attr': 'new test attribute',
+                'description': '',
+                'tags': ['']
+            })
+        }
+        self.event_post_list = {
+            'httpMethod': 'POST',
+            'pathParameters': {
+                'schema': 'app'
+            },
+            'body': json.dumps([{
+                'app_name': 'App Number 3',
+                'new_attr': 'new test attribute',
+                'description': '',
+                'tags': ['']
+            }, {
+                'app_name': 'App Number 4',
+                'description': '',
+                'tags': ['tag4']
+            }
+            ])
+        }
+        self.event_post_list_dup = {
+            'httpMethod': 'POST',
+            'pathParameters': {
+                'schema': 'app'
+            },
+            'body': json.dumps([{
+                'app_name': 'App Number 3',
+                'new_attr': 'new test attribute',
+                'description': '',
+                'tags': ['']
+            }, {
+                'app_name': 'App Number 3',
+                'description': '',
+                'tags': ['tag4']
+            }
+            ])
+        }
+        self.event_post_invalid_body = {
+            'httpMethod': 'POST',
+            'pathParameters': {
+                'schema': 'app'
+            },
+            'body': 'INVALID JSON'
+        }
+        self.event_post_no_app_name = {
+            'httpMethod': 'POST',
+            'pathParameters': {
+                'schema': 'app'
+            },
+            'body': json.dumps({
+                'new_attr': 'new test attribute',
+                'description': '',
+                'tags': ['']
+            })
+        }
+        self.event_post_with_app_id = {
+            'httpMethod': 'POST',
+            'pathParameters': {
+                'schema': 'app'
+            },
+            'body': json.dumps({
+                'app_id': '10',
+                'app_name': 'App Number 3',
+                'new_attr': 'new test attribute',
+                'description': '',
+                'tags': ['']
+            })
+        }
+        self.event_post_app_name_exists = {
+            'httpMethod': 'POST',
+            'pathParameters': {
+                'schema': 'app'
+            },
+            'body': json.dumps({
+                'app_name': 'Wordpress',
+                'new_attr': 'new test attribute',
+                'description': '',
+                'tags': ['']
+            })
+        }
+
+    def assert_put_success(self, lambda_items, event, len_history=2):
+        response = lambda_items.lambda_handler(event, None)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertTrue('statusCode' not in response)
+        self.assertTrue('errors' not in response)
+        new_item_response = json.loads(response['body'])['newItems'][0]
+        updated_item_db = self.apps_table.get_item(Key={'app_id': '3'})['Item']
+        self.assertEqual(new_item_response, updated_item_db)
+        self.assertEqual('App Number 3', updated_item_db['app_name'])
+        self.assertEqual('new test attribute', updated_item_db['new_attr'])
+        self.assertEqual('', updated_item_db['description'])
+        self.assertTrue([''], updated_item_db['tags'])
+        self.assertEqual(len_history, len(updated_item_db['_history'].keys()))
+        return response
+
+    def assert_no_new_items_added(self):
+        self.assertEqual(2, len(self.apps_table.scan(Limit=5)['Items']))
+
+    def test_lambda_handler_schema_no_exist(self):
+        import lambda_items
+        response = lambda_items.lambda_handler(self.event_schema_no_exist, None)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertEqual(400, response['statusCode'])
+        self.assertEqual('Invalid schema provided :NO_EXIST', response['body'])
+        self.assert_no_new_items_added()
+
+    def test_lambda_handler_no_schema_provided(self):
+        import lambda_items
+        response = lambda_items.lambda_handler(self.event_no_schema_provided, None)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertEqual(400, response['statusCode'])
+        self.assertEqual('No schema provided to function.', response['body'])
+        self.assert_no_new_items_added()
+
+    def test_lambda_handler_get_success(self):
+        import lambda_items
+        response = lambda_items.lambda_handler(self.event_get, None)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertTrue('statusCode' not in response)
+        items = json.loads(response['body'])
+        print(items)
+        self.assertEqual(2, len(items))
+        self.assertEqual(['OFBiz', 'Wordpress'], [item['app_name'] for item in items])
+        self.assert_no_new_items_added()
+
+    @mock.patch('lambda_item.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_default_deny)
+    def test_lambda_handler_post_not_authorized(self):
+        import lambda_items
+        response = lambda_items.lambda_handler(self.event_post, None)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertEqual(401, response['statusCode'])
+        self.assertEqual({'errors': [{'action': 'deny', 'cause': 'Request is not Authenticated'}]},
+                         json.loads(response['body']))
+        self.assert_no_new_items_added()
+
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow)
+    def test_lambda_handler_put_invalid_body(self):
+        import lambda_items
+        response = lambda_items.lambda_handler(self.event_post_invalid_body, None)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertEqual(400, response['statusCode'])
+        self.assertEqual({'errors': ['malformed json input']},
+                         json.loads(response['body']))
+        self.assert_no_new_items_added()
 
 
+    @mock.patch('lambda_items.item_validation.check_valid_item_create',
+                new=mock_item_check_valid_item_create_valid)
+    @mock.patch('lambda_item.item_validation.get_relationship_data',
+                new=mock_get_relationship_data)
+    @mock.patch('lambda_item.item_validation.scan_dynamodb_data_table',
+                new=mock_scan_dynamodb_data_table)
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow)
+    def test_lambda_handler_put_success(self):
+        import lambda_items
+        self.assert_put_success(lambda_items, self.event_post, 2)
 
-    def test_lambda_handler_post_unauthorized(self):
-        self.event = {"httpMethod": 'POST', 'pathParameters': {'id': '1', 'schema': 'app'}, 'requestContext': {'authorizer':{}}} 
-        from lambda_functions.lambda_items import lambda_items
-        log.info("Testing lambda_app_items post with unauthenticated user")
-        lambda_items.lambda_handler.data_table = None
-        result = lambda_items.lambda_handler(self.event,'')
-        data = result
-        #print("Result data: ", data)
-        expected_response = {'headers': {**default_http_headers}, 'statusCode': 401, 'body': '{"errors": [{"action": "deny", "cause": "Request is not Authenticated"}]}'}
-        self.assertEqual(data, expected_response)
+    @mock.patch('lambda_items.item_validation.check_valid_item_create',
+                new=mock_item_check_valid_item_create_valid)
+    @mock.patch('lambda_item.item_validation.get_relationship_data',
+                new=mock_get_relationship_data)
+    @mock.patch('lambda_item.item_validation.scan_dynamodb_data_table',
+                new=mock_scan_dynamodb_data_table)
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow_no_user)
+    def test_lambda_handler_put_policy_success_no_user(self):
+        import lambda_items
+        self.assert_put_success(lambda_items, self.event_post, 0)
 
-    def test_lambda_handler_post_system_attribute(self):
-        self.event = {"httpMethod": 'POST', 'pathParameters': {'id': '1', 'schema': 'app'},"body": "{\"app_name\":\"check\",\"app_id\":\"1\"}", 'requestContext': {'authorizer':{'claims':{'cognito:groups':'admin','cognito:username':'username','email':'username@example.com'}}}}
-        from lambda_functions.lambda_items import lambda_items
-        log.info("Testing lambda_app_items POST system managed attribute")
-        lambda_items.lambda_handler.data_table = None
-        result = lambda_items.lambda_handler(self.event,'')
-        data = result
-        print("Result data: ", data)
-        expected_response = {'headers': {**default_http_headers}, 'statusCode': 400, 'body': 'You cannot create app_id, this is managed by the system'}
-        self.assertEqual(data, expected_response)
+    @mock.patch('lambda_items.item_validation.check_valid_item_create',
+                new=mock_item_check_valid_item_create_valid)
+    @mock.patch('lambda_item.item_validation.get_relationship_data',
+                new=mock_get_relationship_data)
+    @mock.patch('lambda_item.item_validation.scan_dynamodb_data_table',
+                new=mock_scan_dynamodb_data_table)
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow)
+    def test_lambda_handler_put_list(self):
+        import lambda_items
+        response = lambda_items.lambda_handler(self.event_post_list, None)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertTrue('statusCode' not in response)
+        new_items_response = sorted(json.loads(response['body'])['newItems'], key=lambda item: item['app_id'])
+        updated_item1_db = self.apps_table.get_item(Key={'app_id': '3'})['Item']
+        updated_item2_db = self.apps_table.get_item(Key={'app_id': '4'})['Item']
+        self.assertEqual(new_items_response, [updated_item1_db, updated_item2_db])
+        self.assertEqual('App Number 3', updated_item1_db['app_name'])
+        self.assertEqual('App Number 4', updated_item2_db['app_name'])
+        self.assertEqual('new test attribute', updated_item1_db['new_attr'])
+        self.assertTrue('new_attr' not in updated_item2_db)
+        self.assertEqual('', updated_item1_db['description'])
+        self.assertEqual('', updated_item2_db['description'])
+        self.assertTrue([''], updated_item1_db['tags'])
+        self.assertTrue(['tag4'], updated_item2_db['tags'])
+        self.assertEqual(2, len(updated_item1_db['_history'].keys()))
+        self.assertEqual(2, len(updated_item2_db['_history'].keys()))
 
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow)
+    def test_lambda_handler_put_no_app_name(self):
+        import lambda_items
+        response = lambda_items.lambda_handler(self.event_post_no_app_name, None)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertEqual(400, response['statusCode'])
+        self.assertEqual('attribute app_name is required', response['body'])
+        self.assert_no_new_items_added()
 
-    def test_lambda_handler_post_no_attribute(self):
-        self.event = {"httpMethod": 'POST',"isBase64Encoded": False, 'pathParameters': {'id': '4', 'schema': 'app','schema_name':'app'},"body": "{\"app_name\":\"dummy\"}", 'requestContext': {'authorizer':{'claims':{'cognito:groups':'admin','cognito:username':'username','email':'username@example.com'}}}}
-        from lambda_functions.lambda_items import lambda_items
-        log.info("Testing lambda_app_items POST attribute with authenticated user and valid attributes")
-        lambda_items.lambda_handler.data_table = None
-        result = lambda_items.lambda_handler(self.event,'')
-        data=result.get('body')
-        print("Result data: ", data)
-        expected_response = '"newItems": [{"app_name": "dummy"'
-        self.assertIn(expected_response, data)
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow)
+    def test_lambda_handler_put_with_app_id(self):
+        import lambda_items
+        response = lambda_items.lambda_handler(self.event_post_with_app_id, None)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertEqual(400, response['statusCode'])
+        self.assertEqual('You cannot create app_id, this is managed by the system', response['body'])
+        self.assert_no_new_items_added()
+
+    @mock.patch('lambda_items.item_validation.check_valid_item_create',
+                new=mock_item_check_valid_item_create_valid)
+    @mock.patch('lambda_item.item_validation.get_relationship_data',
+                new=mock_get_relationship_data)
+    @mock.patch('lambda_item.item_validation.scan_dynamodb_data_table',
+                new=mock_scan_dynamodb_data_table)
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow_no_user)
+    def test_lambda_handler_put_app_name_exists(self):
+        import lambda_items
+        response = lambda_items.lambda_handler(self.event_post_app_name_exists, None)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertTrue('statusCode' not in response)
+        body = json.loads(response['body'])
+        self.assertEqual([], body['newItems'])
+        self.assertEqual({"existing_name": ["Wordpress"]}, body['errors'])
+        self.assert_no_new_items_added()
+
+    @mock.patch('lambda_items.item_validation.check_valid_item_create',
+                new=mock_item_check_valid_item_create_in_valid)
+    @mock.patch('lambda_item.item_validation.get_relationship_data',
+                new=mock_get_relationship_data)
+    @mock.patch('lambda_item.item_validation.scan_dynamodb_data_table',
+                new=mock_scan_dynamodb_data_table)
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow)
+    def test_lambda_handler_put_invalid_item_validation(self):
+        import lambda_items
+        response = lambda_items.lambda_handler(self.event_post_app_name_exists, None)
+        print(response)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertTrue('statusCode' not in response)
+        body = json.loads(response['body'])
+        self.assertEqual([], body['newItems'])
+        self.assertEqual({"validation_errors": [{
+            "Wordpress": ["Simulated error, attribute x is required"]}],
+            "existing_name": ["Wordpress"]},
+            body['errors'])
+        self.assert_no_new_items_added()
+
+    @mock.patch('lambda_items.item_validation.check_valid_item_create',
+                new=mock_item_check_valid_item_create_valid)
+    @mock.patch('lambda_item.item_validation.get_relationship_data',
+                new=mock_get_relationship_data)
+    @mock.patch('lambda_item.item_validation.scan_dynamodb_data_table',
+                new=mock_scan_dynamodb_data_table)
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow)
+    def test_lambda_handler_put_list_dup(self):
+        import lambda_items
+        # the first item is inserted with success, response comes with an extra error attribute
+        response = self.assert_put_success(lambda_items, self.event_post_list_dup)
+        self.assertEqual({"duplicate_name": ["App Number 3"]}, json.loads(response['body'])['errors'])
+
+    @mock.patch('lambda_items.item_validation.check_valid_item_create',
+                new=mock_item_check_valid_item_create_valid)
+    @mock.patch('lambda_item.item_validation.get_relationship_data',
+                new=mock_get_relationship_data)
+    @mock.patch('lambda_item.item_validation.scan_dynamodb_data_table',
+                new=mock_scan_dynamodb_data_table)
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow)
+    @mock.patch('lambda_items.sleep',
+                new=lambda x: sleep(0))
+    @mock.patch('lambda_items.client_ddb.batch_write_item')
+    def test_lambda_handler_put_batch_write_2errors_then_success(self, mock_batch_write_item):
+        import lambda_items
+        mock_batch_write_item.side_effect = [
+            {
+                'UnprocessedItems': [{'PutRequest': {'Item': {'id': 'item1'}}}],
+                'ResponseMetadata': {'HTTPStatusCode': 200}
+            },
+            {
+                'UnprocessedItems': [{'PutRequest': {'Item': {'id': 'item1'}}}],
+                'ResponseMetadata': {'HTTPStatusCode': 200}
+            },
+            {
+                'UnprocessedItems': [],
+                'ResponseMetadata': {'HTTPStatusCode': 200}
+            }
+        ]
+        response = lambda_items.lambda_handler(self.event_post, None)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertTrue('statusCode' not in response)
+        new_item_response = json.loads(response['body'])['newItems'][0]
+        self.assertEqual(new_item_response, new_item_response)
+        self.assertEqual('App Number 3', new_item_response['app_name'])
+        self.assertEqual('new test attribute', new_item_response['new_attr'])
+        self.assertEqual('', new_item_response['description'])
+        self.assertTrue([''], new_item_response['tags'])
+        self.assertEqual(2, len(new_item_response['_history'].keys()))
+        self.assert_no_new_items_added()
+
+    @mock.patch('lambda_items.item_validation.check_valid_item_create',
+                new=mock_item_check_valid_item_create_valid)
+    @mock.patch('lambda_item.item_validation.get_relationship_data',
+                new=mock_get_relationship_data)
+    @mock.patch('lambda_item.item_validation.scan_dynamodb_data_table',
+                new=mock_scan_dynamodb_data_table)
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow)
+    @mock.patch('lambda_items.sleep',
+                new=lambda x: sleep(0))
+    @mock.patch('lambda_items.client_ddb.batch_write_item')
+    def test_lambda_handler_put_batch_write_http_status_500(self, mock_batch_write_item):
+        import lambda_items
+        mock_batch_write_item.side_effect = [
+            {
+                'UnprocessedItems': [{'PutRequest': {'Item': {'id': 'item1'}}}],
+                'ResponseMetadata': {'HTTPStatusCode': 500}
+            },
+            {
+                'UnprocessedItems': [{'PutRequest': {'Item': {'id': 'item1'}}}],
+                'ResponseMetadata': {'HTTPStatusCode': 500}
+            },
+            {
+                'UnprocessedItems': [],
+                'ResponseMetadata': {'HTTPStatusCode': 500}
+            }
+        ]
+        # even if you return 500, the loop doesn't exit unless UnprocessedItems is empty, so the code for list of
+        # unprocessed items is never executed
+        response = lambda_items.lambda_handler(self.event_post, None)
+        print(response)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertTrue('statusCode' not in response)
+        new_item_response = json.loads(response['body'])['newItems'][0]
+        self.assertEqual(new_item_response, new_item_response)
+        self.assertEqual('App Number 3', new_item_response['app_name'])
+        self.assertEqual('new test attribute', new_item_response['new_attr'])
+        self.assertEqual('', new_item_response['description'])
+        self.assertTrue([''], new_item_response['tags'])
+        self.assertEqual(2, len(new_item_response['_history'].keys()))
+        self.assert_no_new_items_added()
+
+    @mock.patch('lambda_items.item_validation.check_valid_item_create',
+                new=mock_item_check_valid_item_create_valid)
+    @mock.patch('lambda_item.item_validation.get_relationship_data',
+                new=mock_get_relationship_data)
+    @mock.patch('lambda_item.item_validation.scan_dynamodb_data_table',
+                new=mock_scan_dynamodb_data_table_error)
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow_no_user)
+    def test_lambda_handler_put_unhandled_exception(self):
+        import lambda_items
+        response = lambda_items.lambda_handler(self.event_post_app_name_exists, None)
+        print(response)
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertEqual(500, response['statusCode'])
+        self.assertEqual({'errors': ['Unhandled API Exception: check logs for detailed error message.']},
+                         json.loads(response['body']))
+        self.assert_no_new_items_added()

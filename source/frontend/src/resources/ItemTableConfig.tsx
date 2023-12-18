@@ -1,21 +1,14 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  getNestedValue,
-  sortAscendingComparator,
-  returnLocaleDateTime,
-  capitalize, getNestedValuePath
-} from '../resources/main'
-import {
-  Button, StatusIndicator,
-} from "@awsui/components-react"
+import {capitalize, getNestedValue, getNestedValuePath, returnLocaleDateTime, sortAscendingComparator} from './main'
+import {Button, StatusIndicator,} from "@awsui/components-react"
 import React from "react";
+import {Attribute, EntitySchema} from "../models/EntitySchema";
 
-function status(value) {
+function status(value: string) {
 
   let component = undefined;
 
@@ -50,15 +43,19 @@ function status(value) {
   return component;
 }
 
-export function getColumnDefinitions(schemaName, schema, provide_link = false){
+export function getColumnDefinitions(
+  schemaName: string,
+  schema: EntitySchema,
+  provide_link = false
+) {
 
-  let columnDefinitions = schema.attributes.map((attr, index) => {
+  let columnDefinitions = schema.attributes.map((attr: Attribute) => {
     switch (attr.type) {
       case 'checkbox':
         return ({
             id: attr.name,
             header: attr.description,
-            cell: item => getNestedValuePath(item, attr.name) ? 'Yes' : 'No',
+            cell: (item: any) => getNestedValuePath(item, attr.name) ? 'Yes' : 'No',
             minWidth: 180,
             sortingField: attr.name
           }
@@ -67,7 +64,7 @@ export function getColumnDefinitions(schemaName, schema, provide_link = false){
         return ({
             id: attr.name,
             header: attr.description,
-            cell: item => status(getNestedValuePath(item, attr.name)),
+            cell: (item: any) => status(getNestedValuePath(item, attr.name)),
             minWidth: 180,
             sortingField: attr.name
           }
@@ -76,7 +73,7 @@ export function getColumnDefinitions(schemaName, schema, provide_link = false){
         return ({
             id: attr.name,
             header: attr.description,
-            cell: item => getNestedValuePath(item, attr.name) ? '[value set]' : '',
+            cell: (item: any) => getNestedValuePath(item, attr.name) ? '[value set]' : '',
             minWidth: 180,
             sortingField: attr.name
           }
@@ -84,12 +81,12 @@ export function getColumnDefinitions(schemaName, schema, provide_link = false){
       case 'relationship':
         //Update last element in key name with __.
         let arrName = attr.name.split(".");
-        arrName[arrName.length-1] = '__' + arrName[arrName.length-1];
+        arrName[arrName.length - 1] = '__' + arrName[arrName.length - 1];
         let newName = arrName.join(".");
         return ({
             id: newName,
             header: attr.description,
-            cell: item => getNestedValuePath(item, newName) ? getNestedValuePath(item, newName) : getNestedValuePath(item, attr.name),
+            cell: (item: any) => getNestedValuePath(item, newName) ? getNestedValuePath(item, newName) : getNestedValuePath(item, attr.name),
             minWidth: 180,
             sortingField: newName
           }
@@ -98,7 +95,10 @@ export function getColumnDefinitions(schemaName, schema, provide_link = false){
         return ({
             id: attr.name,
             header: attr.description,
-            cell: item => getNestedValuePath(item, attr.name) ? getNestedValuePath(item, attr.name).map((tag, index) => { return tag.key + '=' + tag.value}).join(';') : getNestedValuePath(item, attr.name),
+            cell: (item: any) => getNestedValuePath(item, attr.name) ? getNestedValuePath(item, attr.name)
+              .map((tag: { key: string; value: string; }, index: any) => {
+                return tag.key + '=' + tag.value
+              }).join(';') : getNestedValuePath(item, attr.name),
             minWidth: 180,
             sortingField: attr.name
           }
@@ -106,12 +106,12 @@ export function getColumnDefinitions(schemaName, schema, provide_link = false){
       case 'policies':
         //Update last element in key name with __.
         let arrName1 = attr.name.split(".");
-        arrName1[arrName1.length-1] = '__' + arrName1[arrName1.length-1];
+        arrName1[arrName1.length - 1] = '__' + arrName1[arrName1.length - 1];
         let newName1 = arrName1.join(".");
         return ({
             id: attr.name,
             header: attr.description,
-            cell: item => getNestedValuePath(item, newName1) ? getNestedValuePath(item, newName1).join(', ') : getNestedValuePath(item, newName1),
+            cell: (item: any) => getNestedValuePath(item, newName1) ? getNestedValuePath(item, newName1).join(', ') : getNestedValuePath(item, newName1),
             minWidth: 180,
             sortingField: attr.name
           }
@@ -120,26 +120,29 @@ export function getColumnDefinitions(schemaName, schema, provide_link = false){
         return ({
             id: attr.name,
             header: attr.description,
-            cell: item => getNestedValuePath(item, attr.name) ? getNestedValuePath(item, attr.name).map((policy, index) => {
-              let finalMsg = [];
+            cell: (item: any) => getNestedValuePath(item, attr.name) ? getNestedValuePath(item, attr.name)
+              .map((policy: any) => {
+                let finalMsg = [];
 
-              if (policy.create) {
-                finalMsg.push('C')
-              }
+                if (policy.create) {
+                  finalMsg.push('C')
+                }
 
-              if (policy.read) {
-                finalMsg.push('R')
-              }
+                if (policy.read) {
+                  finalMsg.push('R')
+                }
 
-              if (policy.update) {
-                finalMsg.push('U')
-              }
+                if (policy.update) {
+                  finalMsg.push('U')
+                }
 
-              if (policy.delete) {
-                finalMsg.push('D')
-              }
+                if (policy.delete) {
+                  finalMsg.push('D')
+                }
 
-              return <div key={policy.schema_name}>{policy.friendly_name ? policy.friendly_name : policy.schema_name + ' ['+ finalMsg.join('') +']'}</div>}) : getNestedValuePath(item, attr.name),
+                return <div
+                  key={policy.schema_name}>{policy.friendly_name ? policy.friendly_name : policy.schema_name + ' [' + finalMsg.join('') + ']'}</div>
+              }) : getNestedValuePath(item, attr.name),
             minWidth: 180,
             sortingField: attr.name
           }
@@ -148,7 +151,10 @@ export function getColumnDefinitions(schemaName, schema, provide_link = false){
         return ({
             id: attr.name,
             header: attr.description,
-            cell: item => getNestedValuePath(item, attr.name) ? getNestedValuePath(item, attr.name).map((group, index) => { return group.group_name}).join(', ') : getNestedValuePath(item, attr.name),
+            cell: (item: any) => getNestedValuePath(item, attr.name) ? getNestedValuePath(item, attr.name)
+              .map((group: { group_name: any; }, index: any) => {
+                return group.group_name
+              }).join(', ') : getNestedValuePath(item, attr.name),
             minWidth: 180,
             sortingField: attr.name
           }
@@ -157,7 +163,7 @@ export function getColumnDefinitions(schemaName, schema, provide_link = false){
         return ({
             id: attr.name,
             header: attr.description,
-            cell: item => getNestedValuePath(item, attr.name) ? JSON.stringify(getNestedValuePath(item, attr.name)) : '',
+            cell: (item: any) => getNestedValuePath(item, attr.name) ? JSON.stringify(getNestedValuePath(item, attr.name)) : '',
             minWidth: 180,
             sortingField: attr.name
           }
@@ -166,7 +172,7 @@ export function getColumnDefinitions(schemaName, schema, provide_link = false){
         return ({
             id: attr.name,
             header: attr.description,
-            cell: item => attr.name === schemaName + '_name' && provide_link ?
+            cell: (item: { [x: string]: string; }) => attr.name === schemaName + '_name' && provide_link ?
               <div>
                 <Button
                   href={'/' + schemaName + 's/' + item[schemaName + '_id']}
@@ -180,110 +186,124 @@ export function getColumnDefinitions(schemaName, schema, provide_link = false){
             sortingField: attr.name
           }
         )
-      }
+    }
   })
 
   defaultAuditColumns(columnDefinitions);
 
   //Remove any dynamic embedded_entity attributes as currently not supported in table.
   //TODO add support for embedded_entity in table column.
-  columnDefinitions = columnDefinitions.filter(filterAttribute => {return filterAttribute.type !== 'embedded_entity'});
+  // columnDefinitions = columnDefinitions.filter((filterAttribute) => {
+  //   return filterAttribute.type !== 'embedded_entity'
+  // });
 
   return columnDefinitions;
 
-};
-
-function defaultAuditColumns(columnDefinitions){
-
-    columnDefinitions.push({
-        id: 'createdTimestamp',
-        header: 'Created on',
-        cell: item => returnLocaleDateTime(getNestedValue(item, '_history', 'createdTimestamp')),
-        minWidth: 180,
-        sortingField: 'createdTimestamp',
-        sortingComparator: (item1, item2) => sortAscendingComparator(returnLocaleDateTime(getNestedValue(item1, '_history', 'createdTimestamp'),true), returnLocaleDateTime(getNestedValue(item2, '_history', 'createdTimestamp'),true))
-    });
-
-    columnDefinitions.push({
-        id: 'createdBy',
-        header: 'Created by',
-        cell: item => getNestedValue(item, '_history', 'createdBy', 'email'),
-        minWidth: 180,
-        sortingField: 'createdBy',
-        sortingComparator: (item1, item2) => sortAscendingComparator(getNestedValue(item1, '_history', 'createdBy', 'email'), getNestedValue(item2, '_history', 'createdBy', 'email'))
-    });
-
-    columnDefinitions.push({
-        id: 'lastModifiedTimestamp',
-        header: 'Last modified on',
-        cell: item => getNestedValue(item, '_history', 'lastModifiedTimestamp') ? returnLocaleDateTime(getNestedValue(item, '_history', 'lastModifiedTimestamp') ) : returnLocaleDateTime(getNestedValue(item, '_history', 'createdTimestamp')),
-        minWidth: 180,
-        sortingField: 'lastModifiedTimestamp',
-        sortingComparator: (item1, item2) =>
-          sortAscendingComparator(
-            getNestedValue(item1, '_history', 'lastModifiedTimestamp') ? returnLocaleDateTime(getNestedValue(item1, '_history', 'lastModifiedTimestamp'), true ) : returnLocaleDateTime(getNestedValue(item1, '_history', 'createdTimestamp'),true),
-            getNestedValue(item2, '_history', 'lastModifiedTimestamp') ? returnLocaleDateTime(getNestedValue(item2, '_history', 'lastModifiedTimestamp'), true ) : returnLocaleDateTime(getNestedValue(item2, '_history', 'createdTimestamp'), true)
-          )
-    });
-
-    columnDefinitions.push({
-        id: 'lastModifiedBy',
-        header: 'Last modified by',
-        cell: item => getNestedValue(item, '_history', 'lastModifiedBy', 'email') ? getNestedValue(item, '_history', 'lastModifiedBy', 'email') : getNestedValue(item, '_history', 'createdBy', 'email'),
-        minWidth: 180,
-        sortingField: 'lastModifiedBy',
-        sortingComparator: (item1, item2) =>
-          sortAscendingComparator(
-            getNestedValue(item1, '_history', 'lastModifiedBy', 'email') ? returnLocaleDateTime(getNestedValue(item1, '_history', 'lastModifiedBy', 'email'), true ) : returnLocaleDateTime(getNestedValue(item1, '_history', 'createdBy', 'email'),true),
-            getNestedValue(item2, '_history', 'lastModifiedBy', 'email') ? returnLocaleDateTime(getNestedValue(item2, '_history', 'lastModifiedBy', 'email'), true ) : returnLocaleDateTime(getNestedValue(item2, '_history', 'createdBy', 'email'), true)
-          )
-    });
 }
 
-function defaultAuditSelectorOptions(options){
+function defaultAuditColumns(columnDefinitions: {
+  id: string;
+  header: string;
+  cell: (item: any) => any;
+  minWidth: number;
+  sortingField: string;
+  sortingComparator?: ((item1: any, item2: any) => number)
+}[]) {
 
-    let auditSelectorOptions = [];
+  columnDefinitions.push({
+    id: 'createdTimestamp',
+    header: 'Created on',
+    cell: item => returnLocaleDateTime(getNestedValue(item, '_history', 'createdTimestamp')),
+    minWidth: 180,
+    sortingField: 'createdTimestamp',
+    sortingComparator: (item1, item2) => sortAscendingComparator(returnLocaleDateTime(getNestedValue(item1, '_history', 'createdTimestamp'), true), returnLocaleDateTime(getNestedValue(item2, '_history', 'createdTimestamp'), true))
+  });
 
-    auditSelectorOptions.push({
-        id: 'createdTimestamp',
-        label: 'Created on',
-        editable: true,
-    });
+  columnDefinitions.push({
+    id: 'createdBy',
+    header: 'Created by',
+    cell: item => getNestedValue(item, '_history', 'createdBy', 'email'),
+    minWidth: 180,
+    sortingField: 'createdBy',
+    sortingComparator: (item1, item2) => sortAscendingComparator(getNestedValue(item1, '_history', 'createdBy', 'email'), getNestedValue(item2, '_history', 'createdBy', 'email'))
+  });
 
-    auditSelectorOptions.push({
-        id: 'createdBy',
-        label: 'Created by',
-        editable: true,
-    });
+  columnDefinitions.push({
+    id: 'lastModifiedTimestamp',
+    header: 'Last modified on',
+    cell: item => getNestedValue(item, '_history', 'lastModifiedTimestamp') ? returnLocaleDateTime(getNestedValue(item, '_history', 'lastModifiedTimestamp')) : returnLocaleDateTime(getNestedValue(item, '_history', 'createdTimestamp')),
+    minWidth: 180,
+    sortingField: 'lastModifiedTimestamp',
+    sortingComparator: (item1, item2) =>
+      sortAscendingComparator(
+        getNestedValue(item1, '_history', 'lastModifiedTimestamp') ? returnLocaleDateTime(getNestedValue(item1, '_history', 'lastModifiedTimestamp'), true) : returnLocaleDateTime(getNestedValue(item1, '_history', 'createdTimestamp'), true),
+        getNestedValue(item2, '_history', 'lastModifiedTimestamp') ? returnLocaleDateTime(getNestedValue(item2, '_history', 'lastModifiedTimestamp'), true) : returnLocaleDateTime(getNestedValue(item2, '_history', 'createdTimestamp'), true)
+      )
+  });
 
-    auditSelectorOptions.push({
-        id: 'lastModifiedTimestamp',
-        label: 'Last modified on',
-        editable: true,
-    });
-
-    auditSelectorOptions.push({
-        id: 'lastModifiedBy',
-        label: 'Last modified by',
-        editable: true,
-    });
-
-    return auditSelectorOptions;
+  columnDefinitions.push({
+    id: 'lastModifiedBy',
+    header: 'Last modified by',
+    cell: item => getNestedValue(item, '_history', 'lastModifiedBy', 'email') ? getNestedValue(item, '_history', 'lastModifiedBy', 'email') : getNestedValue(item, '_history', 'createdBy', 'email'),
+    minWidth: 180,
+    sortingField: 'lastModifiedBy',
+    sortingComparator: (item1, item2) =>
+      sortAscendingComparator(
+        getNestedValue(item1, '_history', 'lastModifiedBy', 'email') ? returnLocaleDateTime(getNestedValue(item1, '_history', 'lastModifiedBy', 'email'), true) : returnLocaleDateTime(getNestedValue(item1, '_history', 'createdBy', 'email'), true),
+        getNestedValue(item2, '_history', 'lastModifiedBy', 'email') ? returnLocaleDateTime(getNestedValue(item2, '_history', 'lastModifiedBy', 'email'), true) : returnLocaleDateTime(getNestedValue(item2, '_history', 'createdBy', 'email'), true)
+      )
+  });
 }
 
-export function getContentSelectorOptions(schema){
+function defaultAuditSelectorOptions() {
+
+  let auditSelectorOptions = [];
+
+  auditSelectorOptions.push({
+    id: 'createdTimestamp',
+    label: 'Created on',
+    editable: true,
+  });
+
+  auditSelectorOptions.push({
+    id: 'createdBy',
+    label: 'Created by',
+    editable: true,
+  });
+
+  auditSelectorOptions.push({
+    id: 'lastModifiedTimestamp',
+    label: 'Last modified on',
+    editable: true,
+  });
+
+  auditSelectorOptions.push({
+    id: 'lastModifiedBy',
+    label: 'Last modified by',
+    editable: true,
+  });
+
+  return auditSelectorOptions;
+}
+
+export function getContentSelectorOptions(schema: { attributes: any[]; }) {
 
   //Remove any dynamic embedded_entity attributes as currently not supported in table.
   //TODO add support for embedded_entity in table column.
 
-  let cleansedSchema = schema.attributes.filter(filterAttribute => {return (filterAttribute.type !== 'embedded_entity' || filterAttribute.type !== 'policy' || filterAttribute.type !== 'policies'|| filterAttribute.type !== 'groups')});
+  let cleansedSchema = schema.attributes.filter(filterAttribute => {
+    return (filterAttribute.type !== 'embedded_entity' ||
+      filterAttribute.type !== 'policy' ||
+      filterAttribute.type !== 'policies' ||
+      filterAttribute.type !== 'groups')
+  });
 
   let options = cleansedSchema.map((attr, index) => {
     let option = {};
-    if (attr.type === 'relationship'){
+    if (attr.type === 'relationship') {
       //Update last element in key name with __.
       let arrName = attr.name.split(".");
-      arrName[arrName.length-1] = '__' + arrName[arrName.length-1];
+      arrName[arrName.length - 1] = '__' + arrName[arrName.length - 1];
       let newName = arrName.join(".");
 
       option = {
@@ -291,7 +311,7 @@ export function getContentSelectorOptions(schema){
         label: attr.description,
         editable: attr.alwaysDisplay ? !attr.alwaysDisplay : true,
       };
-    } else if (attr.type === 'json' || attr.type === 'embedded_entity'){
+    } else if (attr.type === 'json' || attr.type === 'embedded_entity') {
       option = {
         id: attr.name,
         label: attr.description,
@@ -307,48 +327,46 @@ export function getContentSelectorOptions(schema){
     return option;
   })
 
-    const contentSelectorOptions = [
-        {
-            label: 'Main attributes',
-            options: options
-        },
-        {
-            label: 'Audit',
-            options: defaultAuditSelectorOptions()
-        }];
-
-  return contentSelectorOptions;
+  return [
+    {
+      label: 'Main attributes',
+      options: options
+    },
+    {
+      label: 'Audit',
+      options: defaultAuditSelectorOptions()
+    }];
 
 }
 
-export function getPageSelectorOptions(schemaName){
+export function getPageSelectorOptions(schemaName: string) {
   return [
-    { value: 10, label: '10 ' + capitalize(schemaName + 's') },
-    { value: 30, label: '30 ' + capitalize(schemaName + 's') },
-    { value: 50, label: '50 ' + capitalize(schemaName + 's') }
+    {value: 10, label: '10 ' + capitalize(schemaName + 's')},
+    {value: 30, label: '30 ' + capitalize(schemaName + 's')},
+    {value: 50, label: '50 ' + capitalize(schemaName + 's')}
   ];
 }
 
-export const CUSTOM_PREFERENCE_OPTIONS = [{ value: 'table', label: 'Table' }, { value: 'cards', label: 'Cards' }];
+export const CUSTOM_PREFERENCE_OPTIONS = [{value: 'table', label: 'Table'}, {value: 'cards', label: 'Cards'}];
 
-export function getDefaultPreferences(schema, table_key){
+export function getDefaultPreferences(schema: EntitySchema, table_key: any) {
 
   //Get all required attributes from schema.
-  let visibleAttributes = schema.attributes.filter(attribute => {
-    return attribute.required && !attribute.hidden && attribute.type !== 'embedded_entity' && attribute.type !== 'policy' && attribute.type !== 'policies'&& attribute.type !== 'groups';
+  const visibleAttributes = schema.attributes.filter(attribute => {
+    return attribute.required && !attribute.hidden && attribute.type !== 'embedded_entity' && attribute.type !== 'policy' && attribute.type !== 'policies' && attribute.type !== 'groups';
   });
 
-  visibleAttributes = visibleAttributes.map(attribute => {
+  const visibleAttributeNames = visibleAttributes.map(attribute => {
     return attribute.name;
   });
 
   //Add default audit attributes to display.
-  visibleAttributes.push('lastModifiedTimestamp');
-  visibleAttributes.push('lastModifiedBy');
+  visibleAttributeNames.push('lastModifiedTimestamp');
+  visibleAttributeNames.push('lastModifiedBy');
 
   return {
     pageSize: 10,
-    visibleContent: visibleAttributes,
+    visibleContent: visibleAttributeNames,
     wraplines: false,
     trackBy: table_key
   };

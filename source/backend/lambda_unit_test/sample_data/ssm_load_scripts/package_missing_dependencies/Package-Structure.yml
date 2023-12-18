@@ -1,0 +1,11 @@
+Name: "Hello World"
+Description: "This script will output the text provided in the argument."
+MasterFileName: "hello_world.py"
+Arguments:
+  -
+    name: "MyMessage"
+    long_desc: "Message to output."
+    description: "Message that will be output from python and powershell,"
+    type: "sting"
+Dependencies:
+  - lib1.py

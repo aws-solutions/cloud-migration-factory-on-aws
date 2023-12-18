@@ -1,29 +1,25 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import React from 'react';
-import {
-    ColumnLayout,
-    SpaceBetween
-} from '@awsui/components-react';
+import {ColumnLayout, SpaceBetween} from '@awsui/components-react';
 
 import TextAttribute from "./TextAttribute";
 import {getNestedValuePath} from "../../resources/main";
 
 // Attribute Display message content
-function returnLocaleDateTime(stringDateTime) {
+function returnLocaleDateTime(stringDateTime: string | number | Date) {
     let originalDate = new Date(stringDateTime);
     let newDate = new Date(originalDate.getTime() - originalDate.getTimezoneOffset()*60*1000);
 
     return newDate.toLocaleString();
 }
 
-const Audit = ({item}) => {
+const Audit = ({item}: any) => {
 
-  function getHistoryUser(item, type){
+  function getHistoryUser(item: any, type: string) {
     const value = getNestedValuePath(item, '_history.' + type + '.email')
 
     if (value){
@@ -33,7 +29,7 @@ const Audit = ({item}) => {
     }
   }
 
-  function getHistoryDate(item, type){
+  function getHistoryDate(item: any, type: string) {
     const value = getNestedValuePath(item, '_history.' + type)
 
     if (value){

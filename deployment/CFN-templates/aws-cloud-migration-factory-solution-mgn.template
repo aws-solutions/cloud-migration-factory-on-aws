@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "(%%SOLUTION_ID%%-mgn) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution (Version %%VERSION%%)"
+Description: "(%%SOLUTION_ID%%-mgn) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution. Version:%%VERSION%%"
 
 Parameters:
   CodeBucket: # Upload Code in this bucket
@@ -83,8 +83,21 @@ Parameters:
   LambdaLayerMFPolicyLib:
     Type: String
 
+  LambdaLayerMFUtilsLib:
+    Type: String
+
   CORS:
     Type: String
+
+  LambdaRuntimePython:
+    Type: String
+    Default: python3.10
+
+Mappings:
+  Solution:
+    Data:
+      SolutionID: '%%SOLUTION_ID%%'
+      SolutionVersion: '%%VERSION%%'
 
 Resources:
   ## MGN API
@@ -177,7 +190,18 @@ Resources:
             Action:
               - "sts:AssumeRole"
       Path: /
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/ResourceGroupsandTagEditorReadOnlyAccess"
       Policies:
+        - PolicyName: !Sub ${Application}-${Environment}-MGNLambdaLM
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'license-manager:GetLicenseConfiguration'
+                Resource:
+                  - 'arn:aws:license-manager:*:*:license-configuration:*'
         - PolicyName: !Sub ${Application}-${Environment}-MGNLambda
           PolicyDocument:
             Version: '2012-10-17'
@@ -250,8 +274,9 @@ Resources:
           AnonymousUsageData: !Ref AnonymousUsageData
           solutionUUID: !Ref solutionUUID
           region: !Ref "AWS::Region"
-          solution_identifier: "\"AwsSolution/%%SOLUTION_ID%%/%%VERSION%%\""
           cors: !Ref CORS
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Code:
         S3Bucket: !Ref CodeBucket
         S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_mgn.zip"]]
@@ -259,7 +284,7 @@ Resources:
       FunctionName: !Sub ${Application}-${Environment}-MGN
       Handler: "lambda_mgn.lambda_handler"
       Role: !GetAtt MGNLambdaRole.Arn
-      Runtime: python3.10
+      Runtime: !Ref LambdaRuntimePython
       MemorySize: 2048
       Timeout: 720
       Tags:
@@ -275,6 +300,7 @@ Resources:
       Layers:
         - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
         rules_to_suppress:

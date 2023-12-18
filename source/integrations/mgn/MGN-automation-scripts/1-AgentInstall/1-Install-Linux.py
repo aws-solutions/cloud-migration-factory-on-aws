@@ -25,7 +25,7 @@ def install_wget(host, username, key_pwd, using_key, final_output):
         # Find the distribution
         distribution = mfcommon.find_distribution(host, username, key_pwd, using_key)
         final_output['messages'].append("***** Installing wget *****")
-        ssh = mfcommon.open_ssh(host, username, key_pwd, using_key)
+        ssh, _ = mfcommon.open_ssh(host, username, key_pwd, using_key)
         if distribution == "ubuntu":
             ssh.exec_command("sudo apt-get update")  # nosec B601
             stdin, _, stderr = ssh.exec_command(  # nosec B601
@@ -52,7 +52,7 @@ def install_wget(host, username, key_pwd, using_key, final_output):
             if "not found" in error or "command-not-found" in error:
                 final_output['messages'].append("wget is not recognized, unable to proceed! due to " + error)
         else:
-            final_output['messages'].append("something went wrong while installing wget ", error)
+            final_output['messages'].append("something went wrong while installing wget " + error)
     finally:
         if ssh is not None:
             ssh.close()
@@ -86,7 +86,7 @@ def install_python3(host, username, key_pwd, using_key, final_output):
     ssh = None
     try:
         final_output['messages'].append("***** Installing python3 *****")
-        ssh = mfcommon.open_ssh(host, username, key_pwd, using_key)
+        ssh, _ = mfcommon.open_ssh(host, username, key_pwd, using_key)
         # Find the distribution
         distribution = mfcommon.find_distribution(host, username, key_pwd, using_key)
         if distribution == "ubuntu":

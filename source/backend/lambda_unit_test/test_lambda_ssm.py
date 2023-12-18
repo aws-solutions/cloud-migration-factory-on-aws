@@ -243,7 +243,7 @@ class LambdaSSMTest(unittest.TestCase):
         mock_ssm.list_tags_for_resource.assert_not_called()
         mock_ec2.describe_tags.assert_not_called()
 
-    @patch('lambda_ssm.MFAuth.getUserResourceCreationPolicy')
+    @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
     def test_lambda_handler_post_validation_error(self, mock_MFAuth):
         import lambda_ssm
         mock_MFAuth.side_effect = mock_getUserResourceCreationPolicy
@@ -257,7 +257,7 @@ class LambdaSSMTest(unittest.TestCase):
 
     @unittest.skip
     @patch('lambda_ssm.lambda_client')
-    @patch('lambda_ssm.MFAuth.getUserResourceCreationPolicy')
+    @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
     def test_lambda_handler_post_package_version_doesnt_exist(self, mock_MFAuth, mock_lamda):
         import lambda_ssm
         mock_MFAuth.side_effect = mock_getUserResourceCreationPolicy
@@ -272,7 +272,7 @@ class LambdaSSMTest(unittest.TestCase):
 
     @unittest.skip
     @patch('lambda_ssm.lambda_client')
-    @patch('lambda_ssm.MFAuth.getUserResourceCreationPolicy')
+    @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
     def test_lambda_handler_post_package_version_invalid(self, mock_MFAuth, mock_lamda):
         import lambda_ssm
         mock_MFAuth.side_effect = mock_getUserResourceCreationPolicy
@@ -287,7 +287,7 @@ class LambdaSSMTest(unittest.TestCase):
 
     @patch('lambda_ssm.ssm')
     @patch('lambda_ssm.lambda_client')
-    @patch('lambda_ssm.MFAuth.getUserResourceCreationPolicy')
+    @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
     def test_lambda_handler_post_success(self, mock_MFAuth, mock_lamda, mock_ssm):
         import lambda_ssm
         mock_MFAuth.side_effect = mock_getUserResourceCreationPolicy
@@ -299,7 +299,7 @@ class LambdaSSMTest(unittest.TestCase):
 
     @patch('lambda_ssm.ssm')
     @patch('lambda_ssm.lambda_client')
-    @patch('lambda_ssm.MFAuth.getUserResourceCreationPolicy')
+    @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
     def test_lambda_handler_post_unhandled_exception(self, mock_MFAuth, mock_lamda, mock_ssm):
         import lambda_ssm
         mock_MFAuth.side_effect = Exception('Simulated Exception')
@@ -309,7 +309,7 @@ class LambdaSSMTest(unittest.TestCase):
 
     @patch('lambda_ssm.ssm')
     @patch('lambda_ssm.lambda_client')
-    @patch('lambda_ssm.MFAuth.getUserResourceCreationPolicy')
+    @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
     def test_lambda_handler_post_handled_exception(self, mock_MFAuth, mock_lamda, mock_ssm):
         import lambda_ssm
         mock_MFAuth.side_effect = mock_getUserResourceCreationPolicy
@@ -321,7 +321,7 @@ class LambdaSSMTest(unittest.TestCase):
 
     @patch('lambda_ssm.ssm')
     @patch('lambda_ssm.lambda_client')
-    @patch('lambda_ssm.MFAuth.getUserResourceCreationPolicy')
+    @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
     def test_lambda_handler_post_mfauth_deny(self, mock_MFAuth, mock_lamda, mock_ssm):
         import lambda_ssm
         mock_MFAuth.side_effect = mock_getUserResourceCreationPolicyDeny

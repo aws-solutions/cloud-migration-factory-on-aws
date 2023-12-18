@@ -1,25 +1,24 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import React, {useEffect, useState} from "react";
-import { Auth } from "@aws-amplify/auth";
+import {Auth} from "@aws-amplify/auth";
 
 import {useNavigate} from "react-router-dom";
 import {Box, Button, Container, Form, FormField, Header, Input, SpaceBetween} from "@awsui/components-react";
 
-const ChangePassword = (props) => {
+const ChangePassword = () => {
   let navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordError, setPasswordError] = useState(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  const handleSubmit = async event => {
+  const handleSubmit = async (event: { preventDefault: () => void; }) => {
     event.preventDefault();
 
     setIsLoading(true);
@@ -28,19 +27,16 @@ const ChangePassword = (props) => {
       const user = await Auth.signIn(email, oldPassword);
 
       if (user.challengeName === 'NEW_PASSWORD_REQUIRED') {
-        //? What is this? const { requiredAttributes } = user.challengeParam; // the array of required attributes, e.g ['email', 'phone_number']
         await Auth.completeNewPassword(user, newPassword);
-      }
-      else {
+      } else {
         const authUser = await Auth.currentAuthenticatedUser();
         await Auth.changePassword(authUser, oldPassword, newPassword);
       }
       navigate("/");
-    } catch (e) {
+    } catch (e: any) {
       if (e.message === 'User does not exist.') {
         setPasswordError('Incorrect username or password.');
-      }
-      else{
+      } else {
         setPasswordError('An unexpected error occurred.');
       }
       setIsLoading(false);
@@ -51,30 +47,28 @@ const ChangePassword = (props) => {
   useEffect(() => {
     setPasswordError(null);
 
-  },[email, oldPassword, newPassword]);
+  }, [email, oldPassword, newPassword]);
 
   return (
     <Box margin="xxl" padding="xxl">
       <Form
         header={
-          <Header
-            variant="h1"
-          >
+          <Header variant="h1">
             Change Password
           </Header>
         }
         actions={
           // located at the bottom of the form
           <SpaceBetween direction="horizontal" size="xs">
-            <Button disabled={!passwordError && email && oldPassword && newPassword && confirmPassword && newPassword === confirmPassword ? false : true} variant={'primary'} loading={isLoading} onClick={handleSubmit}>Change Password</Button>
+            <Button
+              disabled={!(!passwordError && email && oldPassword && newPassword && confirmPassword && newPassword === confirmPassword)}
+              variant={'primary'} loading={isLoading} onClick={handleSubmit}>Change Password</Button>
             <Button onClick={() => navigate("/")}>Cancel</Button>
           </SpaceBetween>
         }
         errorText={passwordError ? passwordError : null}
       >
-        <Container
-
-        >
+        <Container>
           <SpaceBetween size={'xl'} direction={'vertical'}>
             <SpaceBetween size={'xxs'} direction={'vertical'}>
               <FormField
@@ -109,7 +103,6 @@ const ChangePassword = (props) => {
                   type="password"
                 />
               </FormField>
-
               <FormField
                 key={'confirmPassword'}
                 label={'Confirm new password'}

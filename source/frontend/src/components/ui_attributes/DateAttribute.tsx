@@ -4,11 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import {
-  FormField,
-  SpaceBetween, DatePicker
-} from '@awsui/components-react';
+import React, {useEffect, useState} from 'react';
+import {DatePicker, FormField, SpaceBetween} from '@awsui/components-react';
 
 const DateAttribute = ({attribute, value, isReadonly, errorText, handleUserInput, displayHelpInfoLink}) => {
 

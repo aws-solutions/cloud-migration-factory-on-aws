@@ -4,12 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import {
-  FormField,
-  Textarea,
-  SpaceBetween
-} from '@awsui/components-react';
+import React, {useEffect, useState} from 'react';
+import {FormField, SpaceBetween, Textarea} from '@awsui/components-react';
 
 const MultiValueStringAttribute = ({attribute, value, isReadonly, errorText, handleUserInput, displayHelpInfoLink}) => {
 

@@ -30,7 +30,7 @@ mock_os_environ = {
     'FRONTEND_BUCKET': 'test_FRONTEND_BUCKET',
     'SOURCE_BUCKET': 'test_SOURCE_BUCKET',
     'SOURCE_KEY': 'test_SOURCE_KEY',
-    'VERSION': 'test_VERSION'
+    'SOLUTION_VERSION': 'test_VERSION'
 }
 
 @mock_s3

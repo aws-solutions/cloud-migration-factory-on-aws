@@ -1,53 +1,46 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react'
-import ReactDOM from 'react-dom'
-import {
-  Modal,
-  Button,
-  SpaceBetween,
-  Box
-} from '@awsui/components-react';
+import React, {ReactNode} from 'react'
+import {Box, Button, Modal, SpaceBetween} from '@awsui/components-react';
 
-type Props = {
-  children: React.ReactChild,
-  closeModal: () => void,
-  confirmAction: () => void
+export type CMFModalProps = {
+  header: ReactNode,
+  visible: boolean,
+  onDismiss: () => void,
+  onConfirmation?: () => void,
+  noCancel?: boolean
+  children?: ReactNode,
 }
 
-const MFModal = React.memo(({ children, closeModal , confirmAction, title, noCancel}: Props) => {
-  const domEl = document.getElementById('modal-root')
+// Wrapper for Modal component from @awsui/components-react to reduce duplication of defaults
+export const CMFModal = ({children, onDismiss, visible, onConfirmation, header, noCancel}: CMFModalProps) => {
+  if (!visible) return <></>; // if modal is not visible, don't render it. it makes unit testing harder when there are multiple invisible modals in the DOM.
 
-  if (!domEl) return null
-
-  return ReactDOM.createPortal(
+  return (
     <Modal
-      onDismiss={confirmAction ? closeModal : undefined}
+      onDismiss={noCancel ? undefined : onDismiss}
       visible={true}
       closeAriaLabel="Close"
       size="medium"
-      footer={confirmAction ?
-            (
-              <Box float="right">
-                <SpaceBetween direction="horizontal" size="xs">
-                  {noCancel ? undefined : <Button onClick={closeModal} variant="link">Cancel</Button>}
-                  <Button onClick={confirmAction} variant="primary">Ok</Button>
-                </SpaceBetween>
-              </Box>
-          )
-          :
-          undefined
+      footer={onConfirmation ?
+        (
+          <Box float="right">
+            <SpaceBetween direction="horizontal" size="xs">
+              {noCancel ? undefined : <Button onClick={onDismiss} variant="link">Cancel</Button>}
+              <Button onClick={onConfirmation} variant="primary">Ok</Button>
+            </SpaceBetween>
+          </Box>
+        )
+        :
+        undefined
       }
-      header={title}
+      header={header}
     >
       {children}
-    </Modal>,
-    domEl
-  )
-});
+    </Modal>
+  );
+};
 
-export default MFModal;
