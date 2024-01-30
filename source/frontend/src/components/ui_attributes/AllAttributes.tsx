@@ -100,9 +100,14 @@ const AllAttributes = (props: AllAttributesParams) => {
       return (attribute.name === attributeFilter.source_filter_attribute_name)
     });
 
+    let attributes_with_embedded_filter = props.schema.attributes.filter(attributeFilter => {
+      //this attribute's value is used to filter another embedded attribute if true.
+      return (attribute.name === attributeFilter.lookup && attributeFilter.type === 'embedded_entity')
+    });
+
     let values: {
       field: string;
-      value: any[];
+      value: any[] | string | {};
       validationError: any
     }[] = [{
       field: attribute.name,
@@ -110,10 +115,20 @@ const AllAttributes = (props: AllAttributesParams) => {
       validationError: validationError
     }];
 
+    // As filter value has been changed, set all child attribute values to empty.
     for (const attributeFilter of attributes_with_rel_filter) {
       values.push({
         field: attributeFilter.name,
-        value: [],
+        value: attributeFilter?.listMultiSelect?[]:'',
+        validationError: null
+      });
+    }
+
+    // Remove any values that have been set for the embedded attribute values as the embedded attribute has changed.
+    for (const attributeFilter of attributes_with_embedded_filter) {
+      values.push({
+        field: attributeFilter.name,
+        value: {},
         validationError: null
       });
     }
@@ -340,7 +355,7 @@ const AllAttributes = (props: AllAttributesParams) => {
 
   function returnErrorMessage(attribute: Attribute) {
 
-    let errorMsg = null;
+    let errorMsg:string | null;
 
     let value = getAttributeValue(attribute);
 
@@ -457,10 +472,16 @@ const AllAttributes = (props: AllAttributesParams) => {
   }
 
   function getSchemaAccessPolicy(policy: any[], schemaName: string) {
+    const schemaNames = [schemaName];
+    if (schemaName === 'application')
+      schemaNames.push('app');
+    else if (schemaName === 'app')
+      schemaNames.push('application');
+
     let schemaAccess: any = {};
 
     schemaAccess = policy.filter(schema => {
-      return schema.schema_name === schemaName
+      return schemaNames.includes(schema.schema_name)
     });
 
     if (schemaAccess.length === 1) {

@@ -1,16 +1,7 @@
 import json
-import boto3
+import cmf_boto
 from botocore.exceptions import ClientError
-import base64
 import os
-from botocore import config
-
-if 'solution_identifier' in os.environ:
-    solution_identifier = json.loads(os.environ['solution_identifier'])
-    user_agent_extra_param = {"user_agent_extra": solution_identifier}
-    boto_config = config.Config(**user_agent_extra_param)
-else:
-    boto_config = None
 
 region = os.environ['region']
 
@@ -29,8 +20,7 @@ def create(event):
     else:
         iskey = False
 
-    session = boto3.session.Session(region_name=region)
-    client = session.client(service_name='secretsmanager', config=boto_config)
+    client = cmf_boto.client('secretsmanager', region_name=region)
     try:
         data = "{\"USERNAME\": \"%s\", \"PASSWORD\": \"%s\", \"SECRET_TYPE\": \"%s\", \"OS_TYPE\": \"%s\", \"IS_SSH_KEY\": \"%s\"}" % (
             request_user, password, secret_type, os_type, iskey)

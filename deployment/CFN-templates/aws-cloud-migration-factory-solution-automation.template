@@ -73,7 +73,7 @@ Parameters:
 
   LambdaRuntimePython:
     Type: String
-    Default: python3.10
+    Default: python3.11
 
   IsDeploymentPrivate:
     Type: String
@@ -750,6 +750,7 @@ Resources:
           ssm_bucket: !Ref SSMBucket
           ssm_automation_document: !Ref RunCMFAutomationPackageSSMDocument
           mf_userapi: !Ref UserAPI
+          mf_toolsapi: !Ref ToolsAPI
           mf_loginapi: !Ref LoginAPI
           mf_vpce_id: !Ref VPCEID
           mf_cognitouserpoolid: !Ref CognitoUserPoolId
@@ -1270,6 +1271,10 @@ Resources:
                     Selector: $.Payload.mf_endpoints.UserApi
                     Type: String
 
+                  - Name: mf_endpoints_ToolsApi
+                    Selector: $.Payload.mf_endpoints.ToolsApi
+                    Type: String
+
                   - Name: mf_endpoints_LoginApi
                     Selector: $.Payload.mf_endpoints.LoginApi
                     Type: String
@@ -1343,7 +1348,7 @@ Resources:
                       - $file = 'c:\migrations\scripts\downloads\{{package_download.script_key}}.zip'
                       - "Try {Read-S3Object -BucketName '{{package_download.bucket_name}}' -File $file -Key 'scripts/{{package_download.script_key}}.zip' -Version '{{package_download.script_version}}' | Out-Null} Catch {$_ | Out-File C:\\migrations\\Scripts\\downloads\\logs.txt; Write-Host '[{{ package_download.ssm_id }}]' Error downloading script from S3 bucket ('{{package_download.bucket_name}}') to automation server: $_; Write-Host '[{{ package_download.ssm_id }}] JOB_FAILED'; exit 255}"
                       - $dt = (Get-Date).ToString('MM-dd-yyyy-hh.mm.sstt')
-                      - $json = @{VpceId='{{package_download.mf_endpoints_VpceId}}'; LoginApi='{{package_download.mf_endpoints_LoginApi}}'; UserApi='{{package_download.mf_endpoints_UserApi}}'; UserPoolId='{{package_download.mf_endpoints_UserPoolId}}'; UserPoolClientId='{{package_download.mf_endpoints_UserPoolClientId}}'; Region='{{package_download.mf_endpoints_Region}}'}
+                      - $json = @{VpceId='{{package_download.mf_endpoints_VpceId}}'; LoginApi='{{package_download.mf_endpoints_LoginApi}}'; UserApi='{{package_download.mf_endpoints_UserApi}}'; ToolsApi='{{package_download.mf_endpoints_ToolsApi}}'; UserPoolId='{{package_download.mf_endpoints_UserPoolId}}'; UserPoolClientId='{{package_download.mf_endpoints_UserPoolClientId}}'; Region='{{package_download.mf_endpoints_Region}}'}
                       - $target_folder = 'c:\migrations\scripts\history\{{package_download.script_key}}-' + $dt
                       - $target_folder | Out-File -FilePath 'c:\migrations\scripts\downloads\script_path.txt' -NoNewline
                       - "Try{Expand-Archive -LiteralPath $file -DestinationPath $target_folder | Out-Null} Catch {Write-Host '[{{ package_download.ssm_id }}] Error extracting script archive to automation server: ' $_; Write-Host '[{{ package_download.ssm_id }}] JOB_FAILED'; exit 255}"

@@ -419,7 +419,7 @@ const AllViewerAttributes = ({dataAll, hideEmpty, item, schema: {attributes}, sc
 
   let allAttributes: any[];
   //TODO - finish this sort script to allow grouped attributes to be created together
-  let sortedSchemaAttributes = attributes.sort(function (a, b) {
+  let sortedSchemaAttributes =[...attributes].sort(function (a, b) {
     if (a.group && b.group) {
       return a.group > b.group ? 1 : -1;
     } else if (!a.group && b.group) {

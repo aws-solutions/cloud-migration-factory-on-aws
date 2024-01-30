@@ -6,8 +6,8 @@ import os
 import time
 import urllib
 import datetime
-from jose import jwk, jwt
-from jose.utils import base64url_decode
+import jwt
+from jwt import PyJWKClient
 
 import cmf_boto
 from cmf_logger import logger
@@ -35,41 +35,37 @@ def _get_response(status_code, body):
 
 
 def verify_token(token):
-    # get the kid from the headers prior to verification
-    headers = jwt.get_unverified_headers(token)
-    kid = headers['kid']
-    # search for the kid in the downloaded public keys
-    key_index = -1
-    for i in range(len(keys)):
-        if kid == keys[i]['kid']:
-            key_index = i
-            break
-    if key_index == -1:
-        logger.error('Public key not found in jwks.json')
+    verify_url = f"https://cognito-idp.{region}.amazonaws.com/{userpool_id}"
+
+    optional_custom_headers = {"User-agent": "custom-user-agent"}
+    jwks_client = PyJWKClient(verify_url + '/.well-known/jwks.json', headers=optional_custom_headers)
+    try:
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+    except jwt.exceptions.PyJWKClientError as get_keys_error:
+        logger.error(get_keys_error)
+        logger.error('Invalid Token here')
         return False
-    # construct the public key
-    public_key = jwk.construct(keys[key_index])
-    # get the last two sections of the token,
-    # message and signature (encoded in base64)
-    message, encoded_signature = str(token).rsplit('.', 1)
-    # decode the signature
-    decoded_signature = base64url_decode(encoded_signature.encode('utf-8'))
-    # verify the signature
-    if not public_key.verify(message.encode("utf8"), decoded_signature):
-        logger.error('Signature verification failed')
-        return False
-    logger.debug('Signature successfully verified')
-    # since we passed the verification, we can now safely
-    # use the unverified claims
-    claims = jwt.get_unverified_claims(token)
-    # additionally we can verify the token expiration
-    if time.time() > claims['exp']:
+
+    kargs = {"issuer": verify_url, "algorithms": ['RS256'], "audience": app_client_id}
+    try:
+        claims = jwt.decode(
+            token,
+            signing_key.key,
+            **kargs
+        )
+    except jwt.exceptions.ExpiredSignatureError as _:
         logger.error('Token has expired')
         return False
-    # and the Audience  (use claims['client_id'] if verifying an access token)
-    if claims['aud'] != app_client_id:
+    except jwt.exceptions.InvalidAudienceError as _:
         logger.error('Token was not issued for this audience')
         return False
+    except jwt.exceptions.InvalidIssuerError as _:
+        logger.error('Issuer verification failed')
+        return False
+    except jwt.exceptions.InvalidSignatureError as _:
+        logger.error('Signature verification failed')
+        return False
+
     # now we can use the claims
     logger.debug('Claims: %s', claims)
     logger.info('Token verified.')
@@ -113,9 +109,9 @@ def process_message(event):
             return _get_response(400, error_message)
         else:
             info_message = "Authentication successful"
-            connectionId = event["requestContext"].get("connectionId")
+            connection_id = event["requestContext"].get("connectionId")
             table = dynamodb.Table(connectionIds_table_name)
-            table.put_item(Item={"connectionId": connectionId, "date/time": datetime.datetime.now().strftime("%c"),
+            table.put_item(Item={"connectionId": connection_id, "date/time": datetime.datetime.now().strftime("%c"),
                                  "email": claims['email'], "topics": []})
             logger.info('MESSAGE: %s' + ' - ' + info_message, event["requestContext"].get("connectionId"))
             return _get_response(200, info_message)
@@ -125,7 +121,7 @@ def process_message(event):
     return _get_response(400, error_message)
 
 
-def process_unexpected(event):
+def process_unexpected():
     return _get_response(400, "Unsupported event type.")
 
 
@@ -138,4 +134,4 @@ def lambda_handler(event, _):
     elif event["requestContext"]["eventType"] == "MESSAGE":
         return process_message(event)
     else:
-        return process_unexpected(event)
+        return process_unexpected()

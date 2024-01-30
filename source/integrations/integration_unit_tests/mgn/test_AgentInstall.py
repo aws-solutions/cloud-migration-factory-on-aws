@@ -444,7 +444,7 @@ class AgentInstall(TestCase):
         secretsmanager_client.create_secret(
             Name="MGNAgentInstallUser",
             Description="MGNInstallerUser",
-            SecretString="{\"AccessKeyId\": \"123456789\", \"SecretAccessKey\": \"123456789\"}"
+            SecretString="{\"SECRET_KEY\": \"123456789\", \"SECRET_VALUE\": \"123456789\"}"
         )
 
         response = agent_install.get_agent_install_secrets(
@@ -452,7 +452,9 @@ class AgentInstall(TestCase):
             {
                 "aws_accountid": "123456789012",
                 "aws_region": "us-east-1"
-            })
+            },
+            'MGNAgentInstallUser'
+        )
 
         self.assertEqual(response, secret)
 

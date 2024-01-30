@@ -17,6 +17,7 @@ mock_os_environ = {
     'ssm_automation_document': 'test_ssm_automation_document',
     'mf_userapi': 'test_mf_userapi',
     'mf_loginapi': 'test_mf_loginapi',
+    'mf_toolsapi': 'test_mf_toolsapi',
     'userpool': 'test_userpool',
     'clientid': 'test_clientid',
     'mf_vpce_id': 'fd00:ec2::253'

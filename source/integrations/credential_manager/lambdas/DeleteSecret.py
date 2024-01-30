@@ -1,17 +1,17 @@
 import json
-import boto3
+import cmf_boto
 from botocore.exceptions import ClientError
 import os
 
 region = os.environ['region']
 
+
 def delete(event):
     body = json.loads(event['body'])
     secret_name = body['secretName']
-    session = boto3.session.Session(region_name=region)
-    client = session.client(service_name='secretsmanager')
+    client = cmf_boto.client('secretsmanager', region_name=region)
 
-    extraArgs = {'Filters': [
+    extra_args = {'Filters': [
         {
             'Key': 'tag-key',
             'Values': ['CMFUse']
@@ -26,7 +26,7 @@ def delete(event):
         }
     ]}
 
-    result = client.list_secrets(**extraArgs)
+    result = client.list_secrets(**extra_args)
     deleted = False
 
     if result['SecretList']:
@@ -34,12 +34,12 @@ def delete(event):
             if secret['Name'] == secret_name:
                 # Secret found that is under the control of Credentials Manager, proceed with deletion.
                 try:
-                    response = client.delete_secret(
+                    client.delete_secret(
                                                     SecretId=secret_name,
                                                     ForceDeleteWithoutRecovery=True
                                                     )
                     output = "Successfully deleted secret - %s" %secret_name
-                    statusCode = 200
+                    status_code = 200
                     deleted = True
 
                 except ClientError as e:
@@ -47,10 +47,14 @@ def delete(event):
                         return {"statusCode": 404, "body": "AccessDenied"}
 
                 return {
-                    'statusCode': statusCode,
+                    'statusCode': status_code,
                     'body': output
                 }
 
+    return process_not_deleted(deleted, secret_name)
+
+
+def process_not_deleted(deleted, secret_name):
     if not deleted:
         # Secret not found that matches Credentials Manager signature.
         output = "Secret %s not found, or not under the control of Credentials Manager." % secret_name

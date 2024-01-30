@@ -6,6 +6,7 @@ import logging
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
+
 def assume_role(account_id, region):
     sts_client = boto3.client('sts', region_name=region)
     role_arn = 'arn:aws:iam::' + account_id + ':role/CMF-MGNAutomation'
@@ -72,7 +73,7 @@ def handle_error(error, error_prefix, message_suffix, log_error):
 
 
 def handle_error_with_pid(error, message_suffix):
-    error_prefix = f"ERROR: "
+    error_prefix = "ERROR: "
     pid_prefix = f"Pid: {str(os.getpid())} - {error_prefix}"
     err = str(error)
     if ":" in str(error):

@@ -47,49 +47,6 @@ Conditions:
   DeployRehostMGNRole: !Equals [!Ref RehostMGN, true]
 
 Resources:
-  MGNAgentInstallUser:
-    Condition: DeployRehostMGNRole
-    Type: AWS::IAM::User
-    Properties:
-      UserName: !Sub "MGNAgentInstallUser-${AWS::AccountId}"
-      Policies:
-        -
-          PolicyName: LambdaRolePolicy
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - 'mgn:SendAgentMetricsForMgn'
-                  - 'mgn:SendAgentLogsForMgn'
-                  - 'mgn:SendClientLogsForMgn'
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - 'mgn:RegisterAgentForMgn'
-                  - 'mgn:UpdateAgentSourcePropertiesForMgn'
-                  - 'mgn:UpdateAgentReplicationInfoForMgn'
-                  - 'mgn:UpdateAgentConversionInfoForMgn'
-                  - 'mgn:GetAgentInstallationAssetsForMgn'
-                  - 'mgn:GetAgentCommandForMgn'
-                  - 'mgn:GetAgentConfirmedResumeInfoForMgn'
-                  - 'mgn:GetAgentRuntimeConfigurationForMgn'
-                  - 'mgn:UpdateAgentBacklogForMgn'
-                  - 'mgn:GetAgentReplicationInfoForMgn'
-                Resource: '*'
-              - Effect: Allow
-                Action: 'mgn:TagResource'
-                Resource: 'arn:aws:mgn:*:*:source-server/*'
-    Metadata:
-        cfn_nag:
-          rules_to_suppress:
-            - id: F2000
-              reason: "user is for agent install only, does not need to be assigned to a group"
-            - id: F10
-              reason: "user is for agent install only, does not need to be assigned to a group"
-            - id: W11
-              reason: "The resources ARN is unknown, because it is based on user's input"
-  
   CMFMGNAutomationRole:
     Condition: DeployRehostMGNRole
     Type: 'AWS::IAM::Role'
@@ -142,12 +99,6 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              -
-                Effect: Allow
-                Action:
-                  - 'iam:PassRole'
-                  - 'sts:AssumeRole'
-                Resource: "*"
               - Effect: Allow
                 Action:
                   - 'mgn:ChangeServerLifeCycleState'
@@ -209,9 +160,7 @@ Resources:
                 Resource: '*'
               - Effect: Allow
                 Action: 'iam:PassRole'
-                Resource:
-                  - >-
-                    arn:aws:iam::*:role/service-role/AWSApplicationMigrationConversionServerRole
+                Resource: '*'
                 Condition:
                   StringEquals:
                     'iam:PassedToService': ec2.amazonaws.com
@@ -450,12 +399,12 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              -
-                Effect: Allow
-                Action:
-                  - 'iam:PassRole'
-                  - 'sts:AssumeRole'
+              - Effect: Allow
+                Action: 'iam:PassRole'
                 Resource: "*"
+                Condition:
+                  StringEquals:
+                    'iam:PassedToService': ec2.amazonaws.com
               -
                 Effect: Allow
                 Action:
@@ -572,23 +521,3 @@ Resources:
             reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
           - id: W76
             reason: "The policy is required for managing target EC2 instances"
-
-
-  MGNAccessKeyId:
-    Condition: DeployRehostMGNRole
-    Type: 'AWS::IAM::AccessKey'
-    Properties:
-      UserName: !Ref MGNAgentInstallUser
-  MGNUserSecrets:
-    Condition: DeployRehostMGNRole
-    Type: AWS::SecretsManager::Secret
-    Properties: 
-      Description: String
-      Name: MGNAgentInstallUser
-      SecretString: !Sub '{"AccessKeyId":"${MGNAccessKeyId}", "SecretAccessKey":"${MGNAccessKeyId.SecretAccessKey}"}'
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W77
-            reason: "cross-account sharing KMS key is not required"
-        

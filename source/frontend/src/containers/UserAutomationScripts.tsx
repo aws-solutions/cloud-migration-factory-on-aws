@@ -505,15 +505,7 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
 
   function displayEditScreen(action: string) {
     switch (action) {
-      case 'Add': {
-        return <AutomationScriptImport
-          action={action}
-          schema={schemaSSMAttribs}
-          item={focusItem}
-          handleUpload={handleUpload}
-          cancelClick={handleResetScreen}
-        />
-      }
+      case 'Add':
       case 'Update': {
         return <AutomationScriptImport
           action={action}

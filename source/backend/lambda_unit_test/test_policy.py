@@ -7,7 +7,7 @@ import os
 import json
 import boto3
 import time
-from jose import jwt
+import jwt
 from moto import mock_dynamodb
 from unittest import TestCase, mock
 from test_common_utils import default_mock_os_environ
@@ -32,6 +32,9 @@ mock_os_environ = {
     'userpool': 'testuserpool',
     'clientid': 'testclientid'
 }
+
+with open(os.path.dirname(os.path.realpath(__file__)) + '/sample_data/jwtRS256.key') as key_file:
+    private_key = key_file.read()
 
 @mock.patch.dict('os.environ', mock_os_environ)
 @mock_dynamodb
@@ -284,16 +287,16 @@ class PolicyTestCase(TestCase):
                 'token':  jwt.encode({
                         'cmf': 'some_secret',
                         'exp': time.time(),
-                        'aud': 'xxx',
+                        'iss': f'https://cognito-idp.{os.getenv("region")}.amazonaws.com/{os.getenv("userpool")}',
+                        'aud': os.getenv('app_client_id'),
                         'email': self.email,
                         'cognito:groups': ['admin','user']
                     }, 
-                    'secret',
-                    algorithm='HS256',
+                    private_key,
+                    algorithm='RS256',
                     headers={
                         'kid': kid
-                    },
-                    access_token='xxx'
+                    }
                 )
             })
         event ={

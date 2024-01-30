@@ -97,13 +97,13 @@ class CredentialManagerNegativeTest(CredentialManagerTestBase):
     def test_list_secrets_failure(self):
         import ListSecret
         CredentialManagerNegativeTest.current_exception = 'InternalServiceError'
-        response = ListSecret.list({})
+        response = ListSecret.list()
         self.assertEqual(response['statusCode'], 500)
         CredentialManagerNegativeTest.current_exception = 'InvalidNextTokenException'
-        response = ListSecret.list({})
+        response = ListSecret.list()
         self.assertEqual(response['statusCode'], 400)
         CredentialManagerNegativeTest.current_exception = 'InvalidParameterException'
-        response = ListSecret.list({})
+        response = ListSecret.list()
         self.assertEqual(response['statusCode'], 400)
 
     @patch('botocore.client.BaseClient._make_api_call', new=mock_client)

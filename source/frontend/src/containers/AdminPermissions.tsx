@@ -390,7 +390,7 @@ const AdminPermissions = (props: AdminPermissionsParams) => {
   }
 
   function handleActionClick(e: ClickEvent) {
-    const action = e.detail!.id;
+    const action = e.detail.id;
 
     if (action === 'add_group') {
       setAddUserToGroupModalVisible(true);

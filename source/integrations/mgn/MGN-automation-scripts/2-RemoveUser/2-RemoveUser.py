@@ -130,6 +130,9 @@ def process_user_remove_for_linux_servers(cmf_servers, current_user_secret, remo
 
 def process_user_remove_for_windows_servers(cmf_servers, current_user_secret, remove_user_secret, no_prompts=True):
     failure_count = 0
+
+    mfcommon.add_windows_servers_to_trusted_hosts(cmf_servers)
+
     for server in cmf_servers:
         try:
             cred = mfcommon.get_server_credentials(
@@ -147,9 +150,9 @@ def process_user_remove_for_windows_servers(cmf_servers, current_user_secret, re
                 "", "", server, remove_user_secret, no_prompts)
             creds = " -Credential (New-Object System.Management.Automation.PSCredential('" + cred[
                 'username'] + "', (ConvertTo-SecureString '" + cred['password'] + "' -AsPlainText -Force)))"
-            mfcommon.add_windows_servers_to_trusted_hosts([server["server_fqdn"]])
-            command1 = "Invoke-Command -ComputerName " + server['server_fqdn'] + " -ScriptBlock {net user " + \
-                       local_user['username'] + " /delete}" + creds
+
+            command1 = "Invoke-Command -ComputerName " + server['server_fqdn'] + " -ScriptBlock {net user '" + \
+                       local_user['username'] + "' /delete}" + creds
             print("------------------------------------------------------")
             print("- Deleting a local user on: " + server['server_fqdn'] + " -")
             print("------------------------------------------------------")
@@ -161,7 +164,8 @@ def process_user_remove_for_windows_servers(cmf_servers, current_user_secret, re
             else:
                 print(local_user['username'] + " user removed from server: " + server['server_fqdn'])
             print("")
-        except:
+        except Exception as e:
+            print("Exception:", e)
             failure_count += 1
             print("User creation failed on server: " + server['server_fqdn'])
 
