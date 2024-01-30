@@ -13,12 +13,6 @@ Outputs:
   wordpressdbPrivateIP:
     Description: Private IP address of the newly created EC2 instance
     Value: !GetAtt 'wordpressdbEc2Instance.PrivateIp'
-  wordpressdbPublicDNS:
-    Description: Public DNSName of the newly created EC2 instance
-    Value: !GetAtt 'wordpressdbEc2Instance.PublicDnsName'
-  wordpressdbPublicIP:
-    Description: Public IP address of the newly created EC2 instance
-    Value: !GetAtt 'wordpressdbEc2Instance.PublicIp'
 Parameters:
   wordpressdbAMIId:
     Default: amzn-linux-2022

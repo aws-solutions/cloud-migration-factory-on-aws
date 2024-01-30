@@ -1,16 +1,14 @@
-import boto3
+import cmf_boto
 import json
 from botocore.exceptions import ClientError
-import base64
 import os
 
 region = os.environ['region']
 pass_mask = "*********"
 
 
-def list(event):
-    session = boto3.session.Session(region_name=region)
-    client = session.client(service_name='secretsmanager')
+def list():
+    client = cmf_boto.client('secretsmanager', region_name=region)
 
     raw_list = []
     try:
@@ -35,39 +33,9 @@ def list(event):
                 output = items['SecretString']
 
                 try:
-                    data = json.loads(output)
-
-                    if data['SECRET_TYPE'] == 'OS':
-                        if 'IS_SSH_KEY' in data:
-                            # convert to boolean.
-                            if data['IS_SSH_KEY'].lower() == 'true':
-                                data['IS_SSH_KEY'] = True
-                            else:
-                                data['IS_SSH_KEY'] = False
-                        else:
-                            data['IS_SSH_KEY'] = False
-                        data['PASSWORD'] = pass_mask
-                        # data sanitization
-                        data['USERNAME'] = data['USERNAME'].replace('\t', '\\t')
-                        data['USERNAME'] = data['USERNAME'].replace('\n', '\\n')
-                        data['USERNAME'] = data['USERNAME'].replace('\r', '\\r')
-                        key['data'] = data
-                    elif data['SECRET_TYPE'] == 'keyValue':
-                        data['SECRET_VALUE'] = pass_mask
-                        # data sanitization
-                        data['SECRET_KEY'] = data['SECRET_KEY'].replace('\t', '\\t')
-                        data['SECRET_KEY'] = data['SECRET_KEY'].replace('\n', '\\n')
-                        data['SECRET_KEY'] = data['SECRET_KEY'].replace('\r', '\\r')
-                        key['data'] = data
-                    elif data['SECRET_TYPE'] == 'plainText':
-                        data['SECRET_STRING'] = pass_mask
-                        key['data'] = data
-                    else:
-                        data['PASSWORD'] = pass_mask
-                        data['APIKEY'] = pass_mask
-                        key['data'] = data
+                    sanitize_secret(output, key)
                     raw_list.append(key)
-                except:
+                except Exception as e:
                     pass
 
             if 'NextToken' in result:
@@ -87,3 +55,37 @@ def list(event):
         'statusCode': 200,
         'body': json.dumps(sorted_list, default=str)
     }
+
+
+def sanitize_secret(output, key):
+    data = json.loads(output)
+
+    if data['SECRET_TYPE'] == 'OS':
+        if 'IS_SSH_KEY' in data:
+            # convert to boolean.
+            if data['IS_SSH_KEY'].lower() == 'true':
+                data['IS_SSH_KEY'] = True
+            else:
+                data['IS_SSH_KEY'] = False
+        else:
+            data['IS_SSH_KEY'] = False
+        data['PASSWORD'] = pass_mask
+        # data sanitization
+        data['USERNAME'] = data['USERNAME'].replace('\t', '\\t')
+        data['USERNAME'] = data['USERNAME'].replace('\n', '\\n')
+        data['USERNAME'] = data['USERNAME'].replace('\r', '\\r')
+        key['data'] = data
+    elif data['SECRET_TYPE'] == 'keyValue':
+        data['SECRET_VALUE'] = pass_mask
+        # data sanitization
+        data['SECRET_KEY'] = data['SECRET_KEY'].replace('\t', '\\t')
+        data['SECRET_KEY'] = data['SECRET_KEY'].replace('\n', '\\n')
+        data['SECRET_KEY'] = data['SECRET_KEY'].replace('\r', '\\r')
+        key['data'] = data
+    elif data['SECRET_TYPE'] == 'plainText':
+        data['SECRET_STRING'] = pass_mask
+        key['data'] = data
+    else:
+        data['PASSWORD'] = pass_mask
+        data['APIKEY'] = pass_mask
+        key['data'] = data

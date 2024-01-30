@@ -34,6 +34,25 @@ Arguments:
     rel_key: "Name"
     group_order: "3"
   -
+    name: "MGNIAMUser"
+    long_desc: "MGN IAM secret to use for agent installation."
+    description: "MGN IAM User Secret"
+    type: "relationship"
+    rel_display_attribute: "Name"
+    rel_entity: "secret"
+    rel_key: "Name"
+    group_order: "3"
+    conditions:
+      queries:
+        -
+          comparator: "!empty"
+          attribute: "script.script_arguments.AWSUseIAMUserCredentials"
+      outcomes:
+        'true':
+          - "required"
+        'false':
+          - "hidden"
+  -
     name: "Force"
     description: "Force reinstall."
     long_desc: "Force reinstall of MGN agent."

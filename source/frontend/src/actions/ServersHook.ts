@@ -44,22 +44,26 @@ export const useGetServers: DataHook = () => {
         dispatch(requestSuccessful({data: response}));
       }
     } catch (e: any) {
-      if (e.message !== 'Request aborted') {
-        console.error('ServersHook', e);
-      } else {
-        console.error(e);
-      }
-      if (e.response && e.response.data) {
-        console.error(e.response.errors);
-        dispatch(requestFailed({data: [], error: e.response.data}));
-      } else {
-        dispatch(requestFailed({data: [], error: 'unknown error'}));
-      }
+      update_handle_exception(e);
     }
 
     return () => {
       myAbortController.abort();
     };
+  }
+
+  function update_handle_exception(e: any) {
+    if (e.message !== 'Request aborted') {
+      console.error('ServersHook', e);
+    } else {
+      console.error(e);
+    }
+    if (e.response?.data) {
+      console.error(e.response.errors);
+      dispatch(requestFailed({data: [], error: e.response.data}));
+    } else {
+      dispatch(requestFailed({data: [], error: 'unknown error'}));
+    }
   }
 
   useEffect(() => {

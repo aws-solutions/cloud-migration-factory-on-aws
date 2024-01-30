@@ -3,7 +3,7 @@
 
 
 import sys
-from awsglue.transforms import *
+from awsglue.transforms import ApplyMapping, SelectFields, ResolveChoice
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext

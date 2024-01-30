@@ -53,6 +53,72 @@ def upload_files(host, username, key_pwd, using_key, local_file_path):
     return error
 
 
+def copy_windows(get_servers, args):
+    failures = False
+    for account in get_servers:
+        if len(account["servers_windows"]) > 0:
+            for server in account["servers_windows"]:
+                server_failure = copy_windows_server(server, args)
+                failures = failures or server_failure
+    return failures
+
+
+def copy_windows_server(server, args):
+    failures = False
+    windows_credentials = mfcommon.get_server_credentials('', '', server, args.SecretWindows,
+                                                          args.NoPrompts)
+    if windows_credentials['username'] != "":
+        if "\\" not in windows_credentials['username'] and "@" not in windows_credentials[
+            'username']:
+            # Assume local account provided, prepend server name to user ID.
+            server_name_only = server["server_fqdn"].split(".")[0]
+            windows_credentials['username'] = server_name_only + "\\" + windows_credentials[
+                'username']
+            print("INFO: Using local account to connect: " + windows_credentials['username'])
+    else:
+        print("INFO: Using domain account to connect: " + windows_credentials['username'])
+    creds = " -Credential (New-Object System.Management.Automation.PSCredential('" + \
+            windows_credentials['username'] + "', (ConvertTo-SecureString '" + windows_credentials[
+                'password'] + "' -AsPlainText -Force)))"
+    destpath = "'c:\\Program Files (x86)\\AWS Replication Agent\\post_launch\\'"
+    sourcepath = "'" + args.WindowsSource + "\\*'"
+    command1 = "Invoke-Command -ComputerName " + server[
+        'server_fqdn'] + " -ScriptBlock {if (!(Test-Path -Path " + destpath + ")) {New-Item -Path " + destpath + " -ItemType directory}}" + creds
+    command2 = "$Session = New-PSSession -ComputerName " + server[
+        'server_fqdn'] + creds + "\rCopy-Item -Path " + sourcepath + " -Destination " + destpath + " -ToSession $Session"
+    p1 = subprocess.Popen(["powershell.exe", command1], stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE)
+    p1.communicate()
+    p2 = subprocess.Popen(["powershell.exe", command2], stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE)
+    _, stderr = p2.communicate()
+    if 'ErrorId' in str(stderr):
+        print(str(stderr))
+        failures = True
+    else:
+        print("Task completed for server: " + server['server_fqdn'])
+
+    return failures
+
+
+def copy_linux(get_servers, linux_user_name, linux_pass_key, args):
+    failures = False
+    for account in get_servers:
+        if len(account["servers_linux"]) > 0:
+            for server in account["servers_linux"]:
+                linux_credentials = mfcommon.get_server_credentials(linux_user_name, linux_pass_key, server,
+                                                                    args.SecretLinux, args.NoPrompts)
+                err_reason = upload_files(server['server_fqdn'], linux_credentials['username'],
+                                          linux_credentials['password'], linux_credentials['private_key'],
+                                          args.LinuxSource)
+                if not err_reason:
+                    print("Task completed for server: " + server['server_fqdn'])
+                else:
+                    print("Unable to copy files to " + server['server_fqdn'] + " due to " + err_reason)
+                    failures = True
+    return failures
+
+
 def main(arguments):
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -89,59 +155,15 @@ def main(arguments):
 
     if args.WindowsSource != "":
         if windows_exist:
-            for account in get_servers:
-                if len(account["servers_windows"]) > 0:
-                    for server in account["servers_windows"]:
-                        windows_credentials = mfcommon.get_server_credentials('', '', server, args.SecretWindows,
-                                                                              args.NoPrompts)
-                        if windows_credentials['username'] != "":
-                            if "\\" not in windows_credentials['username'] and "@" not in windows_credentials[
-                                'username']:
-                                # Assume local account provided, prepend server name to user ID.
-                                server_name_only = server["server_fqdn"].split(".")[0]
-                                windows_credentials['username'] = server_name_only + "\\" + windows_credentials[
-                                    'username']
-                                print("INFO: Using local account to connect: " + windows_credentials['username'])
-                        else:
-                            print("INFO: Using domain account to connect: " + windows_credentials['username'])
-                        creds = " -Credential (New-Object System.Management.Automation.PSCredential('" + \
-                                windows_credentials['username'] + "', (ConvertTo-SecureString '" + windows_credentials[
-                                    'password'] + "' -AsPlainText -Force)))"
-                        destpath = "'c:\\Program Files (x86)\\AWS Replication Agent\\post_launch\\'"
-                        sourcepath = "'" + args.WindowsSource + "\\*'"
-                        command1 = "Invoke-Command -ComputerName " + server[
-                            'server_fqdn'] + " -ScriptBlock {if (!(Test-Path -Path " + destpath + ")) {New-Item -Path " + destpath + " -ItemType directory}}" + creds
-                        command2 = "$Session = New-PSSession -ComputerName " + server[
-                            'server_fqdn'] + creds + "\rCopy-Item -Path " + sourcepath + " -Destination " + destpath + " -ToSession $Session"
-                        p1 = subprocess.Popen(["powershell.exe", command1], stdout=subprocess.PIPE,
-                                              stderr=subprocess.PIPE)
-                        p1.communicate()
-                        p2 = subprocess.Popen(["powershell.exe", command2], stdout=subprocess.PIPE,
-                                              stderr=subprocess.PIPE)
-                        _, stderr = p2.communicate()
-                        if 'ErrorId' in str(stderr):
-                            print(str(stderr))
-                            failures = True
-                        else:
-                            print("Task completed for server: " + server['server_fqdn'])
+            failures_windows = copy_windows(get_servers, args)
+            failures = failures or failures_windows
         else:
             print("WARN:There is no Windows server in Wave " + str(args.Waveid))
 
     if args.LinuxSource != "":
         if linux_exist:
-            for account in get_servers:
-                if len(account["servers_linux"]) > 0:
-                    for server in account["servers_linux"]:
-                        linux_credentials = mfcommon.get_server_credentials(linux_user_name, linux_pass_key, server,
-                                                                            args.SecretLinux, args.NoPrompts)
-                        err_reason = upload_files(server['server_fqdn'], linux_credentials['username'],
-                                                  linux_credentials['password'], linux_credentials['private_key'],
-                                                  args.LinuxSource)
-                        if not err_reason:
-                            print("Task completed for server: " + server['server_fqdn'])
-                        else:
-                            print("Unable to copy files to " + server['server_fqdn'] + " due to " + err_reason)
-                            failures = True
+            failures_linux = copy_linux(get_servers, linux_user_name, linux_pass_key, args)
+            failures = failures or failures_linux
         else:
             print("WARN:There is no Linux server in Wave " + str(args.Waveid))
 

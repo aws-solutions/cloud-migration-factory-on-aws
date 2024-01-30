@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.3] - 2024-01-30
+### Security
+- JWT VALIDATION: Replaced of python-jose with PyJWT to resolve CVE https://nvd.nist.gov/vuln/detail/CVE-2024-23342 which is caused by a dependency on the vulnerable python-ecdsa module. All JWT verification is now performed using PyJWT.
+- MGN TARGET IAM ROLE: Restricted inline policy for MGN Role in target accounts to not allow iam:PassRole and sts:AssumeRole on all resources. This is now restricted to PassRole for the MGN service to EC2 service only.
+### Changed
+- MIGRATION TRACKER: Updated deployment to use Glue v4.0 as Glue v2.0 has now been removed from support. Existing deployments will need to be updated before January, 31 2024 with this version, or a manual update of glue jobs is required.
+- MGN AGENT INSTALL: Removed default creation of IAMUser from target account CFT and updated installation scripts to use temporary credentials by default, with the option of allowing a secret to be used to supply IAMUser credentials if required.
+- CODE QUALITY: Increased unit test coverage, and refactored code base.
+- AWS LAMBDA: Runtimes moved to Python version 3.11 for all functions.
+### Fixed
+- SUBMIT JOB UI: Resolved issue with changing scripts after inputting attribute values, this caused any previous values to be sent to the newly created job.
+### Added
+- AUTOMATION: Tools API ID is now exposed to automation scripts, allowing calls to the tools api from a script.
 ## [3.3.2] - 2023-12-18
 ### Changed
 - MIGRATION TRACKER: By default migration tracker now contains database and wave data in general view, this allows for more detailed customer dashboards to be created in QuickSight.

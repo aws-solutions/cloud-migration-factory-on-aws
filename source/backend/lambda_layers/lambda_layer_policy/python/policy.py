@@ -7,15 +7,20 @@ import os
 import boto3
 import re
 import requests
-
 import simplejson as json
-
-from jose import jwt
+import jwt
+from jwt import PyJWKClient
 import logging
 
 logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO)  # //NOSONAR Basic configuration doesn't pose security risk
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+
+class AtHashValidationFailed(Exception):
+    def __init__(self, message="at_hash validation failed."):
+        self.message = message
+        super().__init__(self.message)
 
 
 class HttpVerb:
@@ -70,7 +75,7 @@ class AuthPolicy(object):
         if not resource_pattern.match(resource):
             raise NameError("Invalid resource path: " + resource + ". Path should match " + self.path_regex )
 
-        if resource[:1] == "/":
+        if resource.startswith("/"):
             resource = resource[1:]
 
         resource_arn = ("arn:aws:execute-api:" +
@@ -195,27 +200,40 @@ class MFAuth(object):
         """ Given a token (and optionally an audience), validate and
         return the claims for the token
         """
-        header = jwt.get_unverified_header(token)
-        kid = header['kid']
 
         verify_url = self.pool_url(aws_region, aws_user_pool)
 
-        keys = self.aws_key_dict(aws_region, aws_user_pool)
+        optional_custom_headers = {"User-agent": "custom-user-agent"}
+        jwks_client = PyJWKClient(verify_url + '/.well-known/jwks.json', headers=optional_custom_headers)
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
 
-        key = keys.get(kid)
-
-        kargs = {"issuer": verify_url}
+        kargs = {"issuer": verify_url, "algorithms": ['RS256']}
         if audience is not None:
             kargs["audience"] = audience
 
         if access_token is not None:
             kargs["access_token"] = access_token
 
-        claims = jwt.decode(
+        data = jwt.api_jwt.decode_complete(
             token,
-            key,
+            signing_key.key,
             **kargs
         )
+
+        claims, header = data["payload"], data["header"]
+
+        if access_token is not None and "at_hash" in claims:
+            # Validate the at_hash against the access_token provided.
+            alg_obj = jwt.get_algorithm_by_name(header["alg"])
+
+            # compute at_hash
+            digest = alg_obj.compute_hash_digest(access_token.encode())
+
+            at_hash = base64.urlsafe_b64encode(digest[: (len(digest) // 2)])
+
+            if not at_hash.startswith(claims['at_hash'].encode()):
+                raise AtHashValidationFailed
+
         return claims
 
     def pool_url(self, aws_region, aws_user_pool):
@@ -348,18 +366,6 @@ class MFAuth(object):
 
         return auth_response
 
-    def aws_key_dict(self, aws_region, aws_user_pool):
-
-        aws_data = requests.get(
-            self.pool_url(aws_region, aws_user_pool) + '/.well-known/jwks.json',
-            timeout=30
-        )
-        aws_jwt = json.loads(aws_data.text)
-        result = {}
-        for item in aws_jwt['keys']:
-            result[item['kid']] = item
-
-        return result
 
     def get_user_policy(self, event):
         group_identity = event['requestContext']['authorizer']['claims']['cognito:groups']

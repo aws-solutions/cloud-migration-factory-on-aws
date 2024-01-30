@@ -139,7 +139,7 @@ Mappings:
     AppRegistry:
       SolutionName: 'Cloud Migration Factory on AWS'
     LambdaRuntime:
-      Python: python3.10
+      Python: python3.11
 
 Conditions:
   DeployTracker: !Equals [!Ref Tracker, true]

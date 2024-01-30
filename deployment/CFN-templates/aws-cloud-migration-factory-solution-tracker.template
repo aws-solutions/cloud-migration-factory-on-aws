@@ -35,7 +35,7 @@ Parameters:
 
   LambdaRuntimePython:
     Type: String
-    Default: python3.10
+    Default: python3.11
 
 Mappings:
   Solution:
@@ -619,7 +619,7 @@ Resources:
       Command:
         Name: glueetl
         ScriptLocation: !Sub "s3://${MigrationTrackerBucket}/GlueScript/Migration_Tracker_App_Extract_Script.py"
-      GlueVersion: '2.0'
+      GlueVersion: '4.0'
       MaxRetries: 2
       DefaultArguments:
         "--job-bookmark-option": "job-bookmark-disable"
@@ -638,7 +638,7 @@ Resources:
       Command:
         Name: glueetl
         ScriptLocation: !Sub "s3://${MigrationTrackerBucket}/GlueScript/Migration_Tracker_Server_Extract_Script.py"
-      GlueVersion: '2.0'
+      GlueVersion: '4.0'
       MaxRetries: 2
       DefaultArguments:
         "--job-bookmark-option": "job-bookmark-disable"
@@ -657,7 +657,7 @@ Resources:
       Command:
         Name: glueetl
         ScriptLocation: !Sub "s3://${MigrationTrackerBucket}/GlueScript/Migration_Tracker_Wave_Extract_Script.py"
-      GlueVersion: '2.0'
+      GlueVersion: '4.0'
       MaxRetries: 2
       DefaultArguments:
         "--job-bookmark-option": "job-bookmark-disable"
@@ -676,7 +676,7 @@ Resources:
       Command:
         Name: glueetl
         ScriptLocation: !Sub "s3://${MigrationTrackerBucket}/GlueScript/Migration_Tracker_Database_Extract_Script.py"
-      GlueVersion: '2.0'
+      GlueVersion: '4.0'
       MaxRetries: 2
       DefaultArguments:
         "--job-bookmark-option": "job-bookmark-disable"

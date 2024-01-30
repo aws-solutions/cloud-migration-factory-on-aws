@@ -18,6 +18,7 @@ ssm_automation_document = os.environ['ssm_automation_document']
 
 mf_userapi = os.environ['mf_userapi']
 mf_loginapi = os.environ['mf_loginapi']
+mf_toolsapi = os.environ['mf_toolsapi']
 mf_vpce_id = os.getenv('mf_vpce_id')
 mf_cognitouserpoolid = os.environ['userpool']
 mf_region = os.environ['region']
@@ -210,6 +211,7 @@ def create_automation_job(ssm_data, auth_response):
     ssm_data['mf_endpoints'] = {
         'LoginApi': mf_loginapi,
         'UserApi': mf_userapi,
+        'ToolsApi': mf_toolsapi,
         'VpceId': mf_vpce_id_with_hosted,
         'UserPoolId': mf_cognitouserpoolid,
         'UserPoolClientId': mf_cognitouserpoolclientid,
@@ -278,7 +280,7 @@ def create_automation_job(ssm_data, auth_response):
 
         return {'headers': {**default_http_headers},
                 'body': json.dumps("SSMId: " + ssm_data["SSMId"])}
-    except BaseException as err:
+    except Exception as err:
         logger.error(f"SSM: POST: create_ssm_automation_job, {err}")
         return {'headers': {**default_http_headers},
                 'statusCode': 400, 'body': str(err)}

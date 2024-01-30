@@ -103,7 +103,7 @@ Parameters:
 
   LambdaRuntimePython:
     Type: String
-    Default: python3.10
+    Default: python3.11
 
 Mappings:
   Solution:

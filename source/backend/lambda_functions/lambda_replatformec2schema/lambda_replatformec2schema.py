@@ -530,14 +530,12 @@ def delete_schema():
         # Remove all Replatform attributes present from the server schema.
         attributes = [attribute for attribute in attributes if attribute['name'] not in CONST_REPLATFORM_ATTRIBUTE_NAMES]
 
-        resp = schema_table.put_item(
-
+        schema_table.put_item(
             Item={
                 'schema_name': 'server',
                 'schema_type': 'user',
                 'attributes': attributes
             }
-
         )
 
 

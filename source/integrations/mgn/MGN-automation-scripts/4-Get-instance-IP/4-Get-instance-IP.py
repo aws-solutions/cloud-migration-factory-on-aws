@@ -67,29 +67,33 @@ def get_instance_id(serverlist):
                 sourceserver = mfcommon.get_mgn_source_server(
                     factoryserver, mgn_sourceservers)
                 if sourceserver is not None:
-                    # Get target instance Id for the source server in Application Migration Service
-                    # TODO: at this point sourceserver['isArchived'] is always false
-                    if sourceserver['isArchived'] == False:
-                        if 'launchedInstance' in sourceserver:
-                            if 'ec2InstanceID' in sourceserver['launchedInstance']:
-                                factoryserver['target_ec2InstanceID'] = sourceserver['launchedInstance'][
-                                    'ec2InstanceID']
-                                print(factoryserver['server_name'] + " : " + factoryserver['target_ec2InstanceID'])
-                            else:
-                                factoryserver['target_ec2InstanceID'] = ''
-                                print("ERROR: target instance Id does not exist for server: " + factoryserver[
-                                    'server_name'] + ", please wait for a few minutes")
-                        else:
-                            factoryserver['target_ec2InstanceID'] = ''
-                            print("ERROR: target instance does not exist for server: " + factoryserver[
-                                'server_name'] + ", please wait for a few minutes")
-                    else:
-                        print("ERROR: Server: " + factoryserver[
-                            'server_name'] + " is archived in Application Migration Service (Account: " + account[
-                                  'aws_accountid'] + ", Region: " + account[
-                                  'aws_region'] + "), Please install the agent")
-                        sys.exit(1)
+                    update_target_instance_id(sourceserver, factoryserver, account)
     return serverlist
+
+
+def update_target_instance_id(sourceserver, factoryserver, account):
+    # Get target instance Id for the source server in Application Migration Service
+    # at this point sourceserver['isArchived'] should be False, but double check
+    if not sourceserver['isArchived']:
+        if 'launchedInstance' in sourceserver:
+            if 'ec2InstanceID' in sourceserver['launchedInstance']:
+                factoryserver['target_ec2InstanceID'] = sourceserver['launchedInstance'][
+                    'ec2InstanceID']
+                print(factoryserver['server_name'] + " : " + factoryserver['target_ec2InstanceID'])
+            else:
+                factoryserver['target_ec2InstanceID'] = ''
+                print("ERROR: target instance Id does not exist for server: " + factoryserver[
+                    'server_name'] + ", please wait for a few minutes")
+        else:
+            factoryserver['target_ec2InstanceID'] = ''
+            print("ERROR: target instance does not exist for server: " + factoryserver[
+                'server_name'] + ", please wait for a few minutes")
+    else:
+        print("ERROR: Server: " + factoryserver[
+            'server_name'] + " is archived in Application Migration Service (Account: " + account[
+                  'aws_accountid'] + ", Region: " + account[
+                  'aws_region'] + "), Please install the agent")
+        sys.exit(1)
 
 
 def get_instance_ips(instance_list, waveid):
@@ -100,40 +104,17 @@ def get_instance_ips(instance_list, waveid):
         print("######################################################")
         print("#### In Account: " + account['aws_accountid'], ", region: " + account['aws_region'] + " ####")
         print("######################################################")
-        #### Change this line, and not hardcoded endpoint_url
         ec2_client = target_account_session.client("ec2", region_name=account['aws_region'])
-        instance_ids = []
-        for server in account['servers']:
-            if 'target_ec2InstanceID' in server:
-                if server['target_ec2InstanceID'] != '':
-                    instance_ids.append(server['target_ec2InstanceID'])
+        instance_ids = get_instance_ids(account)
         if len(instance_ids) != 0:
-            resp = ec2_client.describe_instances(InstanceIds=instance_ids)
+            ec2_desc = ec2_client.describe_instances(InstanceIds=instance_ids)
         else:
             print("")
             print("*** No target instances available for this wave ***")
             return
 
-        for r in resp['Reservations']:
-            for instance in r['Instances']:
-                instance_ips = {}
-                instance_name = ""
-                ips = ""
-                name_exist = False
-                for tag in instance['Tags']:
-                    if tag['Key'] == "Name" and tag['Value'] != "":
-                        instance_name = tag['Value']
-                        name_exist = True
-                if name_exist == False:
-                    print("ERROR: Name Tag does not exist for instance " + instance['InstanceId'])
-                    sys.exit(1)
-                for nic in instance['NetworkInterfaces']:
-                    for ip in nic['PrivateIpAddresses']:
-                        ips = ips + ip['PrivateIpAddress'] + ","
-                instance_ips['instance_name'] = instance_name
-                instance_ips['instance_ips'] = ips[:-1]
-                print(instance_name + " , " + ips[:-1])
-                all_instance_ips.append(instance_ips)
+        for r in ec2_desc['Reservations']:
+            extract_instance_ids_from_ec2_reservation(r, all_instance_ips)
     filename = "Wave" + waveid + "-IPs.csv"
     if len(all_instance_ips) != 0:
         with open(filename, "w", newline='') as csvfile:
@@ -145,6 +126,38 @@ def get_instance_ips(instance_list, waveid):
     else:
         print("")
         print("*** No target instances available for this wave ***")
+
+
+def get_instance_ids(account):
+    instance_ids = []
+    for server in account['servers']:
+        if 'target_ec2InstanceID' in server:
+            if server['target_ec2InstanceID'] != '':
+                instance_ids.append(server['target_ec2InstanceID'])
+
+    return instance_ids
+
+
+def extract_instance_ids_from_ec2_reservation(r, all_instance_ips):
+    for instance in r['Instances']:
+        instance_ips = {}
+        instance_name = ""
+        ips = ""
+        name_exist = False
+        for tag in instance['Tags']:
+            if tag['Key'] == "Name" and tag['Value'] != "":
+                instance_name = tag['Value']
+                name_exist = True
+        if not name_exist:
+            print("ERROR: Name Tag does not exist for instance " + instance['InstanceId'])
+            sys.exit(1)
+        for nic in instance['NetworkInterfaces']:
+            for ip in nic['PrivateIpAddresses']:
+                ips = ips + ip['PrivateIpAddress'] + ","
+        instance_ips['instance_name'] = instance_name
+        instance_ips['instance_ips'] = ips[:-1]
+        print(instance_name + " , " + ips[:-1])
+        all_instance_ips.append(instance_ips)
 
 
 def main(arguments):

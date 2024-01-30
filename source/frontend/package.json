@@ -1,7 +1,7 @@
 {
   "name": "migration-factory-frontend",
   "description": "List of dependencies for Frontend ",
-  "version": "3.3.2",
+  "version": "3.3.3",
   "license": "Apache-2.0",
   "private": true,
   "dependencies": {

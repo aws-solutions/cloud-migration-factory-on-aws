@@ -72,7 +72,7 @@ class CredentialManagerTest(CredentialManagerTestBase):
         all_secrets = client_secrets_manager.list_secrets()
         self.assertEqual(len(all_secrets['SecretList']), 2)
         # should only return the tagged secret
-        solution_secrets = json.loads((ListSecret.list(None))['body'])
+        solution_secrets = json.loads((ListSecret.list())['body'])
         self.assertEqual(len(solution_secrets), 1)
         self.assertEqual(solution_secrets[0]['Name'], solution_secret_name)
 

@@ -51,8 +51,8 @@ class AddUserTestCase(TestCase):
     def mock_windows_commands(self, server, cred, new_user):
         creds = " -Credential (New-Object System.Management.Automation.PSCredential('" + cred[
                 'username'] + "', (ConvertTo-SecureString '" + cred['password'] + "' -AsPlainText -Force)))"
-        command1 = "Invoke-Command -ComputerName " + server['server_fqdn'] + " -ScriptBlock {net user " + \
-                       new_user['username'] + " " + new_user['password'] + " /add}" + creds
+        command1 = (f'Invoke-Command -ComputerName {server["server_fqdn"]} '
+                    f'-ScriptBlock {{net user "{new_user["username"]}" "{new_user["password"]}" /add}}{creds}')
         command2 ="Invoke-Command -ComputerName " + server[
                 'server_fqdn'] + " -ScriptBlock {net localgroup Administrators " + new_user[
                            'username'] + " /add}" + creds

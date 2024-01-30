@@ -1,16 +1,8 @@
 import json
-import boto3
+import cmf_boto
 from botocore.exceptions import ClientError
-import base64
 import os
-from botocore import config
 
-if 'solution_identifier' in os.environ:
-    solution_identifier = json.loads(os.environ['solution_identifier'])
-    user_agent_extra_param = {"user_agent_extra": solution_identifier}
-    boto_config = config.Config(**user_agent_extra_param)
-else:
-    boto_config = None
 
 region = os.environ['region']
 
@@ -23,15 +15,13 @@ def create(event):
     secret_type = body['secretType']
     description = body['description']
 
-    session = boto3.session.Session(region_name=region)
-    client = session.client(service_name='secretsmanager', config=boto_config)
+    client = cmf_boto.client('secretsmanager', region_name=region)
 
     try:
         data = "{\"SECRET_KEY\": \"%s\", \"SECRET_VALUE\": \"%s\", \"SECRET_TYPE\": \"%s\"}" % (
         secret_key, secret_value, secret_type)
         client.create_secret(Name=secret_name,
                              Description=description,
-                             # SecretString=base64.b64encode(data.encode("utf-8")).decode("ascii"),
                              SecretString=data,
                              Tags=[{"Key": "CMFUse", "Value": "CMF Automation Credential Manager"}]
                              )

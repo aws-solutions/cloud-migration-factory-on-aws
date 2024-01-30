@@ -117,30 +117,35 @@ def check_windows(parameters):
     p = subprocess.Popen(["powershell.exe", command], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = p.communicate()
     if output != "":
-        returnlist = output.decode('utf8').split("\n")
-        for r in returnlist:
-            if r.strip() != "":
-                result = r.split(":")
-
-                if "Pass" not in result[1]:
-                    s_result['test_results'].append(
-                        {
-                            'test': result[0],
-                            'result': result[1],
-                            'error': result[2].replace("\r", "")
-                        }
-                    )
-                    s_result['success'] = False
-                    windows_fail = True
-                else:
-                    s_result['test_results'].append({'test': result[0], 'result': result[1].replace("\r", "")})
-
+        windows_fail = check_windows_output(output, s_result)
     if len(error) > 0:
         s_result['test_results'].append({'test': "Powershell test script", 'result': error})
         s_result['success'] = False
         windows_fail = True
 
     return s_result, windows_fail
+
+
+def check_windows_output(output, s_result):
+    windows_fail = False
+    returnlist = output.decode('utf8').split("\n")
+    for r in returnlist:
+        if r.strip() != "":
+            result = r.split(":")
+
+            if "Pass" not in result[1]:
+                s_result['test_results'].append(
+                    {
+                        'test': result[0],
+                        'result': result[1],
+                        'error': result[2].replace("\r", "")
+                    }
+                )
+                s_result['success'] = False
+                windows_fail = True
+            else:
+                s_result['test_results'].append({'test': result[0], 'result': result[1].replace("\r", "")})
+    return windows_fail
 
 
 def check_ssh_connectivity(ip, user_name, pass_key, is_key, s_result):
@@ -195,72 +200,53 @@ def check_tcp_connectivity(ssh, host, port, s_result, friendly_name=None):
             check = " TCP " + str(port)
 
     if ssh is not None:
-        cmd = "sudo timeout 2 bash -c '</dev/tcp/" + host + "/" + port + " && echo port is open || echo port is closed' || echo connection timeout"
-        try:
-            _, stdout, stderr = ssh.exec_command(cmd)  # nosec B601
-            str_output = ''
-            for output in stdout.readlines():
-                str_output = str_output + output
-
-            str_stderr = ''
-            for err in stderr.readlines():
-                str_stderr = str_stderr + err
-
-            if len(str_output) > 0:
-                str_output = str_output.strip()
-                if "open" in str(str_output):
-                    s_result['test_results'].append({'test': check, 'result': "Pass"})
-                else:
-                    s_result['test_results'].append({'test': check, 'result': "Fail", 'error': str_output})
-                    s_result['success'] = False
-                    return
-            else:
-                s_result['test_results'].append({'test': check, 'result': "Pass"})
-                s_result['success'] = False
-
-            if len(str_stderr) > 0:
-                if "refused" in str_stderr:
-                    s_result['test_results'].append({'test': check, 'result': "Pass"})
-                else:
-                    s_result['test_results'].append({'test': check, 'result': "Fail", 'error': str_stderr})
-                    s_result['success'] = False
-
-        except paramiko.SSHException as e:
-            ssh_err = f"Got exception! while executing the command {cmd}  due to {str(e)}"
-            s_result['test_results'].append({'test': check, 'result': "Fail", 'error': ssh_err})
-            s_result['success'] = False
+        check_tcp_ssh(ssh, host, port, check, s_result)
     else:
         s_result['test_results'].append({'test': check, 'result': "Fail", 'error': MSG_SSH_UNABLE_TO_CONNECT})
         s_result['success'] = False
 
 
-def check_freespace(ssh, dir, min, s_result):
+def check_tcp_ssh(ssh, host, port, check, s_result):
+    cmd = "sudo timeout 2 bash -c '</dev/tcp/" + host + "/" + port + " && echo port is open || echo port is closed' || echo connection timeout"
+    try:
+        _, stdout, stderr = ssh.exec_command(cmd)  # nosec B601
+        str_output = ''
+        for output in stdout.readlines():
+            str_output = str_output + output
+
+        str_stderr = ''
+        for err in stderr.readlines():
+            str_stderr = str_stderr + err
+
+        if len(str_output) > 0:
+            str_output = str_output.strip()
+            if "open" in str(str_output):
+                s_result['test_results'].append({'test': check, 'result': "Pass"})
+            else:
+                s_result['test_results'].append({'test': check, 'result': "Fail", 'error': str_output})
+                s_result['success'] = False
+                return
+        else:
+            s_result['test_results'].append({'test': check, 'result': "Pass"})
+            s_result['success'] = False
+
+        if len(str_stderr) > 0:
+            if "refused" in str_stderr:
+                s_result['test_results'].append({'test': check, 'result': "Pass"})
+            else:
+                s_result['test_results'].append({'test': check, 'result': "Fail", 'error': str_stderr})
+                s_result['success'] = False
+
+    except paramiko.SSHException as e:
+        ssh_err = f"Got exception! while executing the command {cmd}  due to {str(e)}"
+        s_result['test_results'].append({'test': check, 'result': "Fail", 'error': ssh_err})
+        s_result['success'] = False
+
+
+def check_freespace(ssh, dir_to_check, min_size, s_result):
     stderr = None
-    stdout = None
-    ssh_err = ''
     if ssh is not None:
-        cmd = "df -h " + dir + " | tail -1 | tr -s ' ' | cut -d' ' -f4"
-        try:
-            _, stdout, stderr = ssh.exec_command(cmd)  # nosec B601
-            str_output = ''
-            for output in stdout.readlines():
-                str_output = str_output + output
-            value = 0
-            if len(str_output) > 0:
-                str_output = str_output.strip()
-                try:
-                    if str_output[-1].lower() == 'g':
-                        value = float(str_output[:-1])
-                    else:
-                        value = float(str_output)
-                except ValueError as ve:
-                    ssh_err = "Got exception! for the command " + cmd + \
-                              ". The output is " + str(ve)
-            if value <= min:
-                ssh_err = dir + " directory should have a minimum of " + str(
-                    min) + " GB free space, but got " + str(value)
-        except paramiko.SSHException as e:
-            ssh_err = f"Got exception! while executing the command {cmd}  due to {str(e)}"
+        ssh_err, stderr = check_freespace_ssh(ssh, dir_to_check, min_size)
     else:
         ssh_err = MSG_SSH_UNABLE_TO_CONNECT
 
@@ -268,12 +254,41 @@ def check_freespace(ssh, dir, min, s_result):
         for err in stderr.readlines():
             ssh_err = ssh_err + err
 
-    check = str(min) + " GB " + dir + " FreeSpace"
+    check = str(min_size) + " GB " + dir_to_check + " FreeSpace"
     if len(ssh_err) > 0:
         s_result['test_results'].append({'test': check, 'result': "Fail", 'error': ssh_err})
         s_result['success'] = False
     else:
         s_result['test_results'].append({'test': check, 'result': "Pass"})
+
+
+def check_freespace_ssh(ssh, dir_to_check, min_size):
+    ssh_err = ''
+    stderr = None
+    cmd = "df -h " + dir_to_check + " | tail -1 | tr -s ' ' | cut -d' ' -f4"
+    try:
+        _, stdout, stderr = ssh.exec_command(cmd)  # nosec B601
+        str_output = ''
+        for output in stdout.readlines():
+            str_output = str_output + output
+        value = 0
+        if len(str_output) > 0:
+            str_output = str_output.strip()
+            try:
+                if str_output[-1].lower() == 'g':
+                    value = float(str_output[:-1])
+                else:
+                    value = float(str_output)
+            except ValueError as ve:
+                ssh_err = "Got exception! for the command " + cmd + \
+                          ". The output is " + str(ve)
+        if value <= min_size:
+            ssh_err = dir_to_check + " directory should have a minimum of " + str(
+                min_size) + " GB free space, but got " + str(value)
+    except paramiko.SSHException as e:
+        ssh_err = f"Got exception! while executing the command {cmd}  due to {str(e)}"
+
+    return ssh_err, stderr
 
 
 def check_dhclient(ssh, s_result):
@@ -393,6 +408,12 @@ def print_results(label, results, token, status):
                 output += f"\n{test_result['test']}: {test_result['result']}"
         print(output, flush=True)
 
+    print_pre_requisite_results(results, token, label, status)
+
+    print("", flush=True)
+
+
+def print_pre_requisite_results(results, token, label, status):
     print("")
     print("")
     print("")
@@ -435,8 +456,6 @@ def print_results(label, results, token, status):
                     result['server_id'],
                     f"Pre-requisites checks : Failed - {failure_output}"
                 )
-
-    print("", flush=True)
 
 
 def parse_boolean(value):
@@ -484,6 +503,101 @@ def get_install_endpoint_parameters(account, args):
     return parameters
 
 
+def main_windows(get_servers, windows_results, args):
+    windows_status_failed = False
+    windows_fail = False
+
+    print("")
+    print("*********************************************")
+    print("*Checking Pre-requisites for Windows servers*")
+    print("*********************************************")
+    print("", flush=True)
+
+    thread_list = list()
+    que = Queue()
+
+    for account in get_servers:
+        if len(account["servers_windows"]) > 0:
+            # Parameters to be passed to the thread
+            parameters = get_install_endpoint_parameters(account, args)
+            parameters["servers_windows"] = account["servers_windows"]
+            parameters["MGNServerIP"] = args.ReplicationServerIP
+            parameters["user_name"] = ""
+            parameters["windows_password"] = ""
+            parameters["secret_name"] = args.SecretWindows
+            parameters["no_user_prompts"] = args.NoPrompts
+            parameters["winrm_use_ssl"] = args.UseSSL
+
+            mfcommon.add_windows_servers_to_trusted_hosts(account["servers_windows"])
+
+            # Creating multiple threads to connect to source servers in parallel
+            for s in account["servers_windows"]:
+                parameters["s"] = s
+                x = threading.Thread(target=lambda q, parameters: q.put(check_windows(parameters)),
+                                     args=(que, parameters), name=s["server_fqdn"])
+                x.start()
+                thread_list.append(x)
+
+    print("Waiting for all threads to finish...")
+    print("", flush=True)
+    for thread in thread_list:
+        thread.join()
+
+    while not que.empty():
+        # Get the results from all the threads and save it in windows_results
+        result, windows_fail = que.get()
+        windows_results.append(result)
+
+        if windows_fail:
+            windows_status_failed = True
+
+    return windows_status_failed, windows_fail
+
+
+def main_linux(get_servers, user_name, pass_key, key_exist, linux_results, args):
+    linux_status_failed = False
+    linux_fail = False
+    print("")
+    print("*Checking Pre-requisites for Linux servers*")
+    print("", flush=True)
+
+    count = 0  # For counting number of threads
+    thread_list = list()  # for storing the details of each thread
+    que = Queue()  # for storing the output messages from each thread
+
+    for account in get_servers:
+        if len(account["servers_linux"]) > 0:
+            parameters = get_install_endpoint_parameters(account, args)
+            parameters["Servers_Linux"] = account["servers_linux"]
+            parameters["MGNServerIP"] = args.ReplicationServerIP
+            parameters["user_name"] = user_name
+            parameters["pass_key"] = pass_key
+            parameters["key_exist"] = key_exist
+            parameters["secret_name"] = args.SecretLinux
+            parameters["no_user_prompts"] = args.NoPrompts
+
+            for s in account["servers_linux"]:
+                parameters["s"] = s
+                x = threading.Thread(target=lambda q, parameters: q.put(check_linux(parameters)),
+                                     args=(que, parameters), name=s["server_fqdn"])
+                x.start()
+                count = count + 1
+                thread_list.append(x)
+
+    print("Waiting for all checks to finish...")
+    print("", flush=True)
+    for thread in thread_list:
+        thread.join()
+
+    while not que.empty():
+        result, linux_fail = que.get()
+        linux_results.append(result)
+
+        if linux_fail:
+            linux_status_failed = True
+
+    return linux_status_failed, linux_fail
+
 def main(args):
 
     print("")
@@ -510,89 +624,10 @@ def main(args):
     linux_fail = False
 
     if windows_exist:
-        print("")
-        print("*********************************************")
-        print("*Checking Pre-requisites for Windows servers*")
-        print("*********************************************")
-        print("", flush=True)
-
-        thread_list = list()
-        que = Queue()
-
-        for account in get_servers:
-            if len(account["servers_windows"]) > 0:
-                # Parameters to be passed to the thread
-                parameters = get_install_endpoint_parameters(account, args)
-                parameters["servers_windows"] = account["servers_windows"]
-                parameters["MGNServerIP"] = args.ReplicationServerIP
-                parameters["user_name"] = ""
-                parameters["windows_password"] = ""
-                parameters["secret_name"] = args.SecretWindows
-                parameters["no_user_prompts"] = args.NoPrompts
-                parameters["winrm_use_ssl"] = args.UseSSL
-
-                mfcommon.add_windows_servers_to_trusted_hosts(account["servers_windows"])
-
-                # Creating multiple threads to connect to source servers in parallel
-                for s in account["servers_windows"]:
-                    parameters["s"] = s
-                    x = threading.Thread(target=lambda q, parameters: q.put(check_windows(parameters)),
-                                         args=(que, parameters), name=s["server_fqdn"])
-                    x.start()
-                    thread_list.append(x)
-
-        print("Waiting for all threads to finish...")
-        print("", flush=True)
-        for thread in thread_list:
-            thread.join()
-
-        while not que.empty():
-            # Get the results from all the threads and save it in windows_results
-            result, windows_fail = que.get()
-            windows_results.append(result)
-
-            if windows_fail:
-                windows_status_failed = True
+        windows_status_failed, windows_fail = main_windows(get_servers, windows_results, args)
 
     if linux_exist:
-        print("")
-        print("*Checking Pre-requisites for Linux servers*")
-        print("", flush=True)
-
-        count = 0  # For counting number of threads
-        thread_list = list()  # for storing the details of each thread
-        que = Queue()  # for storing the output messages from each thread
-
-        for account in get_servers:
-            if len(account["servers_linux"]) > 0:
-                parameters = get_install_endpoint_parameters(account, args)
-                parameters["Servers_Linux"] = account["servers_linux"]
-                parameters["MGNServerIP"] = args.ReplicationServerIP
-                parameters["user_name"] = user_name
-                parameters["pass_key"] = pass_key
-                parameters["key_exist"] = key_exist
-                parameters["secret_name"] = args.SecretLinux
-                parameters["no_user_prompts"] = args.NoPrompts
-
-                for s in account["servers_linux"]:
-                    parameters["s"] = s
-                    x = threading.Thread(target=lambda q, parameters: q.put(check_linux(parameters)),
-                                         args=(que, parameters), name=s["server_fqdn"])
-                    x.start()
-                    count = count + 1
-                    thread_list.append(x)
-
-        print("Waiting for all checks to finish...")
-        print("", flush=True)
-        for thread in thread_list:
-            thread.join()
-
-        while not que.empty():
-            result, linux_fail = que.get()
-            linux_results.append(result)
-
-            if linux_fail:
-                linux_status_failed = True
+        linux_status_failed, linux_fail = main_linux(get_servers, user_name, pass_key, key_exist, linux_results, args)
 
     print("")
     print("********************************************")

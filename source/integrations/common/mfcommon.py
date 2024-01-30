@@ -34,8 +34,8 @@ REQUESTS_DEFAULT_TIMEOUT = 60
 PREFIX_CREDENTIALS_STORE = 'cached_secret:'
 credentials_store = {}
 
-
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.ERROR) # //NOSONAR Basic configuration doesn't pose security risk
+logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s',
+                    level=logging.ERROR)  # //NOSONAR Basic configuration doesn't pose security risk
 logger = logging.getLogger()
 logger.setLevel(logging.ERROR)
 
@@ -62,7 +62,7 @@ def extract_api_id_from_url(api_url):
         return api_url[8:18]
 
 
-def get_api_endpoint_headers(token, api_id):
+def get_api_endpoint_headers(token):
     return {"Authorization": token}
 
 
@@ -76,7 +76,7 @@ def get_api_endpoint_url(api_id, api_endpoint):
 def build_requests_parameters(token, api_id, api_path):
     return {
         "url": get_api_endpoint_url(api_id, api_path),
-        "headers": get_api_endpoint_headers(token, api_id),
+        "headers": get_api_endpoint_headers(token),
         "timeout": REQUESTS_DEFAULT_TIMEOUT
     }
 
@@ -168,7 +168,7 @@ def get_server_credentials(
         return {'username': '', 'password': '', 'private_key': False}
 
 
-def get_credentials(secret_name, no_user_prompts=True):
+def get_credentials(secret_name, no_user_prompts=True, not_found_response=None):
     if secret_name != "":
 
         # Check if already read secret, and if so return cached.
@@ -176,12 +176,10 @@ def get_credentials(secret_name, no_user_prompts=True):
         if cached_credential is not None:
             return cached_credential
 
-        mfauth = get_credentials_with_secret(secret_name, no_user_prompts, mf_config)
-        return mfauth
+        return get_credentials_with_secret(secret_name, no_user_prompts, mf_config)
 
-    if no_user_prompts:
-        print("No secret specified. Returning blank username and password")
-        return {'username': '', 'password': ''}
+    # return default not found response.
+    return not_found_response
 
 
 # Function is used with new MGN capabiltiy to get servers based on the AWS account they are targeted to.
@@ -280,7 +278,6 @@ def get_mgn_source_server(cmf_server, mgn_source_servers):
     for mgn_source_server in mgn_source_servers:
         if 'isArchived' in mgn_source_server and not mgn_source_server['isArchived']:
             # Check if the factory server exist in Application Migration Service
-
 
             if is_cmf_server_matching_mgn_source_server(cmf_server, mgn_source_server):
                 found_matching_source_server = mgn_source_server
@@ -450,46 +447,9 @@ def get_factory_databases(waveid, token, rtype=None):
         apps = sorted(apps, key=lambda i: i['app_name'])
 
         # Get Unique target AWS account and region
-        aws_accounts = []
-        for app in apps:
-            if 'wave_id' in app and 'aws_accountid' in app and 'aws_region' in app:
-                if str(app['wave_id']) == str(waveid):
-                    if len(str(app['aws_accountid']).strip()) == 12:
-                        target_account = {}
-                        target_account['aws_accountid'] = str(app['aws_accountid']).strip()
-                        target_account['aws_region'] = app['aws_region'].lower().strip()
-                        target_account['databases'] = []
-                        if target_account not in aws_accounts:
-                            aws_accounts.append(target_account)
-                    else:
-                        msg = "ERROR: Incorrect AWS Account Id Length for app: " + app['app_name']
-                        print(msg)
-                        sys.exit()
-        if len(aws_accounts) == 0:
-            msg = "ERROR: Target accounts for wave " + waveid + " is empty...."
-            print(msg)
-            sys.exit()
-
+        aws_accounts = factory_database_accounts_from_apps(apps, waveid)
         # Get database list
-        for account in aws_accounts:
-            print("### Databases in Target Account: " + account['aws_accountid'] + " , region: " + account[
-                'aws_region'] + " ###")
-            for app in apps:
-                if 'wave_id' in app and 'aws_accountid' in app and 'aws_region' in app:
-                    if str(app['wave_id']) == str(waveid):
-                        if str(app['aws_accountid']).strip() == str(account['aws_accountid']):
-                            if app['aws_region'].lower().strip() == account['aws_region']:
-                                for database in databases:
-                                    if (rtype is None) or ('r_type' in database and database['r_type'] == rtype):
-                                        if 'app_id' in database:
-                                            if database['app_id'] == app['app_id']:
-                                                account['databases'].append(database)
-                                                print(database['database_name'])
-            print("")
-            if len(account['databases']) == 0:
-                msg = "ERROR: Database list for wave " + waveid + " and account: " + account[
-                    'aws_accountid'] + " region: " + account['aws_region'] + " is empty...."
-                print(msg)
+        factory_database_extract_databases(aws_accounts, databases, apps, waveid, rtype)
         return aws_accounts
     except botocore.exceptions.ClientError as error:
         if ":" in str(error):
@@ -504,6 +464,65 @@ def get_factory_databases(waveid, token, rtype=None):
             msg = "ERROR: " + str(error)
             print(msg)
             sys.exit()
+
+
+def factory_database_accounts_from_apps(apps, waveid):
+    aws_accounts = []
+    for app in apps:
+        if 'wave_id' in app and 'aws_accountid' in app and 'aws_region' in app:
+            if str(app['wave_id']) == str(waveid):
+                factory_database_update_accounts(app, aws_accounts)
+    if len(aws_accounts) == 0:
+        msg = "ERROR: Target accounts for wave " + waveid + " is empty...."
+        print(msg)
+        sys.exit()
+
+    return aws_accounts
+
+
+def factory_database_update_accounts(app, aws_accounts):
+    if len(str(app['aws_accountid']).strip()) == 12:
+        target_account = {}
+        target_account['aws_accountid'] = str(app['aws_accountid']).strip()
+        target_account['aws_region'] = app['aws_region'].lower().strip()
+        target_account['databases'] = []
+        if target_account not in aws_accounts:
+            aws_accounts.append(target_account)
+    else:
+        msg = "ERROR: Incorrect AWS Account Id Length for app: " + app['app_name']
+        print(msg)
+        sys.exit()
+
+
+def factory_database_extract_databases(aws_accounts, databases, apps, waveid, rtype):
+    for account in aws_accounts:
+        print("### Databases in Target Account: " + account['aws_accountid'] + " , region: " + account[
+            'aws_region'] + " ###")
+        for app in apps:
+            if 'wave_id' in app and 'aws_accountid' in app and 'aws_region' in app:
+                factory_database_match_databases_apps(app, waveid, account, rtype, databases)
+        print("")
+        if len(account['databases']) == 0:
+            msg = "ERROR: Database list for wave " + waveid + " and account: " + account[
+                'aws_accountid'] + " region: " + account['aws_region'] + " is empty...."
+            print(msg)
+
+
+def factory_database_match_databases_apps(app, waveid, account ,rtype, databases):
+    if str(app['wave_id']) == str(waveid):
+        if str(app['aws_accountid']).strip() == str(account['aws_accountid']):
+            if app['aws_region'].lower().strip() == account['aws_region']:
+                for database in databases:
+                    factory_database_update_db_attrs(database, account, app, rtype)
+
+
+def factory_database_update_db_attrs(database, account, app, rtype):
+    if (rtype is None) or ('r_type' in database and database['r_type'] == rtype):
+        if 'app_id' in database:
+            if database['app_id'] == app['app_id']:
+                account['databases'].append(database)
+                print(database['database_name'])
+
 
 # end of the external interface / functions to be called by clients ###############
 
@@ -532,6 +551,7 @@ def get_server_credentials_with_secret(secret_name, server, no_user_prompts, mf_
     except botocore.exceptions.ClientError as e:
         print(e)
         handle_credentials_client_error(e, server['secret_name'], no_user_prompts)
+
 
 def get_credentials_with_secret(secret_name, no_user_prompts, mf_config):
     try:
@@ -564,11 +584,13 @@ def get_credentials_with_secret(secret_name, no_user_prompts, mf_config):
     except botocore.exceptions.ClientError as e:
         handle_credentials_client_error(e, secret_name, no_user_prompts)
 
+
 def return_cached_secret(secret_name):
     # Check if already read secret, and if so return cached.
     if PREFIX_CREDENTIALS_STORE + secret_name in credentials_store:
         return credentials_store[PREFIX_CREDENTIALS_STORE + secret_name]
     return None
+
 
 def get_raw_secret_data(mf_config, secret_name):
     secretsmanager_client = boto3.client('secretsmanager', mf_config['Region'])
@@ -576,6 +598,7 @@ def get_raw_secret_data(mf_config, secret_name):
     secret_data_raw = mf_service_account['SecretString']
 
     return secret_data_raw
+
 
 def get_secret_data_tmp_json(secret_data_raw):
     if secret_data_raw[0] != "{":
@@ -587,14 +610,16 @@ def get_secret_data_tmp_json(secret_data_raw):
 
     return secret_data_tmp_json
 
+
 def get_data_field_from_secret_data_tmp_json(
-        field_name, secret_data_tmp_json, secret_data):
+    field_name, secret_data_tmp_json, secret_data):
     field_name_lower_case = field_name.lower()
     secret_data[field_name_lower_case] = ""
     if field_name in secret_data_tmp_json:
         secret_data[field_name_lower_case] = secret_data_tmp_json[field_name]
 
     return secret_data
+
 
 def get_password_in_secret_data(secret_data_tmp_json, secret_data):
     secret_data['password'] = ""
@@ -610,6 +635,7 @@ def get_password_in_secret_data(secret_data_tmp_json, secret_data):
 
     return secret_data
 
+
 def get_secret_data(secret_data, secret_name):
     mfauth = secret_data
 
@@ -618,6 +644,7 @@ def get_secret_data(secret_data, secret_name):
 
     return mfauth
 
+
 def handle_credentials_client_error(e, secret_name, no_user_prompts):
     if e.response['Error']['Code'] == 'ResourceNotFoundException' or e.response['Error'][
         'Code'] == 'AccessDeniedException':
@@ -625,10 +652,11 @@ def handle_credentials_client_error(e, secret_name, no_user_prompts):
             print(f"Secret not found [{secret_name}] doesn't exist or access is denied to Secret.")
         else:
             print(f"Secret not found [{secret_name}] doesn't exist or access is denied to Secret, "
-                    f"please enter username and password")
+                  f"please enter username and password")
     else:
         # Unknown error returned when getting secret.
         print(e.response['Error'])
+
 
 def get_windows_server_credentials(no_user_prompts):
     if 'windows' in credentials_store:
@@ -647,6 +675,7 @@ def get_windows_server_credentials(no_user_prompts):
         return credentials
     return None
 
+
 def get_linux_server_credentials(no_user_prompts):
     if 'linux' in credentials_store:
         return credentials_store['linux']
@@ -660,6 +689,7 @@ def get_linux_server_credentials(no_user_prompts):
         return credentials
     return None
 
+
 # common functions
 def get_windows_password():
     pass_first = getpass.getpass("Windows User Password: ")
@@ -669,6 +699,7 @@ def get_windows_password():
         pass_first = getpass.getpass("Windows User Password: ")
         pass_second = getpass.getpass("Re-enter Password: ")
     return pass_second
+
 
 def get_linux_password():
     print("******************************************")
@@ -694,13 +725,16 @@ def get_linux_password():
     print("")
     return user_name, pass_key, key_exist
 
+
 def get_prompt_message_for_credentials(server_type):
     message = f"No {server_type} credentials supplied by user or specified in Migration Factory server secret attribute. Please enter credentials now."
     return message
 
+
 def get_input_message_for_credentials(server_type):
     message = f"Do you wish to use the same credentials for all {server_type} servers in the job?, press [Y] or if you wish to be prompted per server [N]: "
     return message
+
 
 # end of credential related functions ###############
 
@@ -711,7 +745,7 @@ def get_aws_account_region(apps, waveid, os_split):
     aws_accounts = []
     for app in apps:
         if app.get('wave_id') == str(waveid) and \
-                'aws_accountid' in app and 'aws_region' in app:
+            'aws_accountid' in app and 'aws_region' in app:
             aws_accounts, sys_exit = \
                 extract_aws_account_region(
                     app, os_split, aws_accounts)
@@ -750,9 +784,9 @@ def extract_aws_account_region(app, os_split, aws_accounts):
 def iterate_app_list(apps, servers, account, waveid, os_split, rtype):
     for app in apps:
         if app.get('wave_id') == str(waveid) and \
-                'aws_accountid' in app and 'aws_region' in app and \
-                str(app['aws_accountid']).strip() == str(account['aws_accountid']) and \
-                app['aws_region'].lower().strip() == account['aws_region']:
+            'aws_accountid' in app and 'aws_region' in app and \
+            str(app['aws_accountid']).strip() == str(account['aws_accountid']) and \
+            app['aws_region'].lower().strip() == account['aws_region']:
             account, sys_exit = iterate_server_list(
                 app, servers, account, os_split, rtype)
             if sys_exit:
@@ -765,7 +799,7 @@ def iterate_server_list(app, servers, account, os_split, rtype):
     sys_exit = False
     for server in servers:
         if ((rtype is None) or (server.get('r_type') == rtype)) and \
-                server.get('app_id') == app['app_id']:
+            server.get('app_id') == app['app_id']:
             account, sys_exit = verify_server_os_and_fqdn(
                 server, os_split, account)
             if sys_exit:
@@ -839,6 +873,7 @@ def handle_client_error(error):
 
     return sys_exit
 
+
 # end of get servers related functions ###############
 
 # start of user login related functions ###############
@@ -857,7 +892,7 @@ def get_login_data_for_user_pool(mf_config):
     except botocore.exceptions.ClientError as e:
         print(e)
         if e.response['Error']['Code'] == 'ResourceNotFoundException' or e.response['Error'][
-                'Code'] == 'AccessDeniedException':
+            'Code'] == 'AccessDeniedException':
             print("Service Account doesn't exist or access is denied to Secret, please enter username and password")
             default_user = ''
             if 'DefaultUser' in mf_config:
@@ -933,8 +968,9 @@ def validate_cmf_user_login(mf_config, login_data, username, using_secret, silen
         if r['statusCode'] == 502 or r['statusCode'] == 400:
             error_message = "ERROR: Incorrect username or password...."
             if using_secret:
-                error_message = "ERROR: Incorrect username or password stored in Secrets Manager [MFServiceAccount-" + mf_config[
-                    'UserPoolId'] + "] in region " + mf_config['Region'] + "."
+                error_message = "ERROR: Incorrect username or password stored in Secrets Manager [MFServiceAccount-" + \
+                                mf_config[
+                                    'UserPoolId'] + "] in region " + mf_config['Region'] + "."
             print(error_message)
             sys.exit(1)
         else:
