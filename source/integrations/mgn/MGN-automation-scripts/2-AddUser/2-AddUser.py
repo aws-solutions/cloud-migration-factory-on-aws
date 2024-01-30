@@ -128,6 +128,9 @@ def process_user_add_for_linux_servers(cmf_servers, current_user_secret, new_use
 
 def process_user_add_for_windows_servers(cmf_servers, current_user_secret, new_user_secret, no_prompts=True):
     failure_count = 0
+
+    mfcommon.add_windows_servers_to_trusted_hosts(cmf_servers)
+
     for server in cmf_servers:
         try:
             cred = mfcommon.get_server_credentials(
@@ -145,14 +148,15 @@ def process_user_add_for_windows_servers(cmf_servers, current_user_secret, new_u
                 "", "", server, new_user_secret, no_prompts)
             creds = " -Credential (New-Object System.Management.Automation.PSCredential('" + cred[
                 'username'] + "', (ConvertTo-SecureString '" + cred['password'] + "' -AsPlainText -Force)))"
-            mfcommon.add_windows_servers_to_trusted_hosts([server["server_fqdn"]])
-            command1 = "Invoke-Command -ComputerName " + server['server_fqdn'] + " -ScriptBlock {net user " + \
-                       new_user['username'] + " " + new_user['password'] + " /add}" + creds
+
+            command1 = f'Invoke-Command -ComputerName {server["server_fqdn"]} -ScriptBlock {{net user "{new_user["username"]}" "{new_user["password"]}" /add}}{creds}'
             print("------------------------------------------------------")
             print("- Creating a local user on: " + server['server_fqdn'] + " -")
             print("------------------------------------------------------")
             p = subprocess.Popen(["powershell.exe", command1], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            p.communicate()
+            stdout, stderr = p.communicate()
+            print(str(stdout))
+            print(str(stderr))
             command2 = "Invoke-Command -ComputerName " + server[
                 'server_fqdn'] + " -ScriptBlock {net localgroup Administrators " + new_user[
                            'username'] + " /add}" + creds
@@ -165,7 +169,8 @@ def process_user_add_for_windows_servers(cmf_servers, current_user_secret, new_u
             else:
                 print("User added for server: " + server['server_fqdn'])
             print("")
-        except:
+        except Exception as e:
+            print("Exception:", e)
             failure_count += 1
             print("User creation failed on server: " + server['server_fqdn'])
 

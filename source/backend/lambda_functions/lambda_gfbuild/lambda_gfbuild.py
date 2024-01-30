@@ -610,19 +610,9 @@ def generate_cft(app_id, app_name, template, addvolcount, server_name, server, t
                     Value=GetAtt(ec2_instance, "AvailabilityZone"),
                 ),
                 Output(
-                    server_name_alpha + "PublicIP",
-                    Description="Public IP address of the newly created EC2 instance",
-                    Value=GetAtt(ec2_instance, "PublicIp"),
-                ),
-                Output(
                     server_name_alpha + "PrivateIP",
                     Description="Private IP address of the newly created EC2 instance",
                     Value=GetAtt(ec2_instance, "PrivateIp"),
-                ),
-                Output(
-                    server_name_alpha + "PublicDNS",
-                    Description="Public DNSName of the newly created EC2 instance",
-                    Value=GetAtt(ec2_instance, "PublicDnsName"),
                 ),
                 Output(
                     server_name_alpha + "PrivateDNS",

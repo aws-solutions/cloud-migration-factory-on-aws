@@ -37,7 +37,7 @@ import {CompletionNotification} from "../models/CompletionNotification";
 
 const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
 
-  const {addNotification, setNotifications} = useContext(NotificationContext);
+  const {addNotification} = useContext(NotificationContext);
 
   //Data items for viewer and table.
   const [{isLoading: isLoadingApps, data: dataApps, error: errorApps},] = useMFApps();

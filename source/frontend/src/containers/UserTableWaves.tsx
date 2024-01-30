@@ -182,7 +182,7 @@ const UserWaveTable = ({schemas, userEntityAccess}: UserWaveTableParams) => {
         let uuid = response.split('+');
         if (uuid.length > 1) {
           uuid = uuid[1];
-          await handleResetScreen();
+          handleResetScreen();
 
           addNotification({
             id: notificationId,
@@ -194,7 +194,7 @@ const UserWaveTable = ({schemas, userEntityAccess}: UserWaveTableParams) => {
             content: apiAction[0].name + " action successfully.",
           })
         } else {
-          await handleResetScreen();
+          handleResetScreen();
 
           addNotification({
             id: notificationId,

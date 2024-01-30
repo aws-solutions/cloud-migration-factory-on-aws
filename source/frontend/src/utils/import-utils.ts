@@ -5,10 +5,10 @@ import {checkAttributeRequiredConditions, getRequiredAttributes} from "../resour
 
 //Function to remove null key values from json object array.
 export function removeNullKeys(dataJson: Record<string, any>[]) {
-  for (let i = 0; i < dataJson.length; i++) {
-    for (let key in dataJson[i]) {
-      if (dataJson[i][key] === null || dataJson[i][key] === "") {
-        delete dataJson[i][key];
+  for (const dataItem of dataJson) {
+    for (let key in dataItem) {
+      if (dataItem[key] === null || dataItem[key] === "") {
+        delete dataItem[key];
       }
     }
   }

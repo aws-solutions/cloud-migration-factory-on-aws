@@ -1,6 +1,5 @@
 import {rest} from "msw";
 import {testGroups, testPolicies} from "../TestUtils";
-import {Application} from "../../models/Application";
 
 export const mock_admin_api = [
   rest.get('/admin/role', (request, response, context) => {

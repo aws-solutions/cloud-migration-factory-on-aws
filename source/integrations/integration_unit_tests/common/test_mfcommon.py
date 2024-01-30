@@ -449,8 +449,7 @@ class CommonTestCase(TestCase):
             self.secret_id, True)
         
         response = get_credentials(
-            self.secret_override,
-            self.no_user_prompts)
+            self.secret_override)
         print("Response: ", response)
         expected_response = {
             'username': 'test@example.com',
@@ -484,12 +483,14 @@ class CommonTestCase(TestCase):
             "", "", 
             {"secret_name": ""}, 
             "", True)
-        
+        expected_response = {'username': '', 'password': ''}
+
         response = get_credentials(
             self.secret_override,
-            self.no_user_prompts)
+            self.no_user_prompts,
+            expected_response
+        )
         print("Response: ", response)
-        expected_response = {'username': '', 'password': ''}
         self.assertEqual(response, expected_response)
 
     def test_get_factory_servers_with_bad_request(self):
@@ -740,7 +741,7 @@ class CommonTestCase(TestCase):
         self.mf_config["VpceId"] = "test_vpce_id"
         # token = "test_token"
         api_id = "test_api_id"
-        response = get_api_endpoint_headers(self.token, api_id)
+        response = get_api_endpoint_headers(self.token)
         print("Response: ", response)
         expected_response = {
             "Authorization": self.token

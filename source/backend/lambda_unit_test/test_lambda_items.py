@@ -150,7 +150,7 @@ class LambdaItemsTest(LambdaItemCommonTest):
         self.assertEqual('App Number 3', updated_item_db['app_name'])
         self.assertEqual('new test attribute', updated_item_db['new_attr'])
         self.assertEqual('', updated_item_db['description'])
-        self.assertTrue([''], updated_item_db['tags'])
+        self.assertEqual([''], updated_item_db['tags'])
         self.assertEqual(len_history, len(updated_item_db['_history'].keys()))
         return response
 
@@ -254,8 +254,8 @@ class LambdaItemsTest(LambdaItemCommonTest):
         self.assertTrue('new_attr' not in updated_item2_db)
         self.assertEqual('', updated_item1_db['description'])
         self.assertEqual('', updated_item2_db['description'])
-        self.assertTrue([''], updated_item1_db['tags'])
-        self.assertTrue(['tag4'], updated_item2_db['tags'])
+        self.assertEqual([''], updated_item1_db['tags'])
+        self.assertEqual(['tag4'], updated_item2_db['tags'])
         self.assertEqual(2, len(updated_item1_db['_history'].keys()))
         self.assertEqual(2, len(updated_item2_db['_history'].keys()))
 
@@ -368,7 +368,7 @@ class LambdaItemsTest(LambdaItemCommonTest):
         self.assertEqual('App Number 3', new_item_response['app_name'])
         self.assertEqual('new test attribute', new_item_response['new_attr'])
         self.assertEqual('', new_item_response['description'])
-        self.assertTrue([''], new_item_response['tags'])
+        self.assertEqual([''], new_item_response['tags'])
         self.assertEqual(2, len(new_item_response['_history'].keys()))
         self.assert_no_new_items_added()
 
@@ -410,7 +410,7 @@ class LambdaItemsTest(LambdaItemCommonTest):
         self.assertEqual('App Number 3', new_item_response['app_name'])
         self.assertEqual('new test attribute', new_item_response['new_attr'])
         self.assertEqual('', new_item_response['description'])
-        self.assertTrue([''], new_item_response['tags'])
+        self.assertEqual([''], new_item_response['tags'])
         self.assertEqual(2, len(new_item_response['_history'].keys()))
         self.assert_no_new_items_added()
 

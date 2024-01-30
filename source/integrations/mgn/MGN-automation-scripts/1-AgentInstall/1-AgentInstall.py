@@ -329,19 +329,20 @@ def add_window_servers_to_install_queue(account, pool, windows_secret_name, s3_e
         add_windows_server_to_install_queue(pool, server_parameters)
 
 
-def get_agent_install_secrets(use_iam_user_aws_credentials, account):
+def get_agent_install_secrets(use_iam_user_aws_credentials, account, mgn_iam_user_secret_name=None):
     if use_iam_user_aws_credentials:
-        # Get AWS credentials from secret called MGNAgentInstallUser in target account.
-        print("Using AWS credentials for MGN agent installation from target account secret (MGNAgentInstallUser).",
-              flush=True)
-        target_account_session = assume_role(str(account['aws_accountid']), account['aws_region'])
-        if target_account_session is None:
-            # Assume role failed continue to next account, as cannot access IAM user for install.
-            print("Unable to assume role CMF-AutomationServer in AWS account %s in region %s."
-                  % (account['aws_accountid'], account['aws_region']))
+        if mgn_iam_user_secret_name is None:
+            print("No MGN IAM user secret name provided, this is required when 'use IAM user' is selected.")
             return None
-        secretsmanager_client = target_account_session.client('secretsmanager', account['aws_region'])
-        return json.loads(secretsmanager_client.get_secret_value(SecretId='MGNAgentInstallUser')['SecretString'])
+        # Get AWS credentials from secret provided in mgn_iam_user_secret_name parameter in target account.
+        print(
+            f"Using AWS IAM User credentials for MGN agent installation from secret ({mgn_iam_user_secret_name}).",
+            flush=True)
+        secret = mfcommon.get_credentials(mgn_iam_user_secret_name)
+        if secret:
+            return {"AccessKeyId": secret.get("secret_key"), "SecretAccessKey": secret.get("secret_value")}
+        else:
+            return secret
     else:
         # get temporary credentials from target account for agent installation.
         print("Using temporary AWS credentials for MGN agent installation.", flush=True)
@@ -357,7 +358,7 @@ def get_agent_install_secrets(use_iam_user_aws_credentials, account):
 
 def install_mgn_agents(reinstall, get_servers, linux_secret_name=None, windows_secret_name=None, no_user_prompts=False,
                        concurrency=10, use_iam_user_aws_credentials=False, s3_endpoint=None, mgn_endpoint=None,
-                       windows_use_ssl=False):
+                       windows_use_ssl=False, mgn_iam_user_secret_name=None):
     # Create worker pool
     pool = multiprocessing.Pool(concurrency)
 
@@ -388,7 +389,11 @@ def install_mgn_agents(reinstall, get_servers, linux_secret_name=None, windows_s
         print("#### In Account: " + account['aws_accountid'], ", region: " + account['aws_region'] + " ####")
         print("######################################################", flush=True)
 
-        parameters["agent_install_secrets"] = get_agent_install_secrets(use_iam_user_aws_credentials, account)
+        parameters["agent_install_secrets"] = get_agent_install_secrets(
+            use_iam_user_aws_credentials,
+            account,
+            mgn_iam_user_secret_name
+        )
 
         if parameters["agent_install_secrets"] is None:
             continue
@@ -615,6 +620,7 @@ def main(arguments):
     parser.add_argument('--S3Endpoint', default=None)
     parser.add_argument('--MGNEndpoint', default=None)
     parser.add_argument('--UseSSL', default=False, type=parse_boolean)
+    parser.add_argument('--MGNIAMUser', default=None)
     args = parser.parse_args(arguments)
 
     # Get region value from FactoryEndpoint.json file if migration execution server is on prem
@@ -635,7 +641,7 @@ def main(arguments):
     print("".rjust(LOG_PADDING, LOG_PADDING_CHAR))
     print("Getting Server List".center(LOG_PADDING, LOG_PADDING_CHAR))
     print("".rjust(LOG_PADDING, LOG_PADDING_CHAR), flush=True)
-    get_servers, _, _ = mfcommon.get_factory_servers(args.Waveid, cmf_api_access_token,True, 'Rehost')
+    get_servers, _, _ = mfcommon.get_factory_servers(args.Waveid, cmf_api_access_token, True, 'Rehost')
 
     print("".rjust(LOG_PADDING, LOG_PADDING_CHAR))
     print(task_name.center(LOG_PADDING, LOG_PADDING_CHAR))
@@ -650,7 +656,8 @@ def main(arguments):
     try:
         install_mgn_agents(args.Force, get_servers,
                            args.SecretLinux, args.SecretWindows, args.NoPrompts, args.Concurrency,
-                           args.AWSUseIAMUserCredentials, args.S3Endpoint, args.MGNEndpoint, args.UseSSL)
+                           args.AWSUseIAMUserCredentials, args.S3Endpoint, args.MGNEndpoint, args.UseSSL,
+                           args.MGNIAMUser)
     except Exception as e:
         print(e, flush=True)
 

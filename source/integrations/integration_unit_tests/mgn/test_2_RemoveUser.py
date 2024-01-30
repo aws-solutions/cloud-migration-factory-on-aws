@@ -52,8 +52,8 @@ class RemoveUserTestCase(TestCase):
     def mock_windows_command(self, server, cred, user_to_delete):
         creds = " -Credential (New-Object System.Management.Automation.PSCredential('" + cred[
                 'username'] + "', (ConvertTo-SecureString '" + cred['password'] + "' -AsPlainText -Force)))"
-        command = "Invoke-Command -ComputerName " + server['server_fqdn'] + " -ScriptBlock {net user " + \
-                       user_to_delete['username'] + " /delete}" + creds
+        command = "Invoke-Command -ComputerName " + server['server_fqdn'] + " -ScriptBlock {net user '" + \
+                       user_to_delete['username'] + "' /delete}" + creds
         
         return command
 

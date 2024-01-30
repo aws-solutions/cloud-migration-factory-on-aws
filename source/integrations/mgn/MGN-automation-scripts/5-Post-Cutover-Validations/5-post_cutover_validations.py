@@ -128,34 +128,42 @@ def get_instance_id(serverlist):
                 sourceserver = mfcommon.get_mgn_source_server(
                     factoryserver, mgn_sourceservers)
                 if sourceserver is not None:
-                    # Get target instance Id for the source server in Application Migration Service
-                    # TODO: at this point sourceserver['isArchived'] is always false
-                    if sourceserver['isArchived'] == False:
-                        if 'launchedInstance' in sourceserver:
-                            if 'ec2InstanceID' in sourceserver['launchedInstance']:
-                                factoryserver['target_ec2InstanceID'] = sourceserver['launchedInstance'][
-                                    'ec2InstanceID']
-                                print(factoryserver['server_name'] + " : " + factoryserver['target_ec2InstanceID'])
-                            else:
-                                factoryserver['target_ec2InstanceID'] = ''
-                                print("ERROR: target instance Id does not exist for server: " + factoryserver[
-                                    'server_name'] + ", please wait for a few minutes and then rerun the task")
-                                error = True
-                        else:
-                            factoryserver['target_ec2InstanceID'] = ''
-                            print("ERROR: target instance does not exist for server: " + factoryserver[
-                                'server_name'] + ", please wait for a few minutes and then rerun the task")
-                            error = True
-                    else:
-                        print("ERROR: Server: " + factoryserver[
-                            'server_name'] + " is archived in Application Migration Service (Account: " + account[
-                                  'aws_accountid'] + ", Region: " + account[
-                                  'aws_region'] + "), Please install the agent")
-                        error = True
+                    error = update_target_instance_id(sourceserver, factoryserver, account)
                 else:
                     print("ERROR: Server: " + factoryserver['server_name'] + " is not yet cutover.")
                     error = True
     return serverlist, error
+
+
+def update_target_instance_id(sourceserver, factoryserver, account):
+    # Get target instance Id for the source server in Application Migration Service
+    # return error boolean
+    # at this point sourceserver['isArchived'] should be False, but double check
+    error = False
+    if not sourceserver['isArchived']:
+        if 'launchedInstance' in sourceserver:
+            if 'ec2InstanceID' in sourceserver['launchedInstance']:
+                factoryserver['target_ec2InstanceID'] = sourceserver['launchedInstance'][
+                    'ec2InstanceID']
+                print(factoryserver['server_name'] + " : " + factoryserver['target_ec2InstanceID'])
+                error = False
+            else:
+                factoryserver['target_ec2InstanceID'] = ''
+                print("ERROR: target instance Id does not exist for server: " + factoryserver[
+                    'server_name'] + ", please wait for a few minutes and then rerun the task")
+                error = True
+        else:
+            factoryserver['target_ec2InstanceID'] = ''
+            print("ERROR: target instance does not exist for server: " + factoryserver[
+                'server_name'] + ", please wait for a few minutes and then rerun the task")
+            error = True
+    else:
+        print("ERROR: Server: " + factoryserver[
+            'server_name'] + " is archived in Application Migration Service (Account: " + account[
+                  'aws_accountid'] + ", Region: " + account[
+                  'aws_region'] + "), Please install the agent")
+        error = True
+    return error
 
 
 def get_win_service_val_status(server, p, report):
@@ -168,36 +176,43 @@ def get_win_service_val_status(server, p, report):
     if error != "":
         print(error)
 
-    for type in output.split("\n"):
-        if type.strip() != "":
-            for categories in type.split("|"):
-                if categories == "validationStatus":
-                    print("\n")
-                    if report["validationStatus"] == "Fail":  # TODO seems unreachable
-                        report[categories] = "Fail"
-                    else:
-                        report[categories] = type.split("|")[1]
-                    print("**** Overall Validation Status: " + report[categories] + " ****\n")
-                    break
-                else:
-                    if categories.strip() != "":
-                        app = categories.split(",")
-                        report[app[0]] = app[0]
-                        if len(app) == 1:
-                            print("")
-                            print("*** " + app[0] + " ***")
-
-                        else:
-                            report[app[0]] = app[1]
-                            while len(app[0]) < 35:
-                                app[0] = app[0] + "."
-                            print(app[0] + ":" + app[1])
+    for line in output.split("\n"):
+        if line.strip() != "":
+            process_output_line(line, report)
 
     if "validationStatus" not in report or report["validationStatus"] == "Fail":
         win_failed_servers.append(server)
     else:
         win_success_servers.append(server)
     return report
+
+
+def process_output_line(line: str, report):
+    for categories in line.split("|"):
+        if categories == "validationStatus":
+            print("\n")
+            if report["validationStatus"] == "Fail":  # seems unreachable
+                report[categories] = "Fail"
+            else:
+                report[categories] = line.split("|")[1]
+            print("**** Overall Validation Status: " + report[categories] + " ****\n")
+            break
+        else:
+            process_output_line_category_non_validation_status(categories, report)
+
+
+def process_output_line_category_non_validation_status(categories, report):
+    if categories.strip() != "":
+        app = categories.split(",")
+        report[app[0]] = app[0]
+        if len(app) == 1:
+            print("")
+            print("*** " + app[0] + " ***")
+        else:
+            report[app[0]] = app[1]
+            while len(app[0]) < 35:
+                app[0] = app[0] + "."
+            print(app[0] + ":" + app[1])
 
 
 def get_validations_list(args):
@@ -275,47 +290,10 @@ def validate_linux_servers(parameters, args):
             server_verification = "Pass"
             console_output = console_output + "\n" + "*****  Service Validation\n"
             if ServiceList != "":
-                for service in ServiceList.split(","):
-                    if 'aws-cli' in service:
-                        aws_cmd = 'aws --version'
-                        stdout2, stderr2 = mfcommon.execute_cmd(server, linux_user, linux_password, aws_cmd,
-                                                                has_key.lower() in 'y')
-                        if (search('aws-cli', stdout2)) or (
-                            search('aws-cli/', stderr2) and search('Python/', stderr2) and search('botocore/',
-                                                                                                  stderr2)):
-                            server_verification = "Pass"
-                            console_output = console_output + "\n" + MSG_SERVICE + service + " : " + MSG_PASS
-                            # logger.debug('%s: Service %s : Pass' % (server,service))
-                            report[service] = "Pass"
-                        else:
-                            console_output = console_output + "\n" + MSG_SERVICE + service + " : " + MSG_FAIL
-                            # logger.debug('%s: Service %s : Fail' % (server, service))
-                            server_verification = "Fail"
-                            report[service] = "Fail"
-                    elif "vmtoolsd" in service:
-                        if search("vmtoolsd", stdout):
-                            console_output = console_output + "\n" + MSG_SERVICE + service + " : " + MSG_FAIL
-                            # logger.debug('%s: Service %s : Fail' % (server, service))
-                            report[service] = "Fail"
-                            server_verification = "Fail"
-                        else:
-                            console_output = console_output + "\n" + MSG_SERVICE + service + " : " + MSG_PASS
-                            # logger.debug('%s: Service %s : Pass' % (server,service))
-                            server_verification = "Pass"
-                            report[service] = "Pass"
-                    elif search(service, stdout):
-                        console_output = console_output + "\n" + MSG_SERVICE + service + " : " + MSG_PASS
-                        # logger.debug('%s: Service %s : Pass' % (server,service))
-                        report[service] = "Pass"
-                    else:
-                        console_output = console_output + "\n" + MSG_SERVICE + service + " : " + MSG_FAIL
-                        # logger.debug('%s: Service %s : Fail' % (server, service))
-                        server_verification = "Fail"
-                        report[service] = "Fail"
+                server_verification, console_output = validate_linux_services(server, linux_user, linux_password,
+                                                                              stdout, console_output, report)
         else:
             server_verification = "Fail"
-
-        # logger.debug("%s: ##################################\n" % server)
 
         if server_verification == "Fail" or report["validationStatus"] == "Fail":
             lin_failed_servers.append(server)
@@ -332,6 +310,56 @@ def validate_linux_servers(parameters, args):
         print(server + " Unable to connect\n")
 
 
+def validate_linux_services(server, linux_user, linux_password, stdout, console_output, report):
+    server_verification = "Pass"
+    for service in ServiceList.split(","):
+        if 'aws-cli' in service:
+            server_verification, console_output = validate_linux_aws_cli(server, linux_user, linux_password,
+                                                                         service, console_output, report)
+        elif "vmtoolsd" in service:
+            if search("vmtoolsd", stdout):
+                console_output = console_output + "\n" + MSG_SERVICE + service + " : " + MSG_FAIL
+                # logger.debug('%s: Service %s : Fail' % (server, service))
+                report[service] = "Fail"
+                server_verification = "Fail"
+            else:
+                console_output = console_output + "\n" + MSG_SERVICE + service + " : " + MSG_PASS
+                # logger.debug('%s: Service %s : Pass' % (server,service))
+                server_verification = "Pass"
+                report[service] = "Pass"
+        elif search(service, stdout):
+            console_output = console_output + "\n" + MSG_SERVICE + service + " : " + MSG_PASS
+            # logger.debug('%s: Service %s : Pass' % (server,service))
+            report[service] = "Pass"
+        else:
+            console_output = console_output + "\n" + MSG_SERVICE + service + " : " + MSG_FAIL
+            # logger.debug('%s: Service %s : Fail' % (server, service))
+            server_verification = "Fail"
+            report[service] = "Fail"
+
+    return server_verification, console_output
+
+
+def validate_linux_aws_cli(server, linux_user, linux_password, service, console_output, report):
+    aws_cmd = 'aws --version'
+    stdout2, stderr2 = mfcommon.execute_cmd(server, linux_user, linux_password, aws_cmd,
+                                            has_key.lower() in 'y')
+    if (search('aws-cli', stdout2)) or (
+            search('aws-cli/', stderr2) and search('Python/', stderr2) and search('botocore/',
+                                                                                  stderr2)):
+        server_verification = "Pass"
+        console_output = console_output + "\n" + MSG_SERVICE + service + " : " + MSG_PASS
+        # logger.debug('%s: Service %s : Pass' % (server,service))
+        report[service] = "Pass"
+    else:
+        console_output = console_output + "\n" + MSG_SERVICE + service + " : " + MSG_FAIL
+        # logger.debug('%s: Service %s : Fail' % (server, service))
+        server_verification = "Fail"
+        report[service] = "Fail"
+
+    return server_verification, console_output
+
+
 def validate_software_services(args, server_details, report):
     global ServiceList, wantedApplications, unwantedApplications, runningApplications
     server = server_details['server_fqdn']
@@ -343,45 +371,7 @@ def validate_software_services(args, server_details, report):
     report["serverName"] = server
 
     if server_details["server_os_family"] == "windows":
-        if args.wantedApplications:
-            wantedApplications = args.wantedApplications
-        if args.unwantedApplications:
-            unwantedApplications = args.unwantedApplications
-        if args.runningApplications:
-            runningApplications = args.runningApplications
-
-        try:
-
-            credentials = mfcommon.get_server_credentials(Domain_User, Domain_Password, server_details["server_name"],
-                                                          args.SecretWindows, args.NoPrompts)
-            if credentials['username'] != "":
-                if "\\" not in credentials['username'] and "@" not in credentials['username']:
-                    # Assume local account provided, prepend server name to user ID.
-                    server_name_only = server_details["server_fqdn"].split(".")[0]
-                    credentials['username'] = server_name_only + "\\" + credentials['username']
-                    print("INFO: Using local account to connect: " + credentials['username'])
-                else:
-                    print("INFO: Using domain account to connect: " + credentials['username'])
-            report["serverType"] = "Windows"
-            report["Windows_Apps"] = "Windows_Apps"
-            report["Win_Wanted_Apps"] = "Win_Wanted_Apps ->"
-            report["Win_UnWanted_Apps"] = "Win_UnWanted_Apps ->"
-            report["Win_Running_Apps"] = "Win_Running_Apps ->"
-
-            mfcommon.add_windows_servers_to_trusted_hosts([server_details])
-            command = f"Invoke-Command -ComputerName {server} " \
-                      f"-FilePath ./Software-Validation-Windows.ps1 -ArgumentList " \
-                      f"'{wantedApplications}','{unwantedApplications}','{runningApplications}'"
-            command += f" -Credential (New-Object System.Management.Automation.PSCredential(" \
-                       f"'{credentials['username']}', (ConvertTo-SecureString '{credentials['password']}'" \
-                       f" -AsPlainText -Force)))"
-            parameters["command"] = command
-            return validate_windows_servers(parameters)
-
-        except Exception as e:
-            message = f"Unable to connect or Error while parsing the report {server}"
-            print(f"{message}: {e}\n ")
-            raise Exception(message)
+        return validate_windows_software_services(args, parameters, server, server_details, report)
     else:
         if args.ServiceList:
             ServiceList = args.ServiceList
@@ -399,10 +389,51 @@ def validate_software_services(args, server_details, report):
             parameters["LinuxUser"] = credentials['username']
             parameters["LinuxPassword"] = credentials['password']
             parameters["has_key"] = has_key
-            # validate_linux_servers(parameters)
-            return (validate_linux_servers(parameters, args))
+            return validate_linux_servers(parameters, args)
         except TimeoutError:
             print("Unable to connect " + server + "\n")
+
+
+def validate_windows_software_services(args, parameters, server, server_details, report):
+    if args.wantedApplications:
+        wanted_applications = args.wantedApplications
+    if args.unwantedApplications:
+        unwanted_applications = args.unwantedApplications
+    if args.runningApplications:
+        running_applications = args.runningApplications
+
+    try:
+
+        credentials = mfcommon.get_server_credentials(Domain_User, Domain_Password, server_details["server_name"],
+                                                      args.SecretWindows, args.NoPrompts)
+        if credentials['username'] != "":
+            if "\\" not in credentials['username'] and "@" not in credentials['username']:
+                # Assume local account provided, prepend server name to user ID.
+                server_name_only = server_details["server_fqdn"].split(".")[0]
+                credentials['username'] = server_name_only + "\\" + credentials['username']
+                print("INFO: Using local account to connect: " + credentials['username'])
+            else:
+                print("INFO: Using domain account to connect: " + credentials['username'])
+        report["serverType"] = "Windows"
+        report["Windows_Apps"] = "Windows_Apps"
+        report["Win_Wanted_Apps"] = "Win_Wanted_Apps ->"
+        report["Win_UnWanted_Apps"] = "Win_UnWanted_Apps ->"
+        report["Win_Running_Apps"] = "Win_Running_Apps ->"
+
+        mfcommon.add_windows_servers_to_trusted_hosts([server_details])
+        command = f"Invoke-Command -ComputerName {server} " \
+                  f"-FilePath ./Software-Validation-Windows.ps1 -ArgumentList " \
+                  f"'{wanted_applications}','{unwanted_applications}','{running_applications}'"
+        command += f" -Credential (New-Object System.Management.Automation.PSCredential(" \
+                   f"'{credentials['username']}', (ConvertTo-SecureString '{credentials['password']}'" \
+                   f" -AsPlainText -Force)))"
+        parameters["command"] = command
+        return validate_windows_servers(parameters)
+
+    except Exception as e:
+        message = f"Unable to connect or Error while parsing the report {server}"
+        print(f"{message}: {e}\n ")
+        raise RuntimeError(message)
 
 
 def host_ip_check(server, server_ip, linux_user, linux_password, has_key, report):
@@ -602,65 +633,65 @@ def get_instance_tag_details(instance, report, args):
 
 
 def verify_instance_details(account_servers_list, args):
-    global finalReport
-
     get_servers, error = get_instance_id(account_servers_list)
-
     if not error:
         for account in get_servers:
-
-            # logger.debug("Project Name: %s" % project['ProjectName'])
-            rekognition_client = boto3.client("rekognition", region)
-
             target_account_session = assume_role(str(account['aws_accountid']), account['aws_region'])
-            ec2_client = target_account_session.client("ec2", region_name=account['aws_region'])
             ec2_resource = target_account_session.resource("ec2", region_name=account['aws_region'])
-
             resp = ec2_resource.instances.filter(Filters=[{
                 'Name': 'instance-state-name',
                 'Values': ['running', 'stopped', 'pending']}])
 
             for instance in resp:
-                for target_instance in account["servers"]:
-                    if instance.id == target_instance['target_ec2InstanceID']:
-                        # Create Server report from the template
-                        report_dict = get_validations_list(args)
-                        report = report_dict.copy()
-
-                        print("")
-                        print("*****************************************************************")
-                        print("***** Validating Instance : " + target_instance["server_name"] + "*****")
-                        print("*****************************************************************")
-                        print("")
-
-                        # ********* Validating the Login Screen by fetching the screenshot ********
-                        if args.BootupStatusCheck:
-                            get_instance_screenshot(ec2_client, rekognition_client, target_instance, args, bucket_name,
-                                                    report)
-                        # *************************************************************************
-
-                        # ********* Validating the Termination protection of the instance ********
-                        get_instance_termination_protection(ec2_client, target_instance, args, report)
-                        # *************************************************************************
-
-                        # *********  Validating the Mandatory tags of the instance  ********
-                        get_instance_tag_details(instance, report, args)
-                        # *************************************************************************
-
-                        # *********  Validating the Mandatory Softwares/Services in Instance  ********
-                        host, result = validate_software_services(args, target_instance, report)
-                        if 'subprocess.Popen' in str(type(result)):
-                            get_win_service_val_status(host, result, report)
-                        else:
-                            print(result)
-                        # *************************************************************************
-                        if "Fail" in report.values():
-                            report["validationStatus"] = "Fail"
-                        else:
-                            report["validationStatus"] = "Pass"
-                        finalReport.append(report)
+                verify_an_instance(instance, account, args)
     else:
         sys.exit()
+
+
+def verify_an_instance(instance, account, args):
+    global finalReport
+    rekognition_client = boto3.client("rekognition", region)
+    target_account_session = assume_role(str(account['aws_accountid']), account['aws_region'])
+    ec2_client = target_account_session.client("ec2", region_name=account['aws_region'])
+
+    for target_instance in account["servers"]:
+        if instance.id == target_instance['target_ec2InstanceID']:
+            # Create Server report from the template
+            report_dict = get_validations_list(args)
+            report = report_dict.copy()
+
+            print("")
+            print("*****************************************************************")
+            print("***** Validating Instance : " + target_instance["server_name"] + "*****")
+            print("*****************************************************************")
+            print("")
+
+            # ********* Validating the Login Screen by fetching the screenshot ********
+            if args.BootupStatusCheck:
+                get_instance_screenshot(ec2_client, rekognition_client, target_instance, args, bucket_name,
+                                        report)
+            # *************************************************************************
+
+            # ********* Validating the Termination protection of the instance ********
+            get_instance_termination_protection(ec2_client, target_instance, args, report)
+            # *************************************************************************
+
+            # *********  Validating the Mandatory tags of the instance  ********
+            get_instance_tag_details(instance, report, args)
+            # *************************************************************************
+
+            # *********  Validating the Mandatory Softwares/Services in Instance  ********
+            host, result = validate_software_services(args, target_instance, report)
+            if 'subprocess.Popen' in str(type(result)):
+                get_win_service_val_status(host, result, report)
+            else:
+                print(result)
+            # *************************************************************************
+            if "Fail" in report.values():
+                report["validationStatus"] = "Fail"
+            else:
+                report["validationStatus"] = "Pass"
+            finalReport.append(report)
 
 
 def parse_args(argv):

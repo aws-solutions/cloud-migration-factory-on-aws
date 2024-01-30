@@ -718,10 +718,22 @@ def proces_get_download(event, logging_context, item_form_db):
     }
 
 
+def determine_get_intent(event):
+    if 'pathParameters' not in event or event['pathParameters'] is None:
+        return 'get_all_default'
+    elif 'scriptid' in event['pathParameters'] and 'version' in event['pathParameters'] and \
+            'action' in event['pathParameters']:
+        return 'get_single_version_with_action'
+    elif 'scriptid' in event['pathParameters'] and 'version' in event['pathParameters']:
+        return 'get_single_version'
+    elif 'scriptid' in event['pathParameters']:
+        return 'get_all_versions'
+
+
 def process_get(event, logging_context: str):
     response = []
-    # GET all default versions
-    if 'pathParameters' not in event or event['pathParameters'] is None:
+    get_intent = determine_get_intent(event);
+    if get_intent == 'get_all_default':
         db_response = get_all_default_scripts()
 
         if db_response["Count"] == 0:
@@ -732,8 +744,7 @@ def process_get(event, logging_context: str):
 
         response = sorted(db_response["Items"], key=lambda d: d['script_name'])
 
-    elif 'scriptid' in event['pathParameters'] and 'version' in event['pathParameters'] and \
-            'action' in event['pathParameters']:
+    elif get_intent == 'get_single_version_with_action':
         db_response = get_script_version(event['pathParameters']['scriptid'],
                                          int(event['pathParameters']['version']))
 
@@ -748,8 +759,7 @@ def process_get(event, logging_context: str):
         else:
             response.append(db_response["Item"])
 
-    # GET single version
-    elif 'scriptid' in event['pathParameters'] and 'version' in event['pathParameters']:
+    elif get_intent == 'get_single_version':
         logger.info('Invocation: %s, processing request for version:' + str(event['pathParameters']['version']),
                     logging_context)
         db_response = get_script_version(event['pathParameters']['scriptid'],
@@ -764,7 +774,7 @@ def process_get(event, logging_context: str):
         response.append(db_response["Item"])
 
     # GET all versions
-    elif 'scriptid' in event['pathParameters']:
+    elif get_intent == 'get_all_versions':
         logger.info('Invocation: %s, processing request for all versions.',
                     logging_context)
         db_response = get_scripts(event['pathParameters']['scriptid'])

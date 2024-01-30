@@ -97,31 +97,7 @@ const AutomationJobsTable = (props) => {
     if (props.userAccess) {
       //access permissions provided.
       if (props.userAccess[props.schemaName]) {
-
-        if (props.userAccess[props.schemaName].create) {
-          if (props.userAccess[props.schemaName].create == false){
-            disabledButtons.add = true;
-          }
-        } else{
-          //user does not have this right defined, disable button.
-          disabledButtons.add = true;
-        }
-        if (props.userAccess[props.schemaName].update) {
-          if (props.userAccess[props.schemaName].update == false) {
-            disabledButtons.edit = true;
-          }
-        } else {
-          //user does not have this right defined, disable button.
-          disabledButtons.edit = true;
-        }
-        if (props.userAccess[props.schemaName].delete) {
-          if (props.userAccess[props.schemaName].delete == false) {
-            disabledButtons.delete = true;
-          }
-        } else{
-          //user does not have this right defined, disable button.
-          disabledButtons.delete = true;
-        }
+        disabledButtons = getEntityAccessForSchema();
       } else
       {
         //access permissions provided but schema not present so default to no buttons enabled.
@@ -130,7 +106,35 @@ const AutomationJobsTable = (props) => {
         disabledButtons.delete = true;
       }
     }
+    return disabledButtons;
+  }
 
+  function getEntityAccessForSchema() {
+    const disabledButtons = {}
+    if (props.userAccess[props.schemaName].create !== undefined) {
+      if (!props.userAccess[props.schemaName].create){
+        disabledButtons.add = true;
+      }
+    } else{
+      //user does not have this right defined, disable button.
+      disabledButtons.add = true;
+    }
+    if (props.userAccess[props.schemaName].update !== undefined) {
+      if (!props.userAccess[props.schemaName].update) {
+        disabledButtons.edit = true;
+      }
+    } else {
+      //user does not have this right defined, disable button.
+      disabledButtons.edit = true;
+    }
+    if (props.userAccess[props.schemaName].delete !== undefined) {
+      if (!props.userAccess[props.schemaName].delete) {
+        disabledButtons.delete = true;
+      }
+    } else{
+      //user does not have this right defined, disable button.
+      disabledButtons.delete = true;
+    }
     return disabledButtons;
   }
 

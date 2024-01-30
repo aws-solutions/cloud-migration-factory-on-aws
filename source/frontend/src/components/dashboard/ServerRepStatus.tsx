@@ -15,7 +15,7 @@ const ServerRepStatus = ({data}) => {
 
   let waveStatus = data.data.map(function(value, index) {return value.replication_status ? value['replication_status'].split(',')[0] : undefined});
 
-  var wave_count = [];
+  const wave_count = [];
   waveStatus.forEach(function(value, index) {
       let lvalue = value;
 

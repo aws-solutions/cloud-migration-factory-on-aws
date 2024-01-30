@@ -18,9 +18,10 @@ function isEqualsQueryTrue(
   query: QueryType,
   item: Record<string, any>
 ) {
-  if (item[query.attribute] && query.value) { //Check this condition has ability to provide outcome.
+  let item_value = getNestedValuePath(item, query.attribute)
+  if (item_value && query.value) { //Check this condition has ability to provide outcome.
     //Attribute exists.
-    return item[query.attribute] === query.value;
+    return item_value === query.value;
   }
 }
 
@@ -28,9 +29,10 @@ function isNotEqualsQueryTrue(
   query: QueryType,
   item: Record<string, any>
 ) {
-  if (item[query.attribute] && query.value) { //Check this condition has ability to provide outcome.
+  let item_value = getNestedValuePath(item, query.attribute)
+  if (item_value && query.value) { //Check this condition has ability to provide outcome.
     //Attribute exists.
-    return item[query.attribute] !== query.value;
+    return item_value !== query.value;
   }
 }
 
@@ -38,13 +40,14 @@ function isNotEmptyQueryTrue(
   query: QueryType,
   item: Record<string, any>
 ) {
-  if (query.attribute in item) { //Check this condition has ability to provide outcome.
+  let item_value = getNestedValuePath(item, query.attribute)
+  if (item_value) { //Check this condition has ability to provide outcome.
     //Attribute exists.
-    if (Array.isArray(item[query.attribute])) {
-      return item[query.attribute].length !== 0
+    if (Array.isArray(item_value)) {
+      return item_value.length !== 0
     } else {
       //Not an array check value
-      return item[query.attribute] !== '' && item[query.attribute] !== false;
+      return item_value !== '' && item_value !== false;
     }
   } else {
     return false;
@@ -55,14 +58,15 @@ function isEmptyQueryTrue(
   query: QueryType,
   item: Record<string, any>
 ) {
-  if (query.attribute in item) { //Check this condition has ability to provide outcome.
+  let item_value = getNestedValuePath(item, query.attribute)
+  if (item_value) { //Check this condition has ability to provide outcome.
     //Attribute exists.
 
-    if (Array.isArray(item[query.attribute])) {
-      return item[query.attribute].length > 0;
+    if (Array.isArray(item_value)) {
+      return item_value.length > 0;
     } else {
       //Not an array check value
-      return item[query.attribute] === '' || item[query.attribute] === false;
+      return item_value === '' || item_value === false;
     }
   } else {
     return true;

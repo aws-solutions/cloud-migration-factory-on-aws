@@ -230,7 +230,7 @@ class LambdaItemTest(LambdaItemCommonTest):
         response = lambda_item.lambda_handler(self.event_get_success_app_id, None)
         print(response)
         self.assertEqual(lambda_item.default_http_headers, response['headers'])
-        self.assertTrue(200, response['statusCode'])
+        self.assertEqual(400, response['statusCode'])
         self.assertEqual({'errors': ['Error getting data from table for appid: 1']},
                          json.loads(response['body']))
 
@@ -328,7 +328,7 @@ class LambdaItemTest(LambdaItemCommonTest):
         import lambda_item
         response = lambda_item.lambda_handler(self.event_delete, None)
         self.assertEqual(lambda_item.default_http_headers, response['headers'])
-        self.assertTrue(200, response['statusCode'])
+        self.assertEqual(200, response['statusCode'])
         self.assertEqual('Item was successfully deleted.', response['body'])
         response = self.apps_table.get_item(Key={'app_id': '1'})
         self.assertTrue('Item' not in response)
@@ -340,7 +340,7 @@ class LambdaItemTest(LambdaItemCommonTest):
         import lambda_item
         response = lambda_item.lambda_handler(self.event_delete, None)
         self.assertEqual(lambda_item.default_http_headers, response['headers'])
-        self.assertTrue(200, response['statusCode'])
+        self.assertEqual(500, response['statusCode'])
         self.assertEqual({"errors": [{"ResponseMetadata": {"HTTPStatusCode": 500}, "Error": "Unexpected Error"}]},
                          json.loads(response['body']))
         response = self.apps_table.get_item(Key={'app_id': '1'})

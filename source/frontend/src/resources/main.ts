@@ -111,52 +111,52 @@ export function resolveRelationshipValues(relatedData, mainData, mainDataSchema)
     return entry.type === 'relationship' || entry.type === 'policies';
   })
 
-  for (let attrIndx = 0; attrIndx < attributesWithRelations.length; attrIndx++) {
-    for (let itemIndx = 0; itemIndx < lMainData.length; itemIndx++) {
-      if (propExists(lMainData[itemIndx], attributesWithRelations[attrIndx].name)) {
+  for (const attributesWithRelationsItem of attributesWithRelations) {
+    for (const lMainDataItem of lMainData) {
+      if (propExists(lMainDataItem, attributesWithRelationsItem.name)) {
         let lRel_Value = getRelationshipValue(
           relatedData,
-          attributesWithRelations[attrIndx],
-          getNestedValuePath(lMainData[itemIndx], attributesWithRelations[attrIndx].name)
+          attributesWithRelationsItem,
+          getNestedValuePath(lMainDataItem, attributesWithRelationsItem.name)
         );
 
         //Update last element in key name with __ to reflect names that are path based.
-        let arrName = attributesWithRelations[attrIndx].name.split(".");
+        let arrName = attributesWithRelationsItem.name.split(".");
         arrName[arrName.length - 1] = '__' + arrName[arrName.length - 1];
         let newName = arrName.join(".");
 
         if (lRel_Value.status === 'loaded') {
-          setNestedValuePath(lMainData[itemIndx], newName, lRel_Value.value);
+          setNestedValuePath(lMainDataItem, newName, lRel_Value.value);
         } else if (lRel_Value.status === 'not found') {
-          setNestedValuePath(lMainData[itemIndx],
+          setNestedValuePath(lMainDataItem,
             newName,
-            ` [ERROR: ${attributesWithRelations[attrIndx].rel_key} (${lRel_Value.value}) not found in ${attributesWithRelations[attrIndx].rel_entity} table]`);
+            ` [ERROR: ${attributesWithRelationsItem.rel_key} (${lRel_Value.value}) not found in ${attributesWithRelationsItem.rel_entity} table]`);
         } else {
-          setNestedValuePath(lMainData[itemIndx], newName, lRel_Value.value + ' [resolving...]');
+          setNestedValuePath(lMainDataItem, newName, lRel_Value.value + ' [resolving...]');
         }
 
       }
     }
   }
 
-  let attributes_with_tags = mainDataSchema.attributes.filter(function (entry) {
+  let attributesWithTags = mainDataSchema.attributes.filter(function (entry) {
     return entry.type === 'tag';
   })
 
-  for (let attrIndx = 0; attrIndx < attributes_with_tags.length; attrIndx++) {
-    for (let itemIndx = 0; itemIndx < lMainData.length; itemIndx++) {
-      if (propExists(lMainData[itemIndx], attributes_with_tags[attrIndx].name)) {
+  for (const attributesWithTagsItem of attributesWithTags) {
+    for (const lMainDataItem of lMainData) {
+      if (propExists(lMainDataItem, attributesWithTagsItem.name)) {
         //Update last element in key name with __ to reflect names that are path based.
-        let arrName = attributes_with_tags[attrIndx].name.split(".");
+        let arrName = attributesWithTagsItem.name.split(".");
         arrName[arrName.length - 1] = '__' + arrName[arrName.length - 1];
         let newName = arrName.join(".");
 
-        let value = getNestedValuePath(lMainData[itemIndx], attributes_with_tags[attrIndx].name);
+        let value = getNestedValuePath(lMainDataItem, attributesWithTagsItem.name);
 
         let lRel_Value = value.map((tag) => {
           return tag.key + '=' + tag.value
         }).join(';');
-        setNestedValuePath(lMainData[itemIndx], newName, lRel_Value.value);
+        setNestedValuePath(lMainDataItem, newName, lRel_Value.value);
       }
     }
   }

@@ -4,7 +4,7 @@
  */
 
 import React, {useContext, useEffect, useState} from 'react';
-import {useLocation, useNavigate, useParams} from "react-router-dom";
+import {useNavigate, useParams} from "react-router-dom";
 
 import {SpaceBetween, StatusIndicator} from '@awsui/components-react';
 
@@ -155,7 +155,7 @@ const AutomationJobs = (props: AutomationJobsParams) => {
         let uuid = response.split('+');
         if (uuid.length > 1) {
           uuid = uuid[1];
-          await handleResetScreen();
+          handleResetScreen();
 
           addNotification({
             id: notificationId,
@@ -167,7 +167,7 @@ const AutomationJobs = (props: AutomationJobsParams) => {
             content: apiAction[0].name + " action successfully.",
           })
         } else {
-          await handleResetScreen();
+          handleResetScreen();
 
           addNotification({
             id: notificationId,
@@ -283,46 +283,44 @@ const AutomationJobs = (props: AutomationJobsParams) => {
       )
     }
 
-    switch (currentAction) {
-      case 'Action':
-        return (
-          <AutomationTools
-            schema={props.schemas[automationAction!]}
-            schemas={props.schemas}
-            schemaName={schemaName}
-            userAccess={props.userEntityAccess}
-            performingAction={preformingAction}
-            selectedItems={focusItem}
-            handleAction={handleAction}
-            handleCancel={handleResetScreen}/>
-        )
-      default:
-        return <SpaceBetween direction="vertical" size="xs">
-          <ItemTable
-            description={filterJobsShowAll ? "Displaying all jobs." : "Displaying only the last 30 days of jobs."}
-            schema={props.schemas['job']}
-            schemaKeyAttribute={itemIDKey}
-            schemaName={schemaName}
-            dataAll={dataAll}
-            items={dataMain}
-            selectedItems={selectedItems}
-            handleSelectionChange={handleItemSelectionChange}
-            actionsButtonDisabled={false}
-            selectionType={'single'}
-            actionItems={actions}
-            handleAction={handleActionsClick}
-            isLoading={isLoadingMain}
-            errorLoading={errorMain}
-            handleRefreshClick={handleRefreshClick}
-            userAccess={props.userEntityAccess}
-            handleDaysFilterChange={handleFilterDaysChange}
-          />
-          <ViewAutomationJob
-            schema={props.schemas}
-          />
-        </SpaceBetween>
+    if (currentAction === 'Action') {
+      return (
+        <AutomationTools
+          schema={props.schemas[automationAction!]}
+          schemas={props.schemas}
+          schemaName={schemaName}
+          userAccess={props.userEntityAccess}
+          performingAction={preformingAction}
+          selectedItems={focusItem}
+          handleAction={handleAction}
+          handleCancel={handleResetScreen}/>
+      )
+    } else {
+      return <SpaceBetween direction="vertical" size="xs">
+        <ItemTable
+          description={filterJobsShowAll ? "Displaying all jobs." : "Displaying only the last 30 days of jobs."}
+          schema={props.schemas['job']}
+          schemaKeyAttribute={itemIDKey}
+          schemaName={schemaName}
+          dataAll={dataAll}
+          items={dataMain}
+          selectedItems={selectedItems}
+          handleSelectionChange={handleItemSelectionChange}
+          actionsButtonDisabled={false}
+          selectionType={'single'}
+          actionItems={actions}
+          handleAction={handleActionsClick}
+          isLoading={isLoadingMain}
+          errorLoading={errorMain}
+          handleRefreshClick={handleRefreshClick}
+          userAccess={props.userEntityAccess}
+          handleDaysFilterChange={handleFilterDaysChange}
+        />
+        <ViewAutomationJob
+          schema={props.schemas}
+        />
+      </SpaceBetween>
     }
-
   }
 
   return provideContent(action);
