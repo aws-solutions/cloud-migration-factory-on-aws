@@ -18,7 +18,7 @@ ehthumbs.db
 # OS - Linux (KDE directory preferences)
 .directory
 # Webstorm IDE files
-.idea
+/.idea/*
 /source/frontend/test-report.xml
 
 # Frontend configuration file for local development
@@ -30,7 +30,7 @@ ehthumbs.db
 /source/backend/lambda_layers/lambda_layer_py_pkgs/.build
 
 #SonarQube
-.scannerwork/
+/.scannerwork/*
 
 # Testing environment
 testing-venv
