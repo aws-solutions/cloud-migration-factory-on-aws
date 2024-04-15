@@ -7,7 +7,7 @@ import os
 from unittest import mock
 from unittest.mock import patch
 
-from moto import mock_dynamodb, mock_s3, mock_sts, mock_iam
+from moto import mock_aws
 
 from test_lambda_gfcommon import LambdaGFCommonTest, mock_getUserResourceCreationPolicy, logger, default_mock_os_environ
 
@@ -17,10 +17,7 @@ orig_botocore_make_api_call = botocore.client.BaseClient._make_api_call
 
 
 @mock.patch.dict('os.environ', default_mock_os_environ)
-@mock_dynamodb
-@mock_s3
-@mock_sts
-@mock_iam
+@mock_aws
 class LambdaGFDeployTest(LambdaGFCommonTest):
     CreateStackCalledWith = []
 

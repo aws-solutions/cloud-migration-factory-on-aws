@@ -6,15 +6,14 @@ import copy
 import importlib
 import unittest
 from unittest.mock import patch, ANY
-from moto import mock_sts, mock_ec2
+from moto import mock_aws
 
 import mgn.test_mgn_common as test_mgn_common
 from mgn.test_mgn_common import mock_file_open, default_mock_os_environ, logger, servers_list, mock_boto_api_call,\
     mock_factory_login, mock_get_factory_servers, servers_list_no_fdqn, servers_list_with_instance_id
 
 
-@mock_ec2
-@mock_sts
+@mock_aws
 @patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
 @patch('mfcommon.factory_login', new=mock_factory_login)
 @patch('mfcommon.get_factory_servers', new=mock_get_factory_servers)

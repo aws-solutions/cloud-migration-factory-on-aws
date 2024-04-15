@@ -597,10 +597,12 @@ def update_disk_type(factoryserver, new_launch_template):
 def update_metadata_options(factoryserver, metadata_options,
                             factory_server_tag, metadata_tag,
                             tag_value_1, tag_value_2):
-    if factoryserver.get(factory_server_tag):
-        metadata_options[metadata_tag] = tag_value_1
-    else:
-        metadata_options[metadata_tag] = tag_value_2
+
+    if factory_server_tag in factoryserver:
+        if factoryserver.get(factory_server_tag):
+            metadata_options[metadata_tag] = tag_value_1
+        else:
+            metadata_options[metadata_tag] = tag_value_2
 
     return metadata_options
 
@@ -1086,6 +1088,39 @@ def add_tags_to_launch_template(factory_server, new_launch_template, additional_
         if cmf_tags_key in factory_server:
             factory_server_all_tags.extend(factory_server[cmf_tags_key])
 
+    clean_up_existing_tags(new_launch_template, pid_message_prefix, pid_message_suffix)
+
+    add_factory_server_tags_to_template(factory_server_all_tags, new_launch_template, pid_message_prefix, pid_message_suffix)
+
+
+def add_factory_server_tags_to_template(factory_server_all_tags, new_launch_template, pid_message_prefix, pid_message_suffix):
+    # add tags to template Tags
+    for tags in new_launch_template['TagSpecifications']:
+        if tags['ResourceType'] == 'instance' or tags['ResourceType'] == 'volume':
+            for item in factory_server_all_tags:
+                append_to_tags_list(item, pid_message_prefix, pid_message_suffix, tags)
+
+
+def append_to_tags_list(item, pid_message_prefix, pid_message_suffix, tags):
+    if 'key' in item:
+        item['Key'] = item['key']
+        del item['key']
+    if 'value' in item:
+        item['Value'] = item['value']
+        del item['value']
+    log.debug(f"{pid_message_prefix}checking tag: {item['Value']}{pid_message_suffix}")
+    tag_exist = False
+    for tag in tags['Tags']:
+        if item['Key'].lower() == tag['Key'].lower():
+            tag['Value'] = item['Value']
+            tag_exist = True
+            log.info(
+                f"{pid_message_prefix}Replaced existing value for tag: {tag['Key']}{pid_message_suffix}")
+    if not tag_exist:
+        tags['Tags'].append(item)
+
+
+def clean_up_existing_tags(new_launch_template, pid_message_prefix, pid_message_suffix):
     # clear existing tags in template except AWS automatic tags.
     for tags in new_launch_template['TagSpecifications']:
         if tags['ResourceType'] == 'instance' or tags['ResourceType'] == 'volume':
@@ -1097,27 +1132,6 @@ def add_tags_to_launch_template(factory_server, new_launch_template, additional_
                     log.debug(f"{pid_message_prefix}keeping tag {tag['Key']}{pid_message_suffix}")
                     remaining_tags.append(tag)
             tags['Tags'] = remaining_tags
-
-    # add tags to template Tags
-    for tags in new_launch_template['TagSpecifications']:
-        if tags['ResourceType'] == 'instance' or tags['ResourceType'] == 'volume':
-            for item in factory_server_all_tags:
-                if 'key' in item:
-                    item['Key'] = item['key']
-                    del item['key']
-                if 'value' in item:
-                    item['Value'] = item['value']
-                    del item['value']
-                log.debug(f"{pid_message_prefix}checking tag: {item['Value']}{pid_message_suffix}")
-                tag_exist = False
-                for tag in tags['Tags']:
-                    if item['Key'].lower() == tag['Key'].lower():
-                        tag['Value'] = item['Value']
-                        tag_exist = True
-                        log.info(
-                            f"{pid_message_prefix}Replaced existing value for tag: {tag['Key']}{pid_message_suffix}")
-                if tag_exist == False:
-                    tags['Tags'].append(item)
 
 
 def add_network_interfaces_to_launch_template(factory_server, new_launch_template, use_test_nic_configuration=False):

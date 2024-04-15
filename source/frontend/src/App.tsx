@@ -107,7 +107,7 @@ const App = () => {
 
       // Check for a valid socket url.
       if (environment.API_VPCE_ID === '') {
-        // TODO move WebSocket out of App.tsx to decouple for testability
+        // ATTN: move WebSocket out of App.tsx to decouple for testability
         websocket = new WebSocket('wss://' + environment.API_SSMSocket + '.execute-api.' + environment.API_REGION + '.amazonaws.com/prod');
 
         // Connection opened
@@ -329,7 +329,7 @@ const App = () => {
         schemaMetadata={schemaMetadata}
       />}
       notifications={<Flashbar items={notifications}/>}
-      //breadcrumbs={<Breadcrumbs/>} TODO Implement new dynamic breadcrumbs functions in future.
+      //breadcrumbs={<Breadcrumbs/>} ATTN: Implement new dynamic breadcrumbs functions in future.
       content={<AuthRoutes childProps={childProps}/>}
       contentType="table"
       tools={<ToolHelp

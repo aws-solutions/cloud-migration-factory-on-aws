@@ -6,7 +6,7 @@
 import React, {useContext, useEffect, useState} from 'react';
 import {useNavigate, useParams} from "react-router-dom";
 
-import {SpaceBetween, StatusIndicator} from '@awsui/components-react';
+import {ButtonDropdownProps, SpaceBetween, StatusIndicator} from '@awsui/components-react';
 
 import AutomationJobView from '../components/AutomationJobView'
 import {useAutomationJobs} from "../actions/AutomationJobsHook";
@@ -54,7 +54,7 @@ const AutomationJobs = (props: AutomationJobsParams) => {
   //Viewer pane state management.
   const [viewerCurrentTab, setViewerCurrentTab] = useState('details');
   const [action, setAction] = useState<string>('add');
-  const [actions, setActions] = useState<any[]>([]);
+  const [actions, setActions] = useState<ButtonDropdownProps.ItemOrGroup[]>([]);
 
   //Get base path from the URL, all actions will use this base path.
   const basePath = '/automation/jobs'
@@ -182,41 +182,45 @@ const AutomationJobs = (props: AutomationJobsParams) => {
         await updateMain(filterJobsShowAll ? -1 : 30);
 
       } catch (e: any) {
-        console.log(e);
-        if ('response' in e) {
-          if (e.response != null && typeof e.response === 'object') {
-            if ('data' in e.response) {
-              addNotification({
-                id: notificationId,
-                type: 'error',
-                dismissible: true,
-                header: "Perform wave action",
-                content: apiAction[0].name + ' action failed: ' + e.response.data
-              })
-            }
-          } else {
-            addNotification({
-              id: notificationId,
-              type: 'error',
-              dismissible: true,
-              header: "Perform wave action",
-              content: apiAction[0].name + ' action failed: ' + e.message
-            })
-          }
-        } else {
-          addNotification({
-            id: notificationId,
-            type: 'error',
-            dismissible: true,
-            header: "Perform wave action",
-            content: apiAction[0].name + ' action failed: Unknown error occured',
-          })
-        }
+        await handleActionError(e, notificationId, apiAction);
       }
     }
 
     setPreformingAction(false);
 
+  }
+  
+  async function handleActionError(e: any, notificationId: string | undefined, apiAction: any[]) {
+    console.log(e);
+    if ('response' in e) {
+      if (e.response != null && typeof e.response === 'object') {
+        if ('data' in e.response) {
+          addNotification({
+            id: notificationId,
+            type: 'error',
+            dismissible: true,
+            header: "Perform wave action",
+            content: apiAction[0].name + ' action failed: ' + e.response.data
+          })
+        }
+      } else {
+        addNotification({
+          id: notificationId,
+          type: 'error',
+          dismissible: true,
+          header: "Perform wave action",
+          content: apiAction[0].name + ' action failed: ' + e.message
+        })
+      }
+    } else {
+      addNotification({
+        id: notificationId,
+        type: 'error',
+        dismissible: true,
+        header: "Perform wave action",
+        content: apiAction[0].name + ' action failed: Unknown error occured',
+      })
+    }
   }
 
   async function handleFilterDaysChange(flag: boolean | ((prevState: boolean) => boolean)) {

@@ -23,7 +23,6 @@ pip3 install --quiet -U pip
 echo "  ---- Installing dependency"
 source_code="$PWD"
 pip install -r ./source/integrations/integration_unit_tests/requirements.txt
-pip install -r ./source/integrations/integration_unit_tests/requirements_dev.txt
 echo "  ---- Changing working directory to the test directory"
 cd source/integrations/integration_unit_tests/
 echo "Updating source path $source_code"

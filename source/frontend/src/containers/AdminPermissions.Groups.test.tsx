@@ -110,7 +110,7 @@ test('submitting the "Add group" form saves a new group to API', async () => {
     });
   });
 
-  expect(captureRequest[0].group_name).toEqual('my-test-group');
+  expect(captureRequest.groups[0].group_name).toEqual('my-test-group');
 });
 
 test('click on `delete` shows the Delete modal', async () => {

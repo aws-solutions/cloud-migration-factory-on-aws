@@ -1,6 +1,6 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
-
+import copy
 import os
 import json
 from datetime import datetime
@@ -227,6 +227,7 @@ def create_automation_job(ssm_data, auth_response):
 
     try:
 
+        ssm_data_copy = copy.deepcopy(ssm_data)
         script_selected = get_cmf_script(
             ssm_data["script"]["package_uuid"],
             script_version,
@@ -238,10 +239,10 @@ def create_automation_job(ssm_data, auth_response):
         # Check if script is found.
         if not script_selected:
             if script_version != '0':
-                error_msg = "Invalid package uuid or version provided. '" + ssm_data["script"][
-                    "package_uuid"] + ", version " + ssm_data["script"]["script_version"] + " ' does not exist."
+                error_msg = "Invalid package uuid or version provided. '" + ssm_data_copy["script"][
+                    "package_uuid"] + ", version " + ssm_data_copy["script"]["script_version"] + " ' does not exist."
             else:
-                error_msg = "Invalid script uuid provided, using default version. UUID:'" + ssm_data["script"][
+                error_msg = "Invalid script uuid provided, using default version. UUID:'" + ssm_data_copy["script"][
                     "package_uuid"] + "' does not exist."
             return {'headers': {**default_http_headers},
                     'statusCode': 400, 'body': error_msg}

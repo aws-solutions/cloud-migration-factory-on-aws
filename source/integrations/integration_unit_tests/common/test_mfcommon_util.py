@@ -9,7 +9,7 @@ import sys
 import requests
 import paramiko
 from pathlib import Path
-from moto import mock_secretsmanager, mock_cognitoidp
+from moto import mock_aws
 
 
 # This class will be used by the mock function to replace requests.get
@@ -76,7 +76,7 @@ def delete_default_config_file():
     if os.path.exists("../FactoryEndpoints.json"):
         os.remove("../FactoryEndpoints.json")
 
-@mock_secretsmanager
+@mock_aws
 def set_up_secret_manager(mf_config, is_password_updated, service_account_email):
     secretsmanager_client = boto3.client(
         'secretsmanager', mf_config['Region'])
@@ -96,7 +96,7 @@ def set_up_secret_manager(mf_config, is_password_updated, service_account_email)
 
     return secretsmanager_client, service_account_email, secret_id, secret_string
 
-@mock_cognitoidp
+@mock_aws
 def set_up_cognito_credential():
     from test_lambda_cognito_base import CognitoTestsBase
     ctb = CognitoTestsBase()

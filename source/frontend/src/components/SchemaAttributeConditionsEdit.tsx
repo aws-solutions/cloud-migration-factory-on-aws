@@ -71,7 +71,8 @@ const SchemaAttributeConditionsEdit = ({editingSchemaConditionsTemp, handleUserI
 
   if (editingSchemaConditionsTemp.queries) {
     conditions = editingSchemaConditionsTemp.queries.map((query, index) => {
-      return <Container key={queriesKey + '.'+ index} header={<Header
+      const displayKey = queriesKey + '.'+ index;
+      return <Container key={displayKey} header={<Header
         variant="h2"
         actions={
           <SpaceBetween

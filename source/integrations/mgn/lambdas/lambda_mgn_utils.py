@@ -10,20 +10,28 @@ log.setLevel(logging.INFO)
 def assume_role(account_id, region):
     sts_client = boto3.client('sts', region_name=region)
     role_arn = 'arn:aws:iam::' + account_id + ':role/CMF-MGNAutomation'
-    log.info("Creating new session with role: {}".format(role_arn))
+    log.info(f"Creating new session with role: 'arn:aws:iam::{obfuscate_account_id(account_id)}:role/CMF-MGNAutomation'")
 
     # Call the assume_role method of the STSConnection object and pass the role
     # ARN and a role session name.
-
     try:
-        user = sts_client.get_caller_identity()['Arn']
-        log.info('Logged in as: ' + user)
+        try:
+            user = sts_client.get_caller_identity()['Arn']
+        except botocore.exceptions.ClientError as e:
+            log.error(e)
+            if region:
+                # Assume that STS is not available in region so try global.
+                log.info(f"Unable to obtain STS client in region {region}, trying global.")
+                return assume_role(account_id, region=None)
+            raise
+        log.debug('Logged in as: ' + user)
         sessionname = user.split('/')[1]
         response = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=sessionname)
         credentials = response['Credentials']
+        credentials['final_sts_region'] = region
         return credentials
     except botocore.exceptions.ClientError as e:
-        log.error(str(e))
+        log.error(e)
         return {"ERROR": e}
 
 
@@ -88,3 +96,11 @@ def handle_error_with_pid(error, message_suffix):
 def chunks(l, n):
     for i in range(0, n):
         yield l[i::n]
+
+
+def obfuscate_account_id(account_id):
+    if account_id and isinstance(account_id, str) and len(account_id) > 0:
+        obscure_len = round(len(account_id) / 4 * 3)
+        return f"{'x' * obscure_len}{str(account_id)[obscure_len:]}"
+
+    return account_id

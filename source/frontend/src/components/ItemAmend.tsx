@@ -14,7 +14,6 @@ import {UserAccess} from "../models/UserAccess";
 import {EntitySchema} from "../models/EntitySchema";
 import {CMFModal} from "./Modal";
 
-// TODO this type has been derived from usage only, should be modified to reflect the intended type
 type ItemAmendParams = {
   item: any;
   handleSave: (arg0: any, arg1: any) => any;
@@ -52,41 +51,49 @@ const ItemAmend = (props: ItemAmendParams) => {
 
     for (const valueItem of valueArray) {
       if (Array.isArray(valueItem.value)) {
-        if (valueItem.value.length > 0) {
-          //Check first item to see if tag structure.
-          if ((valueItem.value[0].existing === true || valueItem.value[0].existing === false) && 'key' in valueItem.value[0] && 'value' in valueItem.value[0]) {
-            //It's a tag field!!
-            let updatedTags = valueItem.value.map((item: { existing: boolean | undefined; key: any; value: any; markedForRemoval: any; }) => {
-              if (item.existing === false) {
-                return {key: item.key, value: item.value};
-              }
-
-              if (item.existing && !item.markedForRemoval) {
-                return {key: item.key, value: item.value};
-              }
-
-              return null;
-
-            });
-
-            setNestedValuePath(newRecord, valueItem.field, updatedTags);
-
-          } else {
-            //Not a tag field just an array.
-            //newRecord[value.field] = value.value;
-            setNestedValuePath(newRecord, valueItem.field, valueItem.value);
-          }
-        } else {
-          // Array to be emptied. Set as empty.
-          setNestedValuePath(newRecord, valueItem.field, []);
-        }
-      } else {
+        handleArrayInput(valueItem, newRecord);
+      }
+      else {
         setNestedValuePath(newRecord, valueItem.field, valueItem.value);
       }
     }
 
     setLocalItem(newRecord);
     setDataChanged(true);
+  }
+
+  const handleArrayInput = (valueItem: any, newRecord: any) => {
+    if (valueItem.value.length > 0) {
+      //Check first item to see if tag structure.
+      if ((valueItem.value[0].existing === true || valueItem.value[0].existing === false) && 'key' in valueItem.value[0] && 'value' in valueItem.value[0]) {
+        //It's a tag field!!
+        handleTagField(valueItem, newRecord);
+      }
+      else {
+        //Not a tag field just an array.
+        //newRecord[value.field] = value.value;
+        setNestedValuePath(newRecord, valueItem.field, valueItem.value);
+      }
+    }
+    else {
+      // Array to be emptied. Set as empty.
+      setNestedValuePath(newRecord, valueItem.field, []);
+    }
+  }
+
+  const handleTagField = (valueItem: any, newRecord: any) => {
+    let updatedTags = valueItem.value.map((item: { existing: boolean | undefined; key: any; value: any; markedForRemoval: any; }) => {
+      if (item.existing === false) {
+        return {key: item.key, value: item.value};
+      }
+
+      if (item.existing && !item.markedForRemoval) {
+        return {key: item.key, value: item.value};
+      }
+      return null;
+    });
+
+    setNestedValuePath(newRecord, valueItem.field, updatedTags);
   }
 
   const handleSave: any = async (e: ClickEvent) => {
@@ -126,7 +133,7 @@ const ItemAmend = (props: ItemAmendParams) => {
     let text = props.action ? capitalize(props.action + ' ' + props.schemaName) : capitalize(props.schemaName);
 
     if (props.schemas[props.schemaName].friendly_name) {
-      text = props.action ? capitalize(props.action + ' ' + props.schemas[props.schemaName].friendly_name) : props.schemas[props.schemaName].friendly_name;
+      text = props.action ? capitalize(props.action + ' ' + props.schemas[props.schemaName].friendly_name) : props.schemas[props.schemaName].friendly_name!;
     }
 
     return text;
@@ -146,8 +153,9 @@ const ItemAmend = (props: ItemAmendParams) => {
           </SpaceBetween>
         }
         errorText={formErrors.length > 0 ? formErrors.map((error: any, index: number) => {
+            const displayKey = index;
             let errorReason = error.validation_regex_msg ? error.validation_regex_msg : 'You must specify a value.';
-          return <p>{error.description + ' - ' + errorReason}</p>
+            return <p key={displayKey}>{error.description + ' - ' + errorReason}</p>
           }
         ) : undefined
         }

@@ -34,8 +34,7 @@ REQUESTS_DEFAULT_TIMEOUT = 60
 PREFIX_CREDENTIALS_STORE = 'cached_secret:'
 credentials_store = {}
 
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s',
-                    level=logging.ERROR)  # //NOSONAR Basic configuration doesn't pose security risk
+logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.ERROR)  # //NOSONAR Basic configuration doesn't pose security risk
 logger = logging.getLogger()
 logger.setLevel(logging.ERROR)
 
@@ -133,12 +132,11 @@ def get_server_credentials(
     if local_username != "" and local_password != "":
         return {'username': local_username, 'password': local_password}
 
-    ##  If secret has been provided then use this instead of checking server record.
-    if secret_override is not None:
-        secret_name = secret_override
-    elif "secret_name" in server and server['secret_name'] != "":
+    if "secret_name" in server and server['secret_name'] != "":
         secret_name = server['secret_name']
         print("Server specific secret configured, using: " + secret_name)
+    elif secret_override is not None:
+        secret_name = secret_override
 
     if secret_name != "":
 

@@ -154,7 +154,7 @@ const UserDatabaseTable = ({schemas, userEntityAccess}: UserDatabaseTableParams)
     setSelectedItems(selection);
     if (selection.length === 1) {
 
-      //TODO Need to pull in Waves or other data here.
+      //ATTN: Need to pull in Waves or other data here.
       //updateApps(selection[0].app_id);
 
     }

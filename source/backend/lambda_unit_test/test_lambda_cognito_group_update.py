@@ -4,7 +4,7 @@
 
 import json
 from unittest.mock import patch
-from moto import mock_cognitoidp
+from moto import mock_aws
 
 
 from test_common_utils import logger
@@ -19,7 +19,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
     def setUp(self):
         super().setUp()
 
-    @mock_cognitoidp
+    @mock_aws
     def test_lambda_handler_delete_no_body(self):
         # create a group
         # send DELETE event
@@ -37,7 +37,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
         groups = self.boto_cognito_client.list_groups(UserPoolId=self.user_pool_id, Limit=10)
         self.assertEqual([], groups['Groups'])
 
-    @mock_cognitoidp
+    @mock_aws
     def test_lambda_handler_delete_non_existing(self):
         # send DELETE event with no groups existing
         # assert that a ClientError (ResourceNotFoundException)  exception is thrown
@@ -55,7 +55,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
             lambda_cognito_group_update.lambda_handler(lambda_event, None)
         self.assertEqual('ResourceNotFoundException', ex.exception.response['Error']['Code'])
 
-    @mock_cognitoidp
+    @mock_aws
     def test_lambda_handler_post_with_body(self):
         # send POST event with two groups
         # asser that two groups are created
@@ -78,7 +78,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
         groups = self.boto_cognito_client.list_groups(UserPoolId=self.user_pool_id, Limit=10)
         self.assertEqual(2, len(groups['Groups']))
 
-    @mock_cognitoidp
+    @mock_aws
     def test_lambda_handler_post_with_body_error(self):
         # send POST with one correct group and another faulty
         # the correct group has an extra attribute which would be ignored
@@ -107,7 +107,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
         groups = self.boto_cognito_client.list_groups(UserPoolId=self.user_pool_id, Limit=10)
         self.assertEqual(1, len(groups['Groups']))
 
-    @mock_cognitoidp
+    @mock_aws
     def test_lambda_handler_post_with_body_group_exists(self):
         # create a group
         # send POST with two groups, one of them the above
@@ -136,7 +136,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
         groups = self.boto_cognito_client.list_groups(UserPoolId=self.user_pool_id, Limit=10)
         self.assertEqual(2, len(groups['Groups']))
 
-    @mock_cognitoidp
+    @mock_aws
     def test_lambda_handler_post_with_body_group_exists_twice(self):
         # create a group
         # send POST with two groups, one of them the above
@@ -171,7 +171,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
         groups = self.boto_cognito_client.list_groups(UserPoolId=self.user_pool_id, Limit=10)
         self.assertEqual(2, len(groups['Groups']))
 
-    @mock_cognitoidp
+    @mock_aws
     def test_lambda_handler_other_http_verbs_and_unexpected(self):
         self.create_user_pool()
         self.create_group(self.test_group_name_1)

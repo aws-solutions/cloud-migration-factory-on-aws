@@ -7,7 +7,7 @@ import unittest
 import boto3
 from unittest import mock
 
-from moto import mock_dynamodb, mock_s3
+from moto import mock_aws
 import test_common_utils
 from test_common_utils import logger, default_mock_os_environ as mock_os_environ, \
     mock_get_mf_auth_policy_allow, mock_get_mf_auth_policy_default_deny
@@ -23,8 +23,7 @@ def mock_item_check_valid_item_create_in_valid(item, schema, related_items=None)
     return ['Simulated error, attribute x is required']
 
 @mock.patch.dict('os.environ', mock_os_environ)
-@mock_s3
-@mock_dynamodb
+@mock_aws
 class LambdaItemCommonTest(unittest.TestCase):
 
     def setUp(self) -> None:

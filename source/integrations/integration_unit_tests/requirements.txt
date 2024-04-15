@@ -1,6 +1,8 @@
 urllib3<2.1.0
 boto3==1.33.11
 botocore==1.33.11
-moto==4.2.0
+moto~=5.0.2
 coverage==7.3.0
 freezegun==1.2.2
+joserfc~=0.9.0
+paramiko~=3.4.0

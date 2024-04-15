@@ -301,18 +301,8 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
     }
   }
 
-  //On schema metadata change reload tabs.
-  useEffect(() => {
-    let tabs = [];
-    if (props.schemas) {
-      //Load tabs from schema.
-      for (const schema of props.schemaMetadata) {
-        const schemaName = schema['schema_name'];
-        if (schema['schema_type'] === 'user') {
-          const currentSchema = props.schemas[schemaName];
-          const currentHelpContent: HelpContent | undefined = getNestedValuePath(currentSchema, 'help_content');
-          tabs.push(
-            {
+  const getTabs = (schemaName: string, currentSchema: EntitySchema, currentHelpContent: HelpContent | undefined) => {
+    return {
               label: capitalize(schemaName),
               id: schemaName,
               content: <Tabs
@@ -447,6 +437,20 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
                   }]}
               />
             }
+  }
+
+  //On schema metadata change reload tabs.
+  useEffect(() => {
+    let tabs = [];
+    if (props.schemas) {
+      //Load tabs from schema.
+      for (const schema of props.schemaMetadata) {
+        const schemaName = schema['schema_name'];
+        if (schema['schema_type'] === 'user') {
+          const currentSchema = props.schemas[schemaName];
+          const currentHelpContent: HelpContent | undefined = getNestedValuePath(currentSchema, 'help_content');
+          tabs.push(
+            getTabs(schemaName, currentSchema, currentHelpContent)
           )
         }
       }

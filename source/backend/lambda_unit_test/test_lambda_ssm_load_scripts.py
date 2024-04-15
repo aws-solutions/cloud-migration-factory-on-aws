@@ -10,7 +10,7 @@ from unittest.mock import patch, ANY
 import boto3
 from unittest import mock
 
-from moto import mock_lambda, mock_s3, mock_iam
+from moto import mock_aws
 from test_common_utils import LambdaContextLogStream, RequestsResponse, default_mock_os_environ
 
 
@@ -22,9 +22,7 @@ mock_os_environ = {
 
 
 @mock.patch.dict('os.environ', mock_os_environ)
-@mock_s3
-@mock_lambda
-@mock_iam
+@mock_aws
 class LambdaSSMLoadScriptsTest(unittest.TestCase):
 
     @mock.patch.dict('os.environ', mock_os_environ)

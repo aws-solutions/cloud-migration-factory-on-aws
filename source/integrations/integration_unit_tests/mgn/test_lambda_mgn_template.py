@@ -5,10 +5,10 @@
 import boto3
 import multiprocessing
 from unittest import TestCase, mock
-from moto import mock_sts, mock_iam, mock_ec2, mock_resourcegroups
+from moto import mock_aws
 import test_lambda_mgn_common_util
 from test_lambda_mgn_common_util import default_mock_os_environ, \
-mock_boto_api_call, mock_iam_get_instance_profile
+mock_boto_api_call, mock_aws_get_instance_profile
 from lambda_mgn_template import add_server_validation_error, \
 add_error, verify_eni_sg_combination, \
 validate_server_networking_settings, \
@@ -21,10 +21,7 @@ update_tenancy
 from cmf_logger import logger
 
 
-@mock_ec2
-@mock_iam
-@mock_sts
-@mock_resourcegroups
+@mock_aws
 @mock.patch.dict('os.environ', default_mock_os_environ)
 class MGNLambdaTemplateTestCase(TestCase):
 
@@ -127,7 +124,7 @@ class MGNLambdaTemplateTestCase(TestCase):
                 }
             }]
         }
-        self.instance_profile = mock_iam_get_instance_profile()
+        self.instance_profile = mock_aws_get_instance_profile()
         logger.debug("Setup complete")
 
     def tearDown(self):
@@ -336,8 +333,7 @@ class MGNLambdaTemplateTestCase(TestCase):
         self.assertEqual(is_valid, True)
         self.assertEqual(server_has_error, False)
 
-    @mock_sts
-    @mock_iam
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     def test_validate_server_networking_settings_existed(self):
         logger.info("Testing test_lambda_mgn_template: "
@@ -354,8 +350,7 @@ class MGNLambdaTemplateTestCase(TestCase):
         expected_response = True
         self.assertEqual(response, expected_response)
 
-    @mock_sts
-    @mock_iam
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     def test_validate_server_networking_settings_not_existed(self):
         logger.info("Testing test_lambda_mgn_template: "
@@ -387,8 +382,7 @@ class MGNLambdaTemplateTestCase(TestCase):
         expected_response = False
         self.assertEqual(response, expected_response)
 
-    @mock_sts
-    @mock_iam
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     def test_verify_subnets(self):
         logger.info("Testing test_lambda_mgn_template: test_verify_subnets")
@@ -404,8 +398,7 @@ class MGNLambdaTemplateTestCase(TestCase):
         self.assertEqual(subnet_vpc, "test_vpc_id")
         self.assertEqual(server_has_error, False)
 
-    @mock_sts
-    @mock_iam
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     def test_verify_subnets_with_empty_subnets_list(self):
         logger.info("Testing test_lambda_mgn_template: "

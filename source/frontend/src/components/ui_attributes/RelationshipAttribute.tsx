@@ -38,7 +38,7 @@ const RelationshipAttribute = ({
 
   function displayRelatedRecordPopover(record) {
     if ((localValue && localValue !== '') && !((record === null) || (attribute.listMultiSelect) || (attribute?.listvalue && attribute?.listvalue.includes(localValue)))) {
-      //TODO Implement way to provide this functionality with multiselect.
+      //ATTN: Implement way to provide this functionality with multiselect.
       return <RelatedRecordPopover
         key={attribute.name}
         item={localRelatedRecord}

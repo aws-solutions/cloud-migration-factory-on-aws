@@ -38,45 +38,57 @@ const CredentialManagerModal = (
   const [isDisabled, setIsDisabled] = useState(true);
   const [showSpinner, setShowSpinner] = useState(false);
 
+  function updateForCEorOS() {
+    if (
+      localAttr.secretName &&
+      localAttr.secretName.trim() !== "" &&
+      localAttr.userName &&
+      localAttr.userName.trim() !== "" &&
+      localAttr.password &&
+      localAttr.password.trim() !== ""
+    ) {
+      setIsDisabled(false);
+    } else {
+      setIsDisabled(true);
+    }
+  }
+
+  function updateForKeyValue() {
+    if (
+      localAttr.secretName &&
+      localAttr.secretName.trim() !== "" &&
+      localAttr.secretKey &&
+      localAttr.secretKey.trim() !== "" &&
+      localAttr.secretValue &&
+      localAttr.secretValue.trim() !== ""
+    ) {
+      setIsDisabled(false);
+    } else {
+      setIsDisabled(true);
+    }
+  }
+
+  function updateForPlainText() {
+    if (
+      localAttr.secretName &&
+      localAttr.secretName.trim() !== "" &&
+      localAttr.plainText &&
+      localAttr.plainText.trim() !== ""
+    ) {
+      setIsDisabled(false);
+    } else {
+      setIsDisabled(true);
+    }
+  }
+
   useEffect(() => {
     if (localAttr.secretType) {
       if (localAttr.secretType === "CE" || localAttr.secretType === "OS") {
-        if (
-          localAttr.secretName &&
-          localAttr.secretName.trim() !== "" &&
-          localAttr.userName &&
-          localAttr.userName.trim() !== "" &&
-          localAttr.password &&
-          localAttr.password.trim() !== ""
-        ) {
-          setIsDisabled(false);
-        } else {
-          setIsDisabled(true);
-        }
+        updateForCEorOS();
       } else if (localAttr.secretType === "keyValue") {
-        if (
-          localAttr.secretName &&
-          localAttr.secretName.trim() !== "" &&
-          localAttr.secretKey &&
-          localAttr.secretKey.trim() !== "" &&
-          localAttr.secretValue &&
-          localAttr.secretValue.trim() !== ""
-        ) {
-          setIsDisabled(false);
-        } else {
-          setIsDisabled(true);
-        }
+        updateForKeyValue();
       } else if (localAttr.secretType === "plainText") {
-        if (
-          localAttr.secretName &&
-          localAttr.secretName.trim() !== "" &&
-          localAttr.plainText &&
-          localAttr.plainText.trim() !== ""
-        ) {
-          setIsDisabled(false);
-        } else {
-          setIsDisabled(true);
-        }
+        updateForPlainText();
       }
     }
   }, [localAttr]);

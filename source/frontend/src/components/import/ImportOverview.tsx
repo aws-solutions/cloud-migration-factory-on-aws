@@ -14,8 +14,8 @@ const ItemDetails = (props) => {
   let items = [];
 
   items = props.items.map((item, index) => {
-
-    return <Container header={'Record ' + (index + 1)}>
+    const recordNumber = index + 1;
+    return <Container header={'Record ' + recordNumber} key={recordNumber}>
       <AllViewerAttributes
         schema={props.schema}
         schemas={props.schemas}
@@ -36,7 +36,8 @@ const SummaryItem = (props) => {
   if(!props.item){
     return (<h3>{'-'}</h3>);
   }
-
+  // There is no visual clue that clicking this brings up the popover
+  // Since all the info is available in the Details pane below, is this really needed?
   return (
     <Popover
       position="top"
@@ -137,9 +138,13 @@ const SummaryEntity = (props) => {
 }
 
 const ArrayToList = (props) => {
-
   return (
-    <div>{props.list.map((item, i) => <p key={i}>{item[props.displayKey]}</p>)}</div> // `.map()` creates/returns a new array from calling a function on every element in the array it's called on
+      <div>
+        {props.list.map((item, i) => {
+          const displayKey = i;
+          return <p key={displayKey}>{item[props.displayKey]}</p>;
+        })}
+      </div>
   )
 }
 

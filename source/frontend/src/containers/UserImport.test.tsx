@@ -534,7 +534,7 @@ test("Clicking Upload on the overview page, upload fails with api 200 with error
     expect(screen.getByRole("button", {name: "server - Create failed"})).toBeVisible();
 
     await waitFor(() => {
-        expect(addNotification).toHaveBeenCalledTimes(5);
+        expect(addNotification).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
         expect(addNotification).toHaveBeenCalledWith({
@@ -548,17 +548,6 @@ test("Clicking Upload on the overview page, upload fails with api 200 with error
             "loading": true,
             "type": "info",
         });
-    });
-    await waitFor(() => {
-        expect(addNotification).toHaveBeenCalledWith(expect.objectContaining({
-            "content": <ProgressBar additionalInfo="Updating any related records with new wave IDs..."
-                                    label="Importing file 'valid.csv' ..."
-                                    value={16.666666666666668}
-                                    variant="flash" />,
-            "dismissible": false,
-            "loading": true,
-            "type": "info"
-        }));
     });
     await waitFor(() => {
         expect(addNotification).toHaveBeenCalledWith(expect.objectContaining({

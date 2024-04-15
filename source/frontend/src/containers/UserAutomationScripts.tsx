@@ -147,7 +147,7 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
     }
   }
 
-  async function handleUpload(selectedFile: { name: string; }, details: { script_name: any; package_uuid: any; __make_default: any; default: any; }) {
+  async function handleUpload(selectedFile: File, details: { script_name: any; package_uuid: any; __make_default: any; default: any; }) {
 
     const result = await toBase64(selectedFile).catch(e => Error(e));
     if (result instanceof Error) {
@@ -208,6 +208,13 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
 
       updateMain();
     } catch (e: any) {
+      await handleUploadError(e, notificationId, selectedFile);
+    }
+
+    handleResetScreen();
+  }
+
+  async function handleUploadError(e: any, notificationId: string | undefined, selectedFile: {name: string}) {
       console.log(e);
       if ('response' in e) {
         if (e.response != null && typeof e.response === 'object') {
@@ -238,13 +245,6 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
           content: selectedFile.name + ' script upload failed: Unknown error occurred',
         })
       }
-    }
-    //
-    // setSelectedFile(e.target.files[0])
-
-    //TODO Deal with file
-
-    handleResetScreen();
   }
 
 
@@ -313,11 +313,6 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
         })
       }
     }
-    //
-    // setSelectedFile(e.target.files[0])
-
-    //TODO Deal with file
-
     handleResetScreen();
   }
 

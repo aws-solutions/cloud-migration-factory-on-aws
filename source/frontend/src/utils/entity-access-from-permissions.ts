@@ -1,3 +1,19 @@
+function mergeArrayAttributes(result: any, entity: any) {
+  if (Array.isArray(result[entity.schema_name].attributes)) {
+    if (result[entity.schema_name].attributes.length === 0) {
+      result[entity.schema_name].attributes = entity.attributes;
+    } else { //Need to append values to existing.
+      for (const attr of entity.attributes) {
+        if (!result[entity.schema_name].attributes.includes(attr)) {
+          result[entity.schema_name].attributes.push(attr);
+        }
+      }
+    }
+  } else {
+    result[entity.schema_name].attributes = entity.attributes;
+  }
+}
+
 // attention, these functions mutate the input parameter. it's a bad practice, but I don't understand this code well enough to refactor right now
 function merge(result: any, entity: any) {
   //Grant most privileged access on conflict.
@@ -16,20 +32,7 @@ function merge(result: any, entity: any) {
 
   //Append additional attributes.
   if (entity.attributes && Array.isArray(entity.attributes)) { //Does policy have attributes defined.
-
-    if (Array.isArray(result[entity.schema_name].attributes)) {
-      if (result[entity.schema_name].attributes.length === 0) {
-        result[entity.schema_name].attributes = entity.attributes;
-      } else { //Need to append values to existing.
-        for (const attr of entity.attributes) {
-          if (!result[entity.schema_name].attributes.includes(attr)) {
-            result[entity.schema_name].attributes.push(attr);
-          }
-        }
-      }
-    } else {
-      result[entity.schema_name].attributes = entity.attributes;
-    }
+    mergeArrayAttributes(result, entity);
   }
 }
 

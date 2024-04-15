@@ -154,7 +154,7 @@ def get_response_with_replication_state(
     return resp
 
 
-def mock_ec2_describe_instances():
+def mock_aws_describe_instances():
     if MGN_TEST_SCENARIO == 'describe_instance_no_name':
         return {
             'Reservations': [
@@ -251,7 +251,7 @@ def mock_ec2_describe_instances():
         }
 
 
-def mock_ec2_describe_instance_status(obj, operation_name, kwarg):
+def mock_aws_describe_instance_status(obj, operation_name, kwarg):
     if MGN_TEST_SCENARIO == 'mgn_with_not_existing_instance_id':
         return orig_boto_api_call(obj, operation_name, kwarg)
     if MGN_TEST_SCENARIO == 'mgn_with_running_ok' or \
@@ -488,7 +488,7 @@ def mock_mgn_describe_source_servers():
         }
 
 
-def mock_ec2_describe_instance_attribute():
+def mock_aws_describe_instance_attribute():
     # if attribute === disableApiTermination
     if CUT_OVER_DESC_INSTANCE_ATTR_SCENARIO == 'ec2_attr_disable_api_termination_true':
         return {
@@ -504,7 +504,7 @@ def mock_ec2_describe_instance_attribute():
         }
 
 
-def mock_ec2_modify_instance_attribute():
+def mock_aws_modify_instance_attribute():
     if CUT_OVER_MODIFY_INSTANCE_ATTR_SCENARIO == 'ec2_attr_disable_api_termination_200':
         return {
             'ResponseMetadata': {
@@ -521,7 +521,7 @@ def mock_ec2_modify_instance_attribute():
         raise Exception('Simulated Exception')
 
 
-def mock_ec2_get_console_screenshot():
+def mock_aws_get_console_screenshot():
     return {
         'ImageData': 'test'
     }
@@ -548,7 +548,7 @@ def mock_rekognition_detect_text():
         }
 
 
-def mock_s3_put_object():
+def mock_aws_put_object():
     return None
 
 
@@ -558,19 +558,19 @@ def mock_boto_api_call(obj, operation_name, kwarg):
     if operation_name == 'DescribeSourceServers':
         return mock_mgn_describe_source_servers()
     elif operation_name == 'DescribeInstanceStatus':
-        return mock_ec2_describe_instance_status(obj, operation_name, kwarg)
+        return mock_aws_describe_instance_status(obj, operation_name, kwarg)
     elif operation_name == 'DescribeInstances':
-        return mock_ec2_describe_instances()
+        return mock_aws_describe_instances()
     elif operation_name == 'DescribeInstanceAttribute':
-        return mock_ec2_describe_instance_attribute()
+        return mock_aws_describe_instance_attribute()
     elif operation_name == 'ModifyInstanceAttribute':
-        return mock_ec2_modify_instance_attribute()
+        return mock_aws_modify_instance_attribute()
     elif operation_name == 'GetConsoleScreenshot':
-        return mock_ec2_get_console_screenshot()
+        return mock_aws_get_console_screenshot()
     elif operation_name == 'DetectText':
         return mock_rekognition_detect_text()
     elif operation_name == 'PutObject':
-        return mock_s3_put_object()
+        return mock_aws_put_object()
     else:
         return orig_boto_api_call(obj, operation_name, kwarg)
 

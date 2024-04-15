@@ -66,13 +66,13 @@ type AllAttributesParams = {
   hideAudit?: boolean;
 };
 
-// TODO find a descriptive name for this component. what does it do?
+// Renders all attributes belonging to the schema when an entity is being created or edited
 const AllAttributes = (props: AllAttributesParams) => {
 
   const {setHelpPanelContent} = useContext(ToolsContext);
 
   //Load all related data into the UI for all relationships to work correctly.
-  // TODO this is not optimal currently as all data is pulled back, needs update in future to make APIs return related data for a item.
+  // ATTN: this is not optimal currently as all data is pulled back, needs update in future to make APIs return related data for a item.
   const [{isLoading: isLoadingWaves, data: dataWaves, error: errorWaves}] = useMFWaves();
   const [{isLoading: isLoadingApps, data: dataApps, error: errorApps}] = useMFApps();
   const [{isLoading: isLoadingServers, data: dataServers, error: errorServers}] = useGetServers();
@@ -145,8 +145,8 @@ const AllAttributes = (props: AllAttributesParams) => {
     let dataFiltered = entityData;
     if ('rel_filter_attribute_name' in attribute && 'source_filter_attribute_name' in attribute) {
       dataFiltered = entityData.filter((item) => {
-        const rel_value = getNestedValuePath(item, attribute.rel_filter_attribute_name);
-        const source_value = getNestedValuePath(currentRecord, attribute.source_filter_attribute_name);
+        const rel_value = getNestedValuePath(item, attribute.rel_filter_attribute_name!);
+        const source_value = getNestedValuePath(currentRecord, attribute.source_filter_attribute_name!);
         return (rel_value === source_value)
       });
     }
@@ -161,7 +161,7 @@ const AllAttributes = (props: AllAttributesParams) => {
         }
       }
       return (
-        {label: getNestedValuePath(item, attribute.rel_display_attribute), value: getNestedValuePath(item, attribute.rel_key), tags: tags}
+        {label: getNestedValuePath(item, attribute.rel_display_attribute!), value: getNestedValuePath(item, attribute.rel_key!), tags: tags}
       )
     });
   }
@@ -197,6 +197,9 @@ const AllAttributes = (props: AllAttributesParams) => {
         break;
       case 'server':
         listFull = getSelectOptions(dataServers, isLoadingServers, attribute, currentRecord);
+        break;
+      case 'database':
+        listFull = getSelectOptions(dataDatabases, isLoadingDatabases, attribute, currentRecord);
         break;
       case 'script':
         listFull = getSelectOptions(dataScripts, isLoadingScripts, attribute, currentRecord);
@@ -332,7 +335,7 @@ const AllAttributes = (props: AllAttributesParams) => {
   function getErrorMessageList(attribute: Attribute, value: any) {
     if (attribute.listMultiSelect) {
       for (const valueItem of value) {
-        // TODO what is this supposed to do? the loop always returns on the first item
+        // ATTN: what is this supposed to do? the loop always returns on the first item
         return validateValue(valueItem, attribute)
       }
     } else {
@@ -341,7 +344,7 @@ const AllAttributes = (props: AllAttributesParams) => {
   }
 
   function getErrorMessageJson(attribute: Attribute, value: string) {
-    if (value) {
+    if (value && typeof value !== "object") {
       try {
         JSON.parse(value);
       } catch (objError) {
@@ -355,7 +358,7 @@ const AllAttributes = (props: AllAttributesParams) => {
 
   function returnErrorMessage(attribute: Attribute) {
 
-    let errorMsg:string | null;
+    let errorMsg:string | null | undefined;
 
     let value = getAttributeValue(attribute);
 
@@ -393,11 +396,12 @@ const AllAttributes = (props: AllAttributesParams) => {
   }
 
   function handleAccessChange(updatedData: boolean, schemaName: any, currentAccess: any, typeChanged: string) {
+    const schemaNameTransform = schemaName === 'app' ? 'application' : schemaName;
 
     let schemaAccess = currentAccess.filter((schema: {
       schema_name: any;
     }) => {
-      return schema.schema_name === schemaName
+      return schema.schema_name === schemaNameTransform
     });
 
     if (schemaAccess.length > 0) {
@@ -407,7 +411,7 @@ const AllAttributes = (props: AllAttributesParams) => {
     } else {
       //Create schema access object.
       let newSchemaAccess: SchemaAccess = {
-        "schema_name": schemaName
+        "schema_name": schemaNameTransform
       };
 
       newSchemaAccess[typeChanged] = updatedData;
@@ -850,7 +854,8 @@ const AllAttributes = (props: AllAttributesParams) => {
         let validationError: any = null;
 
         //Check if user has update rights to attribute.
-        let attributeReadOnly = isReadOnly(props.schema, props.userAccess, attribute)
+        let attributeReadOnly = isReadOnly(props.schema, props.userAccess, attribute);
+        const displayKey = "item-" + index;
 
         switch (attribute.type) {
           case 'checkbox':
@@ -865,7 +870,7 @@ const AllAttributes = (props: AllAttributesParams) => {
             validationError = returnErrorMessage(attribute)
             return (
               <MultiValueStringAttribute
-                key={"item-" + index}
+                key={displayKey}
                 attribute={attribute}
                 isReadonly={attributeReadOnly}
                 value={getNestedValuePath(props.item, attribute.name) ? getNestedValuePath(props.item, attribute.name).join('\n') : ''}
@@ -878,7 +883,7 @@ const AllAttributes = (props: AllAttributesParams) => {
             validationError = returnErrorMessage(attribute)
             return (
               <FormField
-                key={"item-" + index}
+                key={displayKey}
                 label={getDisplayLabel(attribute)}
                 description={attribute.long_desc}
                 errorText={validationError}
@@ -896,7 +901,7 @@ const AllAttributes = (props: AllAttributesParams) => {
             validationError = returnErrorMessage(attribute)
             return (
               <JsonAttribute
-                key={"item-" + index}
+                key={displayKey}
                 attribute={attribute}
                 item={getNestedValuePath(props.item, attribute.name)}
                 handleUserInput={props.handleUserInput}
@@ -965,7 +970,7 @@ const AllAttributes = (props: AllAttributesParams) => {
               parentSchemaType={props.schema.schema_type}
               parentSchemaName={props.schemaName}
               parentUserAccess={props.userAccess}
-              embeddedEntitySchema={getRelationshipValue(attribute, allData, getNestedValuePath(props.item, attribute.lookup))}
+              embeddedEntitySchema={getRelationshipValue(attribute, allData, getNestedValuePath(props.item, attribute.lookup!))}
               embeddedItem={props.item}
               handleUpdateValidationErrors={props.handleUpdateValidationErrors}
               attribute={attribute}
@@ -984,7 +989,7 @@ const AllAttributes = (props: AllAttributesParams) => {
             validationError = returnErrorMessage(attribute)
             return (
               <FormField
-                key={"item-" + index}
+                key={displayKey}
                 label={getDisplayLabel(attribute)}
                 description={attribute.long_desc}
                 errorText={validationError}
@@ -1003,7 +1008,7 @@ const AllAttributes = (props: AllAttributesParams) => {
             validationError = returnErrorMessage(attribute)
             return (
               <FormField
-                key={"item-" + index}
+                key={displayKey}
                 label={getDisplayLabel(attribute)}
                 description={attribute.long_desc}
                 errorText={validationError}
@@ -1099,7 +1104,7 @@ const AllAttributes = (props: AllAttributesParams) => {
       //Only show group container if at least one attribute is visible.
       if (!allNull) {
         return (
-          <Container header={<Header variant="h2">{item.name}</Header>}>
+          <Container key={item.name} header={<Header variant="h2">{item.name}</Header>}>
             <SpaceBetween size="l">
               {group}
             </SpaceBetween>

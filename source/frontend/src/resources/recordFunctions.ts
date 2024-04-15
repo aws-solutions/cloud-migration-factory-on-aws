@@ -14,10 +14,12 @@ type QueryType = {
   value: any;
 };
 
+type QueryResult = boolean | undefined;
+
 function isEqualsQueryTrue(
   query: QueryType,
   item: Record<string, any>
-) {
+): QueryResult {
   let item_value = getNestedValuePath(item, query.attribute)
   if (item_value && query.value) { //Check this condition has ability to provide outcome.
     //Attribute exists.
@@ -28,7 +30,7 @@ function isEqualsQueryTrue(
 function isNotEqualsQueryTrue(
   query: QueryType,
   item: Record<string, any>
-) {
+): QueryResult {
   let item_value = getNestedValuePath(item, query.attribute)
   if (item_value && query.value) { //Check this condition has ability to provide outcome.
     //Attribute exists.
@@ -39,7 +41,7 @@ function isNotEqualsQueryTrue(
 function isNotEmptyQueryTrue(
   query: QueryType,
   item: Record<string, any>
-) {
+): QueryResult {
   let item_value = getNestedValuePath(item, query.attribute)
   if (item_value) { //Check this condition has ability to provide outcome.
     //Attribute exists.
@@ -77,7 +79,7 @@ function isEmptyQueryTrue(
 function evaluateQueryCondition(
   query: QueryType,
   item: Record<string, any>
-) {
+): QueryResult | null {
   let queryResult = null;
 
   switch (query.comparator) {
@@ -170,9 +172,9 @@ export function checkAttributeRequiredConditions(
         break; //At least one query is false, no need to continue.
       }
     }
-    else
+    else // this is not reachable comparisonTypeDefault a constant 'AND'
     {
-      if (singleQueryResult == true) //OR the results.
+      if (singleQueryResult === true) //OR the results.
       {
         queryResult = singleQueryResult;
         break; //At least one query is true, no need to continue.
@@ -260,7 +262,7 @@ function isItemRelationshipMatch(
   relationshipKeyValues: string | any[]
 ) {
   for (const listItem of relationshipKeyValues) {
-    if (getNestedValuePath(record, relatedRecordKey).toLowerCase() === listItem.toLowerCase()) {
+    if (getNestedValuePath(record, relatedRecordKey!).toLowerCase() === listItem.toLowerCase()) {
       return true;
     }
   }
@@ -306,7 +308,7 @@ function getRelationshipMultiSelectDisplayValues(
   ) ?? [];
 
   let resolvedDisplayValues = foundRelationshipRecords.map((item: any) => {
-    return (getNestedValuePath(item, attribute.rel_display_attribute))
+    return (getNestedValuePath(item, attribute.rel_display_attribute!))
   });
 
   let unresolvedRelationShips = getUnresolvedRelationships(attribute.rel_key, foundRelationshipRecords, relationshipKeyValues);
@@ -330,9 +332,9 @@ function getRelationshipSingleDisplayValue(
   if (record) {
     let returnValue = null;
     if (attribute.type === 'embedded_entity')
-      returnValue = getNestedValuePath(record, attribute.rel_attribute)
+      returnValue = getNestedValuePath(record, attribute.rel_attribute!)
     else {
-      returnValue = getNestedValuePath(record, attribute.rel_display_attribute)
+      returnValue = getNestedValuePath(record, attribute.rel_display_attribute!)
     }
 
     return returnValue ? {status: 'loaded', value: returnValue} : {status: 'loaded', value: null};
@@ -395,7 +397,7 @@ function appendExistingNameErrors(
   }
 }
 
-// TODO cleanly define the expected error datastructure returned from the API
+// ATTN: cleanly define the expected error datastructure returned from the API
 export function parsePUTResponseErrors(errors: any): any[] {
   let errorList: any[] = [];
   //Check for validation errors.

@@ -4,7 +4,7 @@
 import boto3
 import os
 from unittest import TestCase, mock
-from moto import mock_dynamodb, mock_sts, mock_iam
+from moto import mock_aws
 import test_lambda_mgn_common_util
 from test_lambda_mgn_common_util import default_mock_os_environ, \
 mock_get_user_resource_creation_policy_deny, \
@@ -18,8 +18,7 @@ from cmf_logger import logger
 
 
 @mock.patch.dict('os.environ', default_mock_os_environ)
-@mock_dynamodb
-@mock_sts
+@mock_aws
 class MGNLambdaTestCase(TestCase):
 
     @mock.patch.dict('os.environ', default_mock_os_environ)
@@ -106,7 +105,7 @@ class MGNLambdaTestCase(TestCase):
 
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy', 
                 new=mock_get_user_resource_creation_policy_allow)
-    @mock_sts
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     def test_lambda_handler_with_allow_action_and_multi_processing_error(self):
         logger.info("Testing test_lambda_mgn: "
@@ -119,7 +118,7 @@ class MGNLambdaTestCase(TestCase):
 
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy', 
                 new=mock_get_user_resource_creation_policy_allow)
-    @mock_sts
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     def test_lambda_handler_with_allow_action_and_disconnected_state_and_missing_template(self):
         logger.info("Testing test_lambda_mgn: "
@@ -135,8 +134,7 @@ class MGNLambdaTestCase(TestCase):
         # Reset to default configuration
         test_lambda_mgn_common_util.MGN_TEST_SCENARIO = 'default'
 
-    @mock_sts
-    @mock_iam
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy', 
                 new=mock_get_user_resource_creation_policy_allow)
@@ -156,8 +154,7 @@ class MGNLambdaTestCase(TestCase):
         # Reset to default configuration
         test_lambda_mgn_common_util.MGN_TEST_SCENARIO = 'default'
 
-    @mock_sts
-    @mock_iam
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy', 
                 new=mock_get_user_resource_creation_policy_allow)
@@ -178,8 +175,7 @@ class MGNLambdaTestCase(TestCase):
         # Reset to default configuration
         test_lambda_mgn_common_util.MGN_TEST_SCENARIO = 'default'
 
-    @mock_sts
-    @mock_iam
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy', 
                 new=mock_get_user_resource_creation_policy_allow)
@@ -210,8 +206,7 @@ class MGNLambdaTestCase(TestCase):
         self.event = self.initial_event
         test_lambda_mgn_common_util.MGN_TEST_SCENARIO = 'default'
 
-    @mock_sts
-    @mock_iam
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy', 
                 new=mock_get_user_resource_creation_policy_allow)
@@ -245,8 +240,7 @@ class MGNLambdaTestCase(TestCase):
         test_lambda_mgn_common_util.MGN_TEST_SCENARIO = 'default'
         test_lambda_mgn_common_util.MGN_SERVER_ACTION_SCENARIO = 'default'
 
-    @mock_sts
-    @mock_iam
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy', 
                 new=mock_get_user_resource_creation_policy_allow)
@@ -277,8 +271,7 @@ class MGNLambdaTestCase(TestCase):
         self.event = self.initial_event
         test_lambda_mgn_common_util.MGN_TEST_SCENARIO = 'default'
 
-    @mock_sts
-    @mock_iam
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy', 
                 new=mock_get_user_resource_creation_policy_allow)
@@ -312,8 +305,7 @@ class MGNLambdaTestCase(TestCase):
         test_lambda_mgn_common_util.MGN_TEST_SCENARIO = 'default'
         test_lambda_mgn_common_util.MGN_SERVER_ACTION_SCENARIO = 'default'
 
-    @mock_sts
-    @mock_iam
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy', 
                 new=mock_get_user_resource_creation_policy_allow)
@@ -344,8 +336,7 @@ class MGNLambdaTestCase(TestCase):
         self.event = self.initial_event
         test_lambda_mgn_common_util.MGN_TEST_SCENARIO = 'default'
 
-    @mock_sts
-    @mock_iam
+    @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy', 
                 new=mock_get_user_resource_creation_policy_allow)

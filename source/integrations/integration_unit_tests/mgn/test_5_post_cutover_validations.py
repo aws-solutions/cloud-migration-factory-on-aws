@@ -7,7 +7,7 @@ import importlib
 import subprocess
 import unittest
 from unittest.mock import patch
-from moto import mock_sts, mock_ec2
+from moto import mock_aws
 import boto3
 
 import mgn.test_mgn_common as test_mgn_common
@@ -17,8 +17,7 @@ from mgn.test_mgn_common import mock_file_open, default_mock_os_environ, logger,
     servers_list_linux_private_ip, mock_create_csv_report
 
 
-@mock_sts
-@mock_ec2
+@mock_aws
 @patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
 @patch('mfcommon.get_server_credentials', new=mock_get_server_credentials)
 @patch('mfcommon.get_factory_servers', new=mock_get_factory_servers)

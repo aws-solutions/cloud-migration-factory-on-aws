@@ -10,13 +10,13 @@ from datetime import timedelta
 import boto3
 from unittest import mock
 
-from moto import mock_dynamodb
+from moto import mock_aws
 
 import test_common_utils
 
 
 @mock.patch.dict('os.environ', test_common_utils.default_mock_os_environ)
-@mock_dynamodb
+@mock_aws
 class LambdaSSMJobsTest(unittest.TestCase):
 
     @mock.patch.dict('os.environ', test_common_utils.default_mock_os_environ)

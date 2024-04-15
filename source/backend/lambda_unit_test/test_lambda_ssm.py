@@ -104,7 +104,7 @@ def mock_ssm_list_tags_for_resource(ResourceType, ResourceId):
         }
 
 
-def mock_ec2_describe_tags(Filters):
+def mock_aws_describe_tags(Filters):
     if Filters[0]['Values'] == ['instance_003']:
         return {
             'Tags': [
@@ -211,11 +211,11 @@ class LambdaSSMTest(unittest.TestCase):
 
     @patch('lambda_ssm.ec2')
     @patch('lambda_ssm.ssm')
-    def test_lambda_handler_get_success(self, mock_ssm, mock_ec2):
+    def test_lambda_handler_get_success(self, mock_ssm, mock_aws):
         import lambda_ssm
         mock_ssm.get_paginator.return_value = InstanceInfoIterator()
         mock_ssm.list_tags_for_resource.side_effect = mock_ssm_list_tags_for_resource
-        mock_ec2.describe_tags.side_effect = mock_ec2_describe_tags
+        mock_aws.describe_tags.side_effect = mock_aws_describe_tags
         response = lambda_ssm.lambda_handler(self.event_get, None)
         expected = {
             'headers': lambda_ssm.default_http_headers,
@@ -236,13 +236,13 @@ class LambdaSSMTest(unittest.TestCase):
 
     @patch('lambda_ssm.ec2')
     @patch('lambda_ssm.ssm')
-    def test_lambda_handler_get_exception(self, mock_ssm, mock_ec2):
+    def test_lambda_handler_get_exception(self, mock_ssm, mock_aws):
         os.environ['solution_identifier'] = 'SO101'
         import lambda_ssm
         mock_ssm.get_paginator.side_effect = Exception('Simulated Exception')
         self.assertRaises(Exception, lambda_ssm.lambda_handler, self.event_get, None)
         mock_ssm.list_tags_for_resource.assert_not_called()
-        mock_ec2.describe_tags.assert_not_called()
+        mock_aws.describe_tags.assert_not_called()
 
     @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
     def test_lambda_handler_post_validation_error(self, mock_MFAuth):
@@ -256,7 +256,6 @@ class LambdaSSMTest(unittest.TestCase):
         }
         self.assertEqual(expected, response)
 
-    @unittest.skip
     @patch('lambda_ssm.lambda_client')
     @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
     def test_lambda_handler_post_package_version_doesnt_exist(self, mock_MFAuth, mock_lamda):
@@ -271,7 +270,6 @@ class LambdaSSMTest(unittest.TestCase):
         }
         self.assertEqual(expected, response)
 
-    @unittest.skip
     @patch('lambda_ssm.lambda_client')
     @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
     def test_lambda_handler_post_package_version_invalid(self, mock_MFAuth, mock_lamda):

@@ -115,6 +115,204 @@ const SchemaAttributeAmendModal = (
     }
   }
 
+  const getRelationshipTagsField = () => {
+    return (<FormField
+              label="Relationship display select tags"
+              description="Select the additional values that will be displayed as tags in the selections list."
+              errorText={!localAttr.rel_display_attribute ? "You must select an attribute to be displayed." : null}
+            >
+              {!localAttr.system
+                ?
+                <Multiselect
+                  //selectedOptions={localAttr.rel_additional_attributes ? {label: localAttr.rel_additional_attributes, value: localAttr.rel_entity} : null}
+                  selectedOptions={localAttr.rel_additional_attributes == null ? [] : localAttr.rel_additional_attributes.map((item: any) => {
+                    return {label: item, value: item}
+                  })}
+                  //onChange={event => handleUserInput({field: 'rel_additional_attributes', value: event.detail.selectedOption.value})}
+                  onChange={event => handleUserInput({
+                    field: 'rel_additional_attributes',
+                    value: event.detail.selectedOptions != null ? event.detail.selectedOptions.map(valueItem => valueItem.value) : [],
+                  })}
+                  options={
+                    localAttr.rel_entity
+                      ?
+                      schemas[localAttr.rel_entity].attributes.map((item) => {
+                        return {label: item.name, value: item.name};
+                      })
+                      :
+                      []
+                  }
+                  selectedAriaLabel={'selected'}
+                  filteringType="auto"
+                />
+                :
+                <Input
+                  value={localAttr.rel_additional_attributes}
+                  readOnly
+                />
+              }
+            </FormField>);
+  }
+
+  const getRelationshipKeyField = () => {
+    return (<FormField
+              label="Relationship key"
+              description=""
+              errorText={!localAttr.rel_key ? "You must select an attribute to be the key." : null}
+            >
+              {!localAttr.system
+                ?
+                <Select
+                  selectedOption={localAttr.rel_key ? {label: localAttr.rel_key, value: localAttr.rel_key} : null}
+                  onChange={event => handleUserInput({field: 'rel_key', value: event.detail.selectedOption.value})}
+                  options={
+                    localAttr.rel_entity
+                      ?
+                      schemas[localAttr.rel_entity].attributes.map((item) => {
+                        return {label: item.name, value: item.name};
+                      })
+                      :
+                      []
+                  }
+                  selectedAriaLabel={'selected'}
+                />
+                :
+                <Input
+                  value={localAttr.rel_key}
+                  readOnly
+                />
+              }
+            </FormField>);
+  }
+
+  const getRelationshipDisplayValueField = () => {
+    return (<FormField
+              label="Relationship display value"
+              description=""
+              errorText={!localAttr.rel_display_attribute ? "You must select an attribute to be displayed." : null}
+            >
+              {!localAttr.system
+                ?
+                <Select
+                  selectedOption={localAttr.rel_display_attribute ? {label: localAttr.rel_display_attribute, value: localAttr.rel_entity} : null}
+                  onChange={event => handleUserInput({field: 'rel_display_attribute', value: event.detail.selectedOption.value})}
+                  options={
+                    localAttr.rel_entity
+                      ?
+                      schemas[localAttr.rel_entity].attributes.map((item) => {
+                        return {label: item.name, value: item.name};
+                      })
+                      :
+                      []
+                  }
+                  selectedAriaLabel={'selected'}
+                />
+                :
+                <Input
+                  value={localAttr.rel_display_attribute}
+                  readOnly
+                />
+              }
+            </FormField>);
+  }
+
+  const getRelationshipSection = () => {
+    return (<SpaceBetween size="l">
+            <FormField
+              label="Relationship entity"
+              description=""
+            >
+              {!localAttr.system
+                ?
+                <Select
+                  selectedOption={localAttr.rel_entity ? {label: localAttr.rel_entity, value: localAttr.rel_entity} : null}
+                  onChange={event => {
+                    handleUserInput({field: 'rel_entity', value: event.detail.selectedOption.value});
+                  }}
+                  options={
+                    [
+                      {label: 'application', value: 'application'},
+                      {label: 'server', value: 'server'},
+                      {label: 'wave', value: 'wave'},
+                      {label: 'database', value: 'database'},
+                      {label: 'secret', value: 'secret'}
+                    ]
+                  }
+                  selectedAriaLabel={'selected'}
+                />
+                :
+                <Input
+                  value={localAttr.rel_entity}
+                  readOnly
+                />
+              }
+            </FormField>
+            {getRelationshipKeyField()}
+            {getRelationshipDisplayValueField()}
+            {getRelationshipTagsField()}
+            <FormField
+              label="Value list"
+              description="Optional - Comma delimited list of additional values that can be selected."
+            >
+              < Input
+                value={localAttr.listvalue}
+                onChange={event => handleUserInput({field: 'listvalue', value: event.detail.value})}
+                readOnly={localAttr.system}
+              />
+            </FormField>
+            <FormField
+              label="Relationship filter attribute"
+              description="Select an attribute that will be used to filter the available options."
+            >
+              {!localAttr.system
+                ?
+                <Select
+                  selectedOption={localAttr.rel_filter_attribute_name ? {label: localAttr.rel_filter_attribute_name, value: localAttr.rel_entity} : null}
+                  onChange={event => handleUserInput({field: 'rel_filter_attribute_name', value: event.detail.selectedOption.value})}
+                  options={
+                    localAttr.rel_entity
+                      ?
+                      schemas[localAttr.rel_entity].attributes.map((item) => {
+                        return {label: item.name, value: item.name};
+                      })
+                      :
+                      []
+                  }
+                  selectedAriaLabel={'selected'}
+                />
+                :
+                <Input
+                  value={localAttr.rel_display_attribute}
+                  readOnly
+                />
+              }
+            </FormField>
+            <FormField
+              label="Filter attribute"
+              description="Select an attribute that will provide the filter value."
+            >
+              {!localAttr.system
+                ?
+                <Select
+                  selectedOption={localAttr.source_filter_attribute_name ? {label: localAttr.source_filter_attribute_name, value: localAttr.rel_entity} : null}
+                  onChange={event => handleUserInput({field: 'source_filter_attribute_name', value: event.detail.selectedOption.value})}
+                  options={
+                    schemas[activeSchemaName].attributes.map((item: { name: any; }) => {
+                      return {label: item.name, value: item.name};
+                    })
+                  }
+                  selectedAriaLabel={'selected'}
+                />
+                :
+                <Input
+                  value={localAttr.rel_display_attribute}
+                  readOnly
+                />
+              }
+            </FormField>
+          </SpaceBetween>);
+  }
+
 
   return (
     <Modal
@@ -207,192 +405,15 @@ const SchemaAttributeAmendModal = (
           }
         </FormField>
 
+
+
+
+
         {localAttr.type !== "relationship"
           ?
           undefined
           :
-          <SpaceBetween size="l">
-            <FormField
-              label="Relationship entity"
-              description=""
-            >
-              {!localAttr.system
-                ?
-                <Select
-                  selectedOption={localAttr.rel_entity ? {label: localAttr.rel_entity, value: localAttr.rel_entity} : null}
-                  onChange={event => {
-                    handleUserInput({field: 'rel_entity', value: event.detail.selectedOption.value});
-                  }}
-                  options={
-                    [
-                      {label: 'application', value: 'application'},
-                      {label: 'server', value: 'server'},
-                      {label: 'wave', value: 'wave'},
-                      {label: 'secret', value: 'secret'}
-                    ]
-                  }
-                  selectedAriaLabel={'selected'}
-                />
-                :
-                <Input
-                  value={localAttr.rel_entity}
-                  readOnly
-                />
-              }
-            </FormField>
-            <FormField
-              label="Relationship key"
-              description=""
-              errorText={!localAttr.rel_key ? "You must select an attribute to be the key." : null}
-            >
-              {!localAttr.system
-                ?
-                <Select
-                  selectedOption={localAttr.rel_key ? {label: localAttr.rel_key, value: localAttr.rel_key} : null}
-                  onChange={event => handleUserInput({field: 'rel_key', value: event.detail.selectedOption.value})}
-                  options={
-                    localAttr.rel_entity
-                      ?
-                      schemas[localAttr.rel_entity].attributes.map((item) => {
-                        return {label: item.name, value: item.name};
-                      })
-                      :
-                      []
-                  }
-                  selectedAriaLabel={'selected'}
-                />
-                :
-                <Input
-                  value={localAttr.rel_key}
-                  readOnly
-                />
-              }
-            </FormField>
-            <FormField
-              label="Relationship display value"
-              description=""
-              errorText={!localAttr.rel_display_attribute ? "You must select an attribute to be displayed." : null}
-            >
-              {!localAttr.system
-                ?
-                <Select
-                  selectedOption={localAttr.rel_display_attribute ? {label: localAttr.rel_display_attribute, value: localAttr.rel_entity} : null}
-                  onChange={event => handleUserInput({field: 'rel_display_attribute', value: event.detail.selectedOption.value})}
-                  options={
-                    localAttr.rel_entity
-                      ?
-                      schemas[localAttr.rel_entity].attributes.map((item) => {
-                        return {label: item.name, value: item.name};
-                      })
-                      :
-                      []
-                  }
-                  selectedAriaLabel={'selected'}
-                />
-                :
-                <Input
-                  value={localAttr.rel_display_attribute}
-                  readOnly
-                />
-              }
-            </FormField>
-            <FormField
-              label="Relationship display select tags"
-              description="Select the additional values that will be displayed as tags in the selections list."
-              errorText={!localAttr.rel_display_attribute ? "You must select an attribute to be displayed." : null}
-            >
-              {!localAttr.system
-                ?
-                <Multiselect
-                  //selectedOptions={localAttr.rel_additional_attributes ? {label: localAttr.rel_additional_attributes, value: localAttr.rel_entity} : null}
-                  selectedOptions={localAttr.rel_additional_attributes == null ? [] : localAttr.rel_additional_attributes.map((item: any) => {
-                    return {label: item, value: item}
-                  })}
-                  //onChange={event => handleUserInput({field: 'rel_additional_attributes', value: event.detail.selectedOption.value})}
-                  onChange={event => handleUserInput({
-                    field: 'rel_additional_attributes',
-                    value: event.detail.selectedOptions != null ? event.detail.selectedOptions.map(valueItem => valueItem.value) : [],
-                  })}
-                  options={
-                    localAttr.rel_entity
-                      ?
-                      schemas[localAttr.rel_entity].attributes.map((item) => {
-                        return {label: item.name, value: item.name};
-                      })
-                      :
-                      []
-                  }
-                  selectedAriaLabel={'selected'}
-                  filteringType="auto"
-                />
-                :
-                <Input
-                  value={localAttr.rel_additional_attributes}
-                  readOnly
-                />
-              }
-            </FormField>
-            <FormField
-              label="Value list"
-              description="Optional - Comma delimited list of additional values that can be selected."
-            >
-              < Input
-                value={localAttr.listvalue}
-                onChange={event => handleUserInput({field: 'listvalue', value: event.detail.value})}
-                readOnly={localAttr.system}
-              />
-            </FormField>
-            <FormField
-              label="Relationship filter attribute"
-              description="Select an attribute that will be used to filter the available options."
-            >
-              {!localAttr.system
-                ?
-                <Select
-                  selectedOption={localAttr.rel_filter_attribute_name ? {label: localAttr.rel_filter_attribute_name, value: localAttr.rel_entity} : null}
-                  onChange={event => handleUserInput({field: 'rel_filter_attribute_name', value: event.detail.selectedOption.value})}
-                  options={
-                    localAttr.rel_entity
-                      ?
-                      schemas[localAttr.rel_entity].attributes.map((item) => {
-                        return {label: item.name, value: item.name};
-                      })
-                      :
-                      []
-                  }
-                  selectedAriaLabel={'selected'}
-                />
-                :
-                <Input
-                  value={localAttr.rel_display_attribute}
-                  readOnly
-                />
-              }
-            </FormField>
-            <FormField
-              label="Filter attribute"
-              description="Select an attribute that will provide the filter value."
-            >
-              {!localAttr.system
-                ?
-                <Select
-                  selectedOption={localAttr.source_filter_attribute_name ? {label: localAttr.source_filter_attribute_name, value: localAttr.rel_entity} : null}
-                  onChange={event => handleUserInput({field: 'source_filter_attribute_name', value: event.detail.selectedOption.value})}
-                  options={
-                    schemas[activeSchemaName].attributes.map((item: { name: any; }) => {
-                      return {label: item.name, value: item.name};
-                    })
-                  }
-                  selectedAriaLabel={'selected'}
-                />
-                :
-                <Input
-                  value={localAttr.rel_display_attribute}
-                  readOnly
-                />
-              }
-            </FormField>
-          </SpaceBetween>
+          getRelationshipSection()
         }
 
         {localAttr.type === 'list' ?

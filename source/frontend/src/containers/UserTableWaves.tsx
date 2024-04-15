@@ -9,7 +9,7 @@ import {useLocation, useNavigate, useParams} from "react-router-dom";
 import {getChanges, userAutomationActionsMenuItems} from '../resources/main'
 import {exportTable} from "../utils/xlsx-export";
 
-import {SpaceBetween} from '@awsui/components-react';
+import {ButtonDropdownProps, SpaceBetween} from '@awsui/components-react';
 
 import ItemAmend from "../components/ItemAmend";
 import {WaveDetailsView} from '../components/WaveView'
@@ -60,9 +60,8 @@ const UserWaveTable = ({schemas, userEntityAccess}: UserWaveTableParams) => {
 
   //Viewer pane state management.
   const [action, setAction] = useState('View');
-  const [actions, setActions] = useState<any[]>([]); //Actions menu dropdown options.
+  const [actions, setActions] = useState<ButtonDropdownProps.ItemOrGroup[]>([]); //Actions menu dropdown options.
   const [automationAction, setAutomationAction,] = useState<string | undefined>(undefined);
-  const [focusSubItem, setFocusSubItem] = useState<any>(undefined);
 
   const [preformingAction, setPreformingAction] = useState(false);
 
