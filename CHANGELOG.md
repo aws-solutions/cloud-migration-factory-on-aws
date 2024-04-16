@@ -4,7 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.3.3] - 2024-01-30
+## [3.3.4] - 2024-04-16
+### Changed
+- CODE QUALITY: Increased unit test coverage, and refactored code base.
+### Fixed
+- JSON ATTRIBUTES UI: Resolved issue with showing attribute values on first use.
+- AUTOMATION SCRIPTS: Update SSM Scripts during CloudFormation update. 
+- MGN - EC2 LAUNCH TEMPLATES: EC2 metadata options are being set to disabled by default when in previous versions the default was to use AWS default/recommended. Reverted logic to previous version.
+- EXCEL EXPORT: Resolved issues exporting to Excel when a field contains more than 32767 characters. This the code now truncates the cell and for any truncated values creates a new column with the name appended with text [truncated].
+- SCHEMA: When secrets are used as a related attribute this causes an error when saving as this schema is not related to a DDB table. With this fix we have added the ability to disable lookups in the backend for secrets as a stop gap before we add validation of this. For this fix we have added the only required attribute into the server schema based on customer requests to date
+### Changed
+- AUTOMATION SCRIPTS: Added code to update automation scripts during a Cloud Formation stack update to a later version of CMF.
+## [3.3.3] - 2024-01-31
 ### Security
 - JWT VALIDATION: Replaced of python-jose with PyJWT to resolve CVE https://nvd.nist.gov/vuln/detail/CVE-2024-23342 which is caused by a dependency on the vulnerable python-ecdsa module. All JWT verification is now performed using PyJWT.
 - MGN TARGET IAM ROLE: Restricted inline policy for MGN Role in target accounts to not allow iam:PassRole and sts:AssumeRole on all resources. This is now restricted to PassRole for the MGN service to EC2 service only.

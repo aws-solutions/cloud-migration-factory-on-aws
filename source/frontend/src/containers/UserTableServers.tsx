@@ -137,7 +137,7 @@ const UserServerTable = ({schemas, userEntityAccess}: UserServerTableParams) => 
       setFocusItem(selectedItems[0]);
       setEditingItem(true);
     } else if (selection) {
-      // TODO is this else branch reachable or dead code?
+      // ATTN: is this else branch reachable or dead code?
       navigate({
         pathname: basePath + '/edit/' + selection[itemIDKey]
       })

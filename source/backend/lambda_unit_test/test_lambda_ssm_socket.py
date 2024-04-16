@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 import time
 from contextlib import contextmanager
 
-from moto import mock_dynamodb
+from moto import mock_aws
 
 from test_common_utils import default_mock_os_environ
 import test_common_utils
@@ -85,7 +85,7 @@ def mock_urllib_urlopen_failure():
 
 @patch('urllib.request.urlopen', return_value=mock_urllib_urlopen())
 @mock.patch.dict('os.environ', mock_os_environ)
-@mock_dynamodb
+@mock_aws
 class LambdaSSMSocketTest(unittest.TestCase):
 
     @patch('urllib.request.urlopen', return_value=mock_urllib_urlopen())

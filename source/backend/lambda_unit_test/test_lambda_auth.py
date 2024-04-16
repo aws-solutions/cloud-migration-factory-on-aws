@@ -8,7 +8,7 @@ import boto3
 import logging
 import os
 from unittest import TestCase, mock
-from moto import mock_dynamodb
+from moto import mock_aws
 
 # This is to get around the relative path import issue.
 # Absolute paths are being used in this file after setting the root directory

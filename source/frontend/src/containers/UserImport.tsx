@@ -153,6 +153,24 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
 
     }
 
+    await bulkPostCommitItems(commitItems, action, {schema_shortname, schema}, dataImport, notification, loutputCommit, apiUser);
+
+    const millis = Date.now() - start;
+    console.debug(`seconds elapsed = ${Math.floor(millis / 1000)}`);
+
+    if (loutputCommit.length > 0) {
+      let newCommitError = outputCommitErrors;
+      newCommitError.push(...loutputCommit)
+      setOutputCommitErrors(newCommitError);
+    }
+  }
+
+  async function bulkPostCommitItems(commitItems: any[], action: string,
+                                     {schema, schema_shortname}:  {schema_shortname: string; schema: string},
+                                     dataImport: {[p: string]: {Create: any[], Update: any[]}},
+                                     notification: CompletionNotification,
+                                     loutputCommit: any[],
+                                     apiUser:  UserApiClient) {
     try {
       if (action === 'Create') {
         for (let item of commitItems) {
@@ -161,15 +179,16 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
 
         console.debug("Starting bulk post")
         const result = await apiUser.postItems(commitItems, schema_shortname);
-        updateUploadStatus(notification, "Updating any related records with new " + schema + " IDs...", commitItems.length / 2);
-        console.debug("Bulk post complete")
 
         if (result['newItems']) {
+          updateUploadStatus(notification, "Updating any related records with new " + schema + " IDs...", commitItems.length / 2);
+          console.debug("Bulk post complete")
+
           console.debug("Updating related items")
           for (const item of result['newItems']) {
 
             for (const updateSchema in dataImport) {
-              //TODO add logic to determine if the updateSchema is related to current schema by any attributes
+              //ATTN: add logic to determine if the updateSchema is related to current schema by any attributes
               // and then only update those that are, for the moment it will validate all.
               updateRelatedItemAttributes(props.schemas, item, schema, dataImport[updateSchema].Create, updateSchema);
               updateRelatedItemAttributes(props.schemas, item, schema, dataImport[updateSchema].Update, updateSchema);
@@ -194,32 +213,31 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
       }
 
     } catch (e: any) {
+      bulkPostCommitItemsError(e, schema, action, notification, loutputCommit);
+    }
+  }
+
+  function bulkPostCommitItemsError(e: any, schema: string, action: string,
+                                    notification: CompletionNotification,
+                                    loutputCommit: any[]) {
       console.debug(e);
+      let item = {}
       if (e) {
-        loutputCommit.push({
-          itemType: schema + ' ' + action,
-          error: 'Internal API error - Contact support',
-          item: JSON.stringify(e)
-        });
-      } else {
-        loutputCommit.push({
-          itemType: schema + ' ' + action,
-          error: 'Internal API error - Contact support',
-          item: {}
-        });
+        item = JSON.stringify(e)
+        if (e?.response?.data?.errors) {
+          // return API errors to user.
+          console.debug(e.response.data.errors);
+          item = parsePUTResponseErrors(e.response.data.errors);
+        }
       }
 
+      loutputCommit.push({
+          itemType: schema + ' ' + action,
+          error: 'Internal API error - Contact support',
+          item: item
+        });
+
       updateUploadStatus(notification, "Error uploading records of type :" + schema, commitItems.length);
-    }
-
-    const millis = Date.now() - start;
-    console.debug(`seconds elapsed = ${Math.floor(millis / 1000)}`);
-
-    if (loutputCommit.length > 0) {
-      let newCommitError = outputCommitErrors;
-      newCommitError.push(...loutputCommit)
-      setOutputCommitErrors(newCommitError);
-    }
   }
 
   async function handleDownloadTemplate(e: ClickEvent) {

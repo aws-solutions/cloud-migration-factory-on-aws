@@ -50,7 +50,7 @@ def mock_get_user_resource_creation_policy_deny(obj, event, schema):
 def mock_get_user_resource_creation_policy_allow(obj, event, schema):
     return {'action': 'allow', 'user': 'testuser@example.com'}
 
-def mock_get_servers(target_aws_accounts, filtered_apps, waveid, servers, errors):
+def mock_get_servers(target_aws_accounts, filtered_apps, waveid, servers):
     error_list = []
     account_servers = [
         {
@@ -154,7 +154,7 @@ def mock_mgn_describe_source_servers():
         response['items'][0]['dataReplicationInfo']['dataReplicationState'] = 'disconnected'
     return response
 
-def mock_ec2_describe_launch_templates():
+def mock_aws_describe_launch_templates():
     response = {
         'LaunchTemplates': [
             {
@@ -170,7 +170,7 @@ def mock_ec2_describe_launch_templates():
     }
     return response
 
-def mock_ec2_describe_launch_template_versions():
+def mock_aws_describe_launch_template_versions():
     response = {
         "LaunchTemplateVersions": [
             {
@@ -194,7 +194,7 @@ def mock_ec2_describe_launch_template_versions():
     }
     return response
 
-def mock_ec2_describe_network_interfaces():
+def mock_aws_describe_network_interfaces():
     response = {
         "NetworkInterfaces": [
             {
@@ -207,7 +207,7 @@ def mock_ec2_describe_network_interfaces():
     }
     return response
 
-def mock_ec2_describe_subnets():
+def mock_aws_describe_subnets():
     response = {
         "Subnets": [
             {
@@ -220,7 +220,7 @@ def mock_ec2_describe_subnets():
     }
     return response
 
-def mock_ec2_describe_security_groups():
+def mock_aws_describe_security_groups():
     response = {
         "SecurityGroups": [
             {
@@ -231,7 +231,7 @@ def mock_ec2_describe_security_groups():
     }
     return response
 
-def mock_iam_get_instance_profile():
+def mock_aws_get_instance_profile():
     response = {
         "InstanceProfile": {
             "Path": "test_path",
@@ -269,7 +269,7 @@ def mock_license_manager_get_license_configuration():
     response = {"Status": license_status}
     return response
 
-def mock_ec2_create_launch_template_version():
+def mock_aws_create_launch_template_version():
     status_code = 200
     if MGN_TEST_CREATE_LAUNCH_TEMPLATE_VERSION_SCENARIO == \
         'create_launch_template_version_failed':
@@ -294,7 +294,7 @@ def mock_ec2_create_launch_template_version():
     }
     return response
 
-def mock_ec2_modify_launch_template():
+def mock_aws_modify_launch_template():
     response = {
         "LaunchTemplate": {
             "LaunchTemplateId": "lt-01238c059e3466abc",
@@ -333,7 +333,7 @@ def mock_mgn_launch_terminate_server_instances():
     }
     return response
 
-def mock_ec2_describe_hosts():
+def mock_aws_describe_hosts():
     response = {
         "Hosts": [
             {
@@ -383,30 +383,30 @@ def mock_boto_api_call(obj, operation_name, kwarg):
     if operation_name == 'DescribeSourceServers':
         return mock_mgn_describe_source_servers()
     elif operation_name == 'DescribeLaunchTemplates':
-        return mock_ec2_describe_launch_templates()
+        return mock_aws_describe_launch_templates()
     elif operation_name == 'DescribeLaunchTemplateVersions':
-        return mock_ec2_describe_launch_template_versions()
+        return mock_aws_describe_launch_template_versions()
     elif operation_name == 'DescribeNetworkInterfaces':
-        return mock_ec2_describe_network_interfaces()
+        return mock_aws_describe_network_interfaces()
     elif operation_name == 'DescribeSubnets':
-        return mock_ec2_describe_subnets()
+        return mock_aws_describe_subnets()
     elif operation_name == 'DescribeSecurityGroups':
-        return mock_ec2_describe_security_groups()
+        return mock_aws_describe_security_groups()
     elif operation_name == 'GetInstanceProfile':
-        return mock_iam_get_instance_profile()
+        return mock_aws_get_instance_profile()
     elif operation_name == 'UpdateLaunchConfiguration':
         return mock_mgn_update_launch_configuration()
     elif operation_name == 'GetLicenseConfiguration':
         return mock_license_manager_get_license_configuration()
     elif operation_name == 'CreateLaunchTemplateVersion':
-        return mock_ec2_create_launch_template_version()
+        return mock_aws_create_launch_template_version()
     elif operation_name == 'ModifyLaunchTemplate':
-        return mock_ec2_modify_launch_template()
+        return mock_aws_modify_launch_template()
     elif operation_name in ('StartTest', 'StartCutover', 
                             'TerminateTargetInstances'):
         return mock_mgn_launch_terminate_server_instances()
     elif operation_name == 'DescribeHosts':
-        return mock_ec2_describe_hosts()
+        return mock_aws_describe_hosts()
     elif operation_name == 'ListGroupResources':
         return mock_rg_list_group_resources()
     else:

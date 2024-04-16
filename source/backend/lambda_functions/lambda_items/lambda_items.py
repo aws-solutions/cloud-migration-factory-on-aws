@@ -146,7 +146,21 @@ def process_authorized_post(body: dict, data_table: Any, data_table_name: str, s
 
     # multiple items processing
     # get related data for validation
-    related_data = item_validation.get_relationship_data(body, schema)
+    try:
+        related_data = item_validation.get_relationship_data(body, schema)
+    except Exception as get_validation_data:
+        logger.error(f'{PREFIX_INVOCATION} {logging_context}, Unhandled exception: {str(get_validation_data)}')
+        return {
+            'headers': {**default_http_headers},
+            'statusCode': 500,
+            'body': json.dumps(
+                {
+                    'errors':
+                        [f"Unhandled API Exception: Unable to get related data for validation for one or more schemas. "
+                         f"Details: {get_validation_data}"]
+                }
+            )
+        }
 
     # Get vacant {schema}_id
     item_id = get_vacant_id(existing_items_list, schema_name)
@@ -331,5 +345,3 @@ def check_for_errors(items_validation_errors: list, item_name_duplicates: list, 
         return_messages['unprocessed_items'] = unprocessed_items
 
     return has_errors, return_messages
-
-

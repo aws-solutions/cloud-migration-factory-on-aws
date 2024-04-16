@@ -42,131 +42,9 @@ type ImportIntakeWizardParams = {
   importProgressStatus: CompletionNotification,
   outputCommitErrors: any[]
 };
-export const ImportIntakeWizard = (props: ImportIntakeWizardParams) => {
 
-  const {setHelpPanelContent} = useContext(ToolsContext);
-
-  const [
-    activeStepIndex,
-    setActiveStepIndex
-  ] = React.useState(0);
-
-  const hiddenFileInput: any = React.createRef();
-
-  const helpContent = {
-    header: 'Import',
-    content_text: 'From here you can import an intake form for to create or update records with the Waves, Applications and Servers.'
-  }
-
-  const importCompletion = <ImportCompletion
-    schema={props.schema}
-    dataAll={props.dataAll}
-    cancelClick={props.cancelClick}
-    committing={props.committing}
-    summary={props.summary}
-    commitErrors={props.outputCommitErrors}
-    committed={props.committed}
-    importProgress={props.importProgressStatus}
-    setActiveStepIndex={setActiveStepIndex}
-  />;
-  return (
-    props.committing
-      ?
-      importCompletion
-      :
-      <Wizard
-        i18nStrings={{
-          stepNumberLabel: stepNumber =>
-            `Step ${stepNumber}`,
-          collapsedStepsLabel: (stepNumber, stepsCount) =>
-            `Step ${stepNumber} of ${stepsCount}`,
-          cancelButton: "Cancel",
-          previousButton: "Previous",
-          nextButton: "Next",
-          submitButton: "Upload",
-          optional: "optional"
-        }}
-        onCancel={(e) => {
-          props.cancelClick(e);
-          setActiveStepIndex(0);
-        }
-        }
-        onSubmit={(e) => {
-          props.uploadClick(e);
-        }
-        }
-        onNavigate={({detail}) => {
-
-          //onClick={props.uploadClick} disabled={(props.errors > 0 || !props.selectedFile || props.committed)}
-
-          switch (detail.requestedStepIndex) {
-            case 0:
-              setActiveStepIndex(detail.requestedStepIndex)
-              break;
-            case 1:
-              if (!props.errorMessage) {
-                setActiveStepIndex(detail.requestedStepIndex)
-              }
-              break;
-            case 2:
-              if (!(props.errorMessage || props.errors > 0)) {
-                setActiveStepIndex(detail.requestedStepIndex)
-              }
-              break;
-            default:
-              break;
-          }
-
-
-        }
-        }
-        activeStepIndex={activeStepIndex}
-        steps={[
-          {
-            title: "Select import file",
-            info: <Link variant="info" onFollow={() => setHelpPanelContent(helpContent, false)}>Info</Link>,
-            description:
-              <SpaceBetween size={'xl'} direction={'vertical'}>
-                Intake forms should be in CSV/UTF8 or Excel/xlsx format.
-              </SpaceBetween>,
-            content: (
-              <SpaceBetween size={'xl'} direction={'vertical'}>
-                <SpaceBetween size={'s'} direction={'horizontal'}>
-                  Download a template intake form.
-                  <ButtonDropdown
-                    items={[{
-                      id: 'download_req',
-                      text: 'Template with only required attributes',
-                      description: 'Download template with required only.'
-                    }, {
-                      id: 'download_all',
-                      text: 'Template with all attributes',
-                      description: 'Download template with all attributes.'
-                    }]}
-                    onItemClick={props.exportClick}
-                  >Actions
-                  </ButtonDropdown>
-                </SpaceBetween>
-                <Container
-                  header={
-                    <Header variant="h2">
-                      Select file to commit
-                    </Header>
-                  }
-                >
-                  <FormField
-                    label={'Intake Form'}
-                    description={'Upload your intake form to load new data into Migration Factory.'}
-                    errorText={props.errorMessage}
-                  >
-                    <SpaceBetween direction="vertical" size="xs">
-                      <input ref={hiddenFileInput} accept=".csv,.xlsx" type="file" name="file"
-                             onChange={props.uploadChange} style={{display: 'none'}}/>
-                      <Button variant="primary" iconName="upload" onClick={() => {
-                        hiddenFileInput.current.click();
-                      }}>Select file
-                      </Button>
-                      {(props.selectedFile) ?
+    const getSelectedFile = (props: ImportIntakeWizardParams) => {
+      return ((props.selectedFile) ?
                         (
                           <SpaceBetween size={'xxl'} direction={'vertical'}>
                             <SpaceBetween size={'xxs'} direction={'vertical'}>
@@ -200,10 +78,91 @@ export const ImportIntakeWizard = (props: ImportIntakeWizardParams) => {
                         )
                         :
                         null
-                      }
+                      );
+  }
+export const ImportIntakeWizard = (props: ImportIntakeWizardParams) => {
+
+  const {setHelpPanelContent} = useContext(ToolsContext);
+
+  const [
+    activeStepIndex,
+    setActiveStepIndex
+  ] = React.useState(0);
+
+  const hiddenFileInput: any = React.createRef();
+
+  const helpContent = {
+    header: 'Import',
+    content_text: 'From here you can import an intake form for to create or update records with the Waves, Applications and Servers.'
+  }
+
+  const importCompletion = <ImportCompletion
+    schema={props.schema}
+    dataAll={props.dataAll}
+    cancelClick={props.cancelClick}
+    committing={props.committing}
+    summary={props.summary}
+    commitErrors={props.outputCommitErrors}
+    committed={props.committed}
+    importProgress={props.importProgressStatus}
+    setActiveStepIndex={setActiveStepIndex}
+  />;
+
+
+  const getIntakeForm = () => {
+      return (<FormField
+                    label={'Intake Form'}
+                    description={'Upload your intake form to load new data into Migration Factory.'}
+                    errorText={props.errorMessage}
+                  >
+                    <SpaceBetween direction="vertical" size="xs">
+                      <input ref={hiddenFileInput} accept=".csv,.xlsx" type="file" name="file"
+                             onChange={props.uploadChange} style={{display: 'none'}}/>
+                      <Button variant="primary" iconName="upload" onClick={() => {
+                        hiddenFileInput.current.click();
+                      }}>Select file
+                      </Button>
+                        {getSelectedFile(props)}
                     </SpaceBetween>
 
-                  </FormField>
+                  </FormField>);
+  }
+
+  const getSteps = () => {
+      return ([
+          {
+            title: "Select import file",
+            info: <Link variant="info" onFollow={() => setHelpPanelContent(helpContent, false)}>Info</Link>,
+            description:
+              <SpaceBetween size={'xl'} direction={'vertical'}>
+                Intake forms should be in CSV/UTF8 or Excel/xlsx format.
+              </SpaceBetween>,
+            content: (
+              <SpaceBetween size={'xl'} direction={'vertical'}>
+                <SpaceBetween size={'s'} direction={'horizontal'}>
+                  Download a template intake form.
+                  <ButtonDropdown
+                    items={[{
+                      id: 'download_req',
+                      text: 'Template with only required attributes',
+                      description: 'Download template with required only.'
+                    }, {
+                      id: 'download_all',
+                      text: 'Template with all attributes',
+                      description: 'Download template with all attributes.'
+                    }]}
+                    onItemClick={props.exportClick}
+                  >Actions
+                  </ButtonDropdown>
+                </SpaceBetween>
+                <Container
+                  header={
+                    <Header variant="h2">
+                      Select file to commit
+                    </Header>
+                  }
+                >
+                {getIntakeForm()}
                 </Container>
               </SpaceBetween>
             )
@@ -270,7 +229,60 @@ export const ImportIntakeWizard = (props: ImportIntakeWizardParams) => {
               />
             )
           }
-        ]}
+        ]);
+  }
+
+
+  const onNavigateHandler = (arg0: any) => {
+    const detail = arg0.detail;
+    switch (detail.requestedStepIndex) {
+    case 0:
+      setActiveStepIndex(detail.requestedStepIndex)
+      break;
+    case 1:
+      if (!props.errorMessage) {
+        setActiveStepIndex(detail.requestedStepIndex)
+      }
+      break;
+    case 2:
+      if (!(props.errorMessage || props.errors > 0)) {
+        setActiveStepIndex(detail.requestedStepIndex)
+      }
+      break;
+    default:
+      break;
+    }
+  }
+
+  return (
+    props.committing
+      ?
+      importCompletion
+      :
+      <Wizard
+        i18nStrings={{
+          stepNumberLabel: stepNumber =>
+            `Step ${stepNumber}`,
+          collapsedStepsLabel: (stepNumber, stepsCount) =>
+            `Step ${stepNumber} of ${stepsCount}`,
+          cancelButton: "Cancel",
+          previousButton: "Previous",
+          nextButton: "Next",
+          submitButton: "Upload",
+          optional: "optional"
+        }}
+        onCancel={(e) => {
+          props.cancelClick(e);
+          setActiveStepIndex(0);
+        }
+        }
+        onSubmit={(e) => {
+          props.uploadClick(e);
+        }
+        }
+        onNavigate={onNavigateHandler}
+        activeStepIndex={activeStepIndex}
+        steps={getSteps()}
       />
   );
 }

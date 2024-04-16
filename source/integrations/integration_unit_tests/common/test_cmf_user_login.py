@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 
-from moto import mock_secretsmanager
+from moto import mock_aws
 from unittest import TestCase, mock
 from common.test_mfcommon_util import default_mock_os_environ, \
     load_default_config_file, \
@@ -11,7 +11,7 @@ from common.test_mfcommon_util import default_mock_os_environ, \
 
 @mock.patch.dict('os.environ', default_mock_os_environ)
 @mock.patch('builtins.open', new=mock_file_open)
-@mock_secretsmanager
+@mock_aws
 class CMFUserLoginTestCase(TestCase):
     def setUp(self):
         self.mf_config = load_default_config_file("FactoryEndpoints.json")

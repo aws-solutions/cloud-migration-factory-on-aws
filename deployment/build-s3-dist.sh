@@ -193,6 +193,8 @@ done
 
 cd $build_dist_dir/
 zip -r $build_dist_dir/default_scripts.zip script_*.zip
+echo "Copying default_scripts.zip to the templates directory"
+cp $build_dist_dir/default_scripts.zip $template_dist_dir
 
 echo "------------------------------------------------------------------------------"
 echo "[Packing] Migration Tracker Glue Scripts"

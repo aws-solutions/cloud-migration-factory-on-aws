@@ -86,7 +86,7 @@ export default class AdminApiClient {
     return API.del(this.apiName, '/admin/role/' + role_id, {});
   }
 
-  postGroups(groups: Array<any>) {
+  postGroups(groups: Record<'groups', Array<any>>) {
     return API.post(this.apiName, '/admin/groups', {body: groups});
   }
 

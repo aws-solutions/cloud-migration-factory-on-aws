@@ -72,7 +72,7 @@ const AdminPermissions = (props: AdminPermissionsParams) => {
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
   const [focusItem, setFocusItem] = useState<any>([]);
 
-  // TODO read selected tab from URL, set to URL on tab change
+  // ATTN: read selected tab from URL, set to URL on tab change
   const [selectedTab, setSelectedTab] = useState('roles');
   const [action, setAction] = useState('add');
 
@@ -81,7 +81,7 @@ const AdminPermissions = (props: AdminPermissionsParams) => {
   const [isDeleteConfirmationModalVisible, setDeleteConfirmationModalVisible] = useState(false)
   const [isGroupDeleteConfirmationModalVisible, setGroupDeleteConfirmationModalVisible] = useState(false)
 
-  // TODO explore if it's cleaner to merge these two states into one and parametrize the Modal
+  // ATTN: explore if it's cleaner to merge these two states into one and parametrize the Modal
   const [isAddUserToGroupModalVisible, setAddUserToGroupModalVisible] = useState(false)
   const [isRemoveUserFromGroupModalVisible, setRemoveUserFromGroupModalVisible] = useState(false)
 
@@ -505,7 +505,7 @@ const AdminPermissions = (props: AdminPermissionsParams) => {
         content: "Adding new group: " + group.group_name,
       });
 
-      await new AdminApiClient().postGroups([group]);
+      await new AdminApiClient().postGroups({'groups': [group]});
 
       await permissionsUpdate();
 
@@ -606,7 +606,7 @@ const AdminPermissions = (props: AdminPermissionsParams) => {
         header={'Delete policy'}
       >
         {selectedItems.length === 1
-          ? // TODO the text '... policy ...' is used even for Role, is this a bug?
+          ? // ATTN: the text '... policy ...' is used even for Role, is this a bug?
           <SpaceBetween size="l">
             <p>Are you sure you wish to delete the selected policy?</p>
           </SpaceBetween>

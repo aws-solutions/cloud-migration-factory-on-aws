@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import React, {createContext, ReactNode, useState} from 'react';
+import React, {createContext, ReactNode, useMemo, useState} from 'react';
 import {HelpContent} from "../models/HelpContent";
 import {EntitySchema} from "../models/EntitySchema";
 import {capitalize} from "../resources/main";
@@ -73,7 +73,10 @@ export const ToolsContextProvider = ({children}: { children: ReactNode }) => {
     }));
   }
 
-  const context = {toolsState, setHelpPanelContent, setHelpPanelContentFromSchema, setToolsOpen};
+  const context: ToolsContextType = useMemo<ToolsContextType>(() => {
+    return {toolsState, setHelpPanelContent, setHelpPanelContentFromSchema, setToolsOpen};
+  }, [toolsState]);
+
   return (
     <>
       <ToolsContext.Provider value={context}>

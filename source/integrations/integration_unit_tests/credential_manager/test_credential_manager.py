@@ -4,13 +4,13 @@
 
 import json
 import boto3
-from moto import mock_secretsmanager
+from moto import mock_aws
 
 from credential_manager.test_credential_manager_base import CredentialManagerTestBase
 
 
 # positive tests with moto
-@mock_secretsmanager
+@mock_aws
 class CredentialManagerTest(CredentialManagerTestBase):
 
     def setUp(self):

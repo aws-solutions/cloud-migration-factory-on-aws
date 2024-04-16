@@ -4,7 +4,7 @@
 import io
 from unittest import TestCase, mock
 import importlib
-from moto import mock_sts, mock_secretsmanager
+from moto import mock_aws
 import boto3
 
 from automation_packages.ads.test_ads_common import mock_file_open, default_mock_os_environ
@@ -87,7 +87,7 @@ def mock_execute_cmd_via_ssh(host, username, key, cmd, using_key):
     return output, error
 
 
-@mock_secretsmanager
+@mock_aws
 def set_up_secret_manager():
     secretsmanager_client = boto3.client(
         'secretsmanager', 'us-east-1')
@@ -108,8 +108,7 @@ def set_up_secret_manager():
     print(response3)
 
 @mock.patch.dict('os.environ', default_mock_os_environ)
-@mock_secretsmanager
-@mock_sts
+@mock_aws
 @mock.patch('builtins.open', new=mock_file_open)
 class ADSAgentInstall(TestCase):
 
@@ -133,7 +132,7 @@ class ADSAgentInstall(TestCase):
                 new=mock_return_valid_empty_factory_servers)
     @mock.patch.dict('os.environ', default_mock_os_environ)
     @mock.patch('builtins.open', new=mock_file_open)
-    @mock_secretsmanager
+    @mock_aws
     def test_agent_uninstall_empty_server_list(self):
         logger.info("Testing Agent Uninstall main: "
                     "Empty server list provided")
@@ -154,11 +153,11 @@ class ADSAgentInstall(TestCase):
                 new=mock_return_valid_factory_login)
     @mock.patch("mfcommon.get_factory_servers",
                 new=mock_return_valid_populated_factory_servers)
-    @mock_sts
+    @mock_aws
     @mock.patch("subprocess.Popen")
     @mock.patch("subprocess.run")
     @mock.patch('builtins.open', new=mock_file_open)
-    @mock_secretsmanager
+    @mock_aws
     def test_agent_uninstall_with_server_list_domain(self, mock_popen, mock_run):
         logger.info("Testing Agent Uninstall main: "
                     "With server list provided")
@@ -188,11 +187,11 @@ class ADSAgentInstall(TestCase):
                 new=mock_return_valid_factory_login)
     @mock.patch("mfcommon.get_factory_servers",
                 new=mock_return_valid_populated_factory_servers)
-    @mock_sts
+    @mock_aws
     @mock.patch("subprocess.Popen")
     @mock.patch("subprocess.run")
     @mock.patch('builtins.open', new=mock_file_open)
-    @mock_secretsmanager
+    @mock_aws
     def test_agent_uninstall_with_server_list_local(self, mock_popen, mock_run):
         logger.info("Testing Agent Uninstall main: "
                     "With server list provided and local windows user")

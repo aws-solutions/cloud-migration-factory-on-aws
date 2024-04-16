@@ -44,6 +44,7 @@ jest-environment-jsdom under the Massachusetts Institute of Technology (MIT) lic
 jest-sonar-reporter under the Massachusetts Institute of Technology (MIT) license
 Jinja2 under the BSD-3-Clause license
 jmespath under the Massachusetts Institute of Technology (MIT) license
+joserfc under under the BSD-3-Clause license
 jquery under the Massachusetts Institute of Technology (MIT) license
 jquery-csv under the Massachusetts Institute of Technology (MIT) license
 jsdoc under the Apache License 2.0

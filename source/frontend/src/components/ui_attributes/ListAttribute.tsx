@@ -50,7 +50,18 @@ const ListAttribute = ({attribute, value, isReadonly, errorText, handleUserInput
       addValueListItem(attribute.listValueAPI);
       updateVL();
     }
-  }, [attribute])
+  }, [attribute]);
+
+  function getTags(item) {
+    const tags = [];
+    for (const key in item) {
+      //Add value of child key to tags, if not the main key
+      if (key !== attribute.labelKey) {
+        tags.push(item[key])
+      }
+    }
+    return tags;
+  }
 
   useEffect( () => {
     if ('listvalue' in attribute) {
@@ -62,7 +73,7 @@ const ListAttribute = ({attribute, value, isReadonly, errorText, handleUserInput
       })
 
       setLocalOptions(options);
-    }else if ('listValueAPI' in attribute && !isLoadingVL && attribute.listValueAPI in dataVL) {
+    } else if ('listValueAPI' in attribute && !isLoadingVL && attribute.listValueAPI in dataVL) {
       //Attributes value list is obtained from a dynamic API call.
       if (dataVL[attribute.listValueAPI].errorMessage !== undefined) {
         let options = [];
@@ -75,16 +86,8 @@ const ListAttribute = ({attribute, value, isReadonly, errorText, handleUserInput
         return options;
       } else {
         let options = dataVL[attribute.listValueAPI].values.map((item) => {
-          let tags = [];
-          for (const key in item) {
-            //Add value of child key to tags, if not the main key
-            if (key !== attribute.labelKey) {
-              tags.push(item[key])
-            }
-          }
-
           return (
-            {label: item[attribute.labelKey], value: item[attribute.valueKey], tags: tags}
+            {label: item[attribute.labelKey], value: item[attribute.valueKey], tags: getTags(item)}
 
           )
         });
@@ -93,7 +96,7 @@ const ListAttribute = ({attribute, value, isReadonly, errorText, handleUserInput
       }
     }
 
-  }, [attribute, dataVL])
+  }, [attribute, dataVL]);
 
   useEffect(() => {
     setCurrentErrorText(errorText);

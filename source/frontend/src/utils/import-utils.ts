@@ -3,6 +3,15 @@ import {getChanges, validateValue} from "../resources/main";
 import {Attribute, EntitySchema} from "../models/EntitySchema";
 import {checkAttributeRequiredConditions, getRequiredAttributes} from "../resources/recordFunctions";
 
+type ImportAttribute = {
+  attribute: {
+    type: any;
+    validation_regex?: any;
+    validation_regex_msg?: any
+  };
+  lookup_attribute_name: string;
+}
+
 //Function to remove null key values from json object array.
 export function removeNullKeys(dataJson: Record<string, any>[]) {
   for (const dataItem of dataJson) {
@@ -73,7 +82,7 @@ export async function convertExcelToJSON(reader: FileReader, selectedFile: Blob,
 }
 
 
-export function performValueValidation(attribute: { attribute: { type: any; }; lookup_attribute_name: string; }, value: string) {
+export function performValueValidation(attribute: ImportAttribute, value: string) {
 
   //Exit if attribute is not defined or null.
   if (!attribute.attribute && value !== '')
@@ -85,34 +94,16 @@ export function performValueValidation(attribute: { attribute: { type: any; }; l
 
   switch (attribute.attribute.type) {
     case 'list':
-      let list = value.split(';')
-      for (let item in list) {
-        errorMsg = validateValue(list[item], attribute.attribute)
-      }
+      errorMsg = validateList(attribute, value);
       break;
     case 'multivalue-string':
-      let mvlist = value.split(';')
-      for (let item in mvlist) {
-        errorMsg = validateValue(mvlist[item], attribute.attribute)
-      }
+      errorMsg = validateMultiString(attribute, value);
       break;
     case 'relationship':
       errorMsg = validateValue(value, attribute.attribute)
       break;
     case 'json':
-      if (value) {
-        try {
-          JSON.parse(value);
-        } catch (objError: any) {
-          if (objError instanceof SyntaxError) {
-            console.error(objError.name);
-            errorMsg = "Invalid JSON: " + objError.message;
-          } else {
-            console.error(objError.message);
-          }
-
-        }
-      }
+      errorMsg = validateJson(value);
       break;
     default:
       errorMsg = validateValue(value, attribute.attribute)
@@ -122,6 +113,44 @@ export function performValueValidation(attribute: { attribute: { type: any; }; l
     return {'type': 'error', 'message': errorMsg}
   else
     return null;
+}
+
+function validateList(attribute: ImportAttribute, value: string){
+  let errorMsg = null;
+  let list = value.split(';')
+    for (let item in list) {
+      const currError = validateValue(list[item], attribute.attribute);
+      errorMsg = currError ? currError : errorMsg;
+    }
+  return errorMsg;
+}
+
+function validateJson(value: string) {
+  let errorMsg = null;
+  if (value) {
+    try {
+      JSON.parse(value);
+    } catch (objError: any) {
+      if (objError instanceof SyntaxError) {
+        console.error(objError.name);
+        errorMsg = "Invalid JSON: " + objError.message;
+      } else {
+        console.error(objError.message);
+      }
+
+    }
+  }
+  return errorMsg
+}
+
+function validateMultiString(attribute: ImportAttribute, value: string) {
+  let errorMsg = null;
+  let mvlist = value.split(';')
+  for (let item in mvlist) {
+    const currError = validateValue(mvlist[item], attribute.attribute);
+    errorMsg = currError ? currError : errorMsg;
+  }
+  return errorMsg;
 }
 
 function getSchemaAttribute(attributeName: string, schema: EntitySchema) {
@@ -153,78 +182,85 @@ function getSchemaRelationshipAttributes(attributeName: string | undefined, sche
   return attributes.length > 0 ? attributes : null;
 }
 
-
-function getFindAttribute(attributeName: string, schemas: Record<string, EntitySchema>, schema_name?: string): any[] {
+function getFindAttributeWithSchemaName(attributeName: string, schemas: Record<string, EntitySchema>, schema_name: string) {
   let attr = null;
-  let attrList = [];
-
-  if (schemas) {
-
-    if (schema_name) {
-      //Schema name provided.
-      if (!schemas[schema_name]) {
+  const attrList: ({attribute: null, schema_name: null, lookup_attribute_name: string, lookup_schema_name: string} |
+      {attribute: Attribute, schema_name: string, lookup_attribute_name: string, lookup_schema_name: string})[] = [];
+  if (!schemas[schema_name]) {
+    attrList.push({
+      'attribute': attr,
+      'schema_name': null,
+      'lookup_attribute_name': attributeName,
+      'lookup_schema_name': schema_name
+    });  //Schema_name not valid.
+  } else {
+    if (schemas[schema_name].schema_type === 'user') {
+      attr = getSchemaAttribute(attributeName, schemas[schema_name]);
+      if (attr) {
+        attrList.push({
+          'attribute': attr,
+          'schema_name': schema_name,
+          'lookup_attribute_name': attributeName,
+          'lookup_schema_name': schema_name
+        });
+      } else
         attrList.push({
           'attribute': attr,
           'schema_name': null,
           'lookup_attribute_name': attributeName,
           'lookup_schema_name': schema_name
-        });  //Schema_name not valid.
-      } else {
-        if (schemas[schema_name].schema_type === 'user') {
-          attr = getSchemaAttribute(attributeName, schemas[schema_name]);
-          if (attr) {
-            attrList.push({
-              'attribute': attr,
-              'schema_name': schema_name,
-              'lookup_attribute_name': attributeName,
-              'lookup_schema_name': schema_name
-            });
-          } else
-            attrList.push({
-              'attribute': attr,
-              'schema_name': null,
-              'lookup_attribute_name': attributeName,
-              'lookup_schema_name': schema_name
-            });
-        } else {
+        });
+    } else {
+      attrList.push({
+        'attribute': attr,
+        'schema_name': null,
+        'lookup_attribute_name': attributeName,
+        'lookup_schema_name': schema_name
+      });
+    }
+  }
+  return attrList;
+}
+
+function getFindAttributeWithNoSchemaName(attributeName: string, schemas: Record<string, EntitySchema>) {
+  const attrList: {attribute: Attribute, schema_name: string, lookup_attribute_name: string, lookup_schema_name: string}[] = [];
+  for (const schema_name in schemas) {
+    if (schemas[schema_name].schema_type === 'user') {
+      let lAttr = null;
+      lAttr = getSchemaAttribute(attributeName, schemas[schema_name]);
+      if (lAttr) {
+        attrList.push({
+          'attribute': lAttr,
+          'schema_name': schema_name,
+          'lookup_attribute_name': attributeName,
+          'lookup_schema_name': schema_name
+        });
+      }
+
+      let lRelatedAttrs = null;
+      lRelatedAttrs = getSchemaRelationshipAttributes(attributeName, schemas[schema_name]);
+      if (lRelatedAttrs) {
+        for (const lRelatedAttr of lRelatedAttrs) {
           attrList.push({
-            'attribute': attr,
-            'schema_name': null,
+            'attribute': lRelatedAttr,
+            'schema_name': schema_name,
             'lookup_attribute_name': attributeName,
             'lookup_schema_name': schema_name
           });
         }
       }
+    }
+  }
+  return attrList;
+}
+
+function getFindAttribute(attributeName: string, schemas: Record<string, EntitySchema>, schema_name?: string): any[] {
+  let attrList: any[] = [];
+  if (schemas) {
+    if (schema_name) {
+      attrList = getFindAttributeWithSchemaName(attributeName, schemas, schema_name);
     } else {
-
-      //Schema name not provided, search all schemas.
-      for (const schema_name in schemas) {
-        if (schemas[schema_name].schema_type === 'user') {
-          let lAttr = null;
-          lAttr = getSchemaAttribute(attributeName, schemas[schema_name]);
-          if (lAttr) {
-            attrList.push({
-              'attribute': lAttr,
-              'schema_name': schema_name,
-              'lookup_attribute_name': attributeName,
-              'lookup_schema_name': schema_name
-            });
-          }
-
-          let lRelatedAttrs = null;
-          lRelatedAttrs = getSchemaRelationshipAttributes(attributeName, schemas[schema_name]);
-          if (lRelatedAttrs) {
-            for (const lRelatedAttr of lRelatedAttrs) {
-              attrList.push({
-                'attribute': lRelatedAttr,
-                'schema_name': schema_name,
-                'lookup_attribute_name': attributeName,
-                'lookup_schema_name': schema_name
-              });
-            }
-          }
-        }
-      }
+      attrList = getFindAttributeWithNoSchemaName(attributeName, schemas);
     }
   }
 
@@ -243,75 +279,16 @@ function getFindAttribute(attributeName: string, schemas: Record<string, EntityS
 }
 
 export function performDataValidation(schemas: Record<string, EntitySchema>, csvData: Record<string, any>[]) {
-  let attributeMappings = [];
+  let attributeMappings: any[] = [];
   let schemaNames: string[] = [];
 
   for (let [itemIdx, item] of csvData.entries()) {
-    let itemErrors = [];
-    let itemWarnings = [];
-    let itemInformational = [];
+    let itemErrors: any[] = [];
+    let itemWarnings: any[] = [];
+    let itemInformational: any[] = [];
     for (const key in item) {
-      let attr: any[] = [];
-      let schema_name = null;
-      if (key.startsWith('[')) {
-        //Schema name provided in key.
-        let keySplit = key.split(']');
-        if (keySplit.length > 1) {
-          if (keySplit[0] !== '' && keySplit[1] !== '') {
-            schema_name = keySplit[0].substring(1);
-            attr = getFindAttribute(keySplit[1], schemas, schema_name);
-          } else {
-            //check with full key as not in correct format.
-            //Key does not provide schema hint.
-            attr = getFindAttribute(key, schemas);
-          }
-        } else {
-          //check with full key as not in correct format.
-          //Key does not provide schema hint.
-          attr = getFindAttribute(key, schemas);
-        }
-      } else {
-        //Key does not provide schema hint.
-        attr = getFindAttribute(key, schemas);
-      }
-
-      if (attr.length > 1) {
-        itemInformational.push({
-          attribute: key, error: 'Ambiguous attribute name provided. It is found in multiple schemas [' + attr.map(item => {
-            return item.schema_name
-          }).join(', ') + ']. Import will map data to schemas as required based on record types.'
-        });
-      }
-
-      for (const foundAttr of attr) {
-        foundAttr['import_raw_header'] = key;
-
-        let filterMappings = attributeMappings.filter(item => {
-          if (item['import_raw_header'] === key) {
-            return (item['schema_name'] === foundAttr.schema_name)
-          } else {
-            return false;
-          }
-        });
-
-        if (filterMappings.length === 0) {
-          attributeMappings.push(foundAttr);
-        }
-
-        //Add schema names to list for quick lookup later.
-        if (foundAttr.attribute && !schemaNames.includes(foundAttr.schema_name)) {
-          schemaNames.push(foundAttr.schema_name);
-        }
-
-        const msgError = performValueValidation(foundAttr, item[key])
-        if (msgError) {
-          if (msgError.type === 'error') {
-            itemErrors.push({attribute: key, error: msgError.message});
-          } else if (msgError.type === 'warning') {
-            itemWarnings.push({attribute: key, error: msgError.message});
-          }
-        }
-      }
+      performDataValidationForItem([key, item], schemaNames, schemas,itemErrors, itemWarnings,
+          itemInformational,attributeMappings);
     }
 
     item['__import_row'] = itemIdx;
@@ -324,6 +301,137 @@ export function performDataValidation(schemas: Record<string, EntitySchema>, csv
   return {'data': csvData, 'attributeMappings': attributeMappings, 'schema_names': schemaNames};
 }
 
+function performDataValidationForItem(keyItemTuple: [string, any], schemaNames: string[], schemas: Record<string, EntitySchema>,
+                                      itemErrors: any[], itemWarnings: any[], itemInformational: any[],
+                                      attributeMappings: any[])     {
+  const [key, item] = keyItemTuple;
+  let attr: any[] = [];
+  let schema_name = null;
+  if (key.startsWith('[')) {
+    //Schema name provided in key.
+    let keySplit = key.split(']');
+    if (keySplit.length > 1) {
+      if (keySplit[0] !== '' && keySplit[1] !== '') {
+        schema_name = keySplit[0].substring(1);
+        attr = getFindAttribute(keySplit[1], schemas, schema_name);
+      } else {
+        //check with full key as not in correct format.
+        //Key does not provide schema hint.
+        attr = getFindAttribute(key, schemas);
+      }
+    } else {
+      //check with full key as not in correct format.
+      //Key does not provide schema hint.
+      attr = getFindAttribute(key, schemas);
+    }
+  } else {
+    //Key does not provide schema hint.
+    attr = getFindAttribute(key, schemas);
+  }
+
+  if (attr.length > 1) {
+    itemInformational.push({
+      attribute: key, error: 'Ambiguous attribute name provided. It is found in multiple schemas [' + attr.map(item => {
+        return item.schema_name
+      }).join(', ') + ']. Import will map data to schemas as required based on record types.'
+    });
+  }
+
+  performValidationForAttr(attr, key, item, schemaNames, attributeMappings, itemErrors, itemWarnings);
+}
+
+
+function performValidationForAttr(attr: any, key: string, item: any, schemaNames: string[],
+                                  attributeMappings: any[], itemErrors: any[], itemWarnings: any[]) {
+  for (const foundAttr of attr) {
+    foundAttr['import_raw_header'] = key;
+
+    let filterMappings = attributeMappings.filter(item =>
+      item['import_raw_header'] === key ? (item['schema_name'] === foundAttr.schema_name) : false
+    );
+
+    if (filterMappings.length === 0) {
+      attributeMappings.push(foundAttr);
+    }
+
+    //Add schema names to list for quick lookup later.
+    if (foundAttr.attribute && !schemaNames.includes(foundAttr.schema_name)) {
+      schemaNames.push(foundAttr.schema_name);
+    }
+
+    const msgError = performValueValidation(foundAttr, item[key])
+    if (msgError) {
+      if (msgError.type === 'error') {
+        itemErrors.push({attribute: key, error: msgError.message});
+      } else if (msgError.type === 'warning') {
+        itemWarnings.push({attribute: key, error: msgError.message});
+      }
+    }
+  }
+}
+
+
+function updateSummaryForRecordKeyValue(dataJson: any,
+                                        schemaAttributes: any[],
+                                        keyAttribute: any,
+                                        importedRecordKeyValue: any,
+                                        {schemaName, schemas}: {schemaName: string; schemas: Record<string, EntitySchema>},
+                                        dataAll: Record<string, any>,
+                                        result: {
+                                          attributeMappings: any[];
+                                          entities: Record<string, any>;
+                                          hasUpdates: boolean
+                                        }) {
+  let itemOrMismatch = isMismatchedItem(dataJson.data, schemaAttributes, keyAttribute.import_raw_header, importedRecordKeyValue.toLowerCase());
+  if (itemOrMismatch !== null) {
+    let importRow = dataJson.data.find((importItem: {
+      [x: string]: string;
+    }) => isValidKeyValue(importItem, keyAttribute, importedRecordKeyValue))
+
+    let importRecord: Record<string, any> = {};
+    importRecord[keyAttribute.attribute.name] = importedRecordKeyValue;
+
+    for (const attr of schemaAttributes) {
+      addImportRowValuesToImportSummaryRecord(schemaName, attr, importRow, importRecord, dataAll)
+    }
+
+    if (dataAll[schemaName].data.some((dataItem: {
+      [x: string]: string;
+    }) => dataItem[keyAttribute.attribute.name].toLowerCase() === importedRecordKeyValue.toLowerCase())) {
+      addImportedRecordExistingToSummary({
+        schema: schemas[schemaName],
+        schemaName: schemaName
+      }, keyAttribute, importedRecordKeyValue, importRecord, result, importRow, dataAll);
+    } else {
+      addImportedRecordCreateToSummary(schemas[schemaName], schemaName, keyAttribute, importedRecordKeyValue, importRecord, result, importRow);
+    }
+  } else {
+    //Not an issue as validation errors would have been recorded.
+  }
+}
+
+function updateSummaryForSchema(distinct: Record<string, any>,
+                                {schemaName, schemas}: {schemaName: string; schemas: Record<string, EntitySchema>},
+                                dataJson: any,
+                                schemaAttributes: any[],
+                                keyAttribute: any,
+                                dataAll: Record<string, any>,
+                                result: {
+                                  attributeMappings: any[];
+                                  entities: Record<string, any>;
+                                  hasUpdates: boolean
+                                }) {
+  for (const importedRecordKeyValue of distinct[schemaName]) {
+
+    if (importedRecordKeyValue === undefined) {
+      continue
+    }
+
+    if (importedRecordKeyValue.toLowerCase() !== '') { //Verify that the key has a value, if not ignore.
+      updateSummaryForRecordKeyValue(dataJson, schemaAttributes, keyAttribute, importedRecordKeyValue, {schemaName, schemas}, dataAll, result);
+    }
+  }
+}
 
 export function getSummary(
   schemas: Record<string, EntitySchema>,
@@ -370,36 +478,7 @@ export function getSummary(
           return attr;
         }
       });
-
-      for (const importedRecordKeyValue of distinct[schemaName]) {
-
-        if (importedRecordKeyValue === undefined) {
-          continue
-        }
-
-        if (importedRecordKeyValue.toLowerCase() !== '') { //Verify that the key has a value, if not ignore.
-
-          let itemOrMismatch = isMismatchedItem(dataJson.data, schemaAttributes, keyAttribute.import_raw_header, importedRecordKeyValue.toLowerCase());
-          if (itemOrMismatch !== null) {
-            let importRow = dataJson.data.find((importItem: { [x: string]: string; }) => isValidKeyValue(importItem, keyAttribute, importedRecordKeyValue))
-
-            let importRecord: Record<string, any> = {};
-            importRecord[keyAttribute.attribute.name] = importedRecordKeyValue;
-
-            for (const attr of schemaAttributes) {
-              addImportRowValuesToImportSummaryRecord(schemaName, attr, importRow, importRecord, dataAll)
-            }
-
-            if (dataAll[schemaName].data.some((dataItem: { [x: string]: string; }) => dataItem[keyAttribute.attribute.name].toLowerCase() === importedRecordKeyValue.toLowerCase())) {
-              addImportedRecordExistingToSummary(schemas[schemaName], schemaName, keyAttribute, importedRecordKeyValue, importRecord, result, importRow, dataAll);
-            } else {
-              addImportedRecordCreateToSummary(schemas[schemaName], schemaName, keyAttribute, importedRecordKeyValue, importRecord, result, importRow);
-            }
-          } else {
-            //Not an issue as validation errors would have been recorded.
-          }
-        }
-      }
+      updateSummaryForSchema(distinct, {schemaName, schemas}, dataJson, schemaAttributes, keyAttribute, dataAll, result);
     }
   }
 
@@ -407,6 +486,33 @@ export function getSummary(
   result.attributeMappings = dataJson.attributeMappings;
 
   return result;
+}
+
+function findMismatchInArray(arrayItems: any[], checkAttributes: any[], ) {
+  let misMatchFound = false;
+  let finalItem = arrayItems[0]; //set to first element as if not mismatched we with return this record.
+  for (const attr of checkAttributes) {
+    //For each attribute in this import for the same schema check that it is consistent.
+    let distinctValue = [...new Set(arrayItems.map(x => {
+      if (attr.attribute.type === 'relationship') {
+        return x[attr.attribute.rel_display_attribute]
+      } else {
+        return x[attr.attribute.name]
+      }
+    }))];
+
+    if (distinctValue.length > 1) {
+      //Problem found, update validation for all items with this item value.
+      for (let itemValue in arrayItems) {
+        arrayItems[itemValue].__validation.errors.push({
+          attribute: attr.attribute.name,
+          error: attr.attribute.description + " cannot be different for the same " + attr.schema_name + "."
+        })
+        misMatchFound = true;
+      }
+    }
+  }
+  return {finalItem, misMatchFound};
 }
 
 export function isMismatchedItem(
@@ -432,25 +538,9 @@ export function isMismatchedItem(
 
   if (arrayItems.length > 1) {
     //Multiple entries for same item, need to check that attribute values are the same for all.
-    finalItem = arrayItems[0]; //set to first element as if not mismatched we with return this record.
-    for (const attr of checkAttributes) {
-      //For each attribute in this import for the same schema check that it is consistent.
-      let distinctValue = [...new Set(arrayItems.map(x => {
-        if (attr.attribute.type === 'relationship') {
-          return x[attr.attribute.rel_display_attribute]
-        } else {
-          return x[attr.attribute.name]
-        }
-      }))];
-
-      if (distinctValue.length > 1) {
-        //Problem found, update validation for all items with this item value.
-        for (let itemValue in arrayItems) {
-          arrayItems[itemValue].__validation.errors.push({attribute: attr.attribute.name, error: attr.attribute.description + " cannot be different for the same " + attr.schema_name + "."})
-          misMatchFound = true;
-        }
-      }
-    }
+    const __ret = findMismatchInArray( arrayItems, checkAttributes);
+    finalItem = __ret.finalItem;
+    misMatchFound = __ret.misMatchFound;
 
   } else {
     //Only a single entry with this item no need to check.
@@ -563,16 +653,54 @@ export function addImportRowValuesToImportSummaryRecord(
 }
 
 
+function addImportedRecordExistingToSummaryChangedItems( {item, item_id, item_name}: {item: any; item_id: number; item_name: any},
+                                                        changesItem: Record<string, any>,
+                                                        {schema, schemaName, tempSchemaName}: {schema: EntitySchema; schemaName: string, tempSchemaName: string},
+                                                        changesItemWithCalc: Record<string, any>,
+                                                        summaryResults: Record<string, any>,
+                                                        importDataRow: {
+                                                          [p: string]: { [p: string]: { attribute: string; error: string }[] }
+                                                        }) {
+  //Create a temporary item that has all updates and validate.
+  let newItem = Object.assign({}, item);
+
+  //Update temp object with changes.
+  const keys = Object.keys(changesItem);
+  for (let key of keys) {
+    newItem[key] = changesItem[key];
+  }
+  let check = checkValidItemCreate(newItem, schema)
+
+  //Add appid to item.
+  if (check === null) {
+    changesItemWithCalc[tempSchemaName + '_id'] = item_id;
+    if (!changesItemWithCalc?.hasOwnProperty(tempSchemaName + '_name')) {
+      changesItemWithCalc[tempSchemaName + '_name'] = item_name;
+    }
+    summaryResults.entities[schemaName].Update.push(changesItemWithCalc);
+    summaryResults.hasUpdates = true;
+  } else {
+    //Errors found on requirements check, log errors against data row.
+
+    for (const error of check) {
+      importDataRow['__validation']['errors'].push({
+        attribute: error.name,
+        error: "Missing required " + schemaName + " attribute: " + error.name
+      });
+    }
+  }
+}
+
 function addImportedRecordExistingToSummary(
-  schema: EntitySchema,
-  schemaName: string,
-  keyAttribute: { attribute: { name: string | number; }; },
+  schemaRec: {schema: EntitySchema, schemaName: string},
+  keyAttribute: { attribute: { name: string; }; },
   keyAttributeValue: string,
   importedRecord: {},
   summaryResults: Record<string, any>,
   importDataRow: { [x: string]: { [x: string]: { attribute: string; error: string; }[]; }; },
   dataAll: Record<string, any>,
 ) {
+  const {schema, schemaName} = schemaRec;
   const tempSchemaName = schemaName === 'application' ? 'app' : schemaName;
 
   let item_id = -1;
@@ -595,34 +723,7 @@ function addImportedRecordExistingToSummary(
   let changesItem = getChanges(importedRecord, dataAll[schemaName].data, keyAttribute.attribute.name, false);
 
   if (changesItem) {
-    //Create a temporary item that has all updates and validate.
-    let newItem = Object.assign({}, item);
-
-    //Update temp object with changes.
-    const keys = Object.keys(changesItem);
-    for (let key of keys) {
-      newItem[key] = changesItem[key];
-    }
-    let check = checkValidItemCreate(newItem, schema)
-
-    //Add appid to item.
-    if (check === null) {
-      changesItemWithCalc[tempSchemaName + '_id'] = item_id;
-      if (!changesItemWithCalc?.hasOwnProperty(tempSchemaName + '_name')) {
-        changesItemWithCalc[tempSchemaName + '_name'] = item_name;
-      }
-      summaryResults.entities[schemaName].Update.push(changesItemWithCalc);
-      summaryResults.hasUpdates = true;
-    } else {
-      //Errors found on requirements check, log errors against data row.
-
-      for (const error of check) {
-        importDataRow['__validation']['errors'].push({
-          attribute: error.name,
-          error: "Missing required " + schemaName + " attribute: " + error.name
-        });
-      }
-    }
+    addImportedRecordExistingToSummaryChangedItems({item, item_id, item_name}, changesItem, {schema, schemaName, tempSchemaName}, changesItemWithCalc, summaryResults, importDataRow);
   } else {
     let noChangeItem: Record<string, any> = {};
     noChangeItem[tempSchemaName + '_name'] = item_name
@@ -631,36 +732,99 @@ function addImportedRecordExistingToSummary(
 }
 
 
+function getInvalidAttrsPerAttr(attr: Attribute | (Attribute & { conditions: unknown }), item: any) {
+  const invalidAttributes: any[] = [];
+  if (attr.required) {
+    //Attribute is required.
+    if (attr.name in item) {
+      if (!(item[attr.name] !== '' && item[attr.name] !== undefined && item[attr.name] !== null)) {
+        invalidAttributes.push(attr);
+      }
+    } else {
+      //key not in item, missing required attribute.
+      invalidAttributes.push(attr);
+    }
+  } else if ('conditions' in attr) {
+    if (checkAttributeRequiredConditions(item, attr.conditions).required) {
+      if (!(item[attr.name] !== '' && item[attr.name] !== undefined && item[attr.name] !== null)) {
+        invalidAttributes.push(attr);
+      }
+    }
+  }
+  return invalidAttributes;
+}
+
 //Function checks the item passed has valid data as per the schema requirements.
 function checkValidItemCreate(item: any, schema: EntitySchema) {
   const requiredAttributes = getRequiredAttributes(schema, true);
 
-  let invalidAttributes = [];
+  const invalidAttributes: any[] = [];
 
   for (const attr of requiredAttributes) {
-    if (attr.required) {
-      //Attribute is required.
-      if (attr.name in item) {
-        if (!(item[attr.name] !== '' && item[attr.name] !== undefined && item[attr.name] !== null)) {
-          invalidAttributes.push(attr);
-        }
-      } else {
-        //key not in item, missing required attribute.
-        invalidAttributes.push(attr);
-      }
-    } else if ('conditions' in attr) {
-      if (checkAttributeRequiredConditions(item, attr.conditions).required) {
-        if (!(item[attr.name] !== '' && item[attr.name] !== undefined && item[attr.name] !== null)) {
-          invalidAttributes.push(attr);
-        }
-      }
-    }
+    invalidAttributes.push(...(getInvalidAttrsPerAttr(attr, item)));
   }
 
   if (invalidAttributes.length > 0) {
     return invalidAttributes
   } else {
     return null;
+  }
+}
+
+function extractRelatedItem(dataAll: Record<string, any>,
+                            importedAttribute: {
+                              import_raw_header: string;
+                              attribute: any
+                            },
+                            importRow: { [p: string]: any; hasOwnProperty?: (arg0: any) => any }) {
+  return dataAll[importedAttribute.attribute.rel_entity].data.find((item: { [x: string]: string; }) => {
+        if (item[importedAttribute.attribute.rel_display_attribute] && importRow[importedAttribute.import_raw_header]) {
+          if (item[importedAttribute.attribute.rel_display_attribute].toLowerCase() === importRow[importedAttribute.import_raw_header].toLowerCase()) {
+            return true;
+          }
+        }
+      }
+  );
+}
+
+function addRelationshipValueToImportSummaryRecordTypeName(importedAttribute: { import_raw_header: string; attribute: any },
+                                                           importRow: {
+                                                              [p: string]: any;
+                                                              hasOwnProperty?: (arg0: any) => any
+                                                            },
+                                                           importSummaryRecord: { [p: string]: any },
+                                                           dataAll: Record<string, any>) {
+  if (importedAttribute.attribute.listMultiSelect && importRow[importedAttribute.import_raw_header]) {
+    extractRelationshipList(importRow[importedAttribute.import_raw_header], importedAttribute, importSummaryRecord, dataAll)
+  } else {
+    //Not a multiselect relational value.
+    const relatedItem = extractRelatedItem(dataAll, importedAttribute, importRow);
+    if (relatedItem) {
+      importSummaryRecord[importedAttribute.attribute.name] = relatedItem[importedAttribute.attribute.rel_key];
+    } else {
+      if (importRow[importedAttribute.import_raw_header] !== '' && importRow[importedAttribute.import_raw_header] !== undefined) {
+        //Item name does not exist, so will be created if provided. Setting ID to 'tbc', once the related
+        // record is created then this will be updated in the commit with the new records' ID.
+        importSummaryRecord[importedAttribute.attribute.name] = 'tbc'
+        importSummaryRecord['__' + importedAttribute.attribute.name] = importRow[importedAttribute.import_raw_header];
+      }
+    }
+  }
+}
+
+function addRelationshipValueToImportSummaryRecordTypeId(importRow: { [p: string]: any; hasOwnProperty?: (arg0: any) => any },
+                                                         importedAttribute: {
+                                                            import_raw_header: string;
+                                                            attribute: any
+                                                          },
+                                                         importSummaryRecord: { [p: string]: any }) {
+  if (importRow[importedAttribute.import_raw_header] !== '' && importRow[importedAttribute.import_raw_header] !== undefined) {
+    //ID is being provided instead of display value.
+    if (importedAttribute.attribute.listMultiSelect) {
+      importSummaryRecord[importedAttribute.attribute.name] = importRow[importedAttribute.import_raw_header].split(";");
+    } else {
+      importSummaryRecord[importedAttribute.attribute.name] = importRow[importedAttribute.import_raw_header];
+    }
   }
 }
 
@@ -675,40 +839,10 @@ export function addRelationshipValueToImportSummaryRecord(
 
   if (relationshipValueType === 'name') {
     //relationship value is a name not ID, perform search to see if this item exists.
-    if (importedAttribute.attribute.listMultiSelect && importRow[importedAttribute.import_raw_header]) {
-      extractRelationshipList(importRow[importedAttribute.import_raw_header], importedAttribute, importSummaryRecord, dataAll)
-    } else {
-      //Not a multiselect relational value.
-      let relatedItem = dataAll[importedAttribute.attribute.rel_entity].data.find((item: { [x: string]: string; }) => {
-          if (item[importedAttribute.attribute.rel_display_attribute] && importRow[importedAttribute.import_raw_header]) {
-            if (item[importedAttribute.attribute.rel_display_attribute].toLowerCase() === importRow[importedAttribute.import_raw_header].toLowerCase()) {
-              return true;
-            }
-          }
-        }
-      )
-      if (relatedItem) {
-        importSummaryRecord[importedAttribute.attribute.name] = relatedItem[importedAttribute.attribute.rel_key];
-      } else {
-        if (importRow[importedAttribute.import_raw_header] !== '' && importRow[importedAttribute.import_raw_header] !== undefined) {
-          //Item name does not exist, so will be created if provided. Setting ID to 'tbc', once the related
-          // record is created then this will be updated in the commit with the new records' ID.
-          importSummaryRecord[importedAttribute.attribute.name] = 'tbc'
-          importSummaryRecord['__' + importedAttribute.attribute.name] = importRow[importedAttribute.import_raw_header];
-        }
-      }
-    }
+    addRelationshipValueToImportSummaryRecordTypeName(importedAttribute, importRow, importSummaryRecord, dataAll);
   } else if (relationshipValueType === 'id') {
     //related attribute display value not present in import, ID has been provided.
-
-    if (importRow[importedAttribute.import_raw_header] !== '' && importRow[importedAttribute.import_raw_header] !== undefined) {
-      //ID is being provided instead of display value.
-      if (importedAttribute.attribute.listMultiSelect) {
-        importSummaryRecord[importedAttribute.attribute.name] = importRow[importedAttribute.import_raw_header].split(";");
-      } else {
-        importSummaryRecord[importedAttribute.attribute.name] = importRow[importedAttribute.import_raw_header];
-      }
-    }
+    addRelationshipValueToImportSummaryRecordTypeId(importRow, importedAttribute, importSummaryRecord);
   } else {
     console.error('UNHANDLED: relationship type not found.')
   }
@@ -733,6 +867,39 @@ export function getRelationshipValueType(
   }
 }
 
+function extractValueIdAndDisplay(dataAll: Record<string, any>,
+                                  importedAttribute: {
+                                    attribute: {
+                                      rel_entity: string | number;
+                                      rel_display_attribute: string | number;
+                                      rel_key: string | number;
+                                      name: string
+                                    }
+                                  },
+                                  itemValue: string,
+                                  valuesID: any[],
+                                  valuesDisplay: any[],
+                                  importValueDelimitedStringList: string) {
+  let relatedItem = dataAll[importedAttribute.attribute.rel_entity].data.find((item: { [x: string]: string; }) => {
+        if (item[importedAttribute.attribute.rel_display_attribute] && itemValue) {
+          if (item[importedAttribute.attribute.rel_display_attribute].toLowerCase() === itemValue.toLowerCase()) {
+            return true;
+          }
+        }
+      }
+  )
+  if (relatedItem) {
+    valuesID.push(relatedItem[importedAttribute.attribute.rel_key]);
+    valuesDisplay.push(relatedItem[importedAttribute.attribute.rel_display_attribute]);
+  } else {
+    if (importValueDelimitedStringList !== '' && importValueDelimitedStringList !== undefined) {
+      //Item name does not exist so will be created if provided.
+      valuesID.push('tbc');
+      valuesDisplay.push(itemValue);
+    }
+  }
+}
+
 function extractRelationshipList(
   importValueDelimitedStringList: string | undefined,
   importedAttribute: { attribute: { rel_entity: string | number; rel_display_attribute: string | number; rel_key: string | number; name: string; }; },
@@ -745,29 +912,12 @@ function extractRelationshipList(
     return;
   }
   const valuesRaw = importValueDelimitedStringList.split(";");
-  let valuesID = [];
-  let valuesDisplay = [];
+  const valuesID: any[] = [];
+  const valuesDisplay: any[] = [];
 
   if (valuesRaw.length > 0) {
     for (const itemValue of valuesRaw) {
-      let relatedItem = dataAll[importedAttribute.attribute.rel_entity].data.find((item: { [x: string]: string; }) => {
-          if (item[importedAttribute.attribute.rel_display_attribute] && itemValue) {
-            if (item[importedAttribute.attribute.rel_display_attribute].toLowerCase() === itemValue.toLowerCase()) {
-              return true;
-            }
-          }
-        }
-      )
-      if (relatedItem) {
-        valuesID.push(relatedItem[importedAttribute.attribute.rel_key]);
-        valuesDisplay.push(relatedItem[importedAttribute.attribute.rel_display_attribute]);
-      } else {
-        if (importValueDelimitedStringList !== '' && importValueDelimitedStringList !== undefined) {
-          //Item name does not exist so will be created if provided.
-          valuesID.push('tbc');
-          valuesDisplay.push(itemValue);
-        }
-      }
+      extractValueIdAndDisplay(dataAll, importedAttribute, itemValue, valuesID, valuesDisplay, importValueDelimitedStringList);
     }
 
     importSummaryRecord[importedAttribute.attribute.name] = valuesID;
@@ -820,28 +970,26 @@ function addImportedRecordCreateToSummary(
 }
 
 
-export function getAllAttributes(schemas: Record<string, EntitySchema>) {
-  let required_attributes: Attribute[] = [];
+function filterOutHiddenAttributes(schemas: Record<string, EntitySchema>, schema_name: string) {
+  return schemas[schema_name].attributes.filter((attr: Attribute) => {
+    if (!attr.hidden) {
+      attr.schema = schemas[schema_name].schema_name === 'app' ? 'application' : schemas[schema_name].schema_name;
+      return attr;
+    }
+  });
+}
 
+export function getAllAttributes(schemas: Record<string, EntitySchema>) {
+  const all_attributes: Attribute[] = [];
   if (schemas) {
     for (const schema_name in schemas) {
       if (schemas[schema_name].schema_type === 'user') {
-        let req_attributes = schemas[schema_name].attributes.filter((attr: Attribute) => {
-          if (!attr.hidden) {
-            attr.schema = schemas[schema_name].schema_name === 'app' ? 'application' : schemas[schema_name].schema_name;
-            return attr;
-          }
-        });
-
-        if (req_attributes.length > 0) {
-          required_attributes = required_attributes.concat(req_attributes);
-        }
+        let nonHiddenAttributes = filterOutHiddenAttributes(schemas, schema_name);
+        all_attributes.push(...nonHiddenAttributes);
       }
     }
   }
-
-  return required_attributes;
-
+  return all_attributes;
 }
 
 
@@ -893,6 +1041,33 @@ export function removeCalculatedKeyValues(item: { [x: string]: any; }) {
 }
 
 
+function updateRelatedMultiListAttr(item: any, attr: Attribute, newItem: Record<string, any>) {
+  if (item["__" + attr.name] && (!item[attr.name] || item[attr.name].includes('tbc'))) {
+    let relatedNamesIDs = item[attr.name];
+    let relatedNames = item["__" + attr.name];
+
+    //For each related name update the tbc values with new items ID.
+    for (let relNameIdx = 0; relNameIdx < relatedNamesIDs.length; relNameIdx++) {
+      if (relatedNamesIDs[relNameIdx] === 'tbc') {
+        //check if this is a record to update.
+        if (relatedNames[relNameIdx].toLowerCase() === newItem[attr.rel_display_attribute!].toLowerCase()) {
+          relatedNamesIDs[relNameIdx] = newItem[attr.rel_key!];
+        }
+      }
+    }
+    item[attr.name] = relatedNamesIDs;
+  }
+}
+
+function updateRelatedSelectAttr(item: any, attr: Attribute, newItem: Record<string, any>) {
+  if ((!item[attr.name] || item[attr.name] === 'tbc') && item["__" + attr.name]) {
+    if (item["__" + attr.name].toLowerCase() === newItem[attr.rel_display_attribute!].toLowerCase()) {
+      item[attr.rel_key!] = newItem[attr.rel_key!];
+      delete item["__" + attr.name];
+    }
+  }
+}
+
 export function updateRelatedItemAttributes(
   schemas: Record<string, EntitySchema>,
   newItem: Record<string, any> | null,
@@ -931,31 +1106,10 @@ export function updateRelatedItemAttributes(
     for (const attr of rel_attributes) {
       if (attr.listMultiSelect) {
         //Deal with multiple related items. This only currently supports names not IDs.
-        if (item["__" + attr.name] && (!item[attr.name] || item[attr.name].includes('tbc'))) {
-          let relatedNamesIDs = item[attr.name];
-          let relatedNames = item["__" + attr.name];
-
-          //For each related name update the tbc values with new items ID.
-          for (let relNameIdx = 0; relNameIdx < relatedNamesIDs.length; relNameIdx++) {
-            if (relatedNamesIDs[relNameIdx] === 'tbc') {
-              //check if this is a record to update.
-              if (relatedNames[relNameIdx].toLowerCase() === newItem[attr.rel_display_attribute!].toLowerCase()) {
-                relatedNamesIDs[relNameIdx] = newItem[attr.rel_key!];
-              }
-            }
-          }
-
-          item[attr.name] = relatedNamesIDs;
-
-        }
+        updateRelatedMultiListAttr(item, attr, newItem);
       } else {
         //Update single select items.
-        if ((!item[attr.name] || item[attr.name] === 'tbc') && item["__" + attr.name]) {
-          if (item["__" + attr.name].toLowerCase() === newItem[attr.rel_display_attribute!].toLowerCase()) {
-            item[attr.rel_key!] = newItem[attr.rel_key!];
-            delete item["__" + attr.name];
-          }
-        }
+        updateRelatedSelectAttr(item, attr, newItem);
       }
     }
   }

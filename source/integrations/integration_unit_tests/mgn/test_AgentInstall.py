@@ -4,7 +4,7 @@
 import io
 from unittest import TestCase, mock
 import importlib
-from moto import mock_sts, mock_secretsmanager
+from moto import mock_aws
 import boto3
 
 from mgn.test_mgn_common import mock_file_open
@@ -112,8 +112,7 @@ def set_up_secret_manager():
 
 
 @mock.patch.dict('os.environ', default_mock_os_environ)
-@mock_secretsmanager
-@mock_sts
+@mock_aws
 @mock.patch('builtins.open', new=mock_file_open)
 class AgentInstall(TestCase):
 
@@ -151,7 +150,7 @@ class AgentInstall(TestCase):
                 new=mock_return_valid_factory_login)
     @mock.patch("mfcommon.get_factory_servers",
                 new=mock_return_valid_populated_factory_servers)
-    @mock_sts
+    @mock_aws
     @mock.patch.object(agent_install_main, "get_unfiltered_mgn_source_servers",
                        new=mock_return_valid_mgn_source_servers)
     @mock.patch("subprocess.Popen")
@@ -180,7 +179,7 @@ class AgentInstall(TestCase):
                 new=mock_return_valid_factory_login)
     @mock.patch("mfcommon.get_factory_servers",
                 new=mock_return_valid_populated_factory_servers)
-    @mock_sts
+    @mock_aws
     @mock.patch.object(agent_install_main, "get_unfiltered_mgn_source_servers",
                        new=mock_return_invalid_mgn_source_servers)
     @mock.patch("subprocess.Popen")
@@ -209,7 +208,7 @@ class AgentInstall(TestCase):
                 new=mock_return_valid_factory_login)
     @mock.patch("mfcommon.get_factory_servers",
                 new=mock_return_valid_populated_factory_servers)
-    @mock_sts
+    @mock_aws
     @mock.patch.object(agent_install_main, "get_unfiltered_mgn_source_servers",
                        new=mock_return_valid_mgn_source_servers)
     @mock.patch("subprocess.Popen")
@@ -397,7 +396,7 @@ class AgentInstall(TestCase):
                 new=mock_return_valid_factory_login)
     @mock.patch("mfcommon.get_factory_servers",
                 new=mock_return_valid_populated_factory_servers)
-    @mock_sts
+    @mock_aws
     @mock.patch.object(agent_install_main, "get_unfiltered_mgn_source_servers",
                        new=mock_return_valid_mgn_source_servers)
     @mock.patch("subprocess.Popen")
@@ -427,8 +426,7 @@ class AgentInstall(TestCase):
 
         self.assertEqual(response, 0)
 
-    @mock_sts
-    @mock_secretsmanager
+    @mock_aws
     @mock.patch('builtins.open', new=mock_file_open)
     def test_get_agent_install_secrets_iam_user(self):
         logger.info("Testing Agent Install get agent install secrets: "

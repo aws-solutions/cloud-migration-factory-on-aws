@@ -6,7 +6,7 @@ import json
 from time import sleep
 from unittest import mock
 
-from moto import mock_dynamodb, mock_s3
+from moto import mock_aws
 from test_lambda_item_common import LambdaItemCommonTest, mock_item_check_valid_item_create_valid, \
     mock_item_check_valid_item_create_in_valid
 from test_common_utils import logger, default_mock_os_environ as mock_os_environ, \
@@ -27,8 +27,7 @@ def mock_get_relationship_data(attribute_names, attributes):
 
 
 @mock.patch.dict('os.environ', mock_os_environ)
-@mock_s3
-@mock_dynamodb
+@mock_aws
 class LambdaItemsTest(LambdaItemCommonTest):
 
     @mock.patch.dict('os.environ', mock_os_environ)

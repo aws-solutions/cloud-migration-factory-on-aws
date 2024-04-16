@@ -4,7 +4,7 @@ from unittest import TestCase, mock
 from pathlib import Path
 from botocore.exceptions import ClientError
 from boto3.session import Session
-from moto import mock_sts
+from moto import mock_aws
 
 def init():
     # This is to get around the relative path import issue.
@@ -18,7 +18,7 @@ def init():
 init()
 import lambda_mgn_utils
 
-@mock_sts
+@mock_aws
 class LambdaMgnUtilsTestCase(TestCase):
 
     def setUp(self):
@@ -170,3 +170,21 @@ class LambdaMgnUtilsTestCase(TestCase):
             aggregated_results.append(result)
 
         self.assertEqual([[1,6],[2,7],[3,8],[4,9],[5,10]], aggregated_results)
+
+    def test_obfuscate_account_id_valid_account_id(self):
+        account_id = "123456789012"
+        expected = "xxxxxxxxx012"
+        result = lambda_mgn_utils.obfuscate_account_id(account_id)
+        self.assertEqual(expected, result)
+
+    def test_obfuscate_account_id_empty_string(self):
+        account_id = ""
+        expected = ""
+        result = lambda_mgn_utils.obfuscate_account_id(account_id)
+        self.assertEqual(expected, result)
+
+    def test_obfuscate_account_id_non_string(self):
+        account_id = 12345
+        expected = 12345
+        result = lambda_mgn_utils.obfuscate_account_id(account_id)
+        self.assertEqual(expected, result)

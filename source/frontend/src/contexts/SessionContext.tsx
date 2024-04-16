@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-import {createContext, ReactNode, useEffect, useState} from "react";
+import {createContext, ReactNode, useEffect, useMemo, useState} from "react";
 import {Auth} from "@aws-amplify/auth";
 import {Hub, HubCapsule} from '@aws-amplify/core';
 import {CognitoUserSession} from "amazon-cognito-identity-js";
@@ -30,12 +30,7 @@ export const SessionContext = createContext<SessionState>(NO_SESSION);
 
 export const SessionContextProvider = ({children: app}: { children: ReactNode }) => {
 
-  const [sessionState, setSessionState] = useState<{
-    accessToken: string | null,
-    idToken: string | null,
-    userName: string | null,
-    userGroups: string[]
-  }>(NO_SESSION);
+  const [sessionState, setSessionState] = useState<SessionState>(NO_SESSION);
 
   useEffect(() => {
     const fetchSessionData = () => {
@@ -77,18 +72,22 @@ export const SessionContextProvider = ({children: app}: { children: ReactNode })
     };
   }, []);
 
+  const currentSessionState: SessionState = useMemo<SessionState>(() => {
+    return {
+      ...sessionState,
+      userName: sessionState.userName || 'User',
+    };
+  }, [sessionState]);
+
   // if no user is logged in, render the PreAuthApp instead of the children
   if (!sessionState.idToken) {
     return <PreAuthApp></PreAuthApp>
   }
 
+
   // only if a user is logged in, render the actual app and provide the session data as context
   return (
-    <SessionContext.Provider value={{
-      ...sessionState,
-      idToken: sessionState.idToken,
-      userName: sessionState.userName || 'User',
-    }}>
+    <SessionContext.Provider value={currentSessionState}>
       {app}
     </SessionContext.Provider>
   )

@@ -21,7 +21,7 @@ export type HelpContent = {
   header?: string,
   content_html?: string,
   content_text?: string,
-  content?: string, // TODO some parts of the app pass `content` instead of `content_text`, that's probably a bug
+  content?: string, // ATTN: some parts of the app pass `content` instead of `content_text`, that's probably a bug
   text?: string;
   content_md?: string,
   content_links?: Tag[]

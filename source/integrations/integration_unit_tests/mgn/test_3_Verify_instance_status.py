@@ -6,15 +6,14 @@ import copy
 import importlib
 import unittest
 from unittest.mock import patch
-from moto import mock_sts, mock_ec2
+from moto import mock_aws
 
 import mgn.test_mgn_common as test_mgn_common
 from mgn.test_mgn_common import mock_file_open, default_mock_os_environ, logger, servers_list, mock_boto_api_call, \
     StatusCodeUpdate, mock_factory_login, mock_sleep, mock_get_factory_servers, VALID_TOKEN, servers_list_no_fdqn
 
 
-@mock_ec2
-@mock_sts
+@mock_aws
 @patch('time.sleep', new=mock_sleep)
 @patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
 @patch('builtins.open', new=mock_file_open)

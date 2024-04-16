@@ -14,7 +14,7 @@ from unittest import mock
 from datetime import datetime
 
 import botocore
-from moto import mock_dynamodb
+from moto import mock_aws
 
 from test_lambda_ssm_base import LambdaSSMBaseTest
 import test_common_utils
@@ -26,11 +26,11 @@ mock_os_environ = {
 
 
 @mock.patch.dict('os.environ', mock_os_environ)
-@mock_dynamodb
+@mock_aws
 class LambdaSSMOutputTest(LambdaSSMBaseTest):
 
     @mock.patch.dict('os.environ', mock_os_environ)
-    @mock_dynamodb
+    @mock_aws
     def setUp(self) -> None:
         import lambda_ssm_output
         self.ddb_client = boto3.client('dynamodb')

@@ -9,7 +9,7 @@ from unittest import mock
 from unittest.mock import patch
 
 import boto3
-from moto import mock_cognitoidp
+from moto import mock_aws
 from test_lambda_login_common import mock_boto_api_call_success, \
     mock_boto_api_call_exception, mock_boto_api_call_exception_unexpected
 from test_common_utils import set_cors_flag, logger, default_mock_os_environ
@@ -111,7 +111,7 @@ class LambdaLoginTest(unittest.TestCase):
         )
         logger.debug(result)
 
-    @mock_cognitoidp
+    @mock_aws
     def test_lambda_login_with_password(self):
         import lambda_login
         self.create_cognito_user()

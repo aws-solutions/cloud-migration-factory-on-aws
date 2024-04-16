@@ -4,14 +4,13 @@
 
 from unittest import mock
 
-from moto import mock_dynamodb, mock_s3
+from moto import mock_aws
 
 from test_lambda_gfcommon import LambdaGFCommonTest, mock_getUserResourceCreationPolicy, default_mock_os_environ
 
 
 @mock.patch.dict('os.environ', default_mock_os_environ)
-@mock_dynamodb
-@mock_s3
+@mock_aws
 class LambdaGFValidationTest(LambdaGFCommonTest):
 
     @mock.patch.dict('os.environ', default_mock_os_environ)

@@ -11,7 +11,7 @@ from unittest.mock import patch, ANY
 import boto3
 from botocore.exceptions import ClientError
 
-from moto import mock_s3
+from moto import mock_aws
 from test_common_utils import LambdaContextLogStream, RequestsResponse, default_mock_os_environ
 
 
@@ -33,7 +33,7 @@ mock_os_environ = {
     'SOLUTION_VERSION': 'test_VERSION'
 }
 
-@mock_s3
+@mock_aws
 @mock.patch.dict('os.environ', mock_os_environ)
 class LambdaBuildTest(unittest.TestCase):
 

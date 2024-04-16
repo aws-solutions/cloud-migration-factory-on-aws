@@ -8,13 +8,13 @@ from datetime import datetime
 from datetime import timedelta
 from unittest import mock
 
-from moto import mock_dynamodb
+from moto import mock_aws
 
 from test_common_utils import default_mock_os_environ
 
 
 @mock.patch.dict('os.environ', default_mock_os_environ)
-@mock_dynamodb
+@mock_aws
 class LambdaSSMBaseTest(unittest.TestCase):
     def put_recent_job(self, table_obj, job_id, num_hours):
         current_time = datetime.utcnow()

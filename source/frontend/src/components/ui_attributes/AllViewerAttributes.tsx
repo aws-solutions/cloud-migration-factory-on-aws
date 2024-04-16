@@ -210,7 +210,7 @@ const AllViewerAttributes = ({dataAll, hideEmpty, item, schema: {attributes}, sc
   }
 
   function addEmbeddedEntityAttribute(attribute: Attribute) {
-    let currentLookupValue = getNestedValuePath(item, attribute.lookup)
+    let currentLookupValue = getNestedValuePath(item, attribute.lookup!)
     let embedded_value = getRelationshipValue(attribute, dataAll, currentLookupValue)
     const embedded_relatedSchema = attribute.rel_entity!;
 
@@ -357,6 +357,65 @@ const AllViewerAttributes = ({dataAll, hideEmpty, item, schema: {attributes}, sc
     }
   }
 
+  function getSingleRelationshipDisplayNonLoaded(value: { status: string; value: any; invalid: any[]; } | { status: string; value: any; },
+                                        attribute: Attribute,
+                                        actualValue: string) {
+    const nestedValuePath = getNestedValuePath(item, "__" + attribute.name);
+    const nestedValuePath1 = getNestedValuePath(item, attribute.name);
+    if (value.status === 'not found') {
+      if (actualValue === 'tbc' && nestedValuePath) {
+        return <TextAttribute
+          key={attribute.name}
+          label={attribute.description}
+          loading={false}
+        >{nestedValuePath ? `${nestedValuePath} [NEW]` : '-'}
+        </TextAttribute>
+      } else {
+        return <TextAttribute
+          key={attribute.name}
+          label={attribute.description}
+          loading={false}
+        >{
+          nestedValuePath1 ? `Not found: ${attribute.rel_entity}[${attribute.rel_key}]=${nestedValuePath1}` : '-'
+        }
+        </TextAttribute>
+      }
+    } else {
+      return <TextAttribute
+        key={attribute.name}
+        label={attribute.description}
+        loading={value.status === 'loading'}
+      >{nestedValuePath1 || '-'}
+      </TextAttribute>
+    }
+  }
+
+  function getSingleRelationshipDisplay(value: { status: string; value: any; invalid: any[]; } | { status: string; value: any; },
+                                        attribute: Attribute,
+                                        actualValue: string,
+                                        record: Record<string, any>,
+                                        relatedSchema: string) {
+    if (value.status === 'loaded' && value.value !== null) {
+      return <div key={attribute.name}>
+        <Box margin={{bottom: 'xxxs'}} color="text-label">
+          {attribute.description}
+        </Box>
+        <div>
+          <RelatedRecordPopover key={attribute.name}
+                                item={record}
+                                schema={schemas[relatedSchema]}
+                                schemas={schemas}
+                                dataAll={dataAll}
+          >
+            {value.value}
+          </RelatedRecordPopover>
+        </div>
+      </div>
+    } else {
+      return getSingleRelationshipDisplayNonLoaded(value, attribute, actualValue);
+    }
+  }
+
   function getSingleRelationshipDisplayValue(
     relatedSchema: string,
     attribute: Attribute,
@@ -365,60 +424,14 @@ const AllViewerAttributes = ({dataAll, hideEmpty, item, schema: {attributes}, sc
     record: Record<string, any>,
     displayEmpty: boolean) {
     if (value.value || displayEmpty) {
-      if (value.status === 'loaded' && value.value !== null) {
-        return <div key={attribute.name}>
-          <Box margin={{bottom: 'xxxs'}} color="text-label">
-            {attribute.description}
-          </Box>
-          <div>
-            <RelatedRecordPopover key={attribute.name}
-                                  item={record}
-                                  schema={schemas[relatedSchema]}
-                                  schemas={schemas}
-                                  dataAll={dataAll}
-            >
-              {value.value}
-            </RelatedRecordPopover>
-          </div>
-        </div>
-      } else {
-        const nestedValuePath = getNestedValuePath(item, "__" + attribute.name);
-        const nestedValuePath1 = getNestedValuePath(item, attribute.name);
-        if (value.status === 'not found') {
-          if (actualValue === 'tbc' && nestedValuePath) {
-            return <TextAttribute
-              key={attribute.name}
-              label={attribute.description}
-              loading={false}
-            >{nestedValuePath ? `${nestedValuePath} [NEW]` : '-'}
-            </TextAttribute>
-          } else {
-            return <TextAttribute
-              key={attribute.name}
-              label={attribute.description}
-              loading={false}
-            >{
-              nestedValuePath1 ? `Not found: ${attribute.rel_entity}[${attribute.rel_key}]=${nestedValuePath1}` : '-'
-            }
-            </TextAttribute>
-          }
-        } else {
-          return <TextAttribute
-            key={attribute.name}
-            label={attribute.description}
-            loading={value.status === 'loading'}
-          >{nestedValuePath1 || '-'}
-          </TextAttribute>
-        }
-      }
-
+        return getSingleRelationshipDisplay(value, attribute, actualValue, record, relatedSchema);
     } else {
-      return null
+      return null;
     }
   }
 
   let allAttributes: any[];
-  //TODO - finish this sort script to allow grouped attributes to be created together
+  //ATTN: - finish this sort script to allow grouped attributes to be created together
   let sortedSchemaAttributes =[...attributes].sort(function (a, b) {
     if (a.group && b.group) {
       return a.group > b.group ? 1 : -1;
@@ -429,7 +442,7 @@ const AllViewerAttributes = ({dataAll, hideEmpty, item, schema: {attributes}, sc
     }
   });
 
-  //TODO Add to state in future and possibly store in user profile.
+  //ATTN: Add to state in future and possibly store in user profile.
   let displayEmpty = !hideEmpty;
 
   allAttributes = sortedSchemaAttributes.map((attribute) => {

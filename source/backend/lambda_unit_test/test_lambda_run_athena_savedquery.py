@@ -8,7 +8,7 @@ from unittest import mock
 import time
 
 import boto3
-from moto import mock_athena
+from moto import mock_aws
 from test_common_utils import LambdaContextFnArn, test_account_id
 from test_common_utils import logger, default_mock_os_environ
 
@@ -21,7 +21,7 @@ mock_os_environ = {
 
 
 @mock.patch.dict('os.environ', mock_os_environ)
-@mock_athena
+@mock_aws
 class LambdaRunAthenaSavedQueryTest(unittest.TestCase):
 
     @mock.patch.dict('os.environ', mock_os_environ)

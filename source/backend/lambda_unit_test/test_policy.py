@@ -8,7 +8,7 @@ import json
 import boto3
 import time
 import jwt
-from moto import mock_dynamodb
+from moto import mock_aws
 from unittest import TestCase, mock
 from test_common_utils import default_mock_os_environ
 import test_common_utils
@@ -37,7 +37,7 @@ with open(os.path.dirname(os.path.realpath(__file__)) + '/sample_data/jwtRS256.k
     private_key = key_file.read()
 
 @mock.patch.dict('os.environ', mock_os_environ)
-@mock_dynamodb
+@mock_aws
 class PolicyTestCase(TestCase):
 
     @mock.patch.dict('os.environ', default_mock_os_environ)

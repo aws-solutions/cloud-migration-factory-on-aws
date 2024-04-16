@@ -8,6 +8,7 @@ import React, {useContext, useState} from 'react';
 import {
   Box,
   Button,
+  ButtonDropdownProps,
   Checkbox,
   CollectionPreferences,
   CollectionPreferencesProps,
@@ -33,13 +34,18 @@ import TableHeader from './TableHeader';
 import {filterCounter, headerCounter} from "../utils/table-utils";
 import {CancelableEventHandler, ClickDetail} from '@awsui/components-react/internal/events';
 import {EntitySchema} from '../models/EntitySchema';
-import {EntityAccess, UserAccess} from "../models/UserAccess";
+import {
+  defaultAllDeny,
+  EntityAccessRecord,
+  ActionDenyType,
+  UserAccess
+} from "../models/UserAccess";
 import {ClickEvent} from "../models/Events";
 import {ToolsContext} from "../contexts/ToolsContext";
 
 
 type ItemTableParams = {
-  actionItems?: any;
+  actionItems?: ButtonDropdownProps.ItemOrGroup[];
   actionsButtonDisabled?: any;
   dataAll: any;
   description?: any;
@@ -62,6 +68,7 @@ type ItemTableParams = {
   selectionType?: any;
   userAccess?: UserAccess;
 };
+
 const ItemTable = ({
                      actionItems,
                      actionsButtonDisabled,
@@ -166,41 +173,43 @@ const ItemTable = ({
   }
 
   function getEntityAccess() {
-    let disabledButtons: EntityAccess = {}
+    let disabledButtons: ActionDenyType = {};
     if (userAccess) {
       //access permissions provided.
       if (userAccess[schemaName]) {
-
-        if (userAccess[schemaName].create) {
-          if (!userAccess[schemaName].create) {
-            disabledButtons.add = true;
-          }
-        } else {
-          //user does not have this right defined, disable button.
-          disabledButtons.add = true;
-        }
-        if (userAccess[schemaName].update) {
-          if (!userAccess[schemaName].update) {
-            disabledButtons.edit = true;
-          }
-        } else {
-          //user does not have this right defined, disable button.
-          disabledButtons.edit = true;
-        }
-        if (userAccess[schemaName].delete) {
-          if (!userAccess[schemaName].delete) {
-            disabledButtons.delete = true;
-          }
-        } else {
-          //user does not have this right defined, disable button.
-          disabledButtons.delete = true;
-        }
+        disabledButtons = getEntityAccessForSchema(userAccess[schemaName]);
       } else {
-        //access permissions provided but schema not present so default to no buttons enabled.
+        disabledButtons = defaultAllDeny;
+      }
+    }
+    return disabledButtons;
+  }
+
+  function getEntityAccessForSchema(entityAccessRecord: EntityAccessRecord) {
+    let disabledButtons: ActionDenyType = {};
+    if (entityAccessRecord.create) {
+      if (!entityAccessRecord.create) {
         disabledButtons.add = true;
+      }
+    } else {
+      //user does not have this right defined, disable button.
+      disabledButtons.add = true;
+    }
+    if (entityAccessRecord.update) {
+      if (!entityAccessRecord.update) {
         disabledButtons.edit = true;
+      }
+    } else {
+      //user does not have this right defined, disable button.
+      disabledButtons.edit = true;
+    }
+    if (entityAccessRecord.delete) {
+      if (!entityAccessRecord.delete) {
         disabledButtons.delete = true;
       }
+    } else {
+      //user does not have this right defined, disable button.
+      disabledButtons.delete = true;
     }
     return disabledButtons;
   }
@@ -226,6 +235,29 @@ const ItemTable = ({
       return undefined;
     }
   }
+
+  function getCustomDaysFilterPref (customValue: any, setCustomValue: any) {
+    return(<Checkbox checked={customValue} onChange={({detail}) => setCustomValue(detail.checked)}>Display all jobs
+          [default is last 30 days]</Checkbox>)
+  }
+
+  const getTableHeader = () =>
+    (<TableHeader
+          title={schema.friendly_name ? schema.friendly_name + "s" : capitalize(schemaName + "s")}
+          description={description ? description : undefined}
+          selectedItems={selectedItems ? selectedItems : undefined}
+          counter={headerCounter(selectedItems ?? [], items)}
+          info={displayHelpInfoLink()}
+          handleActionSelection={handleAction ? handleAction : undefined}
+          actionsButtonDisabled={actionsButtonDisabled}
+          actionItems={actionItems ? actionItems : []}
+          handleRefreshClick={handleRefresh}
+          handleDeleteClick={handleDeleteItem ? handleDeleteItem : undefined}
+          handleEditClick={handleEditItem ? handleEditItem : undefined}
+          handleAddClick={handleAddItem ? handleAddItem : undefined}
+          handleDownload={handleDownloadItems ? handleDownloadItems : undefined}
+          disabledButtons={getEntityAccess()}
+        />)
 
   const onSelectionChange = handleSelectionChange ? ({detail}: any) => handleSelectionChange(detail.selectedItems) : undefined;
   return (
@@ -253,22 +285,7 @@ const ItemTable = ({
         </Box>
       }
       header={
-        <TableHeader
-          title={schema.friendly_name ? schema.friendly_name + "s" : capitalize(schemaName + "s")}
-          description={description ? description : undefined}
-          selectedItems={selectedItems ? selectedItems : undefined}
-          counter={headerCounter(selectedItems || [], items)}
-          info={displayHelpInfoLink()}
-          handleActionSelection={handleAction ? handleAction : undefined}
-          actionsButtonDisabled={actionsButtonDisabled}
-          actionItems={actionItems ? actionItems : []}
-          handleRefreshClick={handleRefresh}
-          handleDeleteClick={handleDeleteItem ? handleDeleteItem : undefined}
-          handleEditClick={handleEditItem ? handleEditItem : undefined}
-          handleAddClick={handleAddItem ? handleAddItem : undefined}
-          handleDownload={handleDownloadItems ? handleDownloadItems : undefined}
-          disabledButtons={getEntityAccess()}
-        />
+        getTableHeader()
       }
       preferences={
         <CollectionPreferences
@@ -278,9 +295,7 @@ const ItemTable = ({
           preferences={preferences}
           onConfirm={({detail}) => handleConfirmPreferences(detail)}
           customPreference={handleDaysFilterChange ?
-            (customValue, setCustomValue) => (
-              <Checkbox checked={customValue} onChange={({detail}) => setCustomValue(detail.checked)}>Display all jobs
-                [default is last 30 days]</Checkbox>)
+            getCustomDaysFilterPref
             : undefined
           }
           pageSizePreference={{

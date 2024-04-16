@@ -123,6 +123,7 @@ def add_target_account(target_aws_accounts, target_aws_account):
     if target_aws_account not in target_aws_accounts:
         target_aws_accounts.append(target_aws_account)
 
+
 def get_valid_account(app, account_id, aws_accounts, app_ids):
     target_account = {
         'aws_accountid': str(app['aws_accountid']).strip(),
@@ -137,12 +138,13 @@ def get_valid_account(app, account_id, aws_accounts, app_ids):
         # account will be added to the list. If app_ids is used,
         # AWS account Id of that specific app will be added to the list
         if account_id != '' and \
-            str(app['aws_accountid']).strip() == str(account_id).strip():
-                add_target_account(aws_accounts, target_account)
+                str(app['aws_accountid']).strip() == str(account_id).strip():
+            add_target_account(aws_accounts, target_account)
         elif len(app_ids) > 0 and app['app_id'] in app_ids:
-                add_target_account(aws_accounts, target_account)
+            add_target_account(aws_accounts, target_account)
 
     return aws_accounts
+
 
 def get_target_aws_accounts(wave_id, apps, account_id, app_ids):
     aws_accounts = []
@@ -227,8 +229,9 @@ def add_rehost_servers_to_target_account(target_account, servers, app_id):
             target_account['servers'].append(server)
 
 
-def get_servers(target_aws_accounts, filtered_apps, 
-               waveid, servers, errors):
+def get_servers(target_aws_accounts, filtered_apps,
+                waveid, servers):
+    errors = []
     for account in target_aws_accounts:
         for app in filtered_apps:
             if is_valid_app(app) and str(app['wave_id']) == str(waveid):
@@ -236,8 +239,8 @@ def get_servers(target_aws_accounts, filtered_apps,
                     add_rehost_servers_to_target_account(account, servers, app['app_id'])
         if len(account['servers']) == 0:
             msg = (f"WARNING: Server list for wave id {waveid} and account: {account['aws_accountid']} "
-                    f"region: {account['aws_region']} is empty, "
-                    f"no servers with a 'Rehost' Migration Strategy found.")
+                   f"region: {account['aws_region']} is empty, "
+                   f"no servers with a 'Rehost' Migration Strategy found.")
             log.error(msg)
             errors.append(msg)
 
@@ -261,23 +264,28 @@ def get_factory_servers(waveid, accountid, appidlist):
         # Get Unique target AWS account and region
         target_aws_accounts, target_aws_accounts_errors = get_target_aws_accounts(waveid, apps, accountid, appidlist)
         if target_aws_accounts_errors:
+            errors.extend(target_aws_accounts_errors)
             return [], errors
 
         # Get App list
         filtered_apps = filter_applications(apps, appidlist)
 
         # Get server list
-        target_aws_accounts, errors = get_servers(
-            target_aws_accounts, filtered_apps, 
-               waveid, servers, errors)
+        target_aws_accounts, get_servers_errors = get_servers(
+            target_aws_accounts, filtered_apps,
+            waveid, servers)
+
+        errors.extend(get_servers_errors)
 
         return target_aws_accounts, errors
     except botocore.exceptions.ClientError as error:
         msg = handle_client_error(error)
-        return msg
+        errors.append(msg)
+        return [], errors
 
 
 def handle_client_error(error):
+    log.error(error)
     if ":" in str(error):
         err = ''
         msgs = str(error).split(":")[1:]
@@ -315,7 +323,7 @@ def is_cmf_server_match_for_mgn_hostname(mgn_source_server, cmf_server):
     mgn_server_fqdn = clean_value(mgn_source_server['sourceProperties']['identificationHints']['fqdn'])
 
     if cmf_server_name == mgn_server_hostname or cmf_server_name == mgn_server_fqdn \
-        or cmf_server_fqdn == mgn_server_hostname or cmf_server_fqdn == mgn_server_fqdn:
+            or cmf_server_fqdn == mgn_server_hostname or cmf_server_fqdn == mgn_server_fqdn:
         return True
 
     return False
@@ -357,15 +365,15 @@ def verify_account_server(account, mgn_sourceservers, processes, errors,
                     source_server_ids, target_account_creds,
                     account, mgn_source_server_launch_template_ids,
                     processes)
-            
+
             errors = validate_server_exist_and_archived(
                 is_server_exist, is_mgn_server_archived,
                 factoryserver, account, errors)
-            
+
             errors = validate_mgn_server_archived(
                 is_mgn_server_archived,
                 factoryserver, account, errors)
-    
+
     return msg, account, source_server_ids
 
 
@@ -394,9 +402,9 @@ def verify_server(mgn_sourceservers, factoryserver,
                 p = multiprocessing.Process(
                     target=get_mgn_launch_template_id,
                     args=(target_account_creds,
-                            account['aws_region'],
-                            factoryserver,
-                            mgn_source_server_launch_template_ids)
+                          account['aws_region'],
+                          factoryserver,
+                          mgn_source_server_launch_template_ids)
                 )
                 processes.append(p)
                 p.start()
@@ -409,8 +417,8 @@ def validate_server_exist_and_archived(is_server_exist, is_mgn_server_archived,
                                        factoryserver, account, errors):
     if not is_server_exist and not is_mgn_server_archived:
         msg = f"ERROR: Server: {factoryserver['server_name']} does not exist in " \
-                f"Application Migration Service (Account: {account['aws_accountid']}, Region: " \
-                f"{account['aws_region']}). Please install the MGN agent."
+              f"Application Migration Service (Account: {account['aws_accountid']}, Region: " \
+              f"{account['aws_region']}). Please install the MGN agent."
         log.error(msg)
         errors.append(msg)
 
@@ -418,11 +426,11 @@ def validate_server_exist_and_archived(is_server_exist, is_mgn_server_archived,
 
 
 def validate_mgn_server_archived(is_mgn_server_archived,
-                                factoryserver, account, errors):
+                                 factoryserver, account, errors):
     if is_mgn_server_archived:
         msg = f"ERROR: Server: {factoryserver['server_name']} ({factoryserver['source_server_id']})" + \
-                f" is archived in Application Migration Service (Account: {account['aws_accountid']}, " \
-                f"Region: {account['aws_region']}). Please reinstall the MGN agent."
+              f" is archived in Application Migration Service (Account: {account['aws_accountid']}, " \
+              f"Region: {account['aws_region']}). Please reinstall the MGN agent."
         log.error(msg)
         errors.append(msg)
 
@@ -432,25 +440,34 @@ def validate_mgn_server_archived(is_mgn_server_archived,
 def verify_target_account_servers(serverlist):
     # Check each AWS account and region one by one
     verified_servers = serverlist
+    processes = []
+    errors = []
     try:
         # Enable multithreading
-        processes = []
-        errors = []
         manager = multiprocessing.Manager()
         mgn_source_server_launch_template_ids = manager.dict()
         for account in verified_servers:
             source_server_ids = []
-            target_account_creds = lambda_mgn_utils.assume_role(str(account['aws_accountid']), str(account['aws_region']))
-            target_account_session = lambda_mgn_utils.get_session(target_account_creds, account['aws_region'])
+            log.info(f"Establishing session with AWS account "
+                     f"{lambda_mgn_utils.obfuscate_account_id(account['aws_accountid'])} in {str(account['aws_region'])}")
+            target_account_creds = lambda_mgn_utils.assume_role(
+                account_id=str(account['aws_accountid']),
+                region=str(account['aws_region'])
+            )
+            # has session returned an error.
+            if 'ERROR' in target_account_creds:
+                errors.append(f"Account: {str(account['aws_accountid'])}, region {str(account['aws_region'])}. {str(target_account_creds['ERROR'])}")
+                continue
+            target_account_session = lambda_mgn_utils.get_session(target_account_creds,
+                                                                  str(account['aws_region']))
             mgn_client_base = target_account_session.client("mgn", account['aws_region'])
             mgn_sourceservers = get_mgn_source_servers(mgn_client_base)
-            log.info("Account: " + account['aws_accountid'] + ", Region: " + account['aws_region'])
 
             msg, account, source_server_ids = verify_account_server(
                 account, mgn_sourceservers, processes, errors,
                 source_server_ids, target_account_creds,
                 mgn_source_server_launch_template_ids)
-            
+
             if msg != "":
                 return msg
 
@@ -465,7 +482,12 @@ def verify_target_account_servers(serverlist):
         return verified_servers, errors
     except botocore.exceptions.ClientError as error:
         msg = handle_client_error(error)
-        return msg
+        # prepend account and region to the error message if defined.
+        if 'account' in locals():
+            msg = f"Account: {str(account['aws_accountid'])}, region {str(account['aws_region'])}. {msg}"
+
+        errors.append(msg)
+        return verified_servers, errors
 
 
 def get_mgn_launch_template_id(creds, region, factoryserver, mgn_source_server_launch_template_ids):
@@ -534,7 +556,7 @@ def validate_input_parameters(body):
 
 
 def get_status_response(status_code, body, headers):
-    return {'headers': headers,    
+    return {'headers': headers,
             'statusCode': status_code,
             'body': json.dumps(body)}
 
@@ -550,8 +572,8 @@ def get_server_list(body):
 
     cmf_servers, errors = get_factory_servers(
         body['waveid'], account_id, app_ids)
-    if cmf_servers is not None and 'ERROR' in cmf_servers:
-        log.error(str(cmf_servers))
+    if errors:
+        log.error(errors)
         status_response = get_status_response(
             400, errors, {**default_http_headers})
         return cmf_servers, status_response

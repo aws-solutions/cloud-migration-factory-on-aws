@@ -9,7 +9,7 @@ from unittest import mock
 from unittest.mock import patch, ANY
 
 import boto3
-from moto import mock_dynamodb
+from moto import mock_aws
 
 import test_common_utils
 from test_common_utils import LambdaContextLogStream, RequestsResponse, SerializedDictMatcher, default_mock_os_environ
@@ -22,7 +22,7 @@ mock_os_environ = {
 
 
 @mock.patch.dict('os.environ', mock_os_environ)
-@mock_dynamodb
+@mock_aws
 class LambdaReplatformEc2SchemaTest(unittest.TestCase):
 
     @mock.patch.dict('os.environ', mock_os_environ)

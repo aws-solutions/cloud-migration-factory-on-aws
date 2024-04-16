@@ -1038,7 +1038,7 @@ Resources:
     DependsOn: LambdaFunctionSSMScripts
     Properties:
       ServiceToken: !GetAtt 'LambdaFunctionSSMLoadScripts.Arn'
-      Test: 'change5'
+      Test: '%%VERSION%%'
 
   # RunCMFAutomationPackageSSMDocuments Log Group
   RunCMFAutomationPackageSSMDocumentLogGroup:

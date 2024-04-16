@@ -5,7 +5,7 @@
 import logging
 import os
 import boto3
-from moto import mock_dynamodb
+from moto import mock_aws
 from unittest import TestCase, mock
 
 # # This is to get around the relative path import issue.
@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 @mock.patch.dict(os.environ, {'AWS_DEFAULT_REGION': 'us-east-1','region':'us-east-1', 'application': 'cmf', 'environment': 'unittest'})
 
 
-@mock_dynamodb
+@mock_aws
 class ItemValidationTestCase(TestCase):
     def setUp(self):
         # Setup dynamoDB tables and put items required for test cases

@@ -45,11 +45,30 @@ export function exportAll(
   console.log("All data exported.")
 }
 
+const truncateLargeText = (item: any, key: string) => {
+  const truncate_to : number = 1000;
+  const excel_limit_chars : number = 32767;
+
+  if (item[key] != null && typeof item[key] === 'string') {
+    // If the text is longer than excel supports truncate it.
+    if (item[key].length > excel_limit_chars) {
+      //Truncate long strings
+      let over_chars : number = item[key].length - truncate_to
+
+      let message_over : string = "[" + over_chars + " characters truncated, first " + truncate_to + " provided]"
+
+      item[key + "[truncated - Excel max chars " + excel_limit_chars + "]"] = message_over + item[key].substring(0, truncate_to);
+      delete item[key]
+    }
+  }
+}
+
 const preprocessItems = (item: any) => {
   for (let key in item) {
     if (key.startsWith('__')) {
       //Remove system computed keys.
       delete item[key]
+      continue
     }
 
     if (Array.isArray(item[key])) {
@@ -65,6 +84,8 @@ const preprocessItems = (item: any) => {
       // Object in field, convert to string
       item[key] = JSON.stringify(item[key]);
     }
+
+    truncateLargeText(item, key);
 
   }
   return item;

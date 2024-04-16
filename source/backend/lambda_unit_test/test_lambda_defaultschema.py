@@ -10,7 +10,7 @@ from unittest.mock import patch, ANY
 import json
 
 import boto3
-from moto import mock_dynamodb
+from moto import mock_aws
 
 import test_common_utils
 from test_common_utils import LambdaContextLogStream, RequestsResponse, SerializedDictMatcher, logger, \
@@ -25,7 +25,7 @@ mock_os_environ = {
 
 
 @mock.patch.dict('os.environ', mock_os_environ)
-@mock_dynamodb
+@mock_aws
 class LambdaDefaultSchemaTest(unittest.TestCase):
 
     @classmethod
@@ -181,8 +181,7 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         mock_requests.put.return_value = RequestsResponse(200)
         response = lambda_defaultschema.lambda_handler(self.event_create, self.lambda_context)
         mock_requests.put.assert_called_once_with(self.event_create['ResponseURL'],
-                                                  data=SerializedDictMatcher('Status',
-                                                                                                     'SUCCESS'),
+                                                  data=SerializedDictMatcher('Status', 'SUCCESS'),
                                                   headers=ANY,
                                                   timeout=ANY)
         self.assertEqual({

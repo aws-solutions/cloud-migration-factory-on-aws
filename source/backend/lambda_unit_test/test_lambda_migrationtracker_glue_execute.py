@@ -4,7 +4,7 @@ import os
 from unittest import mock
 from unittest.mock import patch, ANY
 
-from moto import mock_glue
+from moto import mock_aws
 import boto3
 import json
 
@@ -15,7 +15,7 @@ from test_lambda_migrationtracker_glue_base import mock_os_environ, StringContai
 SIMULATED_EXCEPTION_STRING = 'Simulated Exception'
 
 @mock.patch.dict('os.environ', mock_os_environ)
-@mock_glue
+@mock_aws
 class LambdaMigrationTrackerGlueTest(LambdaMigrationTrackerGlueBaseTest):
 
     @mock.patch.dict('os.environ', mock_os_environ)

@@ -4292,7 +4292,7 @@ Resources:
     Type: Custom::CustomResource
     Properties:
       ServiceToken: !GetAtt 'DefaultSchema.Arn'
-      Test: 'change5'
+      Test: '%%VERSION%%'
 
   CreateUniqueID:
     Type: Custom::CreateUuid

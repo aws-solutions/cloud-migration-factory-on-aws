@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import React, {createContext, ReactNode, useState} from 'react';
+import React, {createContext, ReactNode, useMemo, useState} from 'react';
 import {CmfAddNotification} from "../models/AppChildProps";
 import {Button, FlashbarProps} from "@awsui/components-react";
 import {v4} from "uuid";
@@ -60,7 +60,10 @@ export const NotificationContextProvider = ({children}: { children: ReactNode })
   }
 
 
-  const context: NotificationContextType = {notifications, setNotifications, addNotification, deleteNotification, clearNotifications};
+  const context: NotificationContextType = useMemo<NotificationContextType>(() => {
+    return {notifications, setNotifications, addNotification, deleteNotification, clearNotifications};
+  }, [notifications]);
+
   return (
     <>
       <NotificationContext.Provider value={context}>

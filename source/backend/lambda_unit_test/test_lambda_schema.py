@@ -9,13 +9,13 @@ from unittest import mock
 from unittest.mock import ANY, patch
 
 import boto3
-from moto import mock_dynamodb
+from moto import mock_aws
 
 import test_common_utils
 from test_common_utils import logger, default_mock_os_environ as mock_os_environ
 
 
-@mock_dynamodb
+@mock_aws
 @mock.patch.dict('os.environ', mock_os_environ)
 class LambdaSchemaTest(unittest.TestCase):
 
@@ -32,14 +32,16 @@ class LambdaSchemaTest(unittest.TestCase):
             "httpMethod": 'GET',
             "pathParameters": None
         }
-        response = lambda_schema.lambda_handler(event_get, None)
-        expected_body = [
+        response_metadata = lambda_schema.lambda_handler(event_get, None)
+        expected_metadata = [
             {'schema_name': 'server', 'schema_type': 'user'},
             {'schema_name': 'wave', 'schema_type': 'user'},
             {'schema_name': 'app', 'schema_type': 'user'},
             {'schema_name': 'automation', 'schema_type': 'automation'}
         ]
-        self.assertEqual(expected_body, json.loads(response['body']))
+        expected_metadata.sort(key=lambda entry: entry['schema_name'])
+        response_metadata = sorted(json.loads(response_metadata['body']), key=lambda entry: entry['schema_name'])
+        self.assertEqual(expected_metadata, response_metadata)
 
     def test_non_get_with_no_schema(self):
         import lambda_schema

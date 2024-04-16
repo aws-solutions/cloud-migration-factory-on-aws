@@ -5,7 +5,7 @@
 import json
 import os
 import unittest
-from moto import mock_cognitoidp
+from moto import mock_aws
 import boto3
 
 import test_common_utils
@@ -13,7 +13,7 @@ import test_common_utils
 
 class LambdaCognitoGroupsTest(unittest.TestCase):
 
-    @mock_cognitoidp
+    @mock_aws
     def assert_lambda_handler(self):
         import lambda_cognitogroups
         test_client = boto3.client('cognito-idp')

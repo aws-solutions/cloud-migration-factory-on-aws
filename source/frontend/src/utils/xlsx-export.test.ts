@@ -56,3 +56,51 @@ test('exports all items', () => {
     'bar.xlsx'
   );
 });
+
+test('exports an array of objects to an excel spreadsheet where object contains over sized data', () => {
+  // GIVEN
+  jest.spyOn(XLSX, 'writeFile').mockImplementation(jest.fn());
+
+  const items = generateTestApps(2);
+
+  // @ts-ignore
+  items[0].os_state = '-'.repeat(32769);
+
+  // WHEN
+  exportTable(items, 'applications', 'bar');
+
+  // THEN
+  expect(XLSX.writeFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        SheetNames: ['applications'],
+        Sheets: {
+          applications: expect.any(Object),
+        }
+      }),
+      'bar.xlsx'
+  );
+});
+
+test('exports an array of objects to an excel spreadsheet with a object containing an array value', () => {
+    // GIVEN
+    jest.spyOn(XLSX, 'writeFile').mockImplementation(jest.fn());
+
+    const items = generateTestApps(2);
+
+    // @ts-ignore
+    items[0].sg_test = ['test1', 'test2']
+
+    // WHEN
+    exportTable(items, 'applications', 'bar');
+
+    // THEN
+    expect(XLSX.writeFile).toHaveBeenCalledWith(
+        expect.objectContaining({
+            SheetNames: ['applications'],
+            Sheets: {
+                applications: expect.any(Object),
+            }
+        }),
+        'bar.xlsx'
+    );
+});

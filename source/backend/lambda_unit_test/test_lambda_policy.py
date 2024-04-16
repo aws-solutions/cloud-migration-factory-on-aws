@@ -7,13 +7,13 @@ import unittest
 from unittest import mock
 
 import boto3
-from moto import mock_dynamodb
+from moto import mock_aws
 
 import test_common_utils
 
 
 @mock.patch.dict('os.environ', test_common_utils.default_mock_os_environ)
-@mock_dynamodb
+@mock_aws
 class LambdaPolicyTest(unittest.TestCase):
 
     @mock.patch.dict('os.environ', test_common_utils.default_mock_os_environ)

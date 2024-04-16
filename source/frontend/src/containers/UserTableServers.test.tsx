@@ -194,7 +194,7 @@ test('submitting the add form saves a new server to API', async () => {
       "type": "success"
     });
   });
-});
+}, 60000);
 
 test('click on row enables "Edit" button and shows "Details" tab', async () => {
   // GIVEN

@@ -6,7 +6,7 @@ import json
 from unittest import mock
 
 import botocore
-from moto import mock_dynamodb, mock_s3
+from moto import mock_aws
 import test_common_utils
 from test_lambda_item_common import LambdaItemCommonTest, mock_item_check_valid_item_create_valid, \
     mock_item_check_valid_item_create_in_valid
@@ -38,8 +38,7 @@ def mock_boto_api_call(obj, operation_name, kwarg):
 
 
 @mock.patch.dict('os.environ', mock_os_environ)
-@mock_s3
-@mock_dynamodb
+@mock_aws
 class LambdaItemTest(LambdaItemCommonTest):
 
     @mock.patch.dict('os.environ', mock_os_environ)

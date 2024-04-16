@@ -28,16 +28,7 @@ function ServiceNavigation(props: ServiceNavigationProps) {
     }
   }
 
-  useEffect(() => {
-
-    let navItems = [];
-
-    if (props.userGroups?.includes("admin")) {
-      navItems = itemsAdmin;
-    } else {
-      navItems = itemsUser;
-    }
-
+  const populateNavSubItems = (navItems: any[]) => {
     let navSchemaItems = []
     if (props.schemaMetadata) {
       if (props.schemaMetadata.length > 0) {
@@ -55,9 +46,17 @@ function ServiceNavigation(props: ServiceNavigationProps) {
         navItems[1].items = navSchemaItems;
       }
     }
+  }
 
+  useEffect(() => {
+    let navItems = [];
+    if (props.userGroups?.includes("admin")) {
+      navItems = itemsAdmin;
+    } else {
+      navItems = itemsUser;
+    }
+    populateNavSubItems(navItems);
     setItems(navItems);
-
   }, [props.userGroups, props.schemaMetadata])
 
   return (

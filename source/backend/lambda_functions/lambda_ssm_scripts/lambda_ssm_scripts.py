@@ -315,7 +315,6 @@ def extract_script_package(base64_encoded_script_package, package_uuid):
 
     temp_path = tempfile.gettempdir() + "/" + package_uuid + ".zip"
     script_package_path = tempfile.gettempdir() + "/" + package_uuid
-
     # Package path to save the uploaded file
     split_data = base64_encoded_script_package.split(',')  # Split data to allow removal of DataURL if present.
     if len(split_data) == 1:
@@ -400,8 +399,10 @@ def validate_script_package_yaml(parsed_yaml_file):
 
 def validate_extracted_script_package_contents(script_package_path, config_file_path, validation_failures):
     try:
+        logger.info(f"Validating yaml file - {script_package_path}")
         with open(config_file_path) as config_file:
             parsed_yaml_file = yaml.full_load(config_file)
+
     except yaml.YAMLError as error_yaml:
         if hasattr(error_yaml, 'problem_mark'):
             mark = error_yaml.problem_mark
@@ -409,9 +410,10 @@ def validate_extracted_script_package_contents(script_package_path, config_file_
                                        f"Error position: {mark.line + 1}:{mark.column + 1}")
         else:
             validation_failures.append(f"Error reading error YAML {script_package_yaml_file_name}.")
+        logger.info(f"Yaml file format failures: {validation_failures}")
     else:
-
         package_yaml_validation = validate_script_package_yaml(parsed_yaml_file)
+        logger.info(f"package_yaml_validation result: {package_yaml_validation}")
         if len(package_yaml_validation) > 0:
             validation_failures.append(f"Missing the following required keys or values in "
                                        f"{script_package_yaml_file_name}, {','.join(package_yaml_validation)}")
@@ -492,7 +494,7 @@ def validate_attributes(parsed_yaml_file, package_uuid, logging_context):
 def authenticate_and_extract_user(event, logging_context):
     auth = MFAuth()
     auth_response = auth.get_user_resource_creation_policy(event, 'script')
-
+    logger.debug(f"auth_response:: {auth_response}")
     if auth_response['action'] != 'allow' and 'headers' in event:
         logger.warning(CONST_INVOCATION_AUTH_ERROR + json.dumps(auth_response), logging_context)
         raise SSMScriptsValidationException({
@@ -500,13 +502,13 @@ def authenticate_and_extract_user(event, logging_context):
             'statusCode': 401,
             'body': auth_response['cause']
         })
-
+    created_timestamp = datetime.datetime.utcnow().isoformat()
     if 'user' in auth_response:
         created_by = auth_response['user']
-        created_timestamp = datetime.datetime.utcnow().isoformat()
     else:
         created_by = {'userRef': '[system]', 'email': '[system]'}
-        created_timestamp = datetime.datetime.utcnow().isoformat()
+        auth_response['user'] = created_by
+        auth_response['action'] = 'allow'
 
     return created_by, created_timestamp, auth_response
 
@@ -537,7 +539,9 @@ def load_script_package(event, package_uuid, body, decoded_data_as_byte, new_ver
 
     try:
         created_by, created_timestamp, auth_response = authenticate_and_extract_user(event, logging_context)
+        logger.info( "User authenticated..")
     except SSMScriptsValidationException as e:
+        logger.error(f"User authentication failed: {e.info_obj}")
         return e.info_obj
 
     try:
@@ -546,6 +550,7 @@ def load_script_package(event, package_uuid, body, decoded_data_as_byte, new_ver
         return e.info_obj
 
     if new_version:
+        logger.info("Incrementing new version for script..")
         updated_master_script_package = increment_script_package_version(package_uuid, auth_response)
         if updated_master_script_package is not None:
             script_package_version = updated_master_script_package["Attributes"]["latest"]
@@ -653,12 +658,13 @@ def delete_script_package(event, package_uuid):
 
 
 def increment_script_package_version(package_uuid, user_auth):
+
     if 'user' in user_auth:
         last_modified_by = user_auth['user']
-        last_modified_timestamp = datetime.datetime.utcnow().isoformat()
     else:
-        return None
+        last_modified_by = user_auth
 
+    last_modified_timestamp = datetime.datetime.utcnow().isoformat()
     db_response = packages_table.update_item(
         Key={
             'package_uuid': package_uuid,
@@ -717,7 +723,6 @@ def proces_get_download(event, logging_context, item_form_db):
         'script_file': script_zip_encoded
     }
 
-
 def determine_get_intent(event):
     if 'pathParameters' not in event or event['pathParameters'] is None:
         return 'get_all_default'
@@ -729,10 +734,9 @@ def determine_get_intent(event):
     elif 'scriptid' in event['pathParameters']:
         return 'get_all_versions'
 
-
 def process_get(event, logging_context: str):
     response = []
-    get_intent = determine_get_intent(event);
+    get_intent = determine_get_intent(event)
     if get_intent == 'get_all_default':
         db_response = get_all_default_scripts()
 
@@ -759,6 +763,7 @@ def process_get(event, logging_context: str):
         else:
             response.append(db_response["Item"])
 
+    # GET single version
     elif get_intent == 'get_single_version':
         logger.info('Invocation: %s, processing request for version:' + str(event['pathParameters']['version']),
                     logging_context)
@@ -845,7 +850,7 @@ def process_put(event, logging_context: str):
                          logging_context)
             return {'headers': {**default_http_headers},
                     'statusCode': 400, 'body': ','.join(validate_script_resp)}
-
+        print("Starting to load script ..")
         load_script_response = load_script_package(
             event,
             package_uuid,
@@ -883,6 +888,7 @@ def process_delete(event, logging_context: str):
 
 def lambda_handler(event, _):
     logging_context = event['httpMethod']
+    print(f"Event received: {json.dumps(event)}")
     logger.info('Invocation: %s', logging_context)
     if event['httpMethod'] == 'GET':
         return process_get(event, logging_context)

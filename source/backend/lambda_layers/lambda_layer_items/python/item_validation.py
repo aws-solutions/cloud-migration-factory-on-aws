@@ -160,6 +160,10 @@ def get_related_items(related_schema_names):
         if not related_schema_name:
             continue
 
+        if related_schema_name == 'secret':
+            # Secrets are not stored in a DDB tables, no data will be returned.
+            continue
+
         if related_schema_name == 'application':
             table_name = 'app'
         else:
@@ -317,6 +321,12 @@ def validate_list_type_attribute(item, attribute, key, errors):
 
 
 def validate_relationship_type_attribute(related_items, item, attribute, key, errors):
+
+    # Bypass with schemas that are not DDB based like secrets,
+    # in future we will support this but a bigger change.
+    if attribute.get('rel_bypass_validation', False):
+        return errors
+
     if related_items and attribute['rel_entity'] in related_items.keys():
         related_record_validation = validate_item_related_record(
             attribute, item[key],

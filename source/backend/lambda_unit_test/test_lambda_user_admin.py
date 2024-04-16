@@ -8,12 +8,12 @@ from unittest import mock
 
 from test_lambda_cognito_base import CognitoTestsBase
 
-from moto import mock_cognitoidp
+from moto import mock_aws
 from test_common_utils import set_cors_flag, default_mock_os_environ
 
 
 @mock.patch.dict('os.environ', default_mock_os_environ)
-@mock_cognitoidp
+@mock_aws
 class LambdaUserAdminTest(CognitoTestsBase):
 
     def setUp(self) -> None:

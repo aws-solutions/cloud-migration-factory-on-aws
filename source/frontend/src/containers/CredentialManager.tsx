@@ -33,7 +33,6 @@ const CredentialManager = () => {
   const [{
     isLoading: secretDataIsLoading,
     data: secretData,
-    error: secretDataErrorLoading
   }, {getSecretList}] = useCredentialManager();
 
   // Main table state management

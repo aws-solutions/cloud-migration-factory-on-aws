@@ -23,8 +23,6 @@ pip3 install --quiet -U pip
 echo "  ---- Installing dependency"
 source_code="$PWD"
 pip install -r ./source/backend/lambda_unit_test/requirements.txt
-echo "  ---- Uninstalling dependencies not required."
-pip uninstall -y -r ./source/backend/lambda_unit_test/notrequired.txt
 echo "  ---- Changing working directory to the test directory"
 cd source/backend/lambda_unit_test/
 echo "Updating source path $source_code"

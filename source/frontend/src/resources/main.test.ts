@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -51,6 +50,47 @@ test("Sets the value of a nested object based on a path.", () => {
 
 //Unit test for sortAscendingComparator of main.js
 test("Compare a and b in ascending order based on a key.", () => {
-  const result = main.sortAscendingComparator("b", "a");
+  let result = main.sortAscendingComparator("a", "a");
+  expect(result).toEqual(0);
+  result = main.sortAscendingComparator("a", "b");
+  expect(result).toEqual(-1);
+  result = main.sortAscendingComparator("b", "a");
   expect(result).toEqual(1);
+
+  result = main.sortAscendingComparator(5, 5);
+  expect(result).toEqual(0);
+  result = main.sortAscendingComparator(5, 6);
+  expect(result).toEqual(-1);
+  result = main.sortAscendingComparator(5, 4);
+  expect(result).toEqual(1);
+
+  result = main.sortAscendingComparator(true, true);
+  expect(result).toEqual(0);
+  result = main.sortAscendingComparator(true, false);
+  expect(result).toEqual(1);
+  result = main.sortAscendingComparator(false, true);
+  expect(result).toEqual(-1);
+
+  const dd = new Date();
+  const dd2 = new Date(dd.getTime() + 1000);
+  result = main.sortAscendingComparator(dd, dd);
+  expect(result).toEqual(0);
+  result = main.sortAscendingComparator(dd2, dd);
+  expect(result).toEqual(1);
+  result = main.sortAscendingComparator(dd, dd2);
+  expect(result).toEqual(-1);
+});
+
+test("deepEquals for different scenrios", () => {
+  expect(main.deepEqual({member1: "A"}, {member1: "A"})).toEqual(true);
+  expect(main.deepEqual({member1: "A"}, {member1: "A", member2: "B"})).toEqual(false);
+  expect(main.deepEqual({member1: "A"}, {member1: "B"})).toEqual(false);
+  expect(main.deepEqual({member1: "A"}, {member1111: "A"})).toEqual(false);
+
+  expect(main.deepEqual(null,  null)).toEqual(true);
+  expect(main.deepEqual(undefined,  undefined)).toEqual(true);
+
+  expect(main.deepEqual({},  null)).toEqual(false);
+  expect(main.deepEqual({},  undefined)).toEqual(false);
+
 });

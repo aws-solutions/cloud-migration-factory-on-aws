@@ -7,13 +7,13 @@ import unittest
 from unittest import mock
 
 import boto3
-from moto import mock_dynamodb
+from moto import mock_aws
 from test_common_utils import set_cors_flag, default_mock_os_environ
 import test_common_utils
 
 
 @mock.patch.dict('os.environ', default_mock_os_environ)
-@mock_dynamodb
+@mock_aws
 class LambdaRoleItemTest(unittest.TestCase):
 
     @mock.patch.dict('os.environ', default_mock_os_environ)

@@ -10,7 +10,7 @@ from unittest.mock import patch, ANY
 from test_lambda_cognito_base import CognitoTestsBase
 
 import boto3
-from moto import mock_cognitoidp, mock_secretsmanager
+from moto import mock_aws
 from test_common_utils import LambdaContextLogStream, RequestsResponse, default_mock_os_environ
 
 
@@ -21,8 +21,7 @@ mock_os_environ = {
 
 
 @mock.patch.dict('os.environ', mock_os_environ)
-@mock_cognitoidp
-@mock_secretsmanager
+@mock_aws
 class LambdaServiceAccountTest(CognitoTestsBase):
 
     def setUp(self) -> None:
