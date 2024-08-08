@@ -458,31 +458,22 @@ def print_pre_requisite_results(results, token, label, status):
                 )
 
 
-def parse_boolean(value):
-    value = value.lower()
-
-    if value in ["true", "yes", "y", "1", "t"]:
-        return True
-    elif value in ["false", "no", "n", "0", "f"]:
-        return False
-
-    return False
-
-
 def parse_arguments(arguments):
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--Waveid', required=True)
+    parser.add_argument('--AppIds', default=None)
+    parser.add_argument('--ServerIds', default=None)
     parser.add_argument('--ReplicationServerIP', required=True)
     # Removed as new credentials function deals with this parser.add_argument('--WindowsUser', default="")
-    parser.add_argument('--NoPrompts', default=False, type=parse_boolean,
+    parser.add_argument('--NoPrompts', default=False, type=mfcommon.parse_boolean,
                         help='Specify if user prompts for passwords are allowed. Default = False')
     parser.add_argument('--SecretWindows', default=None)
     parser.add_argument('--SecretLinux', default=None)
     parser.add_argument('--S3Endpoint', default=None)
     parser.add_argument('--MGNEndpoint', default=None)
-    parser.add_argument('--UseSSL', default=False, type=parse_boolean)
+    parser.add_argument('--UseSSL', default=False, type=mfcommon.parse_boolean)
     # parser.add_argument('--Verbose', default=False, type=bool, help='For detailed logging, use True')
     args = parser.parse_args(arguments)
     return args
@@ -610,7 +601,12 @@ def main(args):
     print("****************************")
     print("", flush=True)
     get_servers, linux_exist, windows_exist = mfcommon.get_factory_servers(
-        args.Waveid, token, os_split=True, rtype='Rehost'
+        waveid=args.Waveid,
+        app_ids=mfcommon.parse_list(args.AppIds),
+        server_ids=mfcommon.parse_list(args.ServerIds),
+        token=token,
+        os_split=True,
+        rtype='Rehost'
     )
     user_name = ''
     pass_key = ''

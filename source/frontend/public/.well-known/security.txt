@@ -1,0 +1,15 @@
+# For security issues related to Amazon Web Services (AWS), please see our security policy
+Policy: https://aws.amazon.com/security/vulnerability-reporting/
+
+# To contact AWS regarding a vulnerability
+Contact: mailto:aws-security@amazon.com
+Preferred-Languages: en
+
+# We support PGP encryption
+Encryption: https://aws.amazon.com/security/aws-pgp-public-key/
+
+# This file expires every 365 days
+Expires: %%SECURITY_EXPIRY_DATE%%
+
+# We're hiring - join Amazon Security!
+Hiring: https://www.amazon.jobs/en/business_categories/amazon-security

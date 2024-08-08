@@ -180,8 +180,15 @@ def get_credentials(secret_name, no_user_prompts=True, not_found_response=None):
     return not_found_response
 
 
-# Function is used with new MGN capabiltiy to get servers based on the AWS account they are targeted to.
-def get_factory_servers(waveid, token, os_split=True, rtype=None):
+def filter_items(items, key, item_ids=None):
+    if item_ids:
+        return [item for item in items if item[key] in item_ids]
+    else:
+        return items
+
+
+# Function is used to get servers based on the AWS account they are targeted to.
+def get_factory_servers(waveid, token, app_ids=None, server_ids=None, os_split=True, rtype=None):
     try:
         linux_exist = False
         windows_exist = False
@@ -189,14 +196,18 @@ def get_factory_servers(waveid, token, os_split=True, rtype=None):
 
         servers_api_response = get_data_from_api(token, get_mf_config_user_api_id(), serverendpoint)
 
-        getservers = json.loads(servers_api_response.text)
+        cmf_servers = json.loads(servers_api_response.text)
+
+        cmf_servers = filter_items(cmf_servers, 'server_id', server_ids)
 
         apps_api_response = get_data_from_api(token, get_mf_config_user_api_id(), appendpoint)
 
-        getapps = json.loads(apps_api_response.text)
+        cmf_apps = json.loads(apps_api_response.text)
 
-        servers = sorted(getservers, key=lambda i: i['server_name'])
-        apps = sorted(getapps, key=lambda i: i['app_name'])
+        cmf_apps = filter_items(cmf_apps, 'app_id', app_ids)
+
+        servers = sorted(cmf_servers, key=lambda i: i['server_name'])
+        apps = sorted(cmf_apps, key=lambda i: i['app_name'])
 
         # Get Unique target AWS account and region
         aws_accounts, sys_exit = \
@@ -430,16 +441,20 @@ def add_windows_servers_to_trusted_hosts(cmf_servers):
 
 
 # Function is used with new database entity to get databases based on the AWS account they are targeted to and wave.
-def get_factory_databases(waveid, token, rtype=None):
+def get_factory_databases(waveid, token, app_ids=None, database_ids=None, rtype=None):
     try:
 
         databases_api_response = get_data_from_api(token, get_mf_config_user_api_id(), databaseendpoint)
 
         databases = json.loads(databases_api_response.text)
 
+        databases = filter_items(databases, 'database_id', database_ids)
+
         apps_api_response = get_data_from_api(token, get_mf_config_user_api_id(), appendpoint)
 
         apps = json.loads(apps_api_response.text)
+
+        apps = filter_items(apps, 'app_id', app_ids)
 
         databases = sorted(databases, key=lambda i: i['database_name'])
         apps = sorted(apps, key=lambda i: i['app_name'])
@@ -751,7 +766,7 @@ def get_aws_account_region(apps, waveid, os_split):
                 return aws_accounts, sys_exit
 
     if len(aws_accounts) == 0:
-        msg = f"ERROR: AWS Account list for wave {waveid} is empty...."
+        msg = f"ERROR: AWS Account list for wave_id {waveid} is empty...."
         print(msg)
         sys_exit = True
 
@@ -1049,3 +1064,21 @@ def factory_login_with_cognito_user_pool(auth_data, mf_config):
         }
 
 # end of user login related functions ###############
+
+
+def parse_list(value):
+    if value:
+        return value.split(',')
+
+    return value
+
+
+def parse_boolean(value):
+    value = value.lower()
+
+    if value in ["true", "yes", "y", "1", "t"]:
+        return True
+    elif value in ["false", "no", "n", "0", "f"]:
+        return False
+
+    return False

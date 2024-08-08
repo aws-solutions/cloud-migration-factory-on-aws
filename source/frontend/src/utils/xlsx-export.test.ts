@@ -1,36 +1,36 @@
-import {exportAll, exportTable} from "./xlsx-export";
+import { exportAll, exportTable } from "./xlsx-export";
 import * as XLSX from "xlsx";
 import {
   generateTestApps,
   generateTestDatabases,
   generateTestServers,
-  generateTestWaves
+  generateTestWaves,
 } from "../__tests__/mocks/user_api";
 
-test('exports an array of objects to an excel spreadsheet', () => {
+test("exports an array of objects to an excel spreadsheet", () => {
   // GIVEN
-  jest.spyOn(XLSX, 'writeFile').mockImplementation(jest.fn());
+  jest.spyOn(XLSX, "writeFile").mockImplementation(jest.fn());
 
   const items = generateTestApps(2);
 
   // WHEN
-  exportTable(items, 'applications', 'bar');
+  exportTable(items, "applications", "bar");
 
   // THEN
   expect(XLSX.writeFile).toHaveBeenCalledWith(
     expect.objectContaining({
-      SheetNames: ['applications'],
+      SheetNames: ["applications"],
       Sheets: {
         applications: expect.any(Object),
-      }
+      },
     }),
-    'bar.xlsx'
+    "bar.xlsx"
   );
 });
 
-test('exports all items', () => {
+test("exports all items", () => {
   // GIVEN
-  jest.spyOn(XLSX, 'writeFile').mockImplementation(jest.fn());
+  jest.spyOn(XLSX, "writeFile").mockImplementation(jest.fn());
 
   const items = {
     applications: generateTestApps(3),
@@ -40,7 +40,7 @@ test('exports all items', () => {
   };
 
   // WHEN
-  exportAll(items, 'bar')
+  exportAll(items, "bar");
 
   // THEN
   expect(XLSX.writeFile).toHaveBeenCalledWith(
@@ -51,56 +51,56 @@ test('exports all items', () => {
         databases: expect.any(Object),
         servers: expect.any(Object),
         waves: expect.any(Object),
-      }
+      },
     }),
-    'bar.xlsx'
+    "bar.xlsx"
   );
 });
 
-test('exports an array of objects to an excel spreadsheet where object contains over sized data', () => {
+test("exports an array of objects to an excel spreadsheet where object contains over sized data", () => {
   // GIVEN
-  jest.spyOn(XLSX, 'writeFile').mockImplementation(jest.fn());
+  jest.spyOn(XLSX, "writeFile").mockImplementation(jest.fn());
 
   const items = generateTestApps(2);
 
   // @ts-ignore
-  items[0].os_state = '-'.repeat(32769);
+  items[0].os_state = "-".repeat(32769);
 
   // WHEN
-  exportTable(items, 'applications', 'bar');
+  exportTable(items, "applications", "bar");
 
   // THEN
   expect(XLSX.writeFile).toHaveBeenCalledWith(
-      expect.objectContaining({
-        SheetNames: ['applications'],
-        Sheets: {
-          applications: expect.any(Object),
-        }
-      }),
-      'bar.xlsx'
+    expect.objectContaining({
+      SheetNames: ["applications"],
+      Sheets: {
+        applications: expect.any(Object),
+      },
+    }),
+    "bar.xlsx"
   );
 });
 
-test('exports an array of objects to an excel spreadsheet with a object containing an array value', () => {
-    // GIVEN
-    jest.spyOn(XLSX, 'writeFile').mockImplementation(jest.fn());
+test("exports an array of objects to an excel spreadsheet with a object containing an array value", () => {
+  // GIVEN
+  jest.spyOn(XLSX, "writeFile").mockImplementation(jest.fn());
 
-    const items = generateTestApps(2);
+  const items = generateTestApps(2);
 
-    // @ts-ignore
-    items[0].sg_test = ['test1', 'test2']
+  // @ts-ignore
+  items[0].sg_test = ["test1", "test2"];
 
-    // WHEN
-    exportTable(items, 'applications', 'bar');
+  // WHEN
+  exportTable(items, "applications", "bar");
 
-    // THEN
-    expect(XLSX.writeFile).toHaveBeenCalledWith(
-        expect.objectContaining({
-            SheetNames: ['applications'],
-            Sheets: {
-                applications: expect.any(Object),
-            }
-        }),
-        'bar.xlsx'
-    );
+  // THEN
+  expect(XLSX.writeFile).toHaveBeenCalledWith(
+    expect.objectContaining({
+      SheetNames: ["applications"],
+      Sheets: {
+        applications: expect.any(Object),
+      },
+    }),
+    "bar.xlsx"
+  );
 });

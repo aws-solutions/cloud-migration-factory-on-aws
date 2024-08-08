@@ -112,9 +112,9 @@ def set_up_cognito_credential():
 def mock_requests_get_empty_accounts(*args, **kwargs):
     for k in kwargs:
         if kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/server'):
-            text = '[{"server_name": "server1"},{"server_name": "server2"}]'
+            text = '[{"server_id": "1","server_name": "server1"},{"server_id": "2","server_name": "server2"}]'
         elif kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/app'):
-            text = '[{"app_name": "app1"},{"app_name": "app2"}]'
+            text = '[{"app_id": "1","app_name": "app1"},{"app_id": "2","app_name": "app2"}]'
         return MockResponseToRequest(
             {"key1": "value1"},
             200,
@@ -124,7 +124,7 @@ def mock_requests_get_empty_accounts(*args, **kwargs):
 def mock_requests_get_valid_accounts(*args, **kwargs):
     for k in kwargs:
         if kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/server'):
-            text = '[{"server_name": "server1"},{"server_name": "server2"}]'
+            text = '[{"server_id": "1","server_name": "server1"},{"server_id": "2","server_name": "server2"}]'
         elif kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/app'):
             text = '[{"aws_region":"us-east-1","app_id":"app_id_1","app_name":"app_name_1","wave_id":"1","aws_accountid":"111111111111"}, ' \
                     '{"aws_region":"us-east-1","app_id":"app_id_1","app_name":"app_name_1","wave_id":"1","aws_accountid":"222222222222"}, ' \
@@ -138,7 +138,7 @@ def mock_requests_get_valid_accounts(*args, **kwargs):
 def mock_requests_get_invalid_accounts(*args, **kwargs):
     for k in kwargs:
         if kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/server'):
-            text = '[{"server_name": "server1"},{"server_name": "server2"}]'
+            text = '[{"server_id": "1","server_name": "server1"},{"server_id": "2","server_name": "server2"}]'
         elif kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/app'):
             text = '[{"aws_region":"us-east-1","app_id":"app_id_1","app_name":"app_name_1","wave_id":"1","aws_accountid":"111111"}, ' \
                     '{"aws_region":"us-east-1","app_id":"app_id_1","app_name":"app_name_1","wave_id":"1","aws_accountid":"222222222222"}, ' \
@@ -152,8 +152,8 @@ def mock_requests_get_invalid_accounts(*args, **kwargs):
 def mock_requests_get_valid_accounts_and_servers(*args, **kwargs):
     for k in kwargs:
         if kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/server'):
-            text = '[{"server_name": "server1", "app_id": "app_id_1", "r_type": "Rehost", "server_os_family": "linux", "server_fqdn": "wordpress-web.onpremsim.env"}, ' \
-                    '{"server_name": "server2", "app_id": "app_id_2", "r_type": "Rehost", "server_os_family": "windows", "server_fqdn": "laptop-personal.workspace.net"}]'
+            text = '[{"server_id": "1","server_name": "server1", "app_id": "app_id_1", "r_type": "Rehost", "server_os_family": "linux", "server_fqdn": "wordpress-web.onpremsim.env"}, ' \
+                    '{"server_id": "2","server_name": "server2", "app_id": "app_id_2", "r_type": "Rehost", "server_os_family": "windows", "server_fqdn": "laptop-personal.workspace.net"}]'
         elif kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/app'):
             text = '[{"aws_region":"us-east-1","app_id":"app_id_1","app_name":"app_name_1","wave_id":"1","aws_accountid":"111111111111"}, ' \
                     '{"aws_region":"us-east-1","app_id":"app_id_2","app_name":"app_name_2","wave_id":"1","aws_accountid":"222222222222"}, ' \
@@ -167,8 +167,8 @@ def mock_requests_get_valid_accounts_and_servers(*args, **kwargs):
 def mock_requests_get_missing_server_os(*args, **kwargs):
     for k in kwargs:
         if kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/server'):
-            text = '[{"server_name": "server1", "app_id": "app_id_1", "r_type": "Rehost"}, ' \
-                    '{"server_name": "server2", "app_id": "app_id_2", "r_type": "Rehost"}]'
+            text = '[{"server_id": "1","server_name": "server1", "app_id": "app_id_1", "r_type": "Rehost"}, ' \
+                    '{"server_id": "2","server_name": "server2", "app_id": "app_id_2", "r_type": "Rehost"}]'
         elif kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/app'):
             text = '[{"aws_region":"us-east-1","app_id":"app_id_1","app_name":"app_name_1","wave_id":"1","aws_accountid":"111111111111"}, ' \
                     '{"aws_region":"us-east-1","app_id":"app_id_1","app_name":"app_name_1","wave_id":"1","aws_accountid":"222222222222"}, ' \
@@ -182,8 +182,8 @@ def mock_requests_get_missing_server_os(*args, **kwargs):
 def mock_requests_get_missing_server_fqdn(*args, **kwargs):
     for k in kwargs:
         if kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/server'):
-            text = '[{"server_name": "server1", "app_id": "app_id_1", "r_type": "Rehost", "server_os_family": "linux"}, ' \
-                    '{"server_name": "server2", "app_id": "app_id_2", "r_type": "Rehost", "server_os_family": "linux"}]'
+            text = '[{"server_id": "1","server_name": "server1", "app_id": "app_id_1", "r_type": "Rehost", "server_os_family": "linux"}, ' \
+                    '{"server_id": "2","server_name": "server2", "app_id": "app_id_2", "r_type": "Rehost", "server_os_family": "linux"}]'
         elif kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/app'):
             text = '[{"aws_region":"us-east-1","app_id":"app_id_1","app_name":"app_name_1","wave_id":"1","aws_accountid":"111111111111"}, ' \
                     '{"aws_region":"us-east-1","app_id":"app_id_1","app_name":"app_name_1","wave_id":"1","aws_accountid":"222222222222"}, ' \
@@ -197,8 +197,8 @@ def mock_requests_get_missing_server_fqdn(*args, **kwargs):
 def mock_requests_get_same_server_os(*args, **kwargs):
     for k in kwargs:
         if kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/server'):
-            text = '[{"server_name": "server1", "app_id": "app_id_1", "r_type": "Rehost", "server_os_family": "linux", "server_fqdn": "wordpress-web.onpremsim.env"}, ' \
-                    '{"server_name": "server2", "app_id": "app_id_2", "r_type": "Rehost", "server_os_family": "linux", "server_fqdn": "wordpress-web.onpremsim.env"}]'
+            text = '[{"server_id": "1","server_name": "server1", "app_id": "app_id_1", "r_type": "Rehost", "server_os_family": "linux", "server_fqdn": "wordpress-web.onpremsim.env"}, ' \
+                    '{"server_id": "2","server_name": "server2", "app_id": "app_id_2", "r_type": "Rehost", "server_os_family": "linux", "server_fqdn": "wordpress-web.onpremsim.env"}]'
         elif kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/app'):
             text = '[{"aws_region":"us-east-1","app_id":"app_id_1","app_name":"app_name_1","wave_id":"1","aws_accountid":"111111111111"}, ' \
                     '{"aws_region":"us-east-1","app_id":"app_id_2","app_name":"app_name_2","wave_id":"1","aws_accountid":"222222222222"}, ' \
@@ -212,8 +212,8 @@ def mock_requests_get_same_server_os(*args, **kwargs):
 def mock_requests_get_invalid_server_os(*args, **kwargs):
     for k in kwargs:
         if kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/server'):
-            text = '[{"server_name": "server1", "app_id": "app_id_1", "r_type": "Rehost", "server_os_family": "other", "server_fqdn": "wordpress-web.onpremsim.env"}, ' \
-                    '{"server_name": "server2", "app_id": "app_id_2", "r_type": "Rehost", "server_os_family": "linux", "server_fqdn": "wordpress-web.onpremsim.env"}]'
+            text = '[{"server_id": "1","server_name": "server1", "app_id": "app_id_1", "r_type": "Rehost", "server_os_family": "other", "server_fqdn": "wordpress-web.onpremsim.env"}, ' \
+                    '{"server_id": "2","server_name": "server2", "app_id": "app_id_2", "r_type": "Rehost", "server_os_family": "linux", "server_fqdn": "wordpress-web.onpremsim.env"}]'
         elif kwargs[k].endswith('execute-api.us-east-1.amazonaws.com/prod/user/app'):
             text = '[{"aws_region":"us-east-1","app_id":"app_id_1","app_name":"app_name_1","wave_id":"1","aws_accountid":"111111111111"}, ' \
                     '{"aws_region":"us-east-1","app_id":"app_id_2","app_name":"app_name_2","wave_id":"1","aws_accountid":"222222222222"}, ' \

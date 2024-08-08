@@ -3,35 +3,40 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {ReactNode, useEffect, useState} from 'react';
-import {Box, Button, Modal, SpaceBetween} from '@awsui/components-react';
-import {setNestedValuePath} from "../resources/main";
+import React, { ReactNode, useEffect, useState } from "react";
+import { Box, Button, Modal, SpaceBetween } from "@awsui/components-react";
+import { setNestedValuePath } from "../resources/main";
 import AllAttributes from "./ui_attributes/AllAttributes";
-import {EntitySchema} from "../models/EntitySchema";
-import {UserAccess} from "../models/UserAccess";
-
+import { EntitySchema } from "../models/EntitySchema";
+import { UserAccess } from "../models/UserAccess";
 
 export type AmendItemModalProps = {
-  title: string,
-  onConfirmation: (localObject: any) => void,
-  closeModal: () => void,
-  item: any,
-  schemas: Record<string, EntitySchema>,
-  schemaName: string,
-  userAccess: UserAccess,
-  children?: ReactNode
-}
+  title: string;
+  onConfirmation: (localObject: any) => void;
+  closeModal: () => void;
+  item: any;
+  schemas: Record<string, EntitySchema>;
+  schemaName: string;
+  userAccess: UserAccess;
+  children?: ReactNode;
+};
 
-const AmendItemModal = (
-  {children, closeModal, onConfirmation, title, item, schemas, schemaName, userAccess}: AmendItemModalProps
-) => {
+const AmendItemModal = ({
+  children,
+  closeModal,
+  onConfirmation,
+  title,
+  item,
+  schemas,
+  schemaName,
+  userAccess,
+}: AmendItemModalProps) => {
   const [localObject, setLocalObject] = useState(item);
   const [saving, setSaving] = useState(false);
   const [formErrors, setFormErrors] = useState<any[]>([]);
   const [validForm, setFormValidation] = useState(false);
 
-  function handleUserInput(value: Array<{ field: any; value: any; }>) {
-
+  function handleUserInput(value: Array<{ field: any; value: any }>) {
     let newAttr = Object.assign({}, localObject);
     setNestedValuePath(newAttr, value[0].field, value[0].value);
 
@@ -60,14 +65,16 @@ const AmendItemModal = (
       closeAriaLabel="Close"
       size="medium"
       footer={
-        (
-          <Box float="right">
-            <SpaceBetween direction="horizontal" size="xs">
-              <Button onClick={closeModal} variant="link">Cancel</Button>
-              <Button onClick={handleSave} disabled={!validForm} loading={saving} variant="primary">Add</Button>
-            </SpaceBetween>
-          </Box>
-        )
+        <Box float="right">
+          <SpaceBetween direction="horizontal" size="xs">
+            <Button onClick={closeModal} variant="link">
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={!validForm} loading={saving} variant="primary">
+              Add
+            </Button>
+          </SpaceBetween>
+        </Box>
       }
       header={title}
     >
@@ -85,7 +92,7 @@ const AmendItemModal = (
       </SpaceBetween>
       {children}
     </Modal>
-  )
+  );
 };
 
 export default AmendItemModal;

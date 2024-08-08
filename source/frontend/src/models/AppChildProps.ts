@@ -1,6 +1,6 @@
-import {FlashbarProps} from "@awsui/components-react/flashbar/interfaces";
-import {EntitySchema, SchemaMetaData} from "./EntitySchema";
-import {ReactNode} from "react";
+import { FlashbarProps } from "@awsui/components-react/flashbar/interfaces";
+import { EntitySchema, SchemaMetaData } from "./EntitySchema";
+import { ReactNode } from "react";
 
 export type CmfAddNotification = {
   id?: string;
@@ -23,5 +23,5 @@ export type AppChildProps = {
   reloadPermissions: () => Promise<unknown>;
   schemaMetadata: Array<SchemaMetaData>;
   schemaIsLoading?: boolean;
-  reloadSchema: () => Promise<() => void>
+  reloadSchema: () => Promise<() => void>;
 };

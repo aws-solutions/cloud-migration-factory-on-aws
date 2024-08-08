@@ -163,9 +163,15 @@ To run the unit test, ensure the working directory is set to the parent director
 ```
 chmod +x ./deployment/run_lambda_unit_test.sh
 ./deployment/run_lambda_unit_test.sh
-
 ```
 Confirm that all the unit test pass.
+
+##### Running a single unit test for development
+To run a subset or single unittest add the test pattern argument to the command. The example below will run only test that have names starting with **test_lambda_ssm**.
+```
+chmod +x ./deployment/run_lambda_unit_test.sh
+./deployment/run_lambda_unit_test.sh test_lambda_ssm*
+```
 #### Coverage reporting
 Coverage reports should be output to the same directory as the unit test scripts are stored in order to be picked up by the SonarQube configuration included with the solution.
 ## SonarQube - Code Quality

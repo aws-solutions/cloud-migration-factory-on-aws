@@ -601,31 +601,12 @@ class PreRequsitesCheckTestCase(TestCase):
         )
         self.assertTrue(mocked_ssh.close.called)
 
-    def test_parse_boolean_true_values(self):
-        true_values = ["true", "yes", "y", "1", "t"]
-
-        for value in true_values:
-            result = prereq_check.parse_boolean(value)
-            self.assertEqual(True, result)
-
-    def test_parse_boolean_false_values(self):
-        false_values = ["false", "no", "n", "0", "f"]
-        
-        for value in false_values:
-            result = prereq_check.parse_boolean(value)
-            self.assertEqual(False, result)
-
-    def test_parse_boolean_other_values(self):
-        other_values = ["2", "q", "random", "!@34]", "-5"]
-        
-        for value in other_values:
-            result = prereq_check.parse_boolean(value)
-            self.assertEqual(False, result)
-
     def test_parse_arguments_returns_args(self):
         args = ["--Waveid", "1", "--ReplicationServerIP", "0.0.0.0"]
         expectedResponse = Namespace(
-            Waveid='1', 
+            Waveid='1',
+            AppIds=None,
+            ServerIds=None,
             ReplicationServerIP='0.0.0.0', 
             NoPrompts=False, 
             SecretWindows=None, 

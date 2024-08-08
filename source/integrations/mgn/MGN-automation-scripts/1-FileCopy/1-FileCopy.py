@@ -124,7 +124,9 @@ def main(arguments):
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--Waveid', required=True)
-    parser.add_argument('--NoPrompts', default=False, type=bool,
+    parser.add_argument('--AppIds', default=None)
+    parser.add_argument('--ServerIds', default=None)
+    parser.add_argument('--NoPrompts', default=False, type=mfcommon.parse_boolean,
                         help='Specify if user prompts for passwords are allowed. Default = False')
     parser.add_argument('--WindowsSource', default="")
     parser.add_argument('--LinuxSource', default="")
@@ -142,7 +144,13 @@ def main(arguments):
 
     print("*Getting Server List*")
     get_servers, linux_exist, windows_exist = mfcommon.get_factory_servers(
-        args.Waveid, token, True, 'Rehost')
+        waveid=args.Waveid,
+        app_ids=mfcommon.parse_list(args.AppIds),
+        server_ids=mfcommon.parse_list(args.ServerIds),
+        token=token,
+        os_split=True,
+        rtype='Rehost'
+    )
 
     print("")
     print("*************************************")

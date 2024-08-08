@@ -139,6 +139,7 @@ for d in */ ; do
     cd $source_dir/integrations/$d/lambdas
     mkdir ./.build
     cp -r ./[!.]* ./.build
+    cp $source_dir/integrations/common/* ./.build
     cd ./.build
     pip install -r ./requirements.txt -t . --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
     d1=${d%?}
@@ -260,13 +261,34 @@ echo "--------------------------------------------------------------------------
 cd $source_dir/frontend/
 echo "  ---- Building React Production Application"
 npm run build
-echo "  ---- Packaging React Production Application"
+if [ $? -eq 0 ]
+  then
+    echo "  ---- SUCCESS: Frontend build complete."
+  else
+    echo "  ---- FAILURE: Frontend build failed."
+    exit 1
+fi
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  security_expiry_date=$(date -v+1y +%Y-%m-%dT%H:%M:%Sz)
+else
+  security_expiry_date=$(date +%Y-%m-%dT%H:%M:%Sz -d +1year)
+fi
+
 cd ./build/
+
+echo "Updating security.txt expiry date to $security_expiry_date"
+replace="s#%%SECURITY_EXPIRY_DATE%%#$security_expiry_date#g"
+security_txt_path="./.well-known/security.txt"
+echo "security.txt path: $security_txt_path"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  sed -i '' -e $replace $security_txt_path
+else
+  sed -i -e $replace $security_txt_path
+fi
+
+echo "  ---- Packaging React Production Application"
 zip -r "$build_dist_dir/fe-$cemf_version.zip" .
-
-
-
-
 
 elapsed=$(( SECONDS - start_time ))
 echo "Elapsed build time : $elapsed seconds"

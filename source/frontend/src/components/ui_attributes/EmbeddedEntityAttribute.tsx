@@ -4,54 +4,56 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useEffect, useState} from 'react';
-import {SpaceBetween} from '@awsui/components-react';
+import React, { useEffect, useState } from "react";
+import { SpaceBetween } from "@awsui/components-react";
 import AllAttributes from "./AllAttributes";
 
-const EmbeddedEntityAttribute = ({schemas, parentSchemaType, parentSchemaName, parentUserAccess, embeddedEntitySchema, attribute, embeddedItem, handleUserInput, handleUpdateValidationErrors}) => {
-
+const EmbeddedEntityAttribute = ({
+  schemas,
+  parentSchemaType,
+  parentSchemaName,
+  parentUserAccess,
+  embeddedEntitySchema,
+  attribute,
+  embeddedItem,
+  handleUserInput,
+  handleUpdateValidationErrors,
+}) => {
   const [localSchemas, setLocalSchemas] = useState(schemas);
   const [localEmbeddedEntitySchema, setLocalEmbeddedEntitySchema] = useState([]);
 
-  async function handleUpdate(update){
-    handleUserInput(update)
+  async function handleUpdate(update) {
+    handleUserInput(update);
   }
 
-  useEffect( () => {
+  useEffect(() => {
     setLocalSchemas(schemas);
   }, [schemas]);
 
-  useEffect( () => {
-    if (embeddedEntitySchema?.status === 'loaded' && embeddedEntitySchema?.value != null) {
+  useEffect(() => {
+    if (embeddedEntitySchema?.status === "loaded" && embeddedEntitySchema?.value != null) {
       let updatedEmbeddedAttributes = embeddedEntitySchema.value.map((item) => {
         //prepend the embedded_entity name to all attribute names in order to store them under a single key.
-        let appendedName = attribute.name + '.' + item.name;
-        if (item.__orig_name){
+        let appendedName = attribute.name + "." + item.name;
+        if (item.__orig_name) {
           //Item has already been updated name.
-          return (
-            item
-          )
+          return item;
         } else {
           //Store original name of item.
           item.__orig_name = item.name;
           item.name = appendedName;
           item.group = attribute.description;
-          return (
-            item
-          )
+          return item;
         }
       });
-      setLocalEmbeddedEntitySchema({"schema_type": parentSchemaType,"attributes": updatedEmbeddedAttributes});
+      setLocalEmbeddedEntitySchema({ schema_type: parentSchemaType, attributes: updatedEmbeddedAttributes });
     } else {
       setLocalEmbeddedEntitySchema([]);
     }
   }, [embeddedEntitySchema]);
 
   return (
-    <SpaceBetween
-      size="xxxs"
-      key={attribute.name}
-    >
+    <SpaceBetween size="xxxs" key={attribute.name}>
       <AllAttributes
         schema={localEmbeddedEntitySchema ? localEmbeddedEntitySchema : undefined}
         schemaName={parentSchemaName}
@@ -63,9 +65,7 @@ const EmbeddedEntityAttribute = ({schemas, parentSchemaType, parentSchemaName, p
         handleUpdateValidationErrors={handleUpdateValidationErrors}
       />
     </SpaceBetween>
-  )
-
-
+  );
 };
 
 export default EmbeddedEntityAttribute;

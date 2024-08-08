@@ -92,6 +92,7 @@ class CommonTestCase(TestCase):
         self.server_id ="test_server_1"
         self.status ="test_status"
         self.cmf_server = {
+            "server_id": "server1",
             "server_name": "test_sever_1",
             "server_fqdn": "test_server_fqdn"
 
@@ -499,7 +500,11 @@ class CommonTestCase(TestCase):
         with self.assertRaises(SystemExit) as se, \
             contextlib.redirect_stdout(str_io) as print_str:
             response, _, _ = get_factory_servers(
-                self.wave_id, self.token, self.os_split, self.r_type)
+                waveid=self.wave_id,
+                token=self.token,
+                os_split=self.os_split,
+                rtype=self.r_type
+            )
         self.assertEqual(se.exception.code, None)
         response = print_str.getvalue()
         print("Response: ", response)
@@ -516,11 +521,14 @@ class CommonTestCase(TestCase):
         with self.assertRaises(SystemExit) as se, \
             contextlib.redirect_stdout(str_io) as print_str:
             response, _, _ = get_factory_servers(
-                self.wave_id, self.token, self.os_split, self.r_type)
+                waveid=self.wave_id,
+                token=self.token,
+                os_split=self.os_split,
+                rtype=self.r_type)
         self.assertEqual(se.exception.code, None)
         response = print_str.getvalue()
         print("Response: ", response)
-        expected_response = "ERROR: AWS Account list for wave 1 is empty....\n"
+        expected_response = "ERROR: AWS Account list for wave_id 1 is empty....\n"
         self.assertEqual(response, expected_response)
 
     @mock.patch("requests.get", new=mock_requests_get_valid_accounts)
@@ -529,7 +537,11 @@ class CommonTestCase(TestCase):
                     "test_get_factory_servers_with_valid_accounts")
         from mfcommon import get_factory_servers
         response, _, _ = get_factory_servers(
-            self.wave_id, self.token, self.os_split, self.r_type)
+            waveid=self.wave_id,
+            token=self.token,
+            os_split=self.os_split,
+            rtype=self.r_type
+        )
         print("Response: ", response)
         expected_response = [
             {'aws_accountid': '111111111111', 'aws_region': 'us-east-1', 'servers_windows': [], 'servers_linux': []}, 
@@ -546,7 +558,10 @@ class CommonTestCase(TestCase):
         with self.assertRaises(SystemExit) as se, \
             contextlib.redirect_stdout(str_io) as print_str:
             response, _, _ = get_factory_servers(
-                self.wave_id, self.token, self.os_split, self.r_type)
+                waveid=self.wave_id,
+                token=self.token,
+                os_split=self.os_split,
+                rtype=self.r_type)
         self.assertEqual(se.exception.code, None)
         response = print_str.getvalue()
         print("Response: ", response)
@@ -562,7 +577,11 @@ class CommonTestCase(TestCase):
         with self.assertRaises(SystemExit) as se, \
             contextlib.redirect_stdout(str_io) as print_str:
             response, _, _ = get_factory_servers(
-                self.wave_id, self.token, self.os_split, self.r_type)
+                waveid=self.wave_id,
+                token=self.token,
+                os_split=self.os_split,
+                rtype=self.r_type
+            )
         self.assertEqual(se.exception.code, None)
         response = print_str.getvalue()
         print("Response: ", response)
@@ -579,7 +598,10 @@ class CommonTestCase(TestCase):
         with self.assertRaises(SystemExit) as se, \
             contextlib.redirect_stdout(str_io) as print_str:
             response, _, _ = get_factory_servers(
-                self.wave_id, self.token, self.os_split, self.r_type)
+                waveid=self.wave_id,
+                token=self.token,
+                os_split=self.os_split,
+                rtype=self.r_type)
         self.assertEqual(se.exception.code, None)
         response = print_str.getvalue()
         print("Response: ", response)
@@ -593,7 +615,11 @@ class CommonTestCase(TestCase):
                     "test_get_factory_servers_with_valid_accounts_and_servers")
         from mfcommon import get_factory_servers
         response, _, _ = get_factory_servers(
-            self.wave_id, self.token, self.os_split, self.r_type)
+            waveid=self.wave_id,
+            token=self.token,
+            os_split=self.os_split,
+            rtype=self.r_type
+        )
         print("Response: ", response)
         expected_response = [
             {
@@ -602,6 +628,7 @@ class CommonTestCase(TestCase):
                 "servers_windows": [],
                 "servers_linux": [
                     {
+                        "server_id": "1",
                         "server_name": "server1",
                         "app_id": "app_id_1",
                         "r_type": "Rehost",
@@ -615,6 +642,7 @@ class CommonTestCase(TestCase):
                 "aws_region": "us-east-1",
                 "servers_windows": [
                     {
+                        "server_id": "2",
                         "server_name": "server2",
                         "app_id": "app_id_2",
                         "r_type": "Rehost",
@@ -635,7 +663,11 @@ class CommonTestCase(TestCase):
         from mfcommon import get_factory_servers
         self.os_split = False
         response = get_factory_servers(
-            self.wave_id, self.token, self.os_split, self.r_type)
+            waveid=self.wave_id,
+            token=self.token,
+            os_split=self.os_split,
+            rtype=self.r_type
+        )
         print("Response: ", response)
         expected_response = [
             {
@@ -643,6 +675,7 @@ class CommonTestCase(TestCase):
                 "aws_region": "us-east-1",
                 "servers": [
                     {
+                        "server_id": "1",
                         "server_name": "server1",
                         "app_id": "app_id_1",
                         "r_type": "Rehost",
@@ -656,6 +689,7 @@ class CommonTestCase(TestCase):
                 "aws_region": "us-east-1",
                 "servers": [
                     {
+                        "server_id": "2",
                         "server_name": "server2",
                         "app_id": "app_id_2",
                         "r_type": "Rehost",
@@ -677,7 +711,11 @@ class CommonTestCase(TestCase):
         with self.assertRaises(SystemExit) as se, \
             contextlib.redirect_stdout(str_io) as print_str:
             response, _, _ = get_factory_servers(
-                self.wave_id, self.token, self.os_split, self.r_type)
+                waveid=self.wave_id,
+                token=self.token,
+                os_split=self.os_split,
+                rtype=self.r_type
+            )
         self.assertEqual(se.exception.code, None)
         response = print_str.getvalue()
         print("Response: ", response)
@@ -694,7 +732,11 @@ class CommonTestCase(TestCase):
         with self.assertRaises(SystemExit) as se, \
             contextlib.redirect_stdout(str_io) as print_str:
             response, _, _ = get_factory_servers(
-                self.wave_id, self.token, self.os_split, self.r_type)
+                waveid=self.wave_id,
+                token=self.token,
+                os_split=self.os_split,
+                rtype=self.r_type
+            )
         self.assertEqual(se.exception.code, None)
         response = print_str.getvalue()
         print("Response: ", response)
@@ -1102,3 +1144,27 @@ class CommonTestCase(TestCase):
         print("Response: ", response)
         expected_response = None
         self.assertEqual(response, expected_response)
+
+    def test_parse_boolean_true_values(self):
+        true_values = ["true", "yes", "y", "1", "t"]
+
+        from mfcommon import parse_boolean
+        for value in true_values:
+            result = parse_boolean(value)
+            self.assertEqual(True, result)
+
+    def test_parse_boolean_false_values(self):
+        false_values = ["false", "no", "n", "0", "f"]
+
+        from mfcommon import parse_boolean
+        for value in false_values:
+            result = parse_boolean(value)
+            self.assertEqual(False, result)
+
+    def test_parse_boolean_other_values(self):
+        other_values = ["2", "q", "random", "!@34]", "-5"]
+
+        from mfcommon import parse_boolean
+        for value in other_values:
+            result = parse_boolean(value)
+            self.assertEqual(False, result)

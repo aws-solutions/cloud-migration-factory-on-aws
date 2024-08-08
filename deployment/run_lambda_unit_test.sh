@@ -5,6 +5,11 @@
 #
 
 # This script must be executed from the package root directory
+#
+# To run unittests against a subset of the tests for development testing,
+# the script accepts a single optional argument, this is string pattern
+# for the tests required to be run i.e. test_lambda_ssm*
+# If not provided all tests will be run.
 
 set -e
 
@@ -35,8 +40,14 @@ else
   sed -i -e $replace $tox_path
 fi
 
-echo "  ---- Running tests..."
-coverage run --data-file=./coverage/.coverage -m unittest discover
+if [ -z "$1" ]; then
+  echo "  ---- Running all tests..."
+  test_scope=discover
+else
+  echo "  ---- Running tests based on the pattern $1..."
+  test_scope=$1
+fi
+coverage run --data-file=./coverage/.coverage -m unittest $test_scope
 echo "  ---- Please make sure all the test cases above pass"
 echo
 echo

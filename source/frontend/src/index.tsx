@@ -3,28 +3,28 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
-import {createRoot} from 'react-dom/client';
-import {Amplify} from '@aws-amplify/core'
-import App from './App';
-import "@awsui/global-styles/index.css"
-import {BrowserRouter} from 'react-router-dom';
-import {SessionContextProvider} from "./contexts/SessionContext";
-import {Auth} from "@aws-amplify/auth";
-import {NotificationContextProvider} from "./contexts/NotificationContext";
-import {ToolsContextProvider} from "./contexts/ToolsContext";
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { Amplify } from "@aws-amplify/core";
+import App from "./App";
+import "@awsui/global-styles/index.css";
+import { BrowserRouter } from "react-router-dom";
+import { SessionContextProvider } from "./contexts/SessionContext";
+import { Auth } from "@aws-amplify/auth";
+import { NotificationContextProvider } from "./contexts/NotificationContext";
+import { ToolsContextProvider } from "./contexts/ToolsContext";
 
 const env = (window as any).env;
 
 type EndpointConfig = {
-  name: string,
-  endpoint: string,
-  region: string,
-  custom_header: () => {}
-}
+  name: string;
+  endpoint: string;
+  region: string;
+  custom_header: () => {};
+};
 let awsConfig: {
   Auth: { userPoolWebClientId: string; region: string; userPoolId: string; mandatorySignIn: boolean };
-  API: { endpoints: EndpointConfig[] }
+  API: { endpoints: EndpointConfig[] };
 } = {
   Auth: {
     mandatorySignIn: true,
@@ -33,10 +33,9 @@ let awsConfig: {
     userPoolWebClientId: env.COGNITO_APP_CLIENT_ID,
   },
   API: {
-    endpoints: []
-  }
+    endpoints: [],
+  },
 };
-
 
 if (!env.API_VPCE_ID) {
   // by adding the custom header builder to each API endpoint below,
@@ -45,113 +44,116 @@ if (!env.API_VPCE_ID) {
     const session = await Auth.currentSession();
     return {
       Authorization: session.getIdToken().getJwtToken(),
-      'Authorization-Access': session.getAccessToken().getJwtToken()
-    }
+      "Authorization-Access": session.getAccessToken().getJwtToken(),
+    };
   };
 
   awsConfig.API.endpoints = [
     {
       name: "admin",
-      endpoint: 'https://' + env.API_ADMIN + '.execute-api.' + env.API_REGION + '.amazonaws.com/prod',
+      endpoint: "https://" + env.API_ADMIN + ".execute-api." + env.API_REGION + ".amazonaws.com/prod",
       region: env.API_REGION,
-      custom_header: customHeaderBuilder
+      custom_header: customHeaderBuilder,
     },
     {
       name: "user",
-      endpoint: 'https://' + env.API_USER + '.execute-api.' + env.API_REGION + '.amazonaws.com/prod',
+      endpoint: "https://" + env.API_USER + ".execute-api." + env.API_REGION + ".amazonaws.com/prod",
       region: env.API_REGION,
-      custom_header: customHeaderBuilder
+      custom_header: customHeaderBuilder,
     },
     {
       name: "login",
-      endpoint: 'https://' + env.API_LOGIN + '.execute-api.' + env.API_REGION + '.amazonaws.com/prod',
+      endpoint: "https://" + env.API_LOGIN + ".execute-api." + env.API_REGION + ".amazonaws.com/prod",
       region: env.API_REGION,
-      custom_header: customHeaderBuilder
+      custom_header: customHeaderBuilder,
     },
     {
       name: "tools",
-      endpoint: 'https://' + env.API_TOOLS + '.execute-api.' + env.API_REGION + '.amazonaws.com/prod',
+      endpoint: "https://" + env.API_TOOLS + ".execute-api." + env.API_REGION + ".amazonaws.com/prod",
       region: env.API_REGION,
-      custom_header: customHeaderBuilder
-    }
-  ]
+      custom_header: customHeaderBuilder,
+    },
+  ];
 } else {
   // If deployment is using an API Gateway VPCE then API URL to VPCE and pass API ID as request header.
 
   awsConfig.API.endpoints = [
     {
       name: "admin",
-      endpoint: 'https://'+ env.API_ADMIN + '-' + env.API_VPCE_ID + '.execute-api.' + env.API_REGION + '.amazonaws.com/prod',
+      endpoint:
+        "https://" + env.API_ADMIN + "-" + env.API_VPCE_ID + ".execute-api." + env.API_REGION + ".amazonaws.com/prod",
       region: env.API_REGION,
       custom_header: async () => {
         const session = await Auth.currentSession();
         return {
           Authorization: session.getIdToken().getJwtToken(),
-          'Authorization-Access': session.getAccessToken().getJwtToken()
-        }
-      }
+          "Authorization-Access": session.getAccessToken().getJwtToken(),
+        };
+      },
     },
     {
       name: "user",
-      endpoint: 'https://'+ env.API_USER + '-' + env.API_VPCE_ID + '.execute-api.' + env.API_REGION + '.amazonaws.com/prod',
+      endpoint:
+        "https://" + env.API_USER + "-" + env.API_VPCE_ID + ".execute-api." + env.API_REGION + ".amazonaws.com/prod",
       region: env.API_REGION,
       custom_header: async () => {
         const session = await Auth.currentSession();
         return {
           Authorization: session.getIdToken().getJwtToken(),
-          'Authorization-Access': session.getAccessToken().getJwtToken()
-        }
-      }
+          "Authorization-Access": session.getAccessToken().getJwtToken(),
+        };
+      },
     },
     {
       name: "login",
-      endpoint: 'https://'+ env.API_LOGIN + '-' + env.API_VPCE_ID + '.execute-api.' + env.API_REGION + '.amazonaws.com/prod',
+      endpoint:
+        "https://" + env.API_LOGIN + "-" + env.API_VPCE_ID + ".execute-api." + env.API_REGION + ".amazonaws.com/prod",
       region: env.API_REGION,
       custom_header: async () => {
         const session = await Auth.currentSession();
         return {
           Authorization: session.getIdToken().getJwtToken(),
-          'Authorization-Access': session.getAccessToken().getJwtToken()
-        }
-      }
+          "Authorization-Access": session.getAccessToken().getJwtToken(),
+        };
+      },
     },
     {
       name: "tools",
-      endpoint: 'https://'+ env.API_TOOLS + '-' + env.API_VPCE_ID + '.execute-api.' + env.API_REGION + '.amazonaws.com/prod',
+      endpoint:
+        "https://" + env.API_TOOLS + "-" + env.API_VPCE_ID + ".execute-api." + env.API_REGION + ".amazonaws.com/prod",
       region: env.API_REGION,
       custom_header: async () => {
         const session = await Auth.currentSession();
         return {
           Authorization: session.getIdToken().getJwtToken(),
-          'Authorization-Access': session.getAccessToken().getJwtToken()
-        }
-      }
-    }
-  ]
+          "Authorization-Access": session.getAccessToken().getJwtToken(),
+        };
+      },
+    },
+  ];
 }
-
 
 const oauthSettings = {
   domain: env.COGNITO_HOSTED_UI_URL,
-  scope: ['phone', 'email', 'openid', 'aws.cognito.signin.user.admin'],
-  redirectSignIn: window.location.origin + '/',
-  redirectSignOut: window.location.origin + '/',
-  responseType: 'code' // or 'token', note that REFRESH token will only be generated when the responseType is code
-}
+  scope: ["phone", "email", "openid", "aws.cognito.signin.user.admin"],
+  redirectSignIn: window.location.origin + "/",
+  redirectSignOut: window.location.origin + "/",
+  responseType: "code", // or 'token', note that REFRESH token will only be generated when the responseType is code
+};
 
 const updatedAwsConfig = {
   ...awsConfig,
   Auth: {
     ...awsConfig.Auth,
     oauth: {
-      ...oauthSettings
-    }
-  }
-}
+      ...oauthSettings,
+    },
+  },
+};
 
 Amplify.configure(updatedAwsConfig);
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("root")!;
   const root = createRoot(container);
   root.render(
@@ -159,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <NotificationContextProvider>
         <ToolsContextProvider>
           <SessionContextProvider>
-            <App/>
+            <App />
           </SessionContextProvider>
         </ToolsContextProvider>
       </NotificationContextProvider>

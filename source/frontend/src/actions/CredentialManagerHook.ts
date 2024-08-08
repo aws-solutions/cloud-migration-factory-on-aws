@@ -3,16 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {reducer, requestStarted, requestSuccessful} from '../resources/reducer';
-import {Dispatch, useEffect, useReducer} from 'react';
+import { reducer, requestStarted, requestSuccessful } from "../resources/reducer";
+import { Dispatch, useEffect, useReducer } from "react";
 import ToolsApiClient from "../api_clients/toolsApiClient";
 
 export const useCredentialManager = () => {
-
   const [state, dispatch]: [any, Dispatch<any>] = useReducer(reducer, {
     isLoading: true,
     data: [],
-    error: null
+    error: null,
   });
 
   async function getSecretList() {
@@ -22,15 +21,13 @@ export const useCredentialManager = () => {
     dispatch(requestStarted());
 
     try {
-
       let toolsAPI = new ToolsApiClient();
       credentialManagerData = await toolsAPI.getCredentials();
 
       dispatch(requestSuccessful({ data: credentialManagerData }));
-
     } catch (e: any) {
-      if (e.name !== 'AbortError') {
-        console.error('Credential Manager Hook', e);
+      if (e.name !== "AbortError") {
+        console.error("Credential Manager Hook", e);
       }
       dispatch(requestSuccessful({ data: [] }));
     }
@@ -38,7 +35,6 @@ export const useCredentialManager = () => {
     return () => {
       myAbortController.abort();
     };
-
   }
 
   useEffect(() => {
@@ -52,7 +48,6 @@ export const useCredentialManager = () => {
     return () => {
       cancelledRequest = true;
     };
-
   }, []);
 
   return [state, { getSecretList }];

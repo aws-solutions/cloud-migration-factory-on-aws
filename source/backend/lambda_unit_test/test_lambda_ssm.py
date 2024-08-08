@@ -20,7 +20,9 @@ mock_os_environ = {
     'mf_toolsapi': 'test_mf_toolsapi',
     'userpool': 'test_userpool',
     'clientid': 'test_clientid',
-    'mf_vpce_id': 'fd00:ec2::253'
+    'mf_vpce_id': 'fd00:ec2::253',
+    'SOLUTION_ID': 'SO101',
+    'SOLUTION_VERSION': '00000'
 }
 
 
@@ -180,7 +182,10 @@ class LambdaSSMTest(unittest.TestCase):
                 'script': {
                     'package_uuid': 'test_uuid',
                     'script_version': 'test_version',
-                    'script_arguments': [1, 2]
+                    'script_arguments': {
+                        'arg1': 'value1',
+                        'arg2': 'value2'
+                    }
                 }
             })
         }
@@ -192,7 +197,10 @@ class LambdaSSMTest(unittest.TestCase):
                 'script': {
                     'package_uuid': 'test_uuid',
                     'script_version': '0',
-                    'script_arguments': [1, 2]
+                    'script_arguments': {
+                        'arg1': 'value1',
+                        'arg2': 'value2'
+                    }
                 }
             })
         }
@@ -204,7 +212,10 @@ class LambdaSSMTest(unittest.TestCase):
                 'script': {
                     'package_uuid': 'test_uuid_1',
                     'script_version': '0',
-                    'script_arguments': [1, 2]
+                    'script_arguments': {
+                        'arg1': 'value1',
+                        'arg2': 'value2'
+                    }
                 }
             })
         }
@@ -237,7 +248,6 @@ class LambdaSSMTest(unittest.TestCase):
     @patch('lambda_ssm.ec2')
     @patch('lambda_ssm.ssm')
     def test_lambda_handler_get_exception(self, mock_ssm, mock_aws):
-        os.environ['solution_identifier'] = 'SO101'
         import lambda_ssm
         mock_ssm.get_paginator.side_effect = Exception('Simulated Exception')
         self.assertRaises(Exception, lambda_ssm.lambda_handler, self.event_get, None)
@@ -245,9 +255,9 @@ class LambdaSSMTest(unittest.TestCase):
         mock_aws.describe_tags.assert_not_called()
 
     @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
-    def test_lambda_handler_post_validation_error(self, mock_MFAuth):
+    def test_lambda_handler_post_validation_error(self, mock_mf_auth):
         import lambda_ssm
-        mock_MFAuth.side_effect = mock_getUserResourceCreationPolicy
+        mock_mf_auth.side_effect = mock_getUserResourceCreationPolicy
         response = lambda_ssm.lambda_handler(self.event_post_invalid, None)
         expected = {
             'headers': lambda_ssm.default_http_headers,
@@ -258,9 +268,9 @@ class LambdaSSMTest(unittest.TestCase):
 
     @patch('lambda_ssm.lambda_client')
     @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
-    def test_lambda_handler_post_package_version_doesnt_exist(self, mock_MFAuth, mock_lamda):
+    def test_lambda_handler_post_package_version_doesnt_exist(self, mock_mf_auth, mock_lamda):
         import lambda_ssm
-        mock_MFAuth.side_effect = mock_getUserResourceCreationPolicy
+        mock_mf_auth.side_effect = mock_getUserResourceCreationPolicy
         mock_lamda.invoke.side_effect = mock_lamda_invoke
         response = lambda_ssm.lambda_handler(self.event_post_package_version_doesnt_exist, None)
         expected = {
@@ -272,9 +282,9 @@ class LambdaSSMTest(unittest.TestCase):
 
     @patch('lambda_ssm.lambda_client')
     @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
-    def test_lambda_handler_post_package_version_invalid(self, mock_MFAuth, mock_lamda):
+    def test_lambda_handler_post_package_version_invalid(self, mock_mf_auth, mock_lamda):
         import lambda_ssm
-        mock_MFAuth.side_effect = mock_getUserResourceCreationPolicy
+        mock_mf_auth.side_effect = mock_getUserResourceCreationPolicy
         mock_lamda.invoke.side_effect = mock_lamda_invoke
         response = lambda_ssm.lambda_handler(self.event_post_package_version_invalid, None)
         expected = {
@@ -287,21 +297,23 @@ class LambdaSSMTest(unittest.TestCase):
     @patch('lambda_ssm.ssm')
     @patch('lambda_ssm.lambda_client')
     @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
-    def test_lambda_handler_post_success(self, mock_MFAuth, mock_lamda, mock_ssm):
+    def test_lambda_handler_post_success(self, mock_mf_auth, mock_lamda, mock_ssm):
         import lambda_ssm
-        mock_MFAuth.side_effect = mock_getUserResourceCreationPolicy
+        mock_mf_auth.side_effect = mock_getUserResourceCreationPolicy
         mock_lamda.invoke.side_effect = mock_lamda_invoke
         mock_ssm.start_automation_execution = mock_start_automation_execution
         response = lambda_ssm.lambda_handler(self.event_post, None)
+        print("THIS ONE HERE")
+        print(response)
         self.assertEqual(lambda_ssm.default_http_headers, response['headers'])
-        self.assertTrue('"SSMId: test_mi_id' in response['body'])
+        self.assertIn('"SSMId: test_mi_id', response['body'])
 
     @patch('lambda_ssm.ssm')
     @patch('lambda_ssm.lambda_client')
     @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
-    def test_lambda_handler_post_unhandled_exception(self, mock_MFAuth, mock_lamda, mock_ssm):
+    def test_lambda_handler_post_unhandled_exception(self, mock_mf_auth, mock_lamda, mock_ssm):
         import lambda_ssm
-        mock_MFAuth.side_effect = Exception('Simulated Exception')
+        mock_mf_auth.side_effect = Exception('Simulated Exception')
         self.assertRaises(Exception, lambda_ssm.lambda_handler, self.event_post, None)
         mock_lamda.invoke.assert_not_called()
         mock_ssm.assert_not_called()
@@ -309,9 +321,9 @@ class LambdaSSMTest(unittest.TestCase):
     @patch('lambda_ssm.ssm')
     @patch('lambda_ssm.lambda_client')
     @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
-    def test_lambda_handler_post_handled_exception(self, mock_MFAuth, mock_lamda, mock_ssm):
+    def test_lambda_handler_post_handled_exception(self, mock_mf_auth, mock_lamda, mock_ssm):
         import lambda_ssm
-        mock_MFAuth.side_effect = mock_getUserResourceCreationPolicy
+        mock_mf_auth.side_effect = mock_getUserResourceCreationPolicy
         mock_lamda.invoke.side_effect = Exception('Simulated Exception')
         mock_ssm.start_automation_execution = Exception('Simulated Exception')
         response = lambda_ssm.lambda_handler(self.event_post, None)
@@ -321,9 +333,9 @@ class LambdaSSMTest(unittest.TestCase):
     @patch('lambda_ssm.ssm')
     @patch('lambda_ssm.lambda_client')
     @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
-    def test_lambda_handler_post_mfauth_deny(self, mock_MFAuth, mock_lamda, mock_ssm):
+    def test_lambda_handler_post_mfauth_deny(self, mock_mf_auth, mock_lamda, mock_ssm):
         import lambda_ssm
-        mock_MFAuth.side_effect = mock_getUserResourceCreationPolicyDeny
+        mock_mf_auth.side_effect = mock_getUserResourceCreationPolicyDeny
         response = lambda_ssm.lambda_handler(self.event_post, None)
         mock_lamda.invoke.assert_not_called()
         mock_ssm.assert_not_called()
@@ -333,3 +345,16 @@ class LambdaSSMTest(unittest.TestCase):
             'body': '{"action": "deny", "user": "testuser@testuser"}',
         }
         self.assertEqual(expected, response)
+    @patch('lambda_ssm.ssm')
+    @patch('lambda_ssm.lambda_client')
+    @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
+    def test_parse_script_args_success(self, mock_mf_auth, mock_lamda, mock_ssm):
+        import lambda_ssm
+        args = lambda_ssm.parse_script_args({'list': ['item1', 'item2'],
+                                             'stringnospace': 'test',
+                                             'stringspace': 'test string'}
+                                            )
+        self.assertEqual(
+            {'list': 'item1,item2',
+             'stringnospace': 'test',
+             'stringspace': "'test string'"}, args)

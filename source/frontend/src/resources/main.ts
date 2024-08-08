@@ -7,9 +7,9 @@
  * Functions declared in this module are for generic factory functionality.
  */
 
-import {Attribute, EntitySchema} from "../models/EntitySchema";
-import {UserAccess} from "../models/UserAccess";
-import {ButtonDropdownProps} from "@awsui/components-react";
+import { Attribute, EntitySchema } from "../models/EntitySchema";
+import { UserAccess } from "../models/UserAccess";
+import { ButtonDropdownProps } from "@awsui/components-react";
 
 /**
  * Compares the provided newItem object to the object based in the dataArray of the matching key, returning the difference.
@@ -20,15 +20,13 @@ import {ButtonDropdownProps} from "@awsui/components-react";
  * @returns {{}|null}
  */
 export function getChanges(newItem: any, dataArray: any[], key: string, keepCalculated = false) {
-
   let update: Record<string, any> = {};
 
-  let currentItem = dataArray.find(item => {
+  let currentItem = dataArray.find((item) => {
     if (item[key].toLowerCase() === newItem[key].toLowerCase()) {
-        return true;
-      }
+      return true;
     }
-  )
+  });
 
   // Compare the selected server to the original server list and extract key values that are different
   const keys = Object.keys(newItem);
@@ -60,11 +58,9 @@ type ComparableObject = object | null | undefined;
  * @returns {boolean}
  */
 export function deepEqual(object1: ComparableObject, object2: ComparableObject) {
-
   // this is just to get the complexity of this function below 15
   const simpleEquality = simpleCompare(object1, object2);
-  if (simpleEquality !== EqualityType.NotKnown)
-    return simpleEquality === EqualityType.Equal;
+  if (simpleEquality !== EqualityType.NotKnown) return simpleEquality === EqualityType.Equal;
 
   const keys1 = Object.keys(<object>object1);
   const keys2 = Object.keys(<object>object2);
@@ -86,7 +82,7 @@ export function deepEqual(object1: ComparableObject, object2: ComparableObject) 
 }
 
 enum EqualityType {
-  Equal= "EQUAL",
+  Equal = "EQUAL",
   NotEqual = "NOT_EQUAL",
   NotKnown = "NOT_KNOWN",
 }
@@ -113,32 +109,38 @@ function simpleCompare(object1: ComparableObject, object2: ComparableObject): Eq
  * @returns {boolean}
  */
 function isObject(object: any) {
-  return object != null && typeof object === 'object';
+  return object != null && typeof object === "object";
 }
 
-function resolveRelationshipValuesForRelationsAndPolicies(attributesWithRelations: Attribute[], lMainData: readonly any[], relatedData: any) {
+function resolveRelationshipValuesForRelationsAndPolicies(
+  attributesWithRelations: Attribute[],
+  lMainData: readonly any[],
+  relatedData: any
+) {
   for (const attributesWithRelationsItem of attributesWithRelations) {
     for (const lMainDataItem of lMainData) {
       if (propExists(lMainDataItem, attributesWithRelationsItem.name)) {
         let lRel_Value = getRelationshipValue(
-            relatedData,
-            attributesWithRelationsItem,
-            getNestedValuePath(lMainDataItem, attributesWithRelationsItem.name)
+          relatedData,
+          attributesWithRelationsItem,
+          getNestedValuePath(lMainDataItem, attributesWithRelationsItem.name)
         );
 
         //Update last element in key name with __ to reflect names that are path based.
         let arrName = attributesWithRelationsItem.name.split(".");
-        arrName[arrName.length - 1] = '__' + arrName[arrName.length - 1];
+        arrName[arrName.length - 1] = "__" + arrName[arrName.length - 1];
         let newName = arrName.join(".");
 
-        if (lRel_Value.status === 'loaded') {
+        if (lRel_Value.status === "loaded") {
           setNestedValuePath(lMainDataItem, newName, lRel_Value.value);
-        } else if (lRel_Value.status === 'not found') {
-          setNestedValuePath(lMainDataItem,
-              newName,
-              ` [ERROR: ${attributesWithRelationsItem.rel_key} (${lRel_Value.value}) not found in ${attributesWithRelationsItem.rel_entity} table]`);
+        } else if (lRel_Value.status === "not found") {
+          setNestedValuePath(
+            lMainDataItem,
+            newName,
+            ` [ERROR: ${attributesWithRelationsItem.rel_key} (${lRel_Value.value}) not found in ${attributesWithRelationsItem.rel_entity} table]`
+          );
         } else {
-          setNestedValuePath(lMainDataItem, newName, lRel_Value.value + ' [resolving...]');
+          setNestedValuePath(lMainDataItem, newName, lRel_Value.value + " [resolving...]");
         }
       }
     }
@@ -151,14 +153,16 @@ function resolveRelationshipValuesForTags(attributesWithTags: Attribute[], lMain
       if (propExists(lMainDataItem, attributesWithTagsItem.name)) {
         //Update last element in key name with __ to reflect names that are path based.
         let arrName = attributesWithTagsItem.name.split(".");
-        arrName[arrName.length - 1] = '__' + arrName[arrName.length - 1];
+        arrName[arrName.length - 1] = "__" + arrName[arrName.length - 1];
         let newName = arrName.join(".");
 
         let value = getNestedValuePath(lMainDataItem, attributesWithTagsItem.name);
 
-        let lRel_Value = value.map((tag: { key: string, value: string }) => {
-          return tag.key + '=' + tag.value
-        }).join(';');
+        let lRel_Value = value
+          .map((tag: { key: string; value: string }) => {
+            return tag.key + "=" + tag.value;
+          })
+          .join(";");
         setNestedValuePath(lMainDataItem, newName, lRel_Value.value);
       }
     }
@@ -176,13 +180,13 @@ export function resolveRelationshipValues(relatedData: any, mainData: readonly a
   let lMainData = mainData;
 
   let attributesWithRelations = mainDataSchema.attributes.filter(function (entry) {
-    return entry.type === 'relationship' || entry.type === 'policies';
-  })
+    return entry.type === "relationship" || entry.type === "policies";
+  });
   resolveRelationshipValuesForRelationsAndPolicies(attributesWithRelations, lMainData, relatedData);
 
   let attributesWithTags = mainDataSchema.attributes.filter(function (entry) {
-    return entry.type === 'tag';
-  })
+    return entry.type === "tag";
+  });
   resolveRelationshipValuesForTags(attributesWithTags, lMainData);
 
   return lMainData;
@@ -190,51 +194,50 @@ export function resolveRelationshipValues(relatedData: any, mainData: readonly a
 
 function getMatchingPolicyRecord(relatedData: any, attribute: Attribute, value: any) {
   return relatedData[attribute.rel_entity!].data.filter((item: any) => {
-        for (const listItem of value) {
-          if (item[attribute.rel_key!] === listItem['policy_id']) {
-            return true;
-          }
-        }
+    for (const listItem of value) {
+      if (item[attribute.rel_key!] === listItem["policy_id"]) {
+        return true;
       }
-  )
+    }
+  });
 }
 
 function getMatchingListItemRecord(relatedData: any, attribute: Attribute, value: any) {
   return relatedData[attribute.rel_entity!].data.filter((item: any) => {
-        for (const listItem of value) {
-          if (item[attribute.rel_key!] === listItem) {
-            return true;
-          }
-        }
+    for (const listItem of value) {
+      if (item[attribute.rel_key!] === listItem) {
+        return true;
       }
-  )
+    }
+  });
 }
 
 function getDefaultMatchingRecord(relatedData: any, attribute: Attribute, value: any) {
   return relatedData[attribute.rel_entity!].data.find((item: any) => {
-        if (item[attribute.rel_key!].toLowerCase() === value.toLowerCase()) {
-          return true;
-        }
-      }
-  )
+    if (item[attribute.rel_key!].toLowerCase() === value.toLowerCase()) {
+      return true;
+    }
+  });
 }
 
 function getRelationshipValueFromMatchingRecord(record: any, attribute: Attribute, value: any) {
-  if (attribute.type !== 'policies') {
-    return record[attribute.rel_display_attribute!] ? {
-      status: 'loaded',
-      value: record[attribute.rel_display_attribute!]
-    } : {status: 'loaded', value: null};
-  } else if (attribute.type === 'policies' || (attribute.type === 'relationship' && attribute.listMultiSelect)) {
+  if (attribute.type !== "policies") {
+    return record[attribute.rel_display_attribute!]
+      ? {
+          status: "loaded",
+          value: record[attribute.rel_display_attribute!],
+        }
+      : { status: "loaded", value: null };
+  } else if (attribute.type === "policies" || (attribute.type === "relationship" && attribute.listMultiSelect)) {
     let returnArray = [];
     for (const item of record) {
       if (item[attribute.rel_display_attribute!]) {
-        returnArray.push(item[attribute.rel_display_attribute!])
+        returnArray.push(item[attribute.rel_display_attribute!]);
       }
     }
-    return returnArray.length > 0 ? {status: 'loaded', value: returnArray} : {status: 'loaded', value: null};
+    return returnArray.length > 0 ? { status: "loaded", value: returnArray } : { status: "loaded", value: null };
   } else {
-    return {status: 'not found', value: value};
+    return { status: "not found", value: value };
   }
 }
 
@@ -247,16 +250,17 @@ function getRelationshipValueFromMatchingRecord(record: any, attribute: Attribut
  */
 function getRelationshipValue(relatedData: any, attribute: Attribute, value: any) {
   if (!relatedData[attribute.rel_entity!]) {
-    return {status: 'error', value: '[' + value + '] ' + attribute.rel_entity + ' entity was not provided in related data.'}
-
+    return {
+      status: "error",
+      value: "[" + value + "] " + attribute.rel_entity + " entity was not provided in related data.",
+    };
   }
 
-  if (relatedData[attribute.rel_entity!].isLoading)
-    return {status: 'loading', value: value};
+  if (relatedData[attribute.rel_entity!].isLoading) return { status: "loading", value: value };
   else {
     let record = undefined;
     //For policies this is an array of objects that needs special processing.
-    if (attribute.type === 'policies') {
+    if (attribute.type === "policies") {
       record = getMatchingPolicyRecord(relatedData, attribute, value);
     } else if (Array.isArray(value)) {
       // Multiselect relationship value.
@@ -264,24 +268,23 @@ function getRelationshipValue(relatedData: any, attribute: Attribute, value: any
     } else {
       record = getDefaultMatchingRecord(relatedData, attribute, value);
     }
-    if (record)
-      return getRelationshipValueFromMatchingRecord(record, attribute, value);
-    else
-      return {status: 'not found', value: value};
+    if (record) return getRelationshipValueFromMatchingRecord(record, attribute, value);
+    else return { status: "not found", value: value };
   }
-
 }
 
-function validateValueList(attribute: {
-                              type: any;
-                              validation_regex?: any;
-                              validation_regex_msg?: any;
-                              listvalue?: any
-                            },
-                           value: string,
-                           errorMsg: string | null) {
+function validateValueList(
+  attribute: {
+    type: any;
+    validation_regex?: any;
+    validation_regex_msg?: any;
+    listvalue?: any;
+  },
+  value: string,
+  errorMsg: string | null
+) {
   if (attribute.listvalue) {
-    let attrListValues = attribute.listvalue.split(',');
+    let attrListValues = attribute.listvalue.split(",");
     let foundAll = null;
 
     for (const attrListValue of attrListValues) {
@@ -291,27 +294,29 @@ function validateValueList(attribute: {
     }
 
     if (!foundAll) {
-      errorMsg = 'Value entered is invalid, ' + 'possible values are: ' + attribute.listvalue + '.';
+      errorMsg = "Value entered is invalid, " + "possible values are: " + attribute.listvalue + ".";
     }
   }
   return errorMsg;
 }
 
-function validateRegEx(value: string,
-                       attribute: {
-                          type: any;
-                          validation_regex?: any;
-                          validation_regex_msg?: any;
-                          listvalue?: any
-                        },
-                       errorMsg: string | null,
-                       stdError: string) {
+function validateRegEx(
+  value: string,
+  attribute: {
+    type: any;
+    validation_regex?: any;
+    validation_regex_msg?: any;
+    listvalue?: any;
+  },
+  errorMsg: string | null,
+  stdError: string
+) {
   if (!value.match(attribute.validation_regex)) {
     //Validation error
     if (attribute.validation_regex_msg) {
       errorMsg = attribute.validation_regex_msg;
     } else {
-      errorMsg = stdError
+      errorMsg = stdError;
     }
   }
   return errorMsg;
@@ -323,30 +328,36 @@ function validateRegEx(value: string,
  * @param attribute
  * @returns {null}
  */
-export function validateValue(value: string,
-                              attribute: {
-                                type: any;
-                                validation_regex?: any;
-                                validation_regex_msg?: any,
-                                listvalue?: any
-                              }) {
-
+export function validateValue(
+  value: string,
+  attribute: {
+    type: any;
+    validation_regex?: any;
+    validation_regex_msg?: any;
+    listvalue?: any;
+  }
+) {
   const stdError = "Error in validation, please check entered value.";
   let errorMsg = null;
 
   //Validate valuelist.
-  if (attribute.type === 'list' && (value !== '' && value !== undefined && value !== null)) {
+  if (attribute.type === "list" && value !== "" && value !== undefined && value !== null) {
     //Check value is matching list item.
     errorMsg = validateValueList(attribute, value, errorMsg);
   }
 
   //Validate regex.
-  if (attribute.validation_regex && attribute.validation_regex !== '' && (value !== '' && value !== undefined && value !== null)) {
+  if (
+    attribute.validation_regex &&
+    attribute.validation_regex !== "" &&
+    value !== "" &&
+    value !== undefined &&
+    value !== null
+  ) {
     errorMsg = validateRegEx(value, attribute, errorMsg, stdError);
   }
 
   return errorMsg;
-
 }
 
 /**
@@ -356,7 +367,7 @@ export function validateValue(value: string,
  * @returns {*}
  */
 export function getNestedValue(obj: any, ...args: string[]) {
-  return args.reduce((obj, level) => obj && obj[level], obj)
+  return args.reduce((obj, level) => obj && obj[level], obj);
 }
 
 /**
@@ -367,11 +378,10 @@ export function getNestedValue(obj: any, ...args: string[]) {
  */
 export function getNestedValuePath(obj: any, path: string) {
   if (path) {
-    return path.split(".").reduce((obj, pathElement) => obj && obj[pathElement], obj)
+    return path.split(".").reduce((obj, pathElement) => obj && obj[pathElement], obj);
   } else {
     return undefined;
   }
-
 }
 
 function setNestedValuePathToUndefined(o_arr: any[], parts: string[], o: any) {
@@ -379,10 +389,10 @@ function setNestedValuePathToUndefined(o_arr: any[], parts: string[], o: any) {
     o_arr[parts.length - 2].splice(parts[parts.length - 1], 1);
     if (o_arr[parts.length - 2].length === 0) {
       //Array now empty, remove key.
-      delete o[parts[parts.length - 2]]
+      delete o[parts[parts.length - 2]];
     }
   } else {
-    delete o[parts[parts.length - 1]]
+    delete o[parts[parts.length - 1]];
   }
 }
 
@@ -393,13 +403,13 @@ function setNestedValuePathToUndefined(o_arr: any[], parts: string[], o: any) {
  * @param value
  */
 export function setNestedValuePath(obj: any, path: string, value: any) {
-  let parts = path.split('.');
+  let parts = path.split(".");
   let o = obj;
   let o_arr = [];
   if (parts.length > 1) {
     for (let i = 0; i < parts.length - 1; i++) {
       if (!o[parts[i]])
-        if (parts[parts.length - 1] === '+1' && i === parts.length - 2) {
+        if (parts[parts.length - 1] === "+1" && i === parts.length - 2) {
           o[parts[i]] = [];
         } else {
           o[parts[i]] = {};
@@ -411,14 +421,12 @@ export function setNestedValuePath(obj: any, path: string, value: any) {
   }
   if (value === undefined) {
     setNestedValuePathToUndefined(o_arr, parts, o);
-  } else if (parts[parts.length - 1] === '+1') {
+  } else if (parts[parts.length - 1] === "+1") {
     o_arr[parts.length - 2].push(value);
   } else {
     o[parts[parts.length - 1]] = value;
   }
-
 }
-
 
 /**
  * Checks if a key exists based on passing a period delimited path to the key/value required.
@@ -427,10 +435,10 @@ export function setNestedValuePath(obj: any, path: string, value: any) {
  * @returns {boolean}
  */
 export const propExists = (obj: any, path: string) => {
-  return !!path.split('.').reduce((obj, prop) => {
+  return !!path.split(".").reduce((obj, prop) => {
     return obj && obj[prop] ? obj[prop] : undefined;
-  }, obj)
-}
+  }, obj);
+};
 
 function stringCompare(a: string, b: string) {
   if (a === b) {
@@ -467,7 +475,6 @@ function compareDate(a: Date, b: Date) {
  * @returns {number|number}
  */
 export function sortAscendingComparator(a: any, b: any) {
-
   if (typeof a === "string" && typeof b === "string") {
     return stringCompare(a, b);
   }
@@ -501,7 +508,6 @@ export function sortAscendingComparator(a: any, b: any) {
  * @returns {Date|string|undefined}
  */
 export function returnLocaleDateTime(stringDateTime: string, returnObject = false) {
-
   if (stringDateTime === null || stringDateTime === undefined) {
     return undefined;
   }
@@ -521,12 +527,13 @@ export function returnLocaleDateTime(stringDateTime: string, returnObject = fals
  * @param file
  * @returns {Promise<unknown>}
  */
-export const toBase64 = (file: File) => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.readAsDataURL(file);
-  reader.onload = () => resolve(reader.result);
-  reader.onerror = error => reject(error);
-});
+export const toBase64 = (file: File) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+  });
 
 /**
  * Capitalizes the first letter of the s parameter.
@@ -536,7 +543,12 @@ export const toBase64 = (file: File) => new Promise((resolve, reject) => {
  */
 export const capitalize = (s: string) => (s && s[0].toUpperCase() + s.slice(1)) || "";
 
-function extracted(existingItems: any[], schemas: Record<string, EntitySchema>, schema_name: string, userEntityAccess: UserAccess) {
+function extracted(
+  existingItems: any[],
+  schemas: Record<string, EntitySchema>,
+  schema_name: string,
+  userEntityAccess: UserAccess
+) {
   const items: any[] = [];
   if (schemas[schema_name].group) {
     //Has groups
@@ -548,27 +560,29 @@ function extracted(existingItems: any[], schemas: Record<string, EntitySchema>, 
       items.push({
         id: schemas[schema_name].group,
         text: schemas[schema_name].group,
-        items: [{
-          id: schemas[schema_name].schema_name,
-          text: schemas[schema_name].friendly_name,
-          description: schemas[schema_name].description,
-          disabled: userEntityAccess[schema_name] ? !userEntityAccess[schema_name].create : true
-        }]
+        items: [
+          {
+            id: schemas[schema_name].schema_name,
+            text: schemas[schema_name].friendly_name,
+            description: schemas[schema_name].description,
+            disabled: userEntityAccess[schema_name] ? !userEntityAccess[schema_name].create : true,
+          },
+        ],
       });
     } else {
       group[0].items!.push({
         id: schemas[schema_name].schema_name,
         text: schemas[schema_name].friendly_name,
         description: schemas[schema_name].description,
-        disabled: userEntityAccess[schema_name] ? !userEntityAccess[schema_name].create : true
-      })
+        disabled: userEntityAccess[schema_name] ? !userEntityAccess[schema_name].create : true,
+      });
     }
   } else {
     items.push({
       id: schemas[schema_name].schema_name,
       text: schemas[schema_name].friendly_name,
       description: schemas[schema_name].description,
-      disabled: userEntityAccess[schema_name] ? !userEntityAccess[schema_name].create : true
+      disabled: userEntityAccess[schema_name] ? !userEntityAccess[schema_name].create : true,
     });
   }
   return items;
@@ -581,9 +595,9 @@ function extracted(existingItems: any[], schemas: Record<string, EntitySchema>, 
  * @returns {*[]}
  */
 export function userAutomationActionsMenuItems(schemas: Record<string, EntitySchema>, userEntityAccess: UserAccess) {
-  const items : ButtonDropdownProps.ItemOrGroup[] = [];
+  const items: ButtonDropdownProps.ItemOrGroup[] = [];
   for (const schema_name in schemas) {
-    if (schemas[schema_name].schema_type === 'automation') {
+    if (schemas[schema_name].schema_type === "automation") {
       //Only add automations that have at least one action, defined. This allows for other automation schemas to be stored.
       if (schemas[schema_name].actions!.length > 0) {
         items.push(...extracted(items, schemas, schema_name, userEntityAccess));

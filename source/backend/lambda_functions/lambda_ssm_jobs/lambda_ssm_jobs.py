@@ -21,6 +21,8 @@ job_timeout_seconds = 60 * 720  # 12 hours
 default_maximum_days_logs_returned = 30  # Set to None to return all logs.
 
 CONST_DT_FORMAT = '%Y-%m-%dT%H:%M:%S.%f'
+HISTORY_DDB_EXPRESSION_NAME = '#_history'
+HISTORY_ATTRIBUTE_NAME = '_history'
 
 
 def unix_time_seconds(dt):
@@ -39,13 +41,13 @@ def get_latest_datetimestamp(job_history):
 def update_job_status(ssm_data):
     current_time = datetime.utcnow()
     current_time_str = current_time.isoformat(sep='T')
-    created_timestamp = datetime.strptime(ssm_data["_history"]["createdTimestamp"], CONST_DT_FORMAT)
+    created_timestamp = datetime.strptime(ssm_data[HISTORY_ATTRIBUTE_NAME]["createdTimestamp"], CONST_DT_FORMAT)
     time_seconds_elapsed = unix_time_seconds(current_time) - unix_time_seconds(created_timestamp)
     if time_seconds_elapsed > job_timeout_seconds:
         logger.info('Job timeout breached')
         logger.info(ssm_data)
         ssm_data["status"] = "TIMED-OUT"
-        ssm_data["_history"]["completedTimestamp"] = current_time_str
+        ssm_data[HISTORY_ATTRIBUTE_NAME]["completedTimestamp"] = current_time_str
         table.put_item(Item=ssm_data)
 
 
@@ -77,9 +79,9 @@ def process_get(event):
         current_time = current_time + timedelta(days=-maximum_days_logs_returned)
         current_time_str = current_time.isoformat(sep='T')
 
-        response = table.scan(FilterExpression="#_history.#createdTimestamp > :current_time_30days",
+        response = table.scan(FilterExpression=f"{HISTORY_DDB_EXPRESSION_NAME}.#createdTimestamp > :current_time_30days",
                               ExpressionAttributeNames={
-                                  '#_history': '_history',
+                                  HISTORY_DDB_EXPRESSION_NAME: HISTORY_ATTRIBUTE_NAME,
                                   '#createdTimestamp': 'createdTimestamp',
                               },
                               ExpressionAttributeValues={
@@ -99,9 +101,9 @@ def process_get(event):
     while 'LastEvaluatedKey' in response:
         if maximum_days_logs_returned is not None:
             response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],
-                                  FilterExpression="#_history.#createdTimestamp > :current_time_30days",
+                                  FilterExpression=f"{HISTORY_DDB_EXPRESSION_NAME}.#createdTimestamp > :current_time_30days",
                                   ExpressionAttributeNames={
-                                      '#_history': '_history',
+                                      HISTORY_DDB_EXPRESSION_NAME: HISTORY_ATTRIBUTE_NAME,
                                       '#createdTimestamp': 'createdTimestamp',
                                   },
                                   ExpressionAttributeValues={
@@ -117,7 +119,7 @@ def process_get(event):
         if ssm_data["status"] == "RUNNING":
             update_job_status(ssm_data)
 
-    ssm_jobs.sort(key=lambda SSMJob: get_latest_datetimestamp(SSMJob["_history"]), reverse=True)
+    ssm_jobs.sort(key=lambda SSMJob: get_latest_datetimestamp(SSMJob[HISTORY_ATTRIBUTE_NAME]), reverse=True)
 
     logger.info("Request successful, returning job results list.")
 

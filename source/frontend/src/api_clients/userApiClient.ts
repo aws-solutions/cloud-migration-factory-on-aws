@@ -2,10 +2,10 @@
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
-import {API} from "@aws-amplify/api";
+import { API } from "@aws-amplify/api";
 
 export default class UserApiClient {
-  public readonly apiName = 'user';
+  public readonly apiName = "user";
 
   getNotifications() {
     return API.get(this.apiName, "/user/notifications", {});
@@ -49,32 +49,32 @@ export default class UserApiClient {
 
   postItem(item: any, schema: string) {
     let lSchema = schema;
-    if (lSchema === 'application') {
-      lSchema = 'app';
+    if (lSchema === "application") {
+      lSchema = "app";
     }
-    return API.post(this.apiName, "/user/" + lSchema + "/", {body: item});
+    return API.post(this.apiName, "/user/" + lSchema + "/", { body: item });
   }
 
   postItems(items: any[], schema: string) {
     let lSchema = schema;
-    if (lSchema === 'application') {
-      lSchema = 'app';
+    if (lSchema === "application") {
+      lSchema = "app";
     }
-    return API.post(this.apiName, "/user/" + lSchema + "/", {body: items});
+    return API.post(this.apiName, "/user/" + lSchema + "/", { body: items });
   }
 
   putItem(item_id: string, update: any, schema: string) {
     let lSchema = schema;
-    if (lSchema === 'application') {
-      lSchema = 'app';
+    if (lSchema === "application") {
+      lSchema = "app";
     }
-    return API.put('user', "/user/" + lSchema + "/" + item_id, {body: update});
+    return API.put("user", "/user/" + lSchema + "/" + item_id, { body: update });
   }
 
   deleteItem(server_id: string, schema: string) {
     let lSchema = schema;
-    if (lSchema === 'application') {
-      lSchema = 'app';
+    if (lSchema === "application") {
+      lSchema = "app";
     }
     return API.del(this.apiName, "/user/" + lSchema + "/" + server_id, {});
   }

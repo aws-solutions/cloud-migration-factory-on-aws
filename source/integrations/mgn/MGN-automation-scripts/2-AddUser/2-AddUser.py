@@ -204,7 +204,9 @@ def main(arguments):
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--Waveid', required=True)
-    parser.add_argument('--NoPrompts', default=False, type=bool,
+    parser.add_argument('--AppIds', default=None)
+    parser.add_argument('--ServerIds', default=None)
+    parser.add_argument('--NoPrompts', default=False, type=mfcommon.parse_boolean,
                         help='Specify if user prompts for passwords are allowed. Default = False')
     parser.add_argument('--NewSecretWindows', default=None)
     parser.add_argument('--NewSecretLinux', default=None)
@@ -217,11 +219,15 @@ def main(arguments):
 
     print("*Getting Server List*", flush=True)
     get_servers, _, _ = mfcommon.get_factory_servers(
-        args.Waveid,
-        token,
-        True,
-        'Rehost'
+        waveid=args.Waveid,
+        app_ids=mfcommon.parse_list(args.AppIds),
+        server_ids=mfcommon.parse_list(args.ServerIds),
+        token=token,
+        os_split=True,
+        rtype='Rehost'
+
     )
+
     user_add_failure_count = process_user_add_for_servers(get_servers, args)
 
     if user_add_failure_count > 0:
