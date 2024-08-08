@@ -5,18 +5,18 @@
 // allows you to do things like:
 // expect(element).toHaveTextContent(/react/i)
 // learn more: https://github.com/testing-library/jest-dom
-import '@testing-library/jest-dom';
+import "@testing-library/jest-dom";
 
-import {Amplify} from "@aws-amplify/core";
-import {setupServer} from "msw/node";
-import {config} from "./__tests__/amplify_test_config";
-import {mock_user_api} from "./__tests__/mocks/user_api";
-import {mock_app_api} from "./__tests__/mocks/app_api";
-import {mock_wave_api} from "./__tests__/mocks/wave_api";
-import {mock_credentialmanager_api} from "./__tests__/mocks/credentialmanager_api";
-import {mock_ssm_api} from "./__tests__/mocks/ssm_api";
-import {mock_admin_api} from "./__tests__/mocks/admin_api";
-import {mock_login_api} from "./__tests__/mocks/login_api";
+import { Amplify } from "@aws-amplify/core";
+import { setupServer } from "msw/node";
+import { config } from "./__tests__/amplify_test_config";
+import { mock_user_api } from "./__tests__/mocks/user_api";
+import { mock_app_api } from "./__tests__/mocks/app_api";
+import { mock_wave_api } from "./__tests__/mocks/wave_api";
+import { mock_credentialmanager_api } from "./__tests__/mocks/credentialmanager_api";
+import { mock_ssm_api } from "./__tests__/mocks/ssm_api";
+import { mock_admin_api } from "./__tests__/mocks/admin_api";
+import { mock_login_api } from "./__tests__/mocks/login_api";
 
 jest.setTimeout(20000); // stop any test if running for more than 20 seconds
 
@@ -32,8 +32,8 @@ jest.setTimeout(20000); // stop any test if running for more than 20 seconds
   COGNITO_USER_POOL_ID: "us-east-1_abcdefg",
   COGNITO_APP_CLIENT_ID: "abcdefg",
   COGNITO_HOSTED_UI_URL: "",
-  VERSION_UI: "v3.3.2"
-}
+  VERSION_UI: "v3.3.2",
+};
 
 // Establish API mocking before all tests.
 export const server = setupServer(
@@ -44,23 +44,23 @@ export const server = setupServer(
   ...mock_app_api,
   ...mock_wave_api,
   ...mock_ssm_api,
-  ...mock_credentialmanager_api,
+  ...mock_credentialmanager_api
 );
 beforeAll(() => {
   server.listen();
 
   // provide all API names to Amplify but redirect all requests to mock server
   Amplify.configure(config);
-})
+});
 
 // Reset any request handlers that we may add during the tests,
 // so they don't affect other tests.
-afterEach(() => server.resetHandlers())
+afterEach(() => server.resetHandlers());
 
 // Clean up after the tests are finished.
-afterAll(() => server.close())
+afterAll(() => server.close());
 
-jest.mock('ace-builds', () => {
+jest.mock("ace-builds", () => {
   return {
     edit: jest.fn(),
   };

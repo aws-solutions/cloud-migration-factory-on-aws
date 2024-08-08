@@ -50,7 +50,10 @@ jquery-csv under the Massachusetts Institute of Technology (MIT) license
 jsdoc under the Apache License 2.0
 MarkupSafe under the BSD-3-Clause license
 moto under the Apache License 2.0
+msw under the Massachusetts Institute of Technology (MIT) license
 paramiko under the GNU Lesser General Public License v2.1
+eslint-plugin-prettier under the Massachusetts Institute of Technology (MIT) license
+eslint-config-prettier under the Massachusetts Institute of Technology (MIT) license
 pyasn1 under the BSD-2-Clause License
 pycparser under the BSD License
 PyJWT under the Massachusetts Institute of Technology (MIT) license

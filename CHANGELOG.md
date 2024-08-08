@@ -4,7 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.3.4] - 2024-04-16
+## [3.3.5] - 2024-8-8
+### Changed
+- EXTERNAL LIBRARIES: Updated various external open source libraries to resolve potential vulnerabilities.
+- CODE QUALITY: Small refactoring of code base to improve maintainability.
+### Fixed
+- Resolved JSON Attributes not displaying info panel link when set in schema.
+### Added
+- MGN: Added support allowing for the definition of secondary IP addresses in launch templates from CMF server definitions.
+- MGN: Introduced support for defining MGN post launch actions from CMF per server, this is a json attribute and requires the input to be defined as per boto3 MGN documentation for put_source_server_action.
+- SSM Automation: Added ability to cancel a running Job through the API and UI.
+- WEB FRONTEND: Added ./well-known/security.txt to public web pages to provide security vulnerabilities reporting details.
+- SSM Automation and MGN: All automation scripts and AWS MGN actions now support the ability to select a subset of the applications and servers in a wave to run against.
+## [3.3.4] - 2024-04-10
 ### Changed
 - CODE QUALITY: Increased unit test coverage, and refactored code base.
 ### Fixed

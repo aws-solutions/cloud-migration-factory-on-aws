@@ -127,7 +127,7 @@ class LambdaServiceAccountTest(CognitoTestsBase):
     @patch('lambda_service_account.requests')
     def test_lambda_handler_delete_success(self, mock_requests):
         self.assert_events_success(self.event_delete, mock_requests,
-                                   'SUCCESS', 'No deletion required')
+                                   'SUCCESS', 'Migration Factory Service Account deleted successfully')
         self.assert_service_account_and_secret_not_created()
 
     @patch('lambda_service_account.requests')

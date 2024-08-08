@@ -41,7 +41,8 @@ default_mock_os_environ = {
     'cors': "test-cors",
     'AnonymousUsageData': 'Yes',
     'solutionUUID': 'test_solution_UUID',
-    'solution_identifier': '{"solution_id":"SO101"}'
+    'SOLUTION_ID': 'SO101',
+    'SOLUTION_VERSION': '00000',
 }
 
 def mock_get_user_resource_creation_policy_deny(obj, event, schema):
@@ -75,6 +76,10 @@ def mock_get_servers(target_aws_accounts, filtered_apps, waveid, servers):
                     "server_os_family": "linux",
                     "server_os_version": "Ubuntu",
                     "server_tier": "web",
+                    "private_ip": "192.168.0.1",
+                    "secondary_private_ip": [
+                        "192.168.0.2"
+                    ],
                     "subnet_IDs": [
                         "subnet-02ee1e6b9543b81c9"
                     ],
@@ -96,11 +101,30 @@ def mock_get_servers(target_aws_accounts, filtered_apps, waveid, servers):
                         }
                     ],
                     "tenancy": "Shared",
-                    "source_server_id": "test_server_id_12345"
+                    "source_server_id": "s-12345678901234567",
+                    "server_mgn_post_launch": [
+                        {
+                            "actionName": "Windows MS-SQL license conversion",
+                            "active": True,
+                            "category": "OTHER",
+                            "description": "Convert Windows MS-SQL BYOL to AWS License.",
+                            "documentIdentifier": "AWSMigration-VerifySqlAWSSubscription",
+                            "documentVersion": "$DEFAULT",
+                            "externalParameters": {
+                                "InstanceId": {
+                                    "dynamicPath": "ec2.InstanceId"
+                                }
+                            },
+                            "mustSucceedForCutover": False,
+                            "order": 1005,
+                            "parameters": {
+                            }
+                        }
+                    ]
                 }
             ],
             "source_server_ids": [
-                "test_server_id_12345"
+                "s-12345678901234567"
             ]
         }
     ]
@@ -121,7 +145,7 @@ def mock_mgn_describe_source_servers():
                 'launchedInstance': {
                     'ec2InstanceID': 'i-111111111111'
                 },
-                'sourceServerID': 'test_server_id_12345',
+                'sourceServerID': 's-12345678901234567',
                 'dataReplicationInfo': {
                     'dataReplicationState': 'Initiating',
                     'dataReplicationInitiation': {
@@ -153,6 +177,45 @@ def mock_mgn_describe_source_servers():
     if MGN_TEST_SCENARIO == 'mgn_matching_server_with_replication_state_disconnected':
         response['items'][0]['dataReplicationInfo']['dataReplicationState'] = 'disconnected'
     return response
+
+
+def mock_mgn_list_source_server_actions():
+    logger.info(f"MGN_TEST_SCENARIO: {MGN_TEST_SCENARIO}")
+    response = {
+        'ResponseMetadata': {
+            'HTTPStatusCode': 200
+        },
+        'items': [
+            {
+                "actionID": "bc5cf30b-423d-4e24-8b84-539074259e70",
+                "actionName": "Windows MS-SQL license conversion",
+                "active": True,
+                "category": "OTHER",
+                "description": "Convert Windows MS-SQL BYOL to AWS License.",
+                "documentIdentifier": "AWSMigration-VerifySqlAWSSubscription",
+                "documentVersion": "$DEFAULT",
+                "externalParameters": {
+                    "InstanceId": {
+                        "dynamicPath": "ec2.InstanceId"
+                    }
+                },
+                "mustSucceedForCutover": False,
+                "order": 1001,
+                "parameters": {
+                }
+            }
+        ]
+    }
+
+    return response
+
+
+def mock_mgn_remove_source_server_action():
+    logger.info(f"MGN_TEST_SCENARIO: {MGN_TEST_SCENARIO}")
+    response = {}
+
+    return response
+
 
 def mock_aws_describe_launch_templates():
     response = {
@@ -409,5 +472,9 @@ def mock_boto_api_call(obj, operation_name, kwarg):
         return mock_aws_describe_hosts()
     elif operation_name == 'ListGroupResources':
         return mock_rg_list_group_resources()
+    elif operation_name == 'ListSourceServerActions':
+        return mock_mgn_list_source_server_actions()
+    elif operation_name == 'RemoveSourceServerAction':
+        return mock_mgn_remove_source_server_action()
     else:
         return orig_boto_api_call(obj, operation_name, kwarg)

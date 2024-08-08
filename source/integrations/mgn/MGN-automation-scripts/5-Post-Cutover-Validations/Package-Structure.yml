@@ -15,6 +15,32 @@ Arguments:
     validation_regex_msg: "Wave must be provided."
     required: true
     group_order: "1"
+  - name: "AppIds"
+    description: "Optional - Application Names"
+    listMultiSelect: true
+    type: "relationship"
+    rel_display_attribute: "app_name"
+    rel_entity: "application"
+    rel_key: "app_id"
+    validation_regex: "^(?!\\s*$).+"
+    validation_regex_msg: "Application must be provided."
+    source_filter_attribute_name: "script.script_arguments.Waveid"
+    rel_filter_attribute_name: "wave_id"
+    required: false
+    group_order: "2"
+  - name: "ServerIds"
+    description: "Optional - Server Names"
+    listMultiSelect: true
+    type: "relationship"
+    rel_display_attribute: "server_name"
+    rel_entity: "server"
+    rel_key: "server_id"
+    validation_regex: "^(?!\\s*$).+"
+    validation_regex_msg: "Server must be provided."
+    source_filter_attribute_name: "script.script_arguments.AppIds"
+    rel_filter_attribute_name: "app_id"
+    required: false
+    group_order: "3"
   -
     name: "SecretWindows"
     long_desc: "Windows Secret to use for credentials."
@@ -23,7 +49,7 @@ Arguments:
     rel_display_attribute: "Name"
     rel_entity: "secret"
     rel_key: "Name"
-    group_order: "2"
+    group_order: "4"
   -
     name: "SecretLinux"
     long_desc: "Linux Secret to use for credentials."
@@ -32,82 +58,82 @@ Arguments:
     rel_display_attribute: "Name"
     rel_entity: "secret"
     rel_key: "Name"
-    group_order: "3"
+    group_order: "5"
   -
     name: "Tags"
     description: "Mandatory Tags"
     long_desc: "Comma separated list of Mandatory tags. Default: Name"
     type: "standard"
     required: false
-    group_order: "4"
+    group_order: "6"
   -
     name: "ServiceList"
     description: "Linux Service List"
     long_desc: "Comma separated list of Linux Running Services. Default: amazon-ssm-agent"
     type: "standard"
     required: false
-    group_order: "5"
+    group_order: "7"
   -
     name: "wantedApplications"
     description: "Windows required applications"
     long_desc: "Comma separated list of wanted applications to be validated in windows server. Default: Amazon SSM Agent"
     type: "standard"
     required: false
-    group_order: "6"
+    group_order: "8"
   -
     name: "unwantedApplications"
     description: "Windows Unwanted applications"
     long_desc: "Comma separated list of unwanted applications to be validated in windows server. Default: McAfee,Norton,Symantec,VMWare Tools,AVG,Qualys"
     type: "standard"
     required: false
-    group_order: "7"
+    group_order: "9"
   -
     name: "runningApplications"
     description: "Windows Running Applications"
     long_desc: "Comma separated list of running applications to be validated in windows server. Default: AmazonSSMAgent"
     type: "standard"
     required: false
-    group_order: "8"
+    group_order: "10"
   -
     name: "EnableTerminationProtection"
     description: "Enable Termination Protection on the Instance"
     long_desc: "Specify if you would like to enable the termination protection on the target instance. True or False"
     type: "checkbox"
-    group_order: "9"
+    group_order: "11"
   -
     name: "EnableAllValidations"
     description: "Enable all optional validations"
     long_desc: "Specify if all optional validations needs to be enabled. True or False"
     type: "checkbox"
-    group_order: "10"
+    group_order: "12"
   -
     name: "HostFileEntryCheck"
     description: "(Optional - Linux) Check for IP in Host File"
     long_desc: "Validates if the private IP entry in the Host file of the instance . True or False"
     type: "checkbox"
-    group_order: "11"
+    group_order: "13"
   -
     name: "DnsEntryCheck"
     description: "(Optional - Linux) Check DNS Server entry in /etc/resolv.conf"
     long_desc: "Validates if on-prem DNS server IPs are updated in the /etc/resolv.conf. True or False"
     type: "checkbox"
-    group_order: "12"
+    group_order: "14"
   -
     name: "dnsIps"
     description: "DNS Server IPs"
     long_desc: "(Optional - Linux) Pipe separated list of DNS Server IPs. eg: 1.1.1.1|2.2.2.2. Required only if Dns Entry Check is enabled."
     type: "standard"
     required: false
-    group_order: "13"
+    group_order: "15"
   -
     name: "SyslogEntryCheck"
     description: "(Optional - Linux) Check linuxsyslogaws entry in /etc/rsyslog.conf"
     long_desc: "Validates if linuxsyslogaws entry is present in /etc/rsyslog.conf. True or False"
     type: "checkbox"
-    group_order: "14"
+    group_order: "16"
   -
     name: "BootupStatusCheck"
     description: "(Optional - All) Checks the Instance Bootup Screenshot"
     long_desc: "Validates if the Instance has booted up properly by checking the instance screenshot. True or False"
     type: "checkbox"
-    group_order: "15"
+    group_order: "17"

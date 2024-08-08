@@ -3,16 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useContext, useState} from 'react';
-import {SpaceBetween} from '@awsui/components-react';
+import React, { useContext, useState } from "react";
+import { SpaceBetween } from "@awsui/components-react";
 
-import CredentialManagerTable from '../components/CredentialManagerTable';
-import {useCredentialManager} from '../actions/CredentialManagerHook';
+import CredentialManagerTable from "../components/CredentialManagerTable";
+import { useCredentialManager } from "../actions/CredentialManagerHook";
 import AdminApiClient from "../api_clients/adminApiClient";
-import {parsePUTResponseErrors} from "../resources/recordFunctions";
-import {NotificationContext} from "../contexts/NotificationContext";
+import { parsePUTResponseErrors } from "../resources/recordFunctions";
+import { NotificationContext } from "../contexts/NotificationContext";
 import CredentialManagerModal from "../components/CredentialManagerModal";
-import {CMFModal} from "../components/Modal";
+import { CMFModal } from "../components/Modal";
 
 type SecretFormData = {
   secretName: string;
@@ -24,44 +24,41 @@ type SecretFormData = {
   osType: string;
   secretKey: string;
   secretValue: string;
-  plainText: string
+  plainText: string;
 };
 const CredentialManager = () => {
-  const {addNotification} = useContext(NotificationContext);
+  const { addNotification } = useContext(NotificationContext);
 
-  const [modalTitle, setModalTitle] = useState('');
-  const [{
-    isLoading: secretDataIsLoading,
-    data: secretData,
-  }, {getSecretList}] = useCredentialManager();
+  const [modalTitle, setModalTitle] = useState("");
+  const [{ isLoading: secretDataIsLoading, data: secretData }, { getSecretList }] = useCredentialManager();
 
   // Main table state management
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
   const [focusItem, setFocusItem] = useState({});
-  const [action, setAction] = useState('');
+  const [action, setAction] = useState("");
 
   //Modals
-  const [isCredentialManagerModalVisible, setCredentialManagerModalVisible] = useState(false)
+  const [isCredentialManagerModalVisible, setCredentialManagerModalVisible] = useState(false);
   const [isDeleteConfirmationModalVisible, setDeleteConfirmationModalVisible] = useState(false);
 
   const adminApiClient = new AdminApiClient();
 
   function apiActionErrorHandler(action: string, secretName: string, e: any) {
     console.error(e);
-    let response = '';
+    let response = "";
     //Check if errors key exists from Lambda errors.
     if (e.response.data?.errors) {
-      response = parsePUTResponseErrors(e.response.data.errors).join(', ');
+      response = parsePUTResponseErrors(e.response.data.errors).join(", ");
     } else {
-      response = e.response.data?.cause || 'Unknown error occurred.';
+      response = e.response.data?.cause || "Unknown error occurred.";
     }
 
     addNotification({
-      type: 'error',
+      type: "error",
       dismissible: true,
       header: action + " secret " + secretName,
-      content: (response)
-    })
+      content: response,
+    });
   }
 
   function handleItemSelectionChange(selection: React.SetStateAction<any[]>) {
@@ -75,18 +72,18 @@ const CredentialManager = () => {
   }
 
   function handleAddItem() {
-    setModalTitle('Create secret');
-    setAction('add');
+    setModalTitle("Create secret");
+    setAction("add");
     setCredentialManagerModalVisible(true);
-    setFocusItem({secretType: "OS", osType: "Linux"});
+    setFocusItem({ secretType: "OS", osType: "Linux" });
   }
 
   async function handleEditItem() {
-    setModalTitle('Edit secret');
-    setAction('edit');
+    setModalTitle("Edit secret");
+    setAction("edit");
     setCredentialManagerModalVisible(true);
 
-    if (selectedItems[0].data.SECRET_TYPE === 'OS') {
+    if (selectedItems[0].data.SECRET_TYPE === "OS") {
       setFocusItem({
         ...selectedItems[0],
         secretName: selectedItems[0].Name,
@@ -95,24 +92,24 @@ const CredentialManager = () => {
         password: selectedItems[0].data.PASSWORD,
         osType: selectedItems[0].data.OS_TYPE,
         description: selectedItems[0].Description,
-        isSSHKey: selectedItems[0].data.IS_SSH_KEY
+        isSSHKey: selectedItems[0].data.IS_SSH_KEY,
       });
-    } else if (selectedItems[0].data.SECRET_TYPE === 'keyValue') {
+    } else if (selectedItems[0].data.SECRET_TYPE === "keyValue") {
       setFocusItem({
         ...selectedItems[0],
         secretName: selectedItems[0].Name,
         secretType: selectedItems[0].data.SECRET_TYPE,
         secretKey: selectedItems[0].data.SECRET_KEY,
         secretValue: selectedItems[0].data.SECRET_VALUE,
-        description: selectedItems[0].Description
+        description: selectedItems[0].Description,
       });
-    } else if (selectedItems[0].data.SECRET_TYPE === 'plainText') {
+    } else if (selectedItems[0].data.SECRET_TYPE === "plainText") {
       setFocusItem({
         ...selectedItems[0],
         secretName: selectedItems[0].Name,
         secretType: selectedItems[0].data.SECRET_TYPE,
         plainText: selectedItems[0].data.SECRET_STRING,
-        description: selectedItems[0].Description
+        description: selectedItems[0].Description,
       });
     }
   }
@@ -123,19 +120,19 @@ const CredentialManager = () => {
     try {
       const secretFormData = {
         secretName: selectedItems[0].Name,
-        secretType: selectedItems[0].data.SECRET_TYPE
-      }
+        secretType: selectedItems[0].data.SECRET_TYPE,
+      };
 
       await adminApiClient.deleteCredential(secretFormData);
 
       setCredentialManagerModalVisible(false);
 
       addNotification({
-        type: 'success',
+        type: "success",
         dismissible: true,
-        header: action + ' secret',
+        header: action + " secret",
         content: selectedItems[0].Name + " secret was deleted successfully.",
-      })
+      });
 
       await getSecretList();
     } catch (e: any) {
@@ -147,8 +144,7 @@ const CredentialManager = () => {
   }
 
   function getDeleteHandler(selectedItems: any[]) {
-    if (selectedItems.length !== 0 && selectedItems[0].system)
-      return undefined;
+    if (selectedItems.length !== 0 && selectedItems[0].system) return undefined;
 
     return async function () {
       setDeleteConfirmationModalVisible(true);
@@ -176,45 +172,42 @@ const CredentialManager = () => {
     setFocusItem({});
 
     try {
-      await adminApiClient.addCredential(secretFormData)
+      await adminApiClient.addCredential(secretFormData);
     } catch (e: any) {
       apiActionErrorHandler(action, secretData.secretName, e);
     }
 
     addNotification({
-      type: 'success',
+      type: "success",
       dismissible: true,
-      header: action + ' secret',
-      content: secretFormData.secretName + ' secret was added successfully.',
-    })
+      header: action + " secret",
+      content: secretFormData.secretName + " secret was added successfully.",
+    });
     await getSecretList();
-
-
   }
 
   function buildSecretFormData(secretData: SecretFormData) {
     let secretFormData: any = {
       secretName: secretData.secretName,
       secretType: secretData.secretType,
-      description: secretData.description ?? "Secret for Migration Factory"
-    }
+      description: secretData.description ?? "Secret for Migration Factory",
+    };
 
-    if (secretData.secretType === 'OS') {
-
-      if (secretData.password === '*********') {
+    if (secretData.secretType === "OS") {
+      if (secretData.password === "*********") {
         // password not updated so do not include in update.
         delete secretData.password;
       } else {
         if (secretData.isSSHKey) {
           //base64 encode key.
-          secretData.password = btoa(secretData.password!.replace(/\n/g, "\\n"))
+          secretData.password = btoa(secretData.password!.replace(/\n/g, "\\n"));
         }
       }
       secretFormData.user = secretData.userName;
       secretFormData.password = secretData.password ? secretData.password : undefined;
       secretFormData.osType = secretData.osType;
       secretFormData.isSSHKey = secretData.isSSHKey;
-    } else if (secretData.secretType === 'keyValue') {
+    } else if (secretData.secretType === "keyValue") {
       secretFormData.secretKey = secretData.secretKey;
       secretFormData.secretValue = secretData.secretValue;
     } else if (secretData.secretType === "plainText") {
@@ -244,39 +237,41 @@ const CredentialManager = () => {
     setFocusItem({});
 
     try {
-      await adminApiClient.updateCredential(secretFormData)
+      await adminApiClient.updateCredential(secretFormData);
     } catch (e: any) {
       apiActionErrorHandler(action, secretData.secretName, e);
     }
 
     addNotification({
-      type: 'success',
+      type: "success",
       dismissible: true,
-      header: action + ' secret',
-      content: secretFormData.secretName + ' secret was saved successfully.',
-    })
-
+      header: action + " secret",
+      content: secretFormData.secretName + " secret was saved successfully.",
+    });
   }
 
-  async function handleSave(secretData: {
-    secretName: any;
-    secretType: string;
-    description: any;
-    isSSHKey: any;
-    password?: string;
-    userName: any;
-    osType: any;
-    secretKey: any;
-    secretValue: any;
-    plainText: any;
-  }, action: string) {
-    if (action === 'add') {
+  async function handleSave(
+    secretData: {
+      secretName: any;
+      secretType: string;
+      description: any;
+      isSSHKey: any;
+      password?: string;
+      userName: any;
+      osType: any;
+      secretKey: any;
+      secretValue: any;
+      plainText: any;
+    },
+    action: string
+  ) {
+    if (action === "add") {
       await saveNewRecord(secretData);
-    } else if (action === 'edit') {
+    } else if (action === "edit") {
       await saveUpdatedRecord(secretData);
     }
 
-    await getSecretList()
+    await getSecretList();
   }
 
   return (
@@ -292,26 +287,28 @@ const CredentialManager = () => {
           handleEditItem={handleEditItem}
           handleRefresh={getSecretList}
         />
-
       </SpaceBetween>
-      {isCredentialManagerModalVisible ?
+      {isCredentialManagerModalVisible ? (
         <CredentialManagerModal
           title={modalTitle}
           onConfirmation={(secretData) => handleSave(secretData, action)}
           attribute={focusItem}
           action={action}
           closeModal={() => setCredentialManagerModalVisible(false)}
-        /> : <></>}
+        />
+      ) : (
+        <></>
+      )}
       <CMFModal
         onDismiss={() => setDeleteConfirmationModalVisible(false)}
         visible={isDeleteConfirmationModalVisible}
         onConfirmation={handleDeleteItem}
-        header={'Delete secret'}
+        header={"Delete secret"}
       >
         <p>Are you sure you wish to delete the selected secret?</p>
       </CMFModal>
     </>
   );
-}
+};
 
 export default CredentialManager;

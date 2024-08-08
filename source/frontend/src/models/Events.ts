@@ -1,3 +1,3 @@
 export type ClickEvent = CustomEvent<{
-  id?: string
+  id?: string;
 }>;

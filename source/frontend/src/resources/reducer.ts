@@ -4,16 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const REQUEST_STARTED = 'REQUEST_STARTED';
-const REQUEST_SUCCESSFUL = 'REQUEST_SUCCESSFUL';
-const REQUEST_FAILED = 'REQUEST_FAILED';
-const RESET_REQUEST = 'RESET_REQUEST';
+const REQUEST_STARTED = "REQUEST_STARTED";
+const REQUEST_SUCCESSFUL = "REQUEST_SUCCESSFUL";
+const REQUEST_FAILED = "REQUEST_FAILED";
+const RESET_REQUEST = "RESET_REQUEST";
 
 export type DataState = {
-  data?: any,
-  error?: any,
-  isLoading: boolean
-}
+  data?: any;
+  error?: any;
+  isLoading: boolean;
+};
 export type DataHook = () => [DataState, UpdateFnWrapper];
 
 export type UpdateFnWrapper = { update: (arg0?: any) => Promise<() => void> };
@@ -43,9 +43,9 @@ export const reducer = (state, action) => {
 };
 
 export type Payload = {
-  data?: any,
-  error?: any
-}
+  data?: any;
+  error?: any;
+};
 
 export const requestFailed = ({ data, error }: Payload) => ({
   type: REQUEST_FAILED,
@@ -59,5 +59,5 @@ export const requestSuccessful = ({ data }) => ({
 });
 
 export const requestStarted = () => ({
-  type: REQUEST_STARTED
+  type: REQUEST_STARTED,
 });

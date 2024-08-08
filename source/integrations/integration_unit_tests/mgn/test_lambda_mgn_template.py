@@ -31,9 +31,10 @@ class MGNLambdaTemplateTestCase(TestCase):
         logger.debug("Setup start")
         self.ec2_client = boto3.client('ec2')
         self.iam_client = boto3.client('iam')
-        self.rg_client =  boto3.client('resource-groups')
+        self.rg_client = boto3.client('resource-groups')
         self.mgn_client = boto3.client('mgn')
         self.license_client = boto3.client('license-manager')
+        self.ssm_client = boto3.client('ssm')
         self.server_type = 'Test'
         self.action = 'Validate Launch Template'
         self.launch_template_latest_ver = 1
@@ -79,7 +80,7 @@ class MGNLambdaTemplateTestCase(TestCase):
                 }
             ],
             "tenancy": "Shared",
-            "source_server_id": "test-server_id"
+            "source_server_id": "s-12345678901234567"
         }
         self.verify_subnet = {
             "Subnets": [
@@ -315,8 +316,8 @@ class MGNLambdaTemplateTestCase(TestCase):
             self.factory_server, network_interface_attr_name, 
             sg_attr_name, subnet_attr_name, self.server_type, return_dict)
         logger.debug(f"is_valid: {is_valid}, server_has_error: {server_has_error}")
-        self.assertEqual(is_valid, False)
-        self.assertEqual(server_has_error, True)
+        self.assertFalse(is_valid)
+        self.assertTrue(server_has_error)
 
     def test_verify_eni_sg_combination_valid(self):
         logger.info("Testing test_lambda_mgn_template: "
@@ -330,8 +331,8 @@ class MGNLambdaTemplateTestCase(TestCase):
             self.factory_server, network_interface_attr_name, 
             sg_attr_name, subnet_attr_name, self.server_type, return_dict)
         logger.debug(f"is_valid: {is_valid}, server_has_error: {server_has_error}")
-        self.assertEqual(is_valid, True)
-        self.assertEqual(server_has_error, False)
+        self.assertTrue(is_valid)
+        self.assertFalse(server_has_error)
 
     @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
@@ -396,7 +397,7 @@ class MGNLambdaTemplateTestCase(TestCase):
         logger.debug(f"verify_subnet: {verify_subnet}, subnet_vpc: {subnet_vpc}, "
                     f"server_has_error: {server_has_error}")
         self.assertEqual(subnet_vpc, "test_vpc_id")
-        self.assertEqual(server_has_error, False)
+        self.assertFalse(server_has_error)
 
     @mock_aws
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
@@ -414,7 +415,7 @@ class MGNLambdaTemplateTestCase(TestCase):
         logger.debug(f"verify_subnet: {verify_subnet}, subnet_vpc: {subnet_vpc}, "
                     f"server_has_error: {server_has_error}")
         self.assertEqual(subnet_vpc, "")
-        self.assertEqual(server_has_error, True)
+        self.assertTrue(server_has_error)
 
         # Reset to default configuration
         self.factory_server["subnet_IDs"] = ["subnet-02ee1e6b9543b81c9"]
@@ -432,7 +433,7 @@ class MGNLambdaTemplateTestCase(TestCase):
         logger.debug(f"verify_subnet: {verify_subnet}, subnet_vpc: {subnet_vpc}, "
                     f"server_has_error: {server_has_error}")
         self.assertEqual(subnet_vpc, "")
-        self.assertEqual(server_has_error, True)
+        self.assertTrue(server_has_error)
     
     def test_verify_vpc_for_subnet_sg(self):
         logger.info("Testing test_lambda_mgn_template: "
@@ -447,7 +448,7 @@ class MGNLambdaTemplateTestCase(TestCase):
             self.factory_server, return_dict, type_sg, 
             server_has_error)
         logger.debug(f"Response: {response}")
-        self.assertEqual(response, False)
+        self.assertFalse(response)
 
     def test_verify_vpc_for_subnet_sg_without_sg_attribute(self):
         logger.info("Testing test_lambda_mgn_template: "
@@ -462,7 +463,7 @@ class MGNLambdaTemplateTestCase(TestCase):
             self.factory_server, return_dict, type_sg, 
             server_has_error)
         logger.debug(f"Response: {response}")
-        self.assertEqual(response, False)
+        self.assertFalse(response)
 
     def test_verify_security_group_not_existed(self):
         logger.info("Testing test_lambda_mgn_template: "
@@ -477,7 +478,7 @@ class MGNLambdaTemplateTestCase(TestCase):
             return_dict, subnet_vpc, self.verify_subnet,
             server_has_error, self.server_type)
         logger.debug(f"Response: {response}")
-        self.assertEqual(response, True)
+        self.assertTrue(response)
 
     def test_verify_security_group_with_empty_sg(self):
         logger.info("Testing test_lambda_mgn_template: "
@@ -493,7 +494,7 @@ class MGNLambdaTemplateTestCase(TestCase):
             return_dict, subnet_vpc, self.verify_subnet,
             server_has_error, self.server_type)
         logger.debug(f"Response: {response}")
-        self.assertEqual(response, True)
+        self.assertTrue(response)
 
         # Reset to default configuration
         self.factory_server["securitygroup_id"] = "test_securitygroup_id"
@@ -511,7 +512,7 @@ class MGNLambdaTemplateTestCase(TestCase):
             return_dict, subnet_vpc, self.verify_subnet,
             server_has_error, self.server_type)
         logger.debug(f"Response: {response}")
-        self.assertEqual(response, True)
+        self.assertTrue(response)
 
     def test_check_errors_with_error(self):
         logger.info("Testing test_lambda_mgn_template: "
@@ -609,11 +610,20 @@ class MGNLambdaTemplateTestCase(TestCase):
         server_has_error = False
         validated_count = 0
         response = verify_iam_instance_profile(
-            self.factory_server, self.iam_client, server_has_error,
-            return_dict, validated_count, self.action,
-            self.new_launch_template, self.launch_template_data_latest,
-            self.mgn_client, self.ec2_client, self.launch_template_latest_ver,
-            self.rg_client, self.license_client)
+            self.factory_server,
+            server_has_error,
+            return_dict, validated_count,
+            self.action,
+            self.new_launch_template,
+            self.launch_template_data_latest,
+            self.launch_template_latest_ver,
+            iam_client=self.iam_client,
+            mgn_client=self.mgn_client,
+            ec2_client=self.ec2_client,
+            rg_client=self.rg_client,
+            license_client=self.license_client,
+            ssm_client=self.ssm_client
+        )
         logger.debug(f"Response: {response}")
         expected_response = 0
         self.assertEqual(response, expected_response)
@@ -627,11 +637,20 @@ class MGNLambdaTemplateTestCase(TestCase):
         server_has_error = True
         validated_count = 0
         response = verify_iam_instance_profile(
-            self.factory_server, self.iam_client, server_has_error,
-            return_dict, validated_count, self.action,
-            self.new_launch_template, self.launch_template_data_latest,
-            self.mgn_client, self.ec2_client, self.launch_template_latest_ver,
-            self.rg_client, self.license_client)
+            self.factory_server,
+            server_has_error,
+            return_dict, validated_count,
+            self.action,
+            self.new_launch_template,
+            self.launch_template_data_latest,
+            self.launch_template_latest_ver,
+            iam_client=self.iam_client,
+            mgn_client=self.mgn_client,
+            ec2_client=self.ec2_client,
+            rg_client=self.rg_client,
+            license_client=self.license_client,
+            ssm_client=self.ssm_client
+        )
         logger.debug(f"Response: {response}")
         expected_response = 0
         self.assertEqual(response, expected_response)
@@ -649,7 +668,7 @@ class MGNLambdaTemplateTestCase(TestCase):
             self.factory_server, self.action, self.new_launch_template, 
             self.launch_template_data_latest, self.mgn_client, self.ec2_client, 
             self.instance_profile, self.launch_template_latest_ver,
-            self.rg_client, self.license_client)
+            self.rg_client, self.license_client, self.ssm_client)
         logger.debug(f"Response: {response}")
         expected_response = "ERROR: 'TagSpecifications'"
         self.assertEqual(response, expected_response)
@@ -674,7 +693,7 @@ class MGNLambdaTemplateTestCase(TestCase):
             self.factory_server, self.action, self.new_launch_template, 
             self.launch_template_data_latest, self.mgn_client, self.ec2_client, 
             self.instance_profile, self.launch_template_latest_ver,
-            self.rg_client, self.license_client)
+            self.rg_client, self.license_client, self.ssm_client)
         logger.debug(f"Response: {response}")
         expected_response = "ERROR: Validation failed - Test Launch Template data for server: ofbiz-web.onpremsim.env"
         self.assertEqual(response, expected_response)
@@ -704,7 +723,7 @@ class MGNLambdaTemplateTestCase(TestCase):
             self.factory_server, self.action, self.new_launch_template, 
             self.launch_template_data_latest, self.mgn_client, self.ec2_client, 
             self.instance_profile, self.launch_template_latest_ver,
-            self.rg_client, self.license_client)
+            self.rg_client, self.license_client, self.ssm_client)
         logger.debug(f"Response: {response}")
         expected_response = "ERROR: Validation failed - Test Launch Template data for server: ofbiz-web.onpremsim.env"
         self.assertEqual(response, expected_response)
@@ -734,7 +753,7 @@ class MGNLambdaTemplateTestCase(TestCase):
             self.factory_server, self.action, self.new_launch_template, 
             self.launch_template_data_latest, self.mgn_client, self.ec2_client, 
             self.instance_profile, self.launch_template_latest_ver,
-            self.rg_client, self.license_client)
+            self.rg_client, self.license_client, self.ssm_client)
         logger.debug(f"Response: {response}")
         expected_response = "ERROR: Update Failed - Cutover Launch Template for server: ofbiz-web.onpremsim.env"
         self.assertEqual(response, expected_response)
@@ -764,7 +783,7 @@ class MGNLambdaTemplateTestCase(TestCase):
             self.factory_server, self.action, self.new_launch_template, 
             self.launch_template_data_latest, self.mgn_client, self.ec2_client, 
             self.instance_profile, self.launch_template_latest_ver,
-            self.rg_client, self.license_client)
+            self.rg_client, self.license_client, self.ssm_client)
         logger.debug(f"Response: {response}")
         expected_response = "ERROR: Update Failed - Test Launch Template for server: ofbiz-web.onpremsim.env"
         self.assertIn(expected_response, response)

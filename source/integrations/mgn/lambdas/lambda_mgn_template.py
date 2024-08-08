@@ -8,11 +8,13 @@ import multiprocessing
 import logging
 import json
 import lambda_mgn_utils
+import uuid
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 DEDICATED_HOST_STRING = "dedicated host"
+ERROR_PREFIX_STR = "ERROR: "
 
 
 def add_server_validation_error(factoryserver, return_dict,
@@ -36,22 +38,22 @@ def add_server_validation_error(factoryserver, return_dict,
         if factoryserver['server_name'] in return_dict:
             # Server has errors already, append additional error.
             mgs_update = return_dict[factoryserver['server_name']]
-            mgs_update.append("ERROR: " + additional_context + err)
+            mgs_update.append(ERROR_PREFIX_STR + additional_context + err)
             return_dict[factoryserver['server_name']] = mgs_update
         else:
             # First error for the server, initialize array of errors for server.
-            errors = ["ERROR: " + additional_context + err]
+            errors = [ERROR_PREFIX_STR + additional_context + err]
             return_dict[factoryserver['server_name']] = errors
     else:
         log.error(f"{pid_message}{str(error)}")
         if factoryserver['server_name'] in return_dict:
             # Server has errors already, append additional error.
             mgs_update = return_dict[factoryserver['server_name']]
-            mgs_update.append("ERROR: " + additional_context + str(error))
+            mgs_update.append(ERROR_PREFIX_STR + additional_context + str(error))
             return_dict[factoryserver['server_name']] = mgs_update
         else:
             # First error for the server, initialize array of errors for server.
-            errors = ["ERROR: " + additional_context + str(error)]
+            errors = [ERROR_PREFIX_STR + additional_context + str(error)]
             return_dict[factoryserver['server_name']] = errors
 
 
@@ -66,22 +68,22 @@ def add_error(return_dict, error, error_type='non-specific'):
         if error_type in return_dict:
             # error_type record has errors already, append additional error.
             mgs_update = return_dict[error_type]
-            mgs_update.append("ERROR: " + err)
+            mgs_update.append(ERROR_PREFIX_STR + err)
             return_dict[error_type] = mgs_update
         else:
             # First error for the type provided, initialize array of errors for type.
-            errors = ["ERROR: " + str(error)]
+            errors = [ERROR_PREFIX_STR + str(error)]
             return_dict[error_type] = errors
     else:
         log.error(f"{pid_message}{error_type} - {str(error)}")
         if error_type in return_dict:
             # Server has errors already, append additional error.
             mgs_update = return_dict[error_type]
-            mgs_update.append("ERROR: " + error_type + " - " + str(error))
+            mgs_update.append(ERROR_PREFIX_STR + error_type + " - " + str(error))
             return_dict[error_type] = mgs_update
         else:
             # First error for the server, initialize array of errors for server.
-            errors = ["ERROR: " + error_type + " - " + str(error)]
+            errors = [ERROR_PREFIX_STR + error_type + " - " + str(error)]
             return_dict[error_type] = errors
 
 
@@ -90,8 +92,8 @@ def verify_eni_sg_combination(factoryserver, network_interface_attr_name,
     server_has_error = False
     is_valid = True
     if factoryserver.get(network_interface_attr_name) \
-        and ((factoryserver.get(sg_attr_name) and factoryserver[sg_attr_name][0] != '') \
-             or (factoryserver.get(subnet_attr_name) and factoryserver[subnet_attr_name][0] != '')):
+            and ((factoryserver.get(sg_attr_name) and factoryserver[sg_attr_name][0] != '') \
+                 or (factoryserver.get(subnet_attr_name) and factoryserver[subnet_attr_name][0] != '')):
         # user has specified both ENI and SGs but this is not a valid combination.
         msg = (f"ERROR: Validation failed - Specifying {server_type} ENI and also {server_type} "
                f"Security Group or Subnet is not supported. ENIs will inherit the SGs and Subnet of the ENI.")
@@ -120,12 +122,12 @@ def verify_subnets(subnet_attr_name, factoryserver, ec2_client,
                     factoryserver, return_dict, error, type_subnet)
         else:
             server_has_error = True
-            msg = "ERROR: " + subnet_attr_name + " attribute is empty."
+            msg = ERROR_PREFIX_STR + subnet_attr_name + " attribute is empty."
             add_server_validation_error(
                 factoryserver, return_dict, msg, type_subnet)
     else:
         server_has_error = True
-        msg = "ERROR: " + subnet_attr_name + " does not exist for server."
+        msg = ERROR_PREFIX_STR + subnet_attr_name + " does not exist for server."
         add_server_validation_error(
             factoryserver, return_dict, msg, type_subnet)
 
@@ -172,12 +174,12 @@ def verify_security_group(factoryserver, sg_attr_name, ec2_client,
 
         else:
             server_has_error = True
-            msg = "ERROR: " + sg_attr_name + " attribute is empty."
+            msg = ERROR_PREFIX_STR + sg_attr_name + " attribute is empty."
             add_server_validation_error(
                 factoryserver, return_dict, msg, type_sg)
     else:
         server_has_error = True
-        msg = "ERROR: " + sg_attr_name + " does not exist for server: " + factoryserver['server_name']
+        msg = ERROR_PREFIX_STR + sg_attr_name + " does not exist for server: " + factoryserver['server_name']
         add_server_validation_error(
             factoryserver, return_dict, msg, type_sg)
 
@@ -278,7 +280,7 @@ def update_launch_template(factoryservers, action):
             if len(account['servers']) < max_threads:
                 chunk_size = len(account['servers'])
             for serverlist in lambda_mgn_utils.chunks(
-                account['servers'], chunk_size):
+                    account['servers'], chunk_size):
                 print(serverlist)
                 p = multiprocessing.Process(target=multiprocessing_update, args=(
                     serverlist, target_account_creds, account['aws_region'], action, return_dict, status_list))
@@ -322,27 +324,33 @@ def check_server_os_family(factoryserver, server_has_error, return_dict):
     return server_has_error
 
 
-def verify_iam_instance_profile(factoryserver, iam_client, server_has_error,
+def verify_iam_instance_profile(factory_server, server_has_error,
                                 return_dict, validated_count, action,
                                 new_launch_template, launch_template_data_latest,
-                                mgn_client, ec2_client, launch_template_latest_ver,
-                                rg_client, license_client):
+                                launch_template_latest_ver,
+                                **kwargs):
     verify_instance_profile = []
-    if 'iamRole' in factoryserver:
-        verify_instance_profile = iam_client.get_instance_profile(
-            InstanceProfileName=factoryserver['iamRole'])
+    if 'iamRole' in factory_server:
+        verify_instance_profile = kwargs['iam_client'].get_instance_profile(
+            InstanceProfileName=factory_server['iamRole'])
 
     if server_has_error:
         print(
-            factoryserver['server_name'] + " : Validation errors occurred skipping update of launch template.")
+            factory_server['server_name'] + " : Validation errors occurred skipping update of launch template.")
     else:
-        create_template = create_launch_template(factoryserver, action, new_launch_template,
-                                                 launch_template_data_latest, mgn_client, ec2_client,
-                                                 verify_instance_profile, launch_template_latest_ver,
-                                                 rg_client, license_client)
+        create_template = create_launch_template(
+            factory_server, action, new_launch_template,
+            launch_template_data_latest,
+            kwargs['mgn_client'],
+            kwargs['ec2_client'],
+            verify_instance_profile, launch_template_latest_ver,
+            kwargs['rg_client'],
+            kwargs['license_client'],
+            kwargs['ssm_client']
+        )
 
         if create_template is not None and "ERROR" in create_template:
-            add_server_validation_error(factoryserver, return_dict, create_template)
+            add_server_validation_error(factory_server, return_dict, create_template)
         else:
             validated_count = validated_count + 1
 
@@ -355,12 +363,14 @@ def multiprocessing_update(serverlist, creds, region, action, return_dict, statu
     mgn_client = None
     rg_client = None
     license_client = None
+    ssm_client = None
 
     try:
         target_account_session = lambda_mgn_utils.get_session(creds, region)
         ec2_client = target_account_session.client('ec2', region)
         iam_client = target_account_session.client('iam')
         mgn_client = target_account_session.client("mgn", region)
+        ssm_client = target_account_session.client("ssm", region)
         rg_client = target_account_session.client('resource-groups')
         license_client = target_account_session.client('license-manager')
 
@@ -411,9 +421,15 @@ def multiprocessing_update(serverlist, creds, region, action, return_dict, statu
 
             # Verify IAM instance profile
             validated_count = verify_iam_instance_profile(
-                factoryserver, iam_client, server_has_error, return_dict, validated_count,
-                action, new_launch_template, launch_template_data_latest, mgn_client,
-                ec2_client, launch_template_latest_ver, rg_client, license_client)
+                factoryserver, server_has_error, return_dict, validated_count,
+                action, new_launch_template, launch_template_data_latest, launch_template_latest_ver,
+                iam_client=iam_client,
+                mgn_client=mgn_client,
+                ec2_client=ec2_client,
+                rg_client=rg_client,
+                license_client=license_client,
+                ssm_client=ssm_client
+            )
 
         except Exception as error:
             add_server_validation_error(factoryserver, return_dict, error, "unhandled")
@@ -450,8 +466,8 @@ def get_dedicated_host_requirements(serverlist):
     for factoryserver in serverlist:
         # Check update total dedicated host capacity requirements.
         if 'tenancy' in factoryserver and \
-            factoryserver["tenancy"].lower() == DEDICATED_HOST_STRING and \
-            'instanceType' in factoryserver:
+                factoryserver["tenancy"].lower() == DEDICATED_HOST_STRING and \
+                'instanceType' in factoryserver:
             dedicated_host_capacity = get_dedicated_host_capacity(
                 factoryserver, dedicated_host_capacity)
 
@@ -506,8 +522,8 @@ def populate_dedicated_host_requirements(accounts):
             for factoryserver in account['servers']:
                 # Check update total dedicated host capacity requirements.
                 if 'tenancy' in factoryserver and \
-                    factoryserver["tenancy"].lower() == DEDICATED_HOST_STRING and \
-                    'instanceType' in factoryserver:
+                        factoryserver["tenancy"].lower() == DEDICATED_HOST_STRING and \
+                        'instanceType' in factoryserver:
                     factoryserver = update_server_capacity_requirements(
                         factoryserver, all_accounts_dedicated_hosts)
 
@@ -517,7 +533,7 @@ def populate_dedicated_host_requirements(accounts):
     except Exception as error:
         pid_message = lambda_mgn_utils.build_pid_message(True, str(error))
         log.error(pid_message)
-        return "ERROR: " + str(error)
+        return ERROR_PREFIX_STR + str(error)
 
 
 def check_instance_capacity(dedicated_hosts, requested_instance_type,
@@ -597,7 +613,6 @@ def update_disk_type(factoryserver, new_launch_template):
 def update_metadata_options(factoryserver, metadata_options,
                             factory_server_tag, metadata_tag,
                             tag_value_1, tag_value_2):
-
     if factory_server_tag in factoryserver:
         if factoryserver.get(factory_server_tag):
             metadata_options[metadata_tag] = tag_value_1
@@ -679,7 +694,7 @@ def verify_host(factoryserver, p_tenancy, ec2_client, rg_client, pid_message):
             log.error(f"{pid_message}{return_message}")
             return factoryserver['server_name'] + ' - ' + return_message, p_tenancy
     elif factoryserver.get('license_configuration_arn') is None or \
-        factoryserver.get('license_configuration_arn') == '':
+            factoryserver.get('license_configuration_arn') == '':
         msg = "ERROR: Dedicated host ID, Host Resource Group ARN or License Configuration ARN is required if specifying tenancy as dedicated host."
         log.error(f"{pid_message}{msg}")
         return msg, p_tenancy
@@ -757,8 +772,8 @@ def update_termination_protection(factoryserver, new_launch_template,
 
 
 def update_launch_template_for_test_instance(
-    factoryserver, new_launch_template, pid_message_prefix,
-    ec2_client, launch_template_latest_ver):
+        factoryserver, new_launch_template, pid_message_prefix,
+        ec2_client, launch_template_latest_ver):
     # update tags into template
     add_tags_to_launch_template(factoryserver, new_launch_template, 'test')
 
@@ -789,8 +804,8 @@ def update_launch_template_for_test_instance(
 
 
 def update_launch_template_for_cutover_instance(
-    factoryserver, new_launch_template, pid_message_prefix,
-    ec2_client, launch_template_latest_ver):
+        factoryserver, new_launch_template, pid_message_prefix,
+        ec2_client, launch_template_latest_ver):
     # update tags into template
     add_tags_to_launch_template(factoryserver, new_launch_template, 'live')
 
@@ -831,7 +846,7 @@ def check_eni_sg_combination(eni_used, is_live_eni_used, factoryserver,
         subnet_id_tag = "subnet_IDs"
 
     if eni_used and (
-        (factoryserver.get(sg_id_tag) and factoryserver[sg_id_tag][0] != '') or
+            (factoryserver.get(sg_id_tag) and factoryserver[sg_id_tag][0] != '') or
             (subnet_id_tag in factoryserver and factoryserver[subnet_id_tag][0] != '')):
         # user has specified both ENI and SGs but this is not a valid combination.
         this_status = False
@@ -905,9 +920,9 @@ def revert_template(ec2_client, factoryserver, new_template_ver_cutover,
 
 
 def update_launch_template_for_test_and_cutover_instances(
-    factoryserver, new_launch_template, pid_message_prefix,
-    ec2_client, launch_template_latest_ver, test_eni_used,
-    live_eni_used, launch_template_data_latest):
+        factoryserver, new_launch_template, pid_message_prefix,
+        ec2_client, launch_template_latest_ver, test_eni_used,
+        live_eni_used, launch_template_data_latest):
     status = False
 
     # update tags into template
@@ -959,7 +974,7 @@ def update_launch_template_for_test_and_cutover_instances(
 
 def create_launch_template(factoryserver, action, new_launch_template, launch_template_data_latest,
                            mgn_client, ec2_client, verify_instance_profile, launch_template_latest_ver,
-                           rg_client, license_client):
+                           rg_client, license_client, ssm_client):
     test_eni_used = False
     live_eni_used = False
 
@@ -1042,6 +1057,9 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
         if msg is not None:
             return msg
 
+        # add post launch actions configuration, if set.
+        add_post_launch_actions(factoryserver, mgn_client, ssm_client)
+
         ## Update Launch template with Test SG and subnet
         if action.strip() == "Launch Test Instances":
             msg = update_launch_template_for_test_instance(
@@ -1090,10 +1108,12 @@ def add_tags_to_launch_template(factory_server, new_launch_template, additional_
 
     clean_up_existing_tags(new_launch_template, pid_message_prefix, pid_message_suffix)
 
-    add_factory_server_tags_to_template(factory_server_all_tags, new_launch_template, pid_message_prefix, pid_message_suffix)
+    add_factory_server_tags_to_template(factory_server_all_tags, new_launch_template, pid_message_prefix,
+                                        pid_message_suffix)
 
 
-def add_factory_server_tags_to_template(factory_server_all_tags, new_launch_template, pid_message_prefix, pid_message_suffix):
+def add_factory_server_tags_to_template(factory_server_all_tags, new_launch_template, pid_message_prefix,
+                                        pid_message_suffix):
     # add tags to template Tags
     for tags in new_launch_template['TagSpecifications']:
         if tags['ResourceType'] == 'instance' or tags['ResourceType'] == 'volume':
@@ -1169,17 +1189,27 @@ def update_launch_template_network_interfaces_no_eni(factory_server, launch_temp
         # Update private IP address if specified.
         if factory_server.get('private_ip' + test_attribute_suffix) is not None and factory_server[
             'private_ip' + test_attribute_suffix].strip() != '':
-            ipaddrs = []
-            ip = {'Primary': True, 'PrivateIpAddress': factory_server['private_ip' + test_attribute_suffix]}
-            ipaddrs.append(ip)
+            ipaddrs = [{'Primary': True, 'PrivateIpAddress': factory_server['private_ip' + test_attribute_suffix]}]
             nic['PrivateIpAddresses'] = ipaddrs
         else:
             if 'PrivateIpAddresses' in nic:
                 del nic['PrivateIpAddresses']
 
+        # Update secondary private IP addresses if specified.
+        if factory_server.get('secondary_private_ip' + test_attribute_suffix):
+            secondary_ipaddrs = [
+                {'Primary': False, 'PrivateIpAddress': ip_address}
+                for ip_address in factory_server['secondary_private_ip' + test_attribute_suffix]
+            ]
+            if 'PrivateIpAddresses' in nic:
+                nic['PrivateIpAddresses'].extend(secondary_ipaddrs)
+            else:
+                nic['PrivateIpAddresses'] = secondary_ipaddrs
+
         # Update Subnet Id and security group Ids if no ENI provided.
         nic['Groups'] = factory_server['securitygroup_IDs' + test_attribute_suffix]
         nic['SubnetId'] = factory_server['subnet_IDs' + test_attribute_suffix][0]
+
 
 
 def get_host_resource_group_resources(rg_client, host_resource_group_arn):
@@ -1234,3 +1264,108 @@ def verify_license_configuration(license_client, license_configuration_arn):
         log.error(msg)
 
     return msg
+
+
+def add_post_launch_actions(factory_server, mgn_client, ssm_client):
+    source_server_id = factory_server['source_server_id']
+    parameter_suffix = ''
+    response = mgn_client.list_source_server_actions(
+        sourceServerID=source_server_id
+    )
+
+    log.debug(response)
+
+    existing_actions = response.get('items', None)
+
+    if existing_actions:
+        action_ids = [action['actionID'] for action in existing_actions]
+        remove_exiting_actions(mgn_client, source_server_id, action_ids)
+        for action in existing_actions:
+            remove_mgn_action_ssm_parameters(ssm_client, action)
+
+    if factory_server.get('server_mgn_post_launch'):
+        log.debug("Updating MGN post launch actions.")
+        source_server_actions = json.loads(factory_server.get('server_mgn_post_launch'))
+
+        # Create actions
+        for action in source_server_actions:
+            action_id = str(uuid.uuid4())
+            mgn_action = action.copy()
+            mgn_action['parameters'] = get_mgn_action_parameters(action_id, action, source_server_id, parameter_suffix)
+            mgn_action['actionID'] = action_id
+            mgn_action['sourceServerID'] = source_server_id
+            mgn_client.put_source_server_action(**mgn_action)
+
+            add_mgn_action_ssm_parameters(
+                source_server_id=source_server_id,
+                ssm_client=ssm_client,
+                action_id=action_id,
+                action=action,
+                parameter_suffix=parameter_suffix
+            )
+
+
+def get_mgn_action_parameters(action_id, action, source_server_id, parameter_suffix=''):
+    mgn_actions = {}
+    for parameter_name in action['parameters']:
+        mgn_actions[parameter_name] = [
+            {
+                'parameterName': f'ManagedByAWSApplicationMigrationService'
+                                 f'-{action_id}'
+                                 f'-{parameter_name}'
+                                 f'-{source_server_id}'
+                                 f'{parameter_suffix}',
+                'parameterType': 'STRING'
+            }
+        ]
+
+    return mgn_actions
+
+
+def add_mgn_action_ssm_parameters(ssm_client, source_server_id, action_id, action, parameter_suffix):
+    # Create Parameter Store values
+    for parameter_key in action['parameters']:
+        response = ssm_client.put_parameter(
+            Name=f"ManagedByAWSApplicationMigrationService-"
+                 f"{action_id}-"
+                 f"{parameter_key}-"
+                 f"{source_server_id}"
+                 f"{parameter_suffix}",
+            Value=parse_mgn_action_ssm_parameter_value(action['parameters'][parameter_key]),
+            Type='String',
+            Overwrite=True,
+            Tier='Standard',
+            DataType='text'
+        )
+        log.debug(response)
+
+
+def parse_mgn_action_ssm_parameter_value(value):
+    if type(value) is bool:
+        return str(value).lower()
+    else:
+        return str(value)
+
+
+def remove_mgn_action_ssm_parameters(ssm_client, action):
+    parameter_names = []
+    for parameter_key in action['parameters']:
+        parameter_names.append(action['parameters'][parameter_key][0]['parameterName'])
+
+    if len(parameter_names) > 0:
+        response = ssm_client.delete_parameters(
+            Names=parameter_names
+        )
+
+        log.debug(response)
+    else:
+        log.debug('No SSM parameters to remove.')
+
+
+def remove_exiting_actions(mgn_client, source_server_id, action_ids):
+    for action_id in action_ids:
+        response = mgn_client.remove_source_server_action(
+            actionID=action_id,
+            sourceServerID=source_server_id
+        )
+        log.debug(response)

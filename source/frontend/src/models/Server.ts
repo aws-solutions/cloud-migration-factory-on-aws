@@ -6,5 +6,5 @@ export type Server = {
   _history: { createdBy: { userRef: string; email: string }; createdTimestamp: string };
   server_id: string;
   app_id: string;
-  r_type: string
+  r_type: string;
 };

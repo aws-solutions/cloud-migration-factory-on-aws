@@ -3,15 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useState} from 'react';
-import {Button, Container, Form, Header, SpaceBetween} from '@awsui/components-react';
-import AllAttributes from './ui_attributes/AllAttributes'
+import React, { useState } from "react";
+import { Button, Container, Form, Header, SpaceBetween } from "@awsui/components-react";
+import AllAttributes from "./ui_attributes/AllAttributes";
 
-import {setNestedValuePath} from '../resources/main';
-import {EntitySchema} from '../models/EntitySchema';
-import {UserAccess} from '../models/UserAccess';
-import {ClickDetail} from '@awsui/components-react/internal/events';
-import {CMFModal} from "./Modal";
+import { setNestedValuePath } from "../resources/main";
+import { EntitySchema } from "../models/EntitySchema";
+import { UserAccess } from "../models/UserAccess";
+import { ClickDetail } from "@awsui/components-react/internal/events";
+import { CMFModal } from "./Modal";
 
 type AutomationToolsParams = {
   selectedItems: any;
@@ -27,27 +27,23 @@ type AutomationToolsParams = {
 type AttributeUpdateRequest = {
   field: string;
   value: any;
-  validationError?: any
-}
+  validationError?: any;
+};
 
 const AutomationTools = (props: AutomationToolsParams) => {
-
   const [localTool, setLocalTool] = useState(props.selectedItems ? populateTool(props.selectedItems) : {});
   const [dataChanged, setDataChanged] = useState(false);
   const [validForm, setFormValidation] = useState(true);
 
-  const [isNoActionModalVisible, setNoActionModalVisible] = useState(false)
+  const [isNoActionModalVisible, setNoActionModalVisible] = useState(false);
 
   function populateTool(items: any[]) {
-
     if (items.length == 0) {
       return {};
     }
 
-    let relationshipAttributes = props.schema.attributes.filter(function (item: {
-      type: string;
-    }) {
-      return item.type === 'relationship';
+    let relationshipAttributes = props.schema.attributes.filter(function (item: { type: string }) {
+      return item.type === "relationship";
     });
 
     if (relationshipAttributes.length > 0) {
@@ -62,7 +58,6 @@ const AutomationTools = (props: AutomationToolsParams) => {
     } else {
       return {};
     }
-
   }
 
   function handleUserInput(value: AttributeUpdateRequest[] | AttributeUpdateRequest) {
@@ -78,7 +73,6 @@ const AutomationTools = (props: AutomationToolsParams) => {
 
     setLocalTool(newItem);
     setDataChanged(true);
-
   }
 
   function handleAction(e: CustomEvent<ClickDetail>, actionId: any) {
@@ -91,7 +85,6 @@ const AutomationTools = (props: AutomationToolsParams) => {
     } else {
       setFormValidation(true);
     }
-
   }
 
   function handleCancel() {
@@ -103,14 +96,19 @@ const AutomationTools = (props: AutomationToolsParams) => {
   }
 
   function getActionButtons() {
-
     return props.schema.actions?.map((action: any) => {
       return (
-        <Button key={action.id} id={action.id} onClick={e => handleAction(e, action.id)} disabled={!validForm}
-                variant={action.awsuiStyle} loading={props.performingAction}>
+        <Button
+          key={action.id}
+          id={action.id}
+          onClick={(e) => handleAction(e, action.id)}
+          disabled={!validForm}
+          variant={action.awsuiStyle}
+          loading={props.performingAction}
+        >
           {action.name}
         </Button>
-      )
+      );
     });
   }
 
@@ -121,13 +119,15 @@ const AutomationTools = (props: AutomationToolsParams) => {
         actions={
           // located at the bottom of the form
           <SpaceBetween direction="horizontal" size="xs">
-            <Button onClick={handleCancel} variant="link">Cancel</Button>
+            <Button onClick={handleCancel} variant="link">
+              Cancel
+            </Button>
             {getActionButtons()}
           </SpaceBetween>
         }
       >
         <SpaceBetween direction="vertical" size="l">
-          <Container header={<Header variant="h2">{props.schema.friendly_name + ' Attributes'}</Header>}>
+          <Container header={<Header variant="h2">{props.schema.friendly_name + " Attributes"}</Header>}>
             <SpaceBetween size="l">
               <AllAttributes
                 schema={props.schema}
@@ -137,7 +137,8 @@ const AutomationTools = (props: AutomationToolsParams) => {
                 hideAudit={true}
                 item={localTool}
                 handleUserInput={handleUserInput}
-                handleUpdateValidationErrors={handleUpdateFormErrors}/>
+                handleUpdateValidationErrors={handleUpdateFormErrors}
+              />
             </SpaceBetween>
           </Container>
         </SpaceBetween>
@@ -146,7 +147,7 @@ const AutomationTools = (props: AutomationToolsParams) => {
       <CMFModal
         onDismiss={() => setNoActionModalVisible(false)}
         visible={isNoActionModalVisible}
-        header={'No action'}
+        header={"No action"}
         onConfirmation={props.handleCancel}
       >
         You have not performed an action, are you sure?

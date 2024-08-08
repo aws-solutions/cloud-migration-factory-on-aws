@@ -3,22 +3,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useContext, useEffect, useState} from 'react';
+import React, { useContext, useEffect, useState } from "react";
 import UserApiClient from "../api_clients/userApiClient";
 import * as XLSX from "xlsx";
 
-import {ExpandableSection, ProgressBar,} from '@awsui/components-react';
+import { ExpandableSection, ProgressBar } from "@awsui/components-react";
 
-import {useMFApps} from "../actions/ApplicationsHook";
-import {useGetServers} from "../actions/ServersHook";
-import {useMFWaves} from "../actions/WavesHook";
-import {useGetDatabases} from "../actions/DatabasesHook";
-import {parsePUTResponseErrors} from "../resources/recordFunctions";
-import {useCredentialManager} from "../actions/CredentialManagerHook";
-import {NotificationContext} from "../contexts/NotificationContext";
-import {EntitySchema} from "../models/EntitySchema";
-import {ClickEvent} from "../models/Events";
-import {ImportIntakeWizard} from "../components/import/ImportIntakeWizard";
+import { useMFApps } from "../actions/ApplicationsHook";
+import { useGetServers } from "../actions/ServersHook";
+import { useMFWaves } from "../actions/WavesHook";
+import { useGetDatabases } from "../actions/DatabasesHook";
+import { parsePUTResponseErrors } from "../resources/recordFunctions";
+import { useCredentialManager } from "../actions/CredentialManagerHook";
+import { NotificationContext } from "../contexts/NotificationContext";
+import { EntitySchema } from "../models/EntitySchema";
+import { ClickEvent } from "../models/Events";
+import { ImportIntakeWizard } from "../components/import/ImportIntakeWizard";
 import {
   buildCommitExceptionNotification,
   convertExcelToJSON,
@@ -30,31 +30,30 @@ import {
   readXLSXFile,
   removeCalculatedKeyValues,
   removeNullKeys,
-  updateRelatedItemAttributes
+  updateRelatedItemAttributes,
 } from "../utils/import-utils";
-import {CMFModal} from "../components/Modal";
-import {CompletionNotification} from "../models/CompletionNotification";
+import { CMFModal } from "../components/Modal";
+import { CompletionNotification } from "../models/CompletionNotification";
 
 const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
-
-  const {addNotification} = useContext(NotificationContext);
+  const { addNotification } = useContext(NotificationContext);
 
   //Data items for viewer and table.
-  const [{isLoading: isLoadingApps, data: dataApps, error: errorApps},] = useMFApps();
-  const [{isLoading: isLoadingServers, data: dataServers, error: errorServers},] = useGetServers();
-  const [{isLoading: isLoadingWaves, data: dataWaves, error: errorWaves},] = useMFWaves();
-  const [{isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases},] = useGetDatabases();
-  const [{isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets},] = useCredentialManager();
+  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }] = useMFApps();
+  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }] = useGetServers();
+  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }] = useMFWaves();
+  const [{ isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases }] = useGetDatabases();
+  const [{ isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets }] = useCredentialManager();
 
   const dataAll: Record<string, any> = {
-    secret: {data: dataSecrets, isLoading: isLoadingSecrets, error: errorSecrets},
-    database: {data: dataDatabases, isLoading: isLoadingDatabases, error: errorDatabases},
-    server: {data: dataServers, isLoading: isLoadingServers, error: errorServers},
-    application: {data: dataApps, isLoading: isLoadingApps, error: errorApps},
-    wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}
+    secret: { data: dataSecrets, isLoading: isLoadingSecrets, error: errorSecrets },
+    database: { data: dataDatabases, isLoading: isLoadingDatabases, error: errorDatabases },
+    server: { data: dataServers, isLoading: isLoadingServers, error: errorServers },
+    application: { data: dataApps, isLoading: isLoadingApps, error: errorApps },
+    wave: { data: dataWaves, isLoading: isLoadingWaves, error: errorWaves },
   };
 
-  const [isNoCommitModalVisible, setNoCommitModalVisible] = useState(false)
+  const [isNoCommitModalVisible, setNoCommitModalVisible] = useState(false);
 
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [sheetNames, setSheetNames] = useState<string[]>([]);
@@ -63,19 +62,22 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
   const [committing, setCommitting] = useState(false);
   const [committed, setCommitted] = useState(false);
   const [errors, setErrors] = useState(0);
-  const [importProgressStatus, setImportProgressStatus]
-    = useState<CompletionNotification>({status: '', percentageComplete: 0, increment: 0});
+  const [importProgressStatus, setImportProgressStatus] = useState<CompletionNotification>({
+    status: "",
+    percentageComplete: 0,
+    increment: 0,
+  });
   const [warnings, setWarnings] = useState(0);
   const [informational, setInformational] = useState(0);
   const [errorFile, setErrorFile] = useState<string[]>([]);
   const [outputCommitErrors, setOutputCommitErrors] = useState<any[]>([]);
   const [summary, setSummary] = useState({
-    "entities": {} as Record<string, any>,
-    "hasUpdates": false,
-    attributeMappings: [] as any[]
+    entities: {} as Record<string, any>,
+    hasUpdates: false,
+    attributeMappings: [] as any[],
   });
 
-  if (typeof (FileReader) === "undefined") {
+  if (typeof FileReader === "undefined") {
     setErrorFile(["This browser does not support HTML5, it is not possible to import files."]);
   }
 
@@ -83,18 +85,20 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
 
   function updateUploadStatus(notification: CompletionNotification, message: string, numberRecords = 1) {
     notification.status = message;
-    notification.percentageComplete = notification.percentageComplete + (notification.increment * numberRecords)
+    notification.percentageComplete = notification.percentageComplete + notification.increment * numberRecords;
     addNotification({
       id: notification.id,
-      type: 'info',
+      type: "info",
       loading: true,
       dismissible: false,
-      content: <ProgressBar
-        label={"Importing file '" + notification.importName + "' ..."}
-        value={notification.percentageComplete}
-        additionalInfo={notification.status}
-        variant="flash"
-      />
+      content: (
+        <ProgressBar
+          label={"Importing file '" + notification.importName + "' ..."}
+          value={notification.percentageComplete}
+          additionalInfo={notification.status}
+          variant="flash"
+        />
+      ),
     });
     setImportProgressStatus(notification);
   }
@@ -111,8 +115,7 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
     action: string,
     notification: CompletionNotification
   ) {
-
-    const schema_shortname = schema === 'application' ? 'app' : schema;
+    const schema_shortname = schema === "application" ? "app" : schema;
 
     const start = Date.now();
 
@@ -138,55 +141,67 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
       commitItems.push(currentItem);
 
       try {
-        if (action === 'Update') {
-          let item_id = newItem[schema_shortname + '_id'];
-          delete newItem[schema_shortname + '_id'];
+        if (action === "Update") {
+          let item_id = newItem[schema_shortname + "_id"];
+          delete newItem[schema_shortname + "_id"];
           await apiUser.putItem(item_id, newItem, schema_shortname);
           updateUploadStatus(notification, action + " " + schema + " records...");
         }
-
       } catch (e: any) {
         updateUploadStatus(notification, action + " " + schema + " records...");
         console.error(e);
         loutputCommit.push(buildCommitExceptionNotification(e, schema, schema_shortname, currentItem));
       }
-
     }
 
-    await bulkPostCommitItems(commitItems, action, {schema_shortname, schema}, dataImport, notification, loutputCommit, apiUser);
+    await bulkPostCommitItems(
+      commitItems,
+      action,
+      { schema_shortname, schema },
+      dataImport,
+      notification,
+      loutputCommit,
+      apiUser
+    );
 
     const millis = Date.now() - start;
     console.debug(`seconds elapsed = ${Math.floor(millis / 1000)}`);
 
     if (loutputCommit.length > 0) {
       let newCommitError = outputCommitErrors;
-      newCommitError.push(...loutputCommit)
+      newCommitError.push(...loutputCommit);
       setOutputCommitErrors(newCommitError);
     }
   }
 
-  async function bulkPostCommitItems(commitItems: any[], action: string,
-                                     {schema, schema_shortname}:  {schema_shortname: string; schema: string},
-                                     dataImport: {[p: string]: {Create: any[], Update: any[]}},
-                                     notification: CompletionNotification,
-                                     loutputCommit: any[],
-                                     apiUser:  UserApiClient) {
+  async function bulkPostCommitItems(
+    commitItems: any[],
+    action: string,
+    { schema, schema_shortname }: { schema_shortname: string; schema: string },
+    dataImport: { [p: string]: { Create: any[]; Update: any[] } },
+    notification: CompletionNotification,
+    loutputCommit: any[],
+    apiUser: UserApiClient
+  ) {
     try {
-      if (action === 'Create') {
+      if (action === "Create") {
         for (let item of commitItems) {
-          delete item[schema_shortname + '_id'];
+          delete item[schema_shortname + "_id"];
         }
 
-        console.debug("Starting bulk post")
+        console.debug("Starting bulk post");
         const result = await apiUser.postItems(commitItems, schema_shortname);
 
-        if (result['newItems']) {
-          updateUploadStatus(notification, "Updating any related records with new " + schema + " IDs...", commitItems.length / 2);
-          console.debug("Bulk post complete")
+        if (result["newItems"]) {
+          updateUploadStatus(
+            notification,
+            "Updating any related records with new " + schema + " IDs...",
+            commitItems.length / 2
+          );
+          console.debug("Bulk post complete");
 
-          console.debug("Updating related items")
-          for (const item of result['newItems']) {
-
+          console.debug("Updating related items");
+          for (const item of result["newItems"]) {
             for (const updateSchema in dataImport) {
               //ATTN: add logic to determine if the updateSchema is related to current schema by any attributes
               // and then only update those that are, for the moment it will validate all.
@@ -197,47 +212,52 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
 
           updateUploadStatus(
             notification,
-            `Updating any related records with new ${schema} IDs...`, commitItems.length / 2);
+            `Updating any related records with new ${schema} IDs...`,
+            commitItems.length / 2
+          );
         }
 
-        if (result['errors']) {
+        if (result["errors"]) {
           console.debug("PUT " + schema + " errors");
-          console.debug(result['errors']);
-          let errorsReturned = parsePUTResponseErrors(result['errors']);
+          console.debug(result["errors"]);
+          let errorsReturned = parsePUTResponseErrors(result["errors"]);
           loutputCommit.push({
-            'itemType': schema,
-            'error': 'Create failed',
-            'item': errorsReturned
+            itemType: schema,
+            error: "Create failed",
+            item: errorsReturned,
           });
         }
       }
-
     } catch (e: any) {
       bulkPostCommitItemsError(e, schema, action, notification, loutputCommit);
     }
   }
 
-  function bulkPostCommitItemsError(e: any, schema: string, action: string,
-                                    notification: CompletionNotification,
-                                    loutputCommit: any[]) {
-      console.debug(e);
-      let item = {}
-      if (e) {
-        item = JSON.stringify(e)
-        if (e?.response?.data?.errors) {
-          // return API errors to user.
-          console.debug(e.response.data.errors);
-          item = parsePUTResponseErrors(e.response.data.errors);
-        }
+  function bulkPostCommitItemsError(
+    e: any,
+    schema: string,
+    action: string,
+    notification: CompletionNotification,
+    loutputCommit: any[]
+  ) {
+    console.debug(e);
+    let item = {};
+    if (e) {
+      item = JSON.stringify(e);
+      if (e?.response?.data?.errors) {
+        // return API errors to user.
+        console.debug(e.response.data.errors);
+        item = parsePUTResponseErrors(e.response.data.errors);
       }
+    }
 
-      loutputCommit.push({
-          itemType: schema + ' ' + action,
-          error: 'Internal API error - Contact support',
-          item: item
-        });
+    loutputCommit.push({
+      itemType: schema + " " + action,
+      error: "Internal API error - Contact support",
+      item: item,
+    });
 
-      updateUploadStatus(notification, "Error uploading records of type :" + schema, commitItems.length);
+    updateUploadStatus(notification, "Error uploading records of type :" + schema, commitItems.length);
   }
 
   async function handleDownloadTemplate(e: ClickEvent) {
@@ -246,25 +266,23 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
     let action = e.detail.id;
 
     switch (action) {
-      case 'download_req': {
+      case "download_req": {
         exportTemplate();
         break;
       }
-      case 'download_all': {
+      case "download_all": {
         exportAllTemplate(props.schemas);
         break;
       }
     }
-
   }
 
   function exportTemplate() {
-
-    let ws_data: Record<string, any> = {}
+    let ws_data: Record<string, any> = {};
 
     let attributes = getRequiredAttributesAllSchemas(props.schemas); // get all required attributes from all schemas
 
-    let headers: Record<string, any> = {}
+    let headers: Record<string, any> = {};
     for (const attr_idx in attributes) {
       const attribute = attributes[attr_idx];
       if (attribute.type === "relationship") {
@@ -273,24 +291,21 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
         headers[attribute.name] = attribute.sample_data_intake ? attribute.sample_data_intake : "";
       }
     }
-    const json_output = [headers] // Create single item array with empty values to populate headers fdr intake form.
+    const json_output = [headers]; // Create single item array with empty values to populate headers fdr intake form.
 
-    let range = {s: {c: 0, r: 0}, e: {c: attributes.length, r: 1}}; // set worksheet cell range
-    ws_data['!ref'] = XLSX.utils.encode_range(range);
+    let range = { s: { c: 0, r: 0 }, e: { c: attributes.length, r: 1 } }; // set worksheet cell range
+    ws_data["!ref"] = XLSX.utils.encode_range(range);
 
     let wb = XLSX.utils.book_new(); // create new workbook
-    wb.SheetNames.push('mf_intake'); // create new worksheet
-    wb.Sheets['mf_intake'] = XLSX.utils.json_to_sheet(json_output); // load headers array into worksheet
+    wb.SheetNames.push("mf_intake"); // create new worksheet
+    wb.Sheets["mf_intake"] = XLSX.utils.json_to_sheet(json_output); // load headers array into worksheet
 
-    XLSX.writeFile(wb, "cmf-intake-form-req.xlsx") // export to user
+    XLSX.writeFile(wb, "cmf-intake-form-req.xlsx"); // export to user
 
-    console.log("CMF intake template exported.")
+    console.log("CMF intake template exported.");
   }
 
-
-
   async function handleUploadChange(e: any) {
-
     //Reset for new upload.
     setErrorFile([]);
     setErrors(0);
@@ -304,11 +319,11 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
     setSelectedSheet(undefined);
     setSheetNames([]);
 
-    setSelectedFile(e.target.files[0])
+    setSelectedFile(e.target.files[0]);
 
-    if (e.target.files[0].type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
-      let data = await readXLSXFile(reader, e.target.files[0])
-      let workbook = XLSX.read(data)
+    if (e.target.files[0].type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+      let data = await readXLSXFile(reader, e.target.files[0]);
+      let workbook = XLSX.read(data);
       //Set first sheet as default import source.
       setSelectedSheet(workbook.SheetNames[0]);
       if (workbook.SheetNames.length > 1) {
@@ -319,7 +334,6 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
   }
 
   async function handleCancelClick() {
-
     //Reset for new upload.
     setErrorFile([]);
     setErrors(0);
@@ -330,7 +344,6 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
     setCommitting(false);
     setSelectedSheet(undefined);
     setSheetNames([]);
-
   }
 
   function countUpdates(entities: {
@@ -350,34 +363,35 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
   }
 
   async function handleUploadClick() {
-
     if (!summary.hasUpdates) {
-      setNoCommitModalVisible(true)
+      setNoCommitModalVisible(true);
       return;
     }
 
     let importName = selectedFile?.name;
 
     if (selectedSheet) {
-      importName = selectedFile?.name + " [" + selectedSheet + "]"
+      importName = selectedFile?.name + " [" + selectedSheet + "]";
     }
 
     let status: CompletionNotification = {
       increment: 1,
       percentageComplete: 0,
       status: "Starting upload...",
-      'importName': importName
-    }
+      importName: importName,
+    };
     status.id = addNotification({
-      type: 'info',
+      type: "info",
       loading: true,
       dismissible: false,
-      content: <ProgressBar
-        label={"Importing file " + importName + " ..."}
-        value={0}
-        additionalInfo="Starting upload..."
-        variant="flash"
-      />
+      content: (
+        <ProgressBar
+          label={"Importing file " + importName + " ..."}
+          value={0}
+          additionalInfo="Starting upload..."
+          variant="flash"
+        />
+      ),
     });
 
     setCommitting(true);
@@ -388,7 +402,7 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
     let entities = Object.keys(summary.entities);
 
     //Ensure that the built-in entity types are processed before others.
-    let prefEntityList = ['wave', 'application', 'server', 'database'];
+    let prefEntityList = ["wave", "application", "server", "database"];
     for (const entityName of entities) {
       if (!prefEntityList.includes(entityName)) {
         //Add other custom items to end of list.
@@ -399,14 +413,14 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
     //Perform record creation.
     for (const entityName of prefEntityList) {
       if (summary.entities[entityName].Create.length > 0) {
-        await commitItems(entityName, summary.entities[entityName].Create, summary.entities, "Create", status)
+        await commitItems(entityName, summary.entities[entityName].Create, summary.entities, "Create", status);
       }
     }
 
     //Perform record updates.
     for (const entityName of prefEntityList) {
       if (summary.entities[entityName].Update.length > 0) {
-        await commitItems(entityName, summary.entities[entityName].Update, summary.entities, "Update", status)
+        await commitItems(entityName, summary.entities[entityName].Update, summary.entities, "Update", status);
       }
     }
 
@@ -418,85 +432,94 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
 
     setItems([]);
 
-
     if (outputCommitErrors.length > 0) {
-      let errors = outputCommitErrors.map(errorItem => (
+      let errors = outputCommitErrors.map((errorItem) => (
         <ExpandableSection
           key={errorItem.itemType + " - " + errorItem.error}
-          headerText={errorItem.itemType + " - " + errorItem.error}>
+          headerText={errorItem.itemType + " - " + errorItem.error}
+        >
           {JSON.stringify(errorItem.item)}
         </ExpandableSection>
-      ))
+      ));
 
       addNotification({
         id: status.id,
-        type: 'error',
+        type: "error",
         dismissible: true,
         header: "Import of file '" + importName + "' had " + outputCommitErrors.length + " errors.",
-        content: <ExpandableSection headerText='Error details'>{errors}</ExpandableSection>
+        content: <ExpandableSection headerText="Error details">{errors}</ExpandableSection>,
       });
     } else {
       addNotification({
         id: status.id,
-        type: 'success',
+        type: "success",
         dismissible: true,
-        header: 'Import of ' + importName + ' successful.'
+        header: "Import of " + importName + " successful.",
       });
     }
   }
 
   function getCurrentErrorMessage() {
-
     if (selectedFile && errorFile.length === 0) {
       return null;
     } else if (errorFile.length > 0) {
-      return 'Error with file : ' + errorFile.join();
+      return "Error with file : " + errorFile.join();
     } else {
-      return 'No file selected'
+      return "No file selected";
     }
   }
 
   function updateProcessingResultCounts(dataJson: any) {
-    let errorCount = dataJson.data.reduce((accumulator: number, currentValue: { [x: string]: { errors: any[]; }; }) => {
-      return currentValue['__validation'].errors ? accumulator + currentValue['__validation'].errors.length : accumulator
+    let errorCount = dataJson.data.reduce((accumulator: number, currentValue: { [x: string]: { errors: any[] } }) => {
+      return currentValue["__validation"].errors
+        ? accumulator + currentValue["__validation"].errors.length
+        : accumulator;
     }, 0);
     setErrors(errorCount);
 
-    let warningCount = dataJson.data.reduce((accumulator: number, currentValue: { [x: string]: { warnings: any[]; }; }) => {
-      return currentValue['__validation'].warnings ? accumulator + currentValue['__validation'].warnings.length : accumulator
-    }, 0);
+    let warningCount = dataJson.data.reduce(
+      (accumulator: number, currentValue: { [x: string]: { warnings: any[] } }) => {
+        return currentValue["__validation"].warnings
+          ? accumulator + currentValue["__validation"].warnings.length
+          : accumulator;
+      },
+      0
+    );
     setWarnings(warningCount);
 
-    let infromationalCount = dataJson.data.reduce((accumulator: number, currentValue: { [x: string]: { informational: any[]; }; }) => {
-      return currentValue['__validation'].informational ? accumulator + currentValue['__validation'].informational.length : accumulator
-    }, 0);
+    let infromationalCount = dataJson.data.reduce(
+      (accumulator: number, currentValue: { [x: string]: { informational: any[] } }) => {
+        return currentValue["__validation"].informational
+          ? accumulator + currentValue["__validation"].informational.length
+          : accumulator;
+      },
+      0
+    );
     setInformational(infromationalCount);
   }
 
   useEffect(() => {
-    let dataJson: any = []
+    let dataJson: any = [];
 
     if (selectedFile) {
       (async () => {
-
-        if (selectedFile.name.endsWith('.csv')) {
-
+        if (selectedFile.name.endsWith(".csv")) {
           let data = await readCSVFile(reader, selectedFile);
 
-          let csv = require('jquery-csv');
+          let csv = require("jquery-csv");
 
           dataJson = csv.toObjects(data);
-        } else if (selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls')) {
+        } else if (selectedFile.name.endsWith(".xlsx") || selectedFile.name.endsWith(".xls")) {
           dataJson = await convertExcelToJSON(reader, selectedFile, selectedSheet);
         } else {
           //unsupported format of file.
-          console.error(selectedFile.name + " - Unsupported file type.")
-          setErrorFile(['Unsupported file type.'])
+          console.error(selectedFile.name + " - Unsupported file type.");
+          setErrorFile(["Unsupported file type."]);
         }
 
         dataJson = removeNullKeys(dataJson);
 
-        dataJson = performDataValidation(props.schemas, dataJson)
+        dataJson = performDataValidation(props.schemas, dataJson);
 
         const summary1 = getSummary(props.schemas, dataJson, dataAll);
         setSummary(summary1);
@@ -504,46 +527,41 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
         updateProcessingResultCounts(dataJson);
 
         setItems(dataJson.data);
-
       })();
     }
-
-  }, [selectedFile, selectedSheet])
+  }, [selectedFile, selectedSheet]);
 
   const hideNoCommitModal = () => setNoCommitModalVisible(false);
   return (
     <>
-      {<ImportIntakeWizard
-        selectedFile={selectedFile}
-        items={items}
-        errors={errors}
-        warnings={warnings}
-        informational={informational}
-        schema={props.schemas}
-        dataAll={dataAll}
-        uploadChange={handleUploadChange}
-        uploadClick={handleUploadClick}
-        cancelClick={handleCancelClick}
-        summary={summary}
-        exportClick={handleDownloadTemplate}
-        committing={committing}
-        committed={committed}
-        importProgressStatus={importProgressStatus}
-        errorMessage={getCurrentErrorMessage()}
-        selectedSheetName={selectedSheet}
-        sheetNames={sheetNames}
-        sheetChange={setSelectedSheet}
-        outputCommitErrors={outputCommitErrors}
-      />}
+      {
+        <ImportIntakeWizard
+          selectedFile={selectedFile}
+          items={items}
+          errors={errors}
+          warnings={warnings}
+          informational={informational}
+          schema={props.schemas}
+          dataAll={dataAll}
+          uploadChange={handleUploadChange}
+          uploadClick={handleUploadClick}
+          cancelClick={handleCancelClick}
+          summary={summary}
+          exportClick={handleDownloadTemplate}
+          committing={committing}
+          committed={committed}
+          importProgressStatus={importProgressStatus}
+          errorMessage={getCurrentErrorMessage()}
+          selectedSheetName={selectedSheet}
+          sheetNames={sheetNames}
+          sheetChange={setSelectedSheet}
+          outputCommitErrors={outputCommitErrors}
+        />
+      }
 
-      <CMFModal
-        onDismiss={hideNoCommitModal}
-        visible={isNoCommitModalVisible}
-        header={'Commit intake'}
-      >
+      <CMFModal onDismiss={hideNoCommitModal} visible={isNoCommitModalVisible} header={"Commit intake"}>
         Nothing to be committed!
       </CMFModal>
-
     </>
   );
 };

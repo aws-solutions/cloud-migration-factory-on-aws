@@ -1,5 +1,5 @@
-urllib3<2.1.0
-boto3==1.34.28
-requests==2.31.0
+urllib3>=2.2.2
+boto3==1.34.140
+requests==2.32.3
 simplejson==3.19.2
-botocore==1.34.28
+botocore==1.34.140

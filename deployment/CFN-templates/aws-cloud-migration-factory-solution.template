@@ -4797,6 +4797,10 @@ Resources:
                 Action:
                   - 'secretsmanager:CreateSecret'
                 Resource: !Sub "arn:aws:secretsmanager:*:${AWS::AccountId}:secret:*"
+              - Effect: Allow
+                Action:
+                  - 'secretsmanager:DeleteSecret'
+                Resource: !Sub "arn:aws:secretsmanager:*:${AWS::AccountId}:secret:MFServiceAccount-${AWS::Region}_*"
               -
                 Effect: Allow
                 Action:

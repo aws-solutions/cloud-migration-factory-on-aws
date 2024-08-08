@@ -7,13 +7,13 @@ export type ActionDenyType = {
   add?: boolean;
   edit?: boolean;
   delete?: boolean;
-}
+};
 
 export const defaultAllDeny: ActionDenyType = {
   add: true,
   edit: true,
   delete: true,
-}
+};
 
 /**
  * this type is used when reading from and saving to the backend
@@ -24,6 +24,6 @@ export type EntityAccessRecord = {
   create?: boolean;
   delete?: boolean;
   update?: boolean;
-}
+};
 
 export type UserAccess = Record<string, EntityAccessRecord>;

@@ -36,7 +36,14 @@ else
 fi
 
 echo "  ---- Running tests..."
-coverage run -m unittest discover -p "test_*.py"
+if [ -z "$1" ]; then
+  echo "  ---- Running all tests..."
+  test_scope="test_*.py"
+else
+  echo "  ---- Running tests based on the pattern $1..."
+  test_scope="$1"
+fi
+coverage run -m unittest discover -p "$test_scope"
 echo "  ---- Please make sure all the test cases above pass"
 echo
 echo

@@ -8,33 +8,32 @@ import {
   reducer,
   requestFailed,
   requestStarted,
-  requestSuccessful
-} from '../resources/permissionsReducer';
+  requestSuccessful,
+} from "../resources/permissionsReducer";
 
-import {useEffect, useReducer} from 'react';
+import { useEffect, useReducer } from "react";
 import AdminApiClient from "../api_clients/adminApiClient";
 import LoginApiClient from "../api_clients/loginApiClient";
 
 export type PermissionsModel = { roles: any[]; policies: any[]; groups: any[]; users: any[] };
 
 export const useAdminPermissions: () => [PermissionsReducerState, { update: () => Promise<unknown> }] = () => {
-
   const emptyPermissions: PermissionsModel = {
     policies: [],
     roles: [],
     groups: [],
-    users: []
-  }
+    users: [],
+  };
 
   const [state, dispatch] = useReducer(reducer, {
     isLoading: true,
     data: emptyPermissions,
-    error: null
+    error: null,
   });
 
   async function update() {
     const myAbortController = new AbortController();
-    const permissions = {...emptyPermissions};
+    const permissions = { ...emptyPermissions };
 
     dispatch(requestStarted());
 
@@ -44,34 +43,31 @@ export const useAdminPermissions: () => [PermissionsReducerState, { update: () =
       permissions.roles = await apiAdmin.getRoles();
       permissions.policies = await apiAdmin.getPolicies();
       permissions.users = await apiAdmin.getUsers();
-
     } catch (e: any) {
-      if (e.message !== 'Request aborted') {
-        console.error('Admin Permissions Hook', e);
+      if (e.message !== "Request aborted") {
+        console.error("Admin Permissions Hook", e);
       }
-      dispatch(requestFailed({error: e}));
+      dispatch(requestFailed({ error: e }));
     }
 
     try {
       let apiLogin = new LoginApiClient();
       const response = await apiLogin.getGroups();
       permissions.groups = response.map((group: any) => {
-        return {group_name: group}
+        return { group_name: group };
       });
 
-      dispatch(requestSuccessful({data: permissions}));
-
+      dispatch(requestSuccessful({ data: permissions }));
     } catch (e: any) {
-      if (e.message !== 'Request aborted') {
-        console.error('Admin Permissions Hook', e);
+      if (e.message !== "Request aborted") {
+        console.error("Admin Permissions Hook", e);
       }
-      dispatch(requestFailed({error: e}));
+      dispatch(requestFailed({ error: e }));
     }
 
     return () => {
       myAbortController.abort();
     };
-
   }
 
   useEffect(() => {
@@ -85,8 +81,7 @@ export const useAdminPermissions: () => [PermissionsReducerState, { update: () =
     return () => {
       cancelledRequest = true;
     };
-
   }, []);
 
-  return [state, {update}];
+  return [state, { update }];
 };

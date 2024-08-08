@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useContext, useState} from 'react';
+import React, { useContext, useState } from "react";
 import {
   Checkbox,
   Container,
@@ -14,27 +14,27 @@ import {
   Multiselect,
   SpaceBetween,
   Tabs,
-  Textarea
-} from '@awsui/components-react';
+  Textarea,
+} from "@awsui/components-react";
 
-import {useMFApps} from "../../actions/ApplicationsHook";
-import {useGetServers} from "../../actions/ServersHook";
-import {useMFWaves} from "../../actions/WavesHook";
-import {useAutomationScripts} from "../../actions/AutomationScriptsHook";
+import { useMFApps } from "../../actions/ApplicationsHook";
+import { useGetServers } from "../../actions/ServersHook";
+import { useMFWaves } from "../../actions/WavesHook";
+import { useAutomationScripts } from "../../actions/AutomationScriptsHook";
 
 import JsonAttribute from "./JsonAttribute";
 import Audit from "./Audit";
 
-import {capitalize, getNestedValuePath, validateValue} from '../../resources/main'
+import { capitalize, getNestedValuePath, validateValue } from "../../resources/main";
 
-import {useCredentialManager} from "../../actions/CredentialManagerHook";
-import {useAdminPermissions} from "../../actions/AdminPermissionsHook";
+import { useCredentialManager } from "../../actions/CredentialManagerHook";
+import { useAdminPermissions } from "../../actions/AdminPermissionsHook";
 import {
   checkAttributeRequiredConditions,
   getRelationshipRecord,
-  getRelationshipValue
+  getRelationshipValue,
 } from "../../resources/recordFunctions";
-import {useGetDatabases} from "../../actions/DatabasesHook";
+import { useGetDatabases } from "../../actions/DatabasesHook";
 import MultiValueStringAttribute from "./MultiValueStringAttribute";
 import TagAttribute from "./TagAttribute";
 import ListAttribute from "./ListAttribute";
@@ -44,20 +44,22 @@ import DateAttribute from "./DateAttribute";
 import EmbeddedEntityAttribute from "./EmbeddedEntityAttribute";
 import PoliciesAttribute from "./PoliciesAttribute";
 import CheckboxAttribute from "./CheckboxAttribute";
-import {ToolsContext} from "../../contexts/ToolsContext";
-import {Attribute, BaseData, EntitySchema} from "../../models/EntitySchema";
-import {SchemaAccess, UserAccess} from "../../models/UserAccess";
-import {OptionDefinition} from '@awsui/components-react/internal/components/option/interfaces';
+import { ToolsContext } from "../../contexts/ToolsContext";
+import { Attribute, BaseData, EntitySchema } from "../../models/EntitySchema";
+import { SchemaAccess, UserAccess } from "../../models/UserAccess";
+import { OptionDefinition } from "@awsui/components-react/internal/components/option/interfaces";
 
-const constDefaultGroupName = 'Details';
+const constDefaultGroupName = "Details";
 
 type AllAttributesParams = {
   schema: EntitySchema;
-  handleUserInput: (arg0: ({
-    field: string;
-    value: any;
-    validationError?: any;
-  })[]) => void;
+  handleUserInput: (
+    arg0: {
+      field: string;
+      value: any;
+      validationError?: any;
+    }[]
+  ) => void;
   handleUpdateValidationErrors: (arg0: any[]) => void;
   item: any;
   userAccess: UserAccess;
@@ -68,59 +70,70 @@ type AllAttributesParams = {
 
 // Renders all attributes belonging to the schema when an entity is being created or edited
 const AllAttributes = (props: AllAttributesParams) => {
-
-  const {setHelpPanelContent} = useContext(ToolsContext);
+  const { setHelpPanelContent } = useContext(ToolsContext);
 
   //Load all related data into the UI for all relationships to work correctly.
   // ATTN: this is not optimal currently as all data is pulled back, needs update in future to make APIs return related data for a item.
-  const [{isLoading: isLoadingWaves, data: dataWaves, error: errorWaves}] = useMFWaves();
-  const [{isLoading: isLoadingApps, data: dataApps, error: errorApps}] = useMFApps();
-  const [{isLoading: isLoadingServers, data: dataServers, error: errorServers}] = useGetServers();
-  const [{isLoading: isLoadingScripts, data: dataScripts, error: errorScripts}] = useAutomationScripts();
-  const [{isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets}] = useCredentialManager();
-  const [{isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases}] = useGetDatabases()
-  const [{isLoading: permissionsIsLoading, data: permissionsData}] = useAdminPermissions();
+  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }] = useMFWaves();
+  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }] = useMFApps();
+  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }] = useGetServers();
+  const [{ isLoading: isLoadingScripts, data: dataScripts, error: errorScripts }] = useAutomationScripts();
+  const [{ isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets }] = useCredentialManager();
+  const [{ isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases }] = useGetDatabases();
+  const [{ isLoading: permissionsIsLoading, data: permissionsData }] = useAdminPermissions();
 
   const allData: BaseData = {
-    secret: {data: dataSecrets, isLoading: isLoadingSecrets, error: errorSecrets},
-    script: {data: dataScripts, isLoading: isLoadingScripts, error: errorScripts},
-    database: {data: dataDatabases, isLoading: isLoadingDatabases, error: errorDatabases},
-    server: {data: dataServers, isLoading: isLoadingServers, error: errorServers},
-    application: {data: dataApps, isLoading: isLoadingApps, error: errorApps},
-    wave: {data: dataWaves, isLoading: isLoadingWaves, error: errorWaves}
+    secret: { data: dataSecrets, isLoading: isLoadingSecrets, error: errorSecrets },
+    script: { data: dataScripts, isLoading: isLoadingScripts, error: errorScripts },
+    database: { data: dataDatabases, isLoading: isLoadingDatabases, error: errorDatabases },
+    server: { data: dataServers, isLoading: isLoadingServers, error: errorServers },
+    application: { data: dataApps, isLoading: isLoadingApps, error: errorApps },
+    wave: { data: dataWaves, isLoading: isLoadingWaves, error: errorWaves },
   };
 
   const [formValidationErrors, setFormValidationErrors] = useState<any[]>([]);
   const [showadvancedpolicy, setShowadvancedpolicy] = useState(false);
 
-  async function handleUserInput(attribute: Attribute, value: any[], validationError: any) {
-
-    let attributes_with_rel_filter = props.schema.attributes.filter(attributeFilter => {
+  function getFilterAttributes(attribute: Attribute): Attribute[] {
+    let attributes_with_rel_filter = props.schema.attributes.filter((attributeFilter) => {
       //this attribute's value is used to filter another select if true.
-      return (attribute.name === attributeFilter.source_filter_attribute_name)
+      return attribute.name === attributeFilter.source_filter_attribute_name;
     });
 
-    let attributes_with_embedded_filter = props.schema.attributes.filter(attributeFilter => {
+    // Get nested filter attributes based on attributes located.
+    for (const attributeFilter of attributes_with_rel_filter) {
+      attributes_with_rel_filter.push(...getFilterAttributes(attributeFilter));
+    }
+
+    return attributes_with_rel_filter;
+  }
+
+  async function handleUserInput(attribute: Attribute, value: any, validationError: any) {
+    let attributes_with_rel_filter = getFilterAttributes(attribute);
+
+    let attributes_with_embedded_filter = props.schema.attributes.filter((attributeFilter) => {
       //this attribute's value is used to filter another embedded attribute if true.
-      return (attribute.name === attributeFilter.lookup && attributeFilter.type === 'embedded_entity')
+      return attribute.name === attributeFilter.lookup && attributeFilter.type === "embedded_entity";
     });
 
     let values: {
       field: string;
       value: any[] | string | {};
-      validationError: any
-    }[] = [{
-      field: attribute.name,
-      value: value,
-      validationError: validationError
-    }];
+      validationError: any;
+    }[] = [
+      {
+        field: attribute.name,
+        value: value,
+        validationError: validationError,
+      },
+    ];
 
     // As filter value has been changed, set all child attribute values to empty.
     for (const attributeFilter of attributes_with_rel_filter) {
       values.push({
         field: attributeFilter.name,
-        value: attributeFilter?.listMultiSelect?[]:'',
-        validationError: null
+        value: attributeFilter?.listMultiSelect ? [] : "",
+        validationError: null,
       });
     }
 
@@ -129,26 +142,32 @@ const AllAttributes = (props: AllAttributesParams) => {
       values.push({
         field: attributeFilter.name,
         value: {},
-        validationError: null
+        validationError: null,
       });
     }
 
     props.handleUserInput(values);
+  }
 
+  function getFilterData(entityData: any[], attribute: Attribute, currentRecord: any) {
+    return entityData.filter((item) => {
+      const rel_value = getNestedValuePath(item, attribute.rel_filter_attribute_name!);
+      const source_value = getNestedValuePath(currentRecord, attribute.source_filter_attribute_name!);
+
+      if (Array.isArray(source_value)) {
+        return source_value?.includes(rel_value);
+      } else {
+        return source_value === rel_value;
+      }
+    });
   }
 
   function getSelectOptions(entityData: any[], isLoading: boolean, attribute: Attribute, currentRecord: any) {
-
-    if (isLoading)
-      return [];
+    if (isLoading) return [];
 
     let dataFiltered = entityData;
-    if ('rel_filter_attribute_name' in attribute && 'source_filter_attribute_name' in attribute) {
-      dataFiltered = entityData.filter((item) => {
-        const rel_value = getNestedValuePath(item, attribute.rel_filter_attribute_name!);
-        const source_value = getNestedValuePath(currentRecord, attribute.source_filter_attribute_name!);
-        return (rel_value === source_value)
-      });
+    if ("rel_filter_attribute_name" in attribute && "source_filter_attribute_name" in attribute) {
+      dataFiltered = getFilterData(entityData, attribute, currentRecord);
     }
 
     return dataFiltered.map((item) => {
@@ -160,54 +179,53 @@ const AllAttributes = (props: AllAttributesParams) => {
           }
         }
       }
-      return (
-        {label: getNestedValuePath(item, attribute.rel_display_attribute!), value: getNestedValuePath(item, attribute.rel_key!), tags: tags}
-      )
+      return {
+        label: getNestedValuePath(item, attribute.rel_display_attribute!),
+        value: getNestedValuePath(item, attribute.rel_key!),
+        tags: tags,
+      };
     });
   }
 
   //Function :   Used to retrieve the options for a select UI component from the related records.
   function getRelationshipSelect(attribute: Attribute, currentRecord: any) {
-
     //Get fixed option values for attribute if they have been defined in the 'listvalue' key of the attribute.
     let options = [];
     let listFull = [];
 
     //Add select all option to all multiselect component options.
     if (attribute.listMultiSelect) {
-      options.push({label: 'All', value: '__system_all'})
+      options.push({ label: "All", value: "__system_all" });
     }
 
-    if ('listvalue' in attribute) {
-      options = attribute.listvalue?.split(',') || [];
+    if ("listvalue" in attribute) {
+      options = attribute.listvalue?.split(",") || [];
       options = options.map((item) => {
-        return (
-          {label: item, value: item}
-        )
+        return { label: item, value: item };
       });
     }
 
     //Get related records list, based on entity.
     switch (attribute.rel_entity) {
-      case 'application':
+      case "application":
         listFull = getSelectOptions(dataApps, isLoadingApps, attribute, currentRecord);
         break;
-      case 'wave':
+      case "wave":
         listFull = getSelectOptions(dataWaves, isLoadingWaves, attribute, currentRecord);
         break;
-      case 'server':
+      case "server":
         listFull = getSelectOptions(dataServers, isLoadingServers, attribute, currentRecord);
         break;
-      case 'database':
+      case "database":
         listFull = getSelectOptions(dataDatabases, isLoadingDatabases, attribute, currentRecord);
         break;
-      case 'script':
+      case "script":
         listFull = getSelectOptions(dataScripts, isLoadingScripts, attribute, currentRecord);
         break;
-      case 'secret':
+      case "secret":
         listFull = getSelectOptions(dataSecrets, isLoadingSecrets, attribute, currentRecord);
         break;
-      case 'policy':
+      case "policy":
         listFull = getSelectOptions(permissionsData.policies, permissionsIsLoading, attribute, currentRecord);
         break;
       default:
@@ -222,8 +240,8 @@ const AllAttributes = (props: AllAttributesParams) => {
 
     for (let listItem of listFull) {
       let found = undefined;
-      found = listDeduped.find(itemNew => {
-        return (itemNew.value === listItem.value)
+      found = listDeduped.find((itemNew) => {
+        return itemNew.value === listItem.value;
       });
 
       if (!found) {
@@ -257,7 +275,6 @@ const AllAttributes = (props: AllAttributesParams) => {
   }
 
   function getAttributeValue(attribute: Attribute) {
-
     const value = getNestedValuePath(props.item, attribute.name);
 
     if (value) {
@@ -265,7 +282,7 @@ const AllAttributes = (props: AllAttributesParams) => {
     } else if (attribute.listMultiSelect) {
       return [];
     } else {
-      return '';
+      return "";
     }
   }
 
@@ -274,18 +291,18 @@ const AllAttributes = (props: AllAttributesParams) => {
 
     if (attribute.conditions) {
       //Evaluate if this attribute has to have a value provided based on conditions of other attribute values.
-      requiredConditional = !!checkAttributeRequiredConditions(item, attribute.conditions).required
+      requiredConditional = !!checkAttributeRequiredConditions(item, attribute.conditions).required;
     }
-    return (attribute.required || requiredConditional)
+    return attribute.required || requiredConditional;
   }
 
   function isValueSet(value: string | any[] | null | undefined) {
-    return !(value?.length === 0 || value === '' || value === undefined || value === null)
+    return !(value?.length === 0 || value === "" || value === undefined || value === null);
   }
 
   function getErrorMessageMultiValueString(attribute: Attribute, value: any) {
     for (const item of value) {
-      const errorMsg = validateValue(item, attribute)
+      const errorMsg = validateValue(item, attribute);
       if (errorMsg !== null) {
         return errorMsg;
       }
@@ -299,11 +316,11 @@ const AllAttributes = (props: AllAttributesParams) => {
 
     if (attribute.listMultiSelect) {
       for (const itemValue of value) {
-        const validationError = validateValue(itemValue, attribute)
+        const validationError = validateValue(itemValue, attribute);
         if (validationError === null && itemValue && !attribute?.listvalue?.includes(itemValue)) {
           const relatedRecord = getRelationshipRecord(attribute, allData, itemValue);
           if (relatedRecord === null || relatedRecord.length === 0) {
-            errorMsg = 'Related record not found based on value provided, please check your selections.';
+            errorMsg = "Related record not found based on value provided, please check your selections.";
             break;
           }
         }
@@ -318,12 +335,12 @@ const AllAttributes = (props: AllAttributesParams) => {
     if (attribute.listMultiSelect) {
       errorMsg = getErrorMessageMultiRelationship(attribute, value);
     } else {
-      errorMsg = validateValue(value, attribute)
+      errorMsg = validateValue(value, attribute);
 
       if (value && !attribute?.listvalue?.includes(value)) {
         let relatedRecord = getRelationshipRecord(attribute, allData, value);
         if (relatedRecord === null) {
-          errorMsg = 'Related record not found based on value provided, please check your selection.';
+          errorMsg = "Related record not found based on value provided, please check your selection.";
         }
       }
       return errorMsg;
@@ -336,10 +353,10 @@ const AllAttributes = (props: AllAttributesParams) => {
     if (attribute.listMultiSelect) {
       for (const valueItem of value) {
         // ATTN: what is this supposed to do? the loop always returns on the first item
-        return validateValue(valueItem, attribute)
+        return validateValue(valueItem, attribute);
       }
     } else {
-      return validateValue(value, attribute)
+      return validateValue(value, attribute);
     }
   }
 
@@ -357,83 +374,78 @@ const AllAttributes = (props: AllAttributesParams) => {
   }
 
   function returnErrorMessage(attribute: Attribute) {
-
-    let errorMsg:string | null | undefined;
+    let errorMsg: string | null | undefined;
 
     let value = getAttributeValue(attribute);
 
     if (isAttributeValueRequired(attribute, props.item) && !isValueSet(value)) {
-      errorMsg = 'You must specify a valid value.';
+      errorMsg = "You must specify a valid value.";
     } else {
       // Value is set inputs will be validated.
       switch (attribute.type) {
-        case 'multivalue-string': {
+        case "multivalue-string": {
           errorMsg = getErrorMessageMultiValueString(attribute, value);
           break;
         }
-        case 'relationship': {
-          errorMsg = getErrorMessageRelationship(attribute, value)
+        case "relationship": {
+          errorMsg = getErrorMessageRelationship(attribute, value);
           break;
         }
-        case 'json': {
+        case "json": {
           errorMsg = getErrorMessageJson(attribute, value);
           break;
         }
-        case 'list': {
+        case "list": {
           errorMsg = getErrorMessageList(attribute, value);
           break;
         }
         default:
-          errorMsg = validateValue(value, attribute)
+          errorMsg = validateValue(value, attribute);
       }
-
     }
 
-    updateFormErrorsDisplayedToUser(attribute, errorMsg)
+    updateFormErrorsDisplayedToUser(attribute, errorMsg);
 
     return errorMsg;
-
   }
 
   function handleAccessChange(updatedData: boolean, schemaName: any, currentAccess: any, typeChanged: string) {
-    const schemaNameTransform = schemaName === 'app' ? 'application' : schemaName;
+    const schemaNameTransform = schemaName === "app" ? "application" : schemaName;
 
-    let schemaAccess = currentAccess.filter((schema: {
-      schema_name: any;
-    }) => {
-      return schema.schema_name === schemaNameTransform
+    let schemaAccess = currentAccess.filter((schema: { schema_name: any }) => {
+      return schema.schema_name === schemaNameTransform;
     });
 
     if (schemaAccess.length > 0) {
       schemaAccess[0][typeChanged] = updatedData;
 
-      props.handleUserInput([{field: 'entity_access', value: currentAccess, validationError: null}])
+      props.handleUserInput([{ field: "entity_access", value: currentAccess, validationError: null }]);
     } else {
       //Create schema access object.
       let newSchemaAccess: SchemaAccess = {
-        "schema_name": schemaNameTransform
+        schema_name: schemaNameTransform,
       };
 
       newSchemaAccess[typeChanged] = updatedData;
 
       currentAccess.push(newSchemaAccess);
-      props.handleUserInput([{field: 'entity_access', value: currentAccess, validationError: null}])
+      props.handleUserInput([{ field: "entity_access", value: currentAccess, validationError: null }]);
     }
   }
 
   function addPolicyTab(tabsArray: {}[], schema: EntitySchema) {
     let schemaPolicyTab = {};
     //Add tab for this schema type as not present.
-    let tabName = '';
+    let tabName = "";
     switch (schema.schema_type) {
-      case 'user':
-        tabName = 'Metadata Permissions';
+      case "user":
+        tabName = "Metadata Permissions";
         break;
-      case 'automation':
-        tabName = 'Automation Action Permissions';
+      case "automation":
+        tabName = "Automation Action Permissions";
         break;
-      case 'system':
-        tabName = 'Advanced Permissions';
+      case "system":
+        tabName = "Advanced Permissions";
         break;
       default:
         tabName = schema.schema_type;
@@ -442,21 +454,20 @@ const AllAttributes = (props: AllAttributesParams) => {
     schemaPolicyTab = {
       label: capitalize(tabName),
       id: schema.schema_type,
-      content: []
-    }
+      content: [],
+    };
     tabsArray.push(schemaPolicyTab);
 
     return schemaPolicyTab;
   }
 
   function getPolicyTab(tabsArray: any[], schema: EntitySchema) {
-
-    let schemaPolicyTab = tabsArray.find(tab => {
-      return tab.id === schema.schema_type
-    })
+    let schemaPolicyTab = tabsArray.find((tab) => {
+      return tab.id === schema.schema_type;
+    });
 
     if (!schemaPolicyTab) {
-      schemaPolicyTab = addPolicyTab(tabsArray, schema)
+      schemaPolicyTab = addPolicyTab(tabsArray, schema);
     }
 
     return schemaPolicyTab;
@@ -466,42 +477,39 @@ const AllAttributes = (props: AllAttributesParams) => {
     // policy ? numItemsSelected == 0 ? "Select " + ' editable ' + schemaName + ' attributes' : numItemsSelected + ' editable ' + schemaName + ' attributes' + ' selected' : "Select " + ' editable ' + schemaName + ' attributes'
     if (policy) {
       if (numberSelected === 0) {
-        return 'Select editable ' + schemaName + ' attributes';
+        return "Select editable " + schemaName + " attributes";
       } else {
-        return numberSelected + ' editable ' + schemaName + ' attributes' + ' selected'
+        return numberSelected + " editable " + schemaName + " attributes" + " selected";
       }
     } else {
-      return 'Select editable ' + schemaName + ' attributes'
+      return "Select editable " + schemaName + " attributes";
     }
   }
 
   function getSchemaAccessPolicy(policy: any[], schemaName: string) {
     const schemaNames = [schemaName];
-    if (schemaName === 'application')
-      schemaNames.push('app');
-    else if (schemaName === 'app')
-      schemaNames.push('application');
+    if (schemaName === "application") schemaNames.push("app");
+    else if (schemaName === "app") schemaNames.push("application");
 
     let schemaAccess: any = {};
 
-    schemaAccess = policy.filter(schema => {
-      return schemaNames.includes(schema.schema_name)
+    schemaAccess = policy.filter((schema) => {
+      return schemaNames.includes(schema.schema_name);
     });
 
     if (schemaAccess.length === 1) {
-      schemaAccess = schemaAccess[0]
+      schemaAccess = schemaAccess[0];
     } else {
-      schemaAccess = {}
+      schemaAccess = {};
     }
 
     return schemaAccess;
   }
 
   function getSelectedAttributes(schemaAccess: Record<string, any>) {
-
-    if (schemaAccess['attributes']) {
-      return schemaAccess['attributes'].map((valueItem: any) => {
-        return {label: valueItem.attr_name, value: valueItem.attr_name}
+    if (schemaAccess["attributes"]) {
+      return schemaAccess["attributes"].map((valueItem: any) => {
+        return { label: valueItem.attr_name, value: valueItem.attr_name };
       });
     } else {
       return [];
@@ -509,7 +517,6 @@ const AllAttributes = (props: AllAttributesParams) => {
   }
 
   function getSchemaDisplayName(schema: EntitySchema) {
-
     if (schema?.friendly_name) {
       return schema.friendly_name;
     }
@@ -529,152 +536,149 @@ const AllAttributes = (props: AllAttributesParams) => {
     selectedAttributes: OptionDefinition[],
     availableAttributes: any
   ) {
-    return <Container
-      header={<Header variant="h2" description="Schema access permissions.">{getSchemaDisplayName(schema)}</Header>}>
-      <SpaceBetween size="l">
-        <FormField
-          label={'Record level access permissions'}
-          description={'Allow access to create, read, update and/or delete operations for ' + getSchemaDisplayName(schema) + 's.'}
-        >
-          <SpaceBetween direction="horizontal" size="l">
-            <Checkbox
-              checked={schemaAccessPolicy.create}
-              onChange={event => (
-                handleAccessChange(event.detail.checked, schema.schema_name, policy, 'create'))}
-            >
-              Create
-            </Checkbox>
-            <Checkbox
-              checked={schemaAccessPolicy.read}
-              onChange={event => (
-                handleAccessChange(event.detail.checked, schema.schema_name, policy, 'read'))}
-            >
-              Read
-            </Checkbox>
-            <Checkbox
-              checked={schemaAccessPolicy.update}
-              onChange={event => (
-                handleAccessChange(event.detail.checked, schema.schema_name, policy, 'update'))}
-            >
-              Update
-            </Checkbox>
-            <Checkbox
-              checked={schemaAccessPolicy.delete}
-              onChange={event => (
-                handleAccessChange(event.detail.checked, schema.schema_name, policy, 'delete'))}
-            >
-              Delete
-            </Checkbox>
-          </SpaceBetween>
-        </FormField>
-        {
-          schemaAccessPolicy.create || schemaAccessPolicy.update
-            ?
+    return (
+      <Container
+        header={
+          <Header variant="h2" description="Schema access permissions.">
+            {getSchemaDisplayName(schema)}
+          </Header>
+        }
+      >
+        <SpaceBetween size="l">
+          <FormField
+            label={"Record level access permissions"}
+            description={
+              "Allow access to create, read, update and/or delete operations for " + getSchemaDisplayName(schema) + "s."
+            }
+          >
+            <SpaceBetween direction="horizontal" size="l">
+              <Checkbox
+                checked={schemaAccessPolicy.create}
+                onChange={(event) => handleAccessChange(event.detail.checked, schema.schema_name, policy, "create")}
+              >
+                Create
+              </Checkbox>
+              <Checkbox
+                checked={schemaAccessPolicy.read}
+                onChange={(event) => handleAccessChange(event.detail.checked, schema.schema_name, policy, "read")}
+              >
+                Read
+              </Checkbox>
+              <Checkbox
+                checked={schemaAccessPolicy.update}
+                onChange={(event) => handleAccessChange(event.detail.checked, schema.schema_name, policy, "update")}
+              >
+                Update
+              </Checkbox>
+              <Checkbox
+                checked={schemaAccessPolicy.delete}
+                onChange={(event) => handleAccessChange(event.detail.checked, schema.schema_name, policy, "delete")}
+              >
+                Delete
+              </Checkbox>
+            </SpaceBetween>
+          </FormField>
+          {schemaAccessPolicy.create || schemaAccessPolicy.update ? (
             <FormField
-              label={'Attribute level access'}
-              description={'Select the attributes that will be allowed based on record level access above.'}
+              label={"Attribute level access"}
+              description={"Select the attributes that will be allowed based on record level access above."}
             >
               <Multiselect
                 selectedOptions={selectedAttributes}
-                onChange={event => {
-                  const updatedData = event.detail.selectedOptions.find(valueItem => {
-                    return valueItem.value === '__system_all'
+                onChange={(event) => {
+                  const updatedData = event.detail.selectedOptions.find((valueItem) => {
+                    return valueItem.value === "__system_all";
                   }) // if All selected by user then override other selections and add all items.
-                    ?
-                    availableAttributes.filter((valueItem: {
-                      value: string;
-                    }) => {
-                      return valueItem.value !== '__system_all'
-                    })  // remove __system_all from the list as only used to select all.
-                      .map((valueItem: {
-                        value: any;
-                      }) => {
-                        return {attr_type: schema.schema_name, attr_name: valueItem.value}
-                      }) // get all values to store in record, without labels and tags.
-                    :
-                    event.detail.selectedOptions.map(valueItem => {
-                      return {attr_type: schema.schema_name, attr_name: valueItem.value}
-                    });
-                  return handleAccessChange(
-                    updatedData
-                    , schema.schema_name
-                    , policy
-                    , 'attributes'
-                  );
+                    ? availableAttributes
+                        .filter((valueItem: { value: string }) => {
+                          return valueItem.value !== "__system_all";
+                        }) // remove __system_all from the list as only used to select all.
+                        .map((valueItem: { value: any }) => {
+                          return { attr_type: schema.schema_name, attr_name: valueItem.value };
+                        }) // get all values to store in record, without labels and tags.
+                    : event.detail.selectedOptions.map((valueItem) => {
+                        return { attr_type: schema.schema_name, attr_name: valueItem.value };
+                      });
+                  return handleAccessChange(updatedData, schema.schema_name, policy, "attributes");
                 }}
                 loadingText={""}
                 statusType={undefined}
                 options={availableAttributes}
-                selectedAriaLabel={'selected'}
+                selectedAriaLabel={"selected"}
                 filteringType="auto"
                 placeholder={getPolicyPlaceHolderText(policy, schema.schema_name, selectedAttributes.length)}
               />
             </FormField>
-            :
-            undefined
+          ) : undefined}
+        </SpaceBetween>
+      </Container>
+    );
+  }
+
+  function addAutomationAccessEditor(
+    schema: EntitySchema,
+    policy: any,
+    schemaAccessPolicy: {
+      create: boolean;
+    }
+  ) {
+    return (
+      <Container
+        header={
+          <Header variant="h2" description={schema.description ? schema.description : "Automation access permissions."}>
+            {getSchemaDisplayName(schema)}
+          </Header>
         }
-      </SpaceBetween>
-    </Container>
+      >
+        <SpaceBetween size="l">
+          <FormField label={"Access to submit automation jobs"} description={"Allow access to submit automation jobs."}>
+            <SpaceBetween direction="horizontal" size="l">
+              <Checkbox
+                checked={schemaAccessPolicy.create}
+                onChange={(event) => handleAccessChange(event.detail.checked, schema.schema_name, policy, "create")}
+              >
+                Submit
+              </Checkbox>
+            </SpaceBetween>
+          </FormField>
+        </SpaceBetween>
+      </Container>
+    );
   }
-
-  function addAutomationAccessEditor(schema: EntitySchema, policy: any, schemaAccessPolicy: {
-    create: boolean;
-  }) {
-    return <Container
-      header={<Header variant="h2"
-                      description={schema.description ? schema.description : 'Automation access permissions.'}>{getSchemaDisplayName(schema)}</Header>}>
-      <SpaceBetween size="l">
-        <FormField
-          label={'Access to submit automation jobs'}
-          description={'Allow access to submit automation jobs.'}
-        >
-          <SpaceBetween direction="horizontal" size="l">
-            <Checkbox
-              checked={schemaAccessPolicy.create}
-              onChange={event => (
-                handleAccessChange(event.detail.checked, schema.schema_name, policy, 'create'))}
-            >
-              Submit
-            </Checkbox>
-          </SpaceBetween>
-        </FormField>
-      </SpaceBetween>
-    </Container>
-  }
-
 
   function getSelectableAttributes(schema: EntitySchema, isMultiSelect?: boolean) {
-    let availableAttributes = []
+    let availableAttributes = [];
 
     if (isMultiSelect) {
-      availableAttributes.push({label: 'All', value: '__system_all'})
+      availableAttributes.push({ label: "All", value: "__system_all" });
     }
 
     if (schema.attributes) {
-      availableAttributes = availableAttributes.concat(schema.attributes.map(schemaAttribute => {
-        return {label: schemaAttribute.description, value: schemaAttribute.name}
-      })); //Add all attributes from schema to options.
+      availableAttributes = availableAttributes.concat(
+        schema.attributes.map((schemaAttribute) => {
+          return { label: schemaAttribute.description, value: schemaAttribute.name };
+        })
+      ); //Add all attributes from schema to options.
     }
 
     return availableAttributes;
   }
 
   function getPolicy(schemas: Record<string, EntitySchema>, attribute: Attribute, currentPolicy: any[], index: number) {
-
     let policyUITabs: any[] = [];
 
     for (const schemaName in schemas) {
       //Do not display edit for the following schemas as this will be made available in future releases.
 
-      if (schemas[schemaName].schema_type === 'system' && !showadvancedpolicy) {
-        continue
+      if (schemas[schemaName].schema_type === "system" && !showadvancedpolicy) {
+        continue;
       }
       let availableAttributes = getSelectableAttributes(schemas[schemaName], attribute.listMultiSelect);
 
       if (!currentPolicy) {
         ///No access settings, could be a new record/currentPolicy, provide default access settings.
-        currentPolicy = []
-        props.handleUserInput([{field: 'entity_access', value: currentPolicy, validationError: null}])
+        currentPolicy = [];
+        props.handleUserInput([{ field: "entity_access", value: currentPolicy, validationError: null }]);
       }
 
       let schemaAccessPolicy = getSchemaAccessPolicy(currentPolicy, schemaName);
@@ -683,8 +687,7 @@ const AllAttributes = (props: AllAttributesParams) => {
 
       let tabSchemaType = getPolicyTab(policyUITabs, schemas[schemaName]);
 
-      if (schemas[schemaName].schema_type !== 'automation') {
-
+      if (schemas[schemaName].schema_type !== "automation") {
         tabSchemaType.content.push(
           addSchemaAccessPolicyEditor(
             schemas[schemaName],
@@ -693,40 +696,33 @@ const AllAttributes = (props: AllAttributesParams) => {
             selectedAttributes,
             availableAttributes
           )
-        )
-      } else if (schemas[schemaName].schema_type === 'automation' && schemas[schemaName]?.actions?.length) {
-        tabSchemaType.content.push(
-          addAutomationAccessEditor(
-            schemas[schemaName],
-            currentPolicy,
-            schemaAccessPolicy
-          )
-        )
+        );
+      } else if (schemas[schemaName].schema_type === "automation" && schemas[schemaName]?.actions?.length) {
+        tabSchemaType.content.push(addAutomationAccessEditor(schemas[schemaName], currentPolicy, schemaAccessPolicy));
       }
     }
 
-    return <SpaceBetween size="l" key={`policy-tabs-${index}`}>
-      <Tabs
-        tabs={policyUITabs}
-        // variant="container"
-      />
-      <Checkbox
-        checked={showadvancedpolicy}
-        onChange={event => (
-          setShowadvancedpolicy(event.detail.checked))}
-      >
-        Show Advanced Permissions
-      </Checkbox>
-    </SpaceBetween>;
-
+    return (
+      <SpaceBetween size="l" key={`policy-tabs-${index}`}>
+        <Tabs
+          tabs={policyUITabs}
+          // variant="container"
+        />
+        <Checkbox checked={showadvancedpolicy} onChange={(event) => setShowadvancedpolicy(event.detail.checked)}>
+          Show Advanced Permissions
+        </Checkbox>
+      </SpaceBetween>
+    );
   }
 
   //If attribute passed has a help_content key then the info link will be displayed.
   function displayHelpInfoLink(attribute: Attribute) {
-
     if (attribute.help_content) {
-      return <Link variant="info" key={'help-link'}
-                   onFollow={() => setHelpPanelContent(attribute.help_content, false)}>Info</Link>
+      return (
+        <Link variant="info" key={"help-link"} onFollow={() => setHelpPanelContent(attribute.help_content, false)}>
+          Info
+        </Link>
+      );
     } else {
       return undefined;
     }
@@ -750,9 +746,11 @@ const AllAttributes = (props: AllAttributesParams) => {
   function compareAttrDescription(
     a: {
       description: string;
-    }, b: {
+    },
+    b: {
       description: any;
-    }) {
+    }
+  ) {
     if (a.description && b.description) {
       return a.description.localeCompare(b.description);
     } else if (!a.description && b.description) {
@@ -777,20 +775,25 @@ const AllAttributes = (props: AllAttributesParams) => {
     }
 
     return 0;
-
   }
 
   // Verify that the current access policy allows update to the attribute.
   function isReadOnly(schema: EntitySchema, userAccess: UserAccess, attribute: Attribute) {
-    const schemaName = schema?.schema_name === 'app' ? 'application' : schema?.schema_name;
+    const schemaName = schema?.schema_name === "app" ? "application" : schema?.schema_name;
 
-    if ((!userAccess[schemaName]) || (userAccess[schemaName].create && (attribute.required || schema.schema_type === 'automation'))) {
+    if (
+      !userAccess[schemaName] ||
+      (userAccess[schemaName].create && (attribute.required || schema.schema_type === "automation"))
+    ) {
       //Any required attributes will be available if the user has the create permission.
-      return false
+      return false;
     } else {
       for (const attr_access of userAccess[schemaName].attributes ?? []) {
-        if (attr_access.attr_name === attribute.name && (userAccess[schemaName].create || userAccess[schemaName].update)) {
-          return false
+        if (
+          attr_access.attr_name === attribute.name &&
+          (userAccess[schemaName].create || userAccess[schemaName].update)
+        ) {
+          return false;
         }
       }
     }
@@ -800,7 +803,7 @@ const AllAttributes = (props: AllAttributesParams) => {
   }
 
   function clearAttributeFormError(attributeName: string) {
-    let newValidationErrors = formValidationErrors.filter(item => {
+    let newValidationErrors = formValidationErrors.filter((item) => {
       return item.name !== attributeName;
     });
     if (newValidationErrors.length > 0) {
@@ -814,23 +817,21 @@ const AllAttributes = (props: AllAttributesParams) => {
       if (props.handleUpdateValidationErrors) {
         props.handleUpdateValidationErrors([]);
       }
-
     }
   }
 
   function getDisplayLabel(attribute: Attribute) {
     const text = attribute.description || attribute.name;
-    return <SpaceBetween
-      direction='horizontal'
-      size='xs'>
-      <span key={'text'}>{text}</span>
-      {displayHelpInfoLink(attribute)}
-    </SpaceBetween>
-
+    return (
+      <SpaceBetween direction="horizontal" size="xs">
+        <span key={"text"}>{text}</span>
+        {displayHelpInfoLink(attribute)}
+      </SpaceBetween>
+    );
   }
 
-  function getDisplayValue(attribute: Attribute, item: any, emptyValue = '') {
-    const attributeValue = getNestedValuePath(item, attribute.name)
+  function getDisplayValue(attribute: Attribute, item: any, emptyValue = "") {
+    const attributeValue = getNestedValuePath(item, attribute.name);
 
     if (attributeValue) {
       return attributeValue;
@@ -842,12 +843,11 @@ const AllAttributes = (props: AllAttributesParams) => {
   function isAttributeHidden(attribute: Attribute, item: any) {
     const checkConditions = checkAttributeRequiredConditions(item, attribute.conditions);
 
-    return ((!attribute.hidden && checkConditions.hidden === null) || (checkConditions.hidden === false));
+    return (!attribute.hidden && checkConditions.hidden === null) || checkConditions.hidden === false;
   }
 
   function buildAttributeUI(attributes: Attribute[]) {
-
-    attributes = attributes.sort(compareAttributes)
+    attributes = attributes.sort(compareAttributes);
 
     return attributes.map((attribute, index) => {
       if (isAttributeHidden(attribute, props.item)) {
@@ -858,29 +858,35 @@ const AllAttributes = (props: AllAttributesParams) => {
         const displayKey = "item-" + index;
 
         switch (attribute.type) {
-          case 'checkbox':
-            return <CheckboxAttribute
-              attribute={attribute}
-              isReadonly={attributeReadOnly}
-              value={getNestedValuePath(props.item, attribute.name)}
-              handleUserInput={props.handleUserInput}
-              displayHelpInfoLink={displayHelpInfoLink}
-            />
-          case 'multivalue-string':
-            validationError = returnErrorMessage(attribute)
+          case "checkbox":
+            return (
+              <CheckboxAttribute
+                attribute={attribute}
+                isReadonly={attributeReadOnly}
+                value={getNestedValuePath(props.item, attribute.name)}
+                handleUserInput={handleUserInput}
+                displayHelpInfoLink={displayHelpInfoLink}
+              />
+            );
+          case "multivalue-string":
+            validationError = returnErrorMessage(attribute);
             return (
               <MultiValueStringAttribute
                 key={displayKey}
                 attribute={attribute}
                 isReadonly={attributeReadOnly}
-                value={getNestedValuePath(props.item, attribute.name) ? getNestedValuePath(props.item, attribute.name).join('\n') : ''}
+                value={
+                  getNestedValuePath(props.item, attribute.name)
+                    ? getNestedValuePath(props.item, attribute.name).join("\n")
+                    : ""
+                }
                 errorText={validationError}
-                handleUserInput={props.handleUserInput}
+                handleUserInput={handleUserInput}
                 displayHelpInfoLink={displayHelpInfoLink}
               />
-            )
-          case 'textarea':
-            validationError = returnErrorMessage(attribute)
+            );
+          case "textarea":
+            validationError = returnErrorMessage(attribute);
             return (
               <FormField
                 key={displayKey}
@@ -889,16 +895,18 @@ const AllAttributes = (props: AllAttributesParams) => {
                 errorText={validationError}
               >
                 <Textarea
-                  onChange={event => props.handleUserInput(
-                    [{field: attribute.name, value: event.detail.value, validationError: validationError}]
-                  )}
+                  onChange={(event) =>
+                    props.handleUserInput([
+                      { field: attribute.name, value: event.detail.value, validationError: validationError },
+                    ])
+                  }
                   value={getNestedValuePath(props.item, attribute.name)}
                   disabled={attributeReadOnly}
                 />
               </FormField>
-            )
-          case 'json':
-            validationError = returnErrorMessage(attribute)
+            );
+          case "json":
+            validationError = returnErrorMessage(attribute);
             return (
               <JsonAttribute
                 key={displayKey}
@@ -906,87 +914,103 @@ const AllAttributes = (props: AllAttributesParams) => {
                 item={getNestedValuePath(props.item, attribute.name)}
                 handleUserInput={props.handleUserInput}
                 errorText={validationError}
+                displayHelpInfoLink={displayHelpInfoLink}
               />
-
-            )
-          case 'tag':
-            return <TagAttribute
-              attribute={attribute}
-              tags={getNestedValuePath(props.item, attribute.name)}
-              handleUserInput={props.handleUserInput}
-              displayHelpInfoLink={displayHelpInfoLink}
-            />
-          case 'list':
-            return <ListAttribute
-              attribute={attribute}
-              isReadonly={attributeReadOnly}
-              value={getNestedValuePath(props.item, attribute.name)}
-              errorText={returnErrorMessage(attribute)}
-              handleUserInput={props.handleUserInput}
-              displayHelpInfoLink={displayHelpInfoLink}
-            />
-          case 'relationship':
-            return <RelationshipAttribute
-              schemas={props.schemas}
-              attribute={attribute}
-              isReadonly={attributeReadOnly}
-              value={getRelationshipValue(attribute, allData, getNestedValuePath(props.item, attribute.name))}
-              record={getRelationshipRecord(attribute, allData, getNestedValuePath(props.item, attribute.name))}
-              errorText={returnErrorMessage(attribute)}
-              options={getRelationshipSelect(attribute, props.item)}
-              handleUserInput={handleUserInput}
-              displayHelpInfoLink={displayHelpInfoLink}
-            />
-          case 'policy': {
-            validationError = returnErrorMessage(attribute)
-            let value = getNestedValuePath(props.item, attribute.name)
-
+            );
+          case "tag":
             return (
-              getPolicy(props.schemas, attribute, value, index)
-            )
+              <TagAttribute
+                attribute={attribute}
+                tags={getNestedValuePath(props.item, attribute.name)}
+                handleUserInput={props.handleUserInput}
+                displayHelpInfoLink={displayHelpInfoLink}
+              />
+            );
+          case "list":
+            return (
+              <ListAttribute
+                attribute={attribute}
+                isReadonly={attributeReadOnly}
+                value={getNestedValuePath(props.item, attribute.name)}
+                errorText={returnErrorMessage(attribute)}
+                handleUserInput={handleUserInput}
+                displayHelpInfoLink={displayHelpInfoLink}
+              />
+            );
+          case "relationship":
+            return (
+              <RelationshipAttribute
+                schemas={props.schemas}
+                attribute={attribute}
+                isReadonly={attributeReadOnly}
+                value={getRelationshipValue(attribute, allData, getNestedValuePath(props.item, attribute.name))}
+                record={getRelationshipRecord(attribute, allData, getNestedValuePath(props.item, attribute.name))}
+                errorText={returnErrorMessage(attribute)}
+                options={getRelationshipSelect(attribute, props.item)}
+                handleUserInput={handleUserInput}
+                displayHelpInfoLink={displayHelpInfoLink}
+              />
+            );
+          case "policy": {
+            validationError = returnErrorMessage(attribute);
+            let value = getNestedValuePath(props.item, attribute.name);
+
+            return getPolicy(props.schemas, attribute, value, index);
           }
-          case 'groups':
-            return <GroupsAttribute
-              attribute={attribute}
-              isReadonly={attributeReadOnly}
-              value={getNestedValuePath(props.item, attribute.name)}
-              errorText={returnErrorMessage(attribute)}
-              handleUserInput={props.handleUserInput}
-              displayHelpInfoLink={displayHelpInfoLink}
-            />
-          case 'policies':
-            return <PoliciesAttribute
-              attribute={attribute}
-              isReadonly={attributeReadOnly}
-              options={getRelationshipSelect(attribute, props.item)}
-              value={getNestedValuePath(props.item, attribute.name)}
-              errorText={returnErrorMessage(attribute)}
-              handleUserInput={handleUserInput}
-              displayHelpInfoLink={displayHelpInfoLink}
-            />
-          case 'embedded_entity':
-            return <EmbeddedEntityAttribute
-              schemas={props.schemas}
-              parentSchemaType={props.schema.schema_type}
-              parentSchemaName={props.schemaName}
-              parentUserAccess={props.userAccess}
-              embeddedEntitySchema={getRelationshipValue(attribute, allData, getNestedValuePath(props.item, attribute.lookup!))}
-              embeddedItem={props.item}
-              handleUpdateValidationErrors={props.handleUpdateValidationErrors}
-              attribute={attribute}
-              handleUserInput={props.handleUserInput}
-            />
-          case 'date':
-            return <DateAttribute
-              attribute={attribute}
-              isReadonly={attributeReadOnly}
-              value={getNestedValuePath(props.item, attribute.name)}
-              errorText={returnErrorMessage(attribute)}
-              handleUserInput={props.handleUserInput}
-              displayHelpInfoLink={displayHelpInfoLink}
-            />
-          case 'password':
-            validationError = returnErrorMessage(attribute)
+          case "groups":
+            return (
+              <GroupsAttribute
+                attribute={attribute}
+                isReadonly={attributeReadOnly}
+                value={getNestedValuePath(props.item, attribute.name)}
+                errorText={returnErrorMessage(attribute)}
+                handleUserInput={props.handleUserInput}
+                displayHelpInfoLink={displayHelpInfoLink}
+              />
+            );
+          case "policies":
+            return (
+              <PoliciesAttribute
+                attribute={attribute}
+                isReadonly={attributeReadOnly}
+                options={getRelationshipSelect(attribute, props.item)}
+                value={getNestedValuePath(props.item, attribute.name)}
+                errorText={returnErrorMessage(attribute)}
+                handleUserInput={handleUserInput}
+                displayHelpInfoLink={displayHelpInfoLink}
+              />
+            );
+          case "embedded_entity":
+            return (
+              <EmbeddedEntityAttribute
+                schemas={props.schemas}
+                parentSchemaType={props.schema.schema_type}
+                parentSchemaName={props.schemaName}
+                parentUserAccess={props.userAccess}
+                embeddedEntitySchema={getRelationshipValue(
+                  attribute,
+                  allData,
+                  getNestedValuePath(props.item, attribute.lookup!)
+                )}
+                embeddedItem={props.item}
+                handleUpdateValidationErrors={props.handleUpdateValidationErrors}
+                attribute={attribute}
+                handleUserInput={props.handleUserInput}
+              />
+            );
+          case "date":
+            return (
+              <DateAttribute
+                attribute={attribute}
+                isReadonly={attributeReadOnly}
+                value={getNestedValuePath(props.item, attribute.name)}
+                errorText={returnErrorMessage(attribute)}
+                handleUserInput={props.handleUserInput}
+                displayHelpInfoLink={displayHelpInfoLink}
+              />
+            );
+          case "password":
+            validationError = returnErrorMessage(attribute);
             return (
               <FormField
                 key={displayKey}
@@ -996,16 +1020,18 @@ const AllAttributes = (props: AllAttributesParams) => {
               >
                 <Input
                   value={getDisplayValue(attribute, props.item)}
-                  onChange={event => props.handleUserInput([
-                    {field: attribute.name, value: event.detail.value, validationError: validationError}
-                  ])}
+                  onChange={(event) =>
+                    props.handleUserInput([
+                      { field: attribute.name, value: event.detail.value, validationError: validationError },
+                    ])
+                  }
                   type="password"
                   disabled={attributeReadOnly}
                 />
               </FormField>
-            )
+            );
           default:
-            validationError = returnErrorMessage(attribute)
+            validationError = returnErrorMessage(attribute);
             return (
               <FormField
                 key={displayKey}
@@ -1015,23 +1041,19 @@ const AllAttributes = (props: AllAttributesParams) => {
               >
                 <Input
                   value={getDisplayValue(attribute, props.item)}
-                  onChange={event => props.handleUserInput([
-                    {field: attribute.name, value: event.detail.value, validationError: validationError}
-                  ])}
+                  onChange={(event) => handleUserInput(attribute, event.detail.value, validationError)}
                   disabled={attributeReadOnly}
                   ariaLabel={attribute.name}
                 />
               </FormField>
-            )
+            );
         }
-
       } else {
         //Attribute is hidden, check that no errors exist for this hidden attribute, could be that a condition has hidden it.
 
         let existingValidationError = formValidationErrors.filter(function (item) {
           return item.name === attribute.name;
         });
-
 
         if (existingValidationError.length === 1) {
           //Error present remove as attribute no longer visible.
@@ -1058,24 +1080,22 @@ const AllAttributes = (props: AllAttributesParams) => {
   }
 
   function addAttributeToGroup(attribute: Attribute, groups: any[], groupName: string) {
-    let existingGroup = groups.find(o => o.name === groupName);
+    let existingGroup = groups.find((o) => o.name === groupName);
     if (!existingGroup) {
-      groups.push({name: groupName, attributes: [attribute]});
+      groups.push({ name: groupName, attributes: [attribute] });
     } else {
       existingGroup.attributes.push(attribute);
     }
   }
 
   function buildAttributeGroups(schema: any) {
-
     let groups: any[] = [];
 
     for (const attribute of schema) {
-
       if (attribute.group) {
-        addAttributeToGroup(attribute, groups, attribute.group)
+        addAttributeToGroup(attribute, groups, attribute.group);
       } else {
-        addAttributeToGroup(attribute, groups, constDefaultGroupName)
+        addAttributeToGroup(attribute, groups, constDefaultGroupName);
       }
     }
 
@@ -1084,9 +1104,7 @@ const AllAttributes = (props: AllAttributesParams) => {
     return groups;
   }
 
-
   function buildFinalUI(schema: EntitySchema) {
-
     if (!schema.attributes) {
       return [];
     }
@@ -1094,22 +1112,19 @@ const AllAttributes = (props: AllAttributesParams) => {
 
     //Create containers for each group of attributes.
     let allContainers = groupedAttrs.map((item, index) => {
-      let group = buildAttributeUI(item.attributes)
+      let group = buildAttributeUI(item.attributes);
       let allNull = true;
 
       for (const attr of group) {
-        if (attr)
-          allNull = false
+        if (attr) allNull = false;
       }
       //Only show group container if at least one attribute is visible.
       if (!allNull) {
         return (
           <Container key={item.name} header={<Header variant="h2">{item.name}</Header>}>
-            <SpaceBetween size="l">
-              {group}
-            </SpaceBetween>
+            <SpaceBetween size="l">{group}</SpaceBetween>
           </Container>
-        )
+        );
       } else {
         return null;
       }
@@ -1118,7 +1133,7 @@ const AllAttributes = (props: AllAttributesParams) => {
     if (!props.hideAudit) {
       allContainers.push(
         <Container key={allContainers.length + 1} header={<Header variant="h2">Audit</Header>}>
-          <Audit item={props.item}/>
+          <Audit item={props.item} />
         </Container>
       );
     }
@@ -1126,17 +1141,7 @@ const AllAttributes = (props: AllAttributesParams) => {
     return allContainers;
   }
 
-  return (
-    <SpaceBetween size="l">
-      {
-        props.schema
-          ?
-          buildFinalUI(props.schema)
-          :
-          undefined
-      }
-    </SpaceBetween>
-  );
+  return <SpaceBetween size="l">{props.schema ? buildFinalUI(props.schema) : undefined}</SpaceBetween>;
 };
 
 export default AllAttributes;

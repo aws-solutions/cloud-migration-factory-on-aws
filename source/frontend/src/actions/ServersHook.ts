@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {DataHook, reducer, requestFailed, requestStarted, requestSuccessful} from '../resources/reducer';
+import { DataHook, reducer, requestFailed, requestStarted, requestSuccessful } from "../resources/reducer";
 
-import {useEffect, useReducer} from 'react';
+import { useEffect, useReducer } from "react";
 import UserApiClient from "../api_clients/userApiClient";
 
 export const useGetServers: DataHook = () => {
@@ -14,7 +14,6 @@ export const useGetServers: DataHook = () => {
     data: [],
     error: null,
   });
-
 
   async function update(app_id?: string) {
     const myAbortController = new AbortController();
@@ -26,22 +25,22 @@ export const useGetServers: DataHook = () => {
         let response = [];
         try {
           response = await user.getAppServers(app_id);
-          dispatch(requestSuccessful({data: response}));
+          dispatch(requestSuccessful({ data: response }));
         } catch (e: any) {
           if (e.response?.data?.errors) {
-            console.log(e.response.data.errors)
-            dispatch(requestFailed({data: [], error: e.response.data.errors}));
+            console.log(e.response.data.errors);
+            dispatch(requestFailed({ data: [], error: e.response.data.errors }));
             return () => {
               myAbortController.abort();
             };
           } else {
-            console.log(e.response)
-            dispatch(requestFailed({data: [], error: 'Error getting data from API.'}));
+            console.log(e.response);
+            dispatch(requestFailed({ data: [], error: "Error getting data from API." }));
           }
         }
       } else {
         const response = await user.getServers();
-        dispatch(requestSuccessful({data: response}));
+        dispatch(requestSuccessful({ data: response }));
       }
     } catch (e: any) {
       update_handle_exception(e);
@@ -53,21 +52,20 @@ export const useGetServers: DataHook = () => {
   }
 
   function update_handle_exception(e: any) {
-    if (e.message !== 'Request aborted') {
-      console.error('ServersHook', e);
+    if (e.message !== "Request aborted") {
+      console.error("ServersHook", e);
     } else {
       console.error(e);
     }
     if (e.response?.data) {
       console.error(e.response.errors);
-      dispatch(requestFailed({data: [], error: e.response.data}));
+      dispatch(requestFailed({ data: [], error: e.response.data }));
     } else {
-      dispatch(requestFailed({data: [], error: 'unknown error'}));
+      dispatch(requestFailed({ data: [], error: "unknown error" }));
     }
   }
 
   useEffect(() => {
-
     let cancelledRequest;
 
     (async () => {
@@ -78,8 +76,7 @@ export const useGetServers: DataHook = () => {
     return () => {
       cancelledRequest = true;
     };
-
   }, []);
 
-  return [state, {update}];
+  return [state, { update }];
 };

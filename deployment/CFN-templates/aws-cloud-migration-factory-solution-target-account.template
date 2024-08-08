@@ -94,6 +94,22 @@ Resources:
                 Action:
                   - 'ssm:DescribeInstanceInformation'
                 Resource: '*'
+        - PolicyName: MGNPostLaunchActions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'mgn:ListSourceServerActions'
+                  - 'mgn:PutSourceServerAction'
+                  - 'mgn:RemoveSourceServerAction'
+                  - 'ssm:PutParameter'
+                  - 'ssm:DeleteParameter'
+                  - 'ssm:DeleteParameters'
+                  - 'ssm:GetParameter'
+                  - 'ssm:GetParameters'
+                  - 'ssm:GetDocument'
+                Resource: '*'
         -
           PolicyName: LambdaRolePolicy
           PolicyDocument:

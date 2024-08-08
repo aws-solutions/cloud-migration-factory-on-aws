@@ -509,14 +509,13 @@ def syslog_entry_check(server, linux_user, linux_password, has_key, report):
 
 def is_pass(dectect_text):
     if (("Press" in dectect_text and "Alt" in dectect_text and "Delete" in dectect_text) or
-        ("login:" in dectect_text or "login :" in dectect_text)):
+            ("login:" in dectect_text or "login :" in dectect_text)):
         return True
     else:
         return False
 
 
 def recognize_ec2_instance_screenshot(rekognition_client, image_bytes, report):
-
     response = rekognition_client.detect_text(
         Image={
             'Bytes': image_bytes
@@ -700,6 +699,8 @@ def parse_args(argv):
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
                         default=False, help='verbose output.')
     parser.add_argument('--Waveid', '-w', required=True, help='Wave ID from Migration factory')
+    parser.add_argument('--AppIds', default=None)
+    parser.add_argument('--ServerIds', default=None)
     parser.add_argument('--SecretWindows', default=None)
     parser.add_argument('--SecretLinux', default=None)
     parser.add_argument('--Tags', '-t', default="Name", help='Comma separated list of Mandatory tags')
@@ -714,20 +715,20 @@ def parse_args(argv):
     parser.add_argument('--runningApplications', '-ra', default="AmazonSSMAgent",
                         help='Comma separated list of running applications'
                              ' to be validated in windows server')
-    parser.add_argument('--NoPrompts', default=False, type=bool, help='Specify if user prompts for Passwords are '
+    parser.add_argument('--NoPrompts', default=False, type=mfcommon.parse_boolean, help='Specify if user prompts for Passwords are '
                                                                       'allowed. Default = False')
-    parser.add_argument('--EnableTerminationProtection', '-etp', default=False, type=bool,
+    parser.add_argument('--EnableTerminationProtection', '-etp', default=False, type=mfcommon.parse_boolean,
                         help='Whether to enable termination '
                              'protection in the migrated instance')
-    parser.add_argument('--EnableAllValidations', '-eav', default=False, type=bool,
+    parser.add_argument('--EnableAllValidations', '-eav', default=False, type=mfcommon.parse_boolean,
                         help='Whether to execute all validations')
-    parser.add_argument('--HostFileEntryCheck', '-hfec', default=False, type=bool,
+    parser.add_argument('--HostFileEntryCheck', '-hfec', default=False, type=mfcommon.parse_boolean,
                         help='Whether to execute Host file entry check')
-    parser.add_argument('--DnsEntryCheck', '-dec', default=False, type=bool, help='Whether to execute DNS validations')
+    parser.add_argument('--DnsEntryCheck', '-dec', default=False, type=mfcommon.parse_boolean, help='Whether to execute DNS validations')
     parser.add_argument('--dnsIps', '-di', default=None, help='Pipe separated list of IPs. eg: "1.1.1.1|2.2.2.2"')
-    parser.add_argument('--SyslogEntryCheck', '-sec', default=False, type=bool,
+    parser.add_argument('--SyslogEntryCheck', '-sec', default=False, type=mfcommon.parse_boolean,
                         help='Whether to execute Syslog validations')
-    parser.add_argument('--BootupStatusCheck', '-bsc', default=False, type=bool,
+    parser.add_argument('--BootupStatusCheck', '-bsc', default=False, type=mfcommon.parse_boolean,
                         help='Whether to execute Bootup status check validations')
 
     return parser.parse_args(argv)
@@ -744,7 +745,14 @@ def main(args):
     token = mfcommon.factory_login()
 
     print("*** Getting Server List ****", flush=True)
-    account_servers_list = mfcommon.get_factory_servers(args.Waveid, token, False, 'Rehost')
+    account_servers_list = mfcommon.get_factory_servers(
+        waveid=args.Waveid,
+        app_ids=mfcommon.parse_list(args.AppIds),
+        server_ids=mfcommon.parse_list(args.ServerIds),
+        token=token,
+        os_split=False,
+        rtype='Rehost'
+    )
 
     # TO-DO
     #     * Verify disk usage (with drive letter checks)

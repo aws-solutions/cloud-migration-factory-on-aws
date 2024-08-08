@@ -67,11 +67,11 @@ def is_cmf_automation_server_instance(ssm_managed_instance):
         tags = ssm.list_tags_for_resource(ResourceType='ManagedInstance',
                                           ResourceId=ssm_managed_instance['InstanceId'])
         if 'TagList' in tags and len(tags['TagList']) > 0:
-                automation_tag = {}
-                automation_tag['Key'] = 'role'
-                automation_tag['Value'] = 'mf_automation'
-                if automation_tag in tags['TagList']:
-                    return True
+            automation_tag = {}
+            automation_tag['Key'] = 'role'
+            automation_tag['Value'] = 'mf_automation'
+            if automation_tag in tags['TagList']:
+                return True
     else:
         tags = ec2.describe_tags(Filters=[
             {
@@ -80,16 +80,17 @@ def is_cmf_automation_server_instance(ssm_managed_instance):
             }
         ])
         if 'Tags' in tags and len(tags['Tags']) > 0:
-                automation_tag = {
-                    'Key': 'role',
-                    'Value': 'mf_automation',
-                    'ResourceType': 'instance',
-                    'ResourceId': ssm_managed_instance['InstanceId']
-                }
-                if automation_tag in tags['Tags']:
-                    return True
+            automation_tag = {
+                'Key': 'role',
+                'Value': 'mf_automation',
+                'ResourceType': 'instance',
+                'ResourceId': ssm_managed_instance['InstanceId']
+            }
+            if automation_tag in tags['Tags']:
+                return True
 
     return False
+
 
 def get_cmf_automation_servers():
     ssm_managed_instances = []
@@ -226,26 +227,28 @@ def create_automation_job(ssm_data, auth_response):
         script_version = ssm_data["script"]["script_version"]
 
     try:
-
-        ssm_data_copy = copy.deepcopy(ssm_data)
         script_selected = get_cmf_script(
             ssm_data["script"]["package_uuid"],
             script_version,
             ssm_data["script"]["script_arguments"]
         )
 
-        ssm_data['script'] = script_selected
-
         # Check if script is found.
         if not script_selected:
             if script_version != '0':
-                error_msg = "Invalid package uuid or version provided. '" + ssm_data_copy["script"][
-                    "package_uuid"] + ", version " + ssm_data_copy["script"]["script_version"] + " ' does not exist."
+                error_msg = "Invalid package uuid or version provided. '" + ssm_data["script"][
+                    "package_uuid"] + ", version " + ssm_data["script"]["script_version"] + " ' does not exist."
             else:
-                error_msg = "Invalid script uuid provided, using default version. UUID:'" + ssm_data_copy["script"][
+                error_msg = "Invalid script uuid provided, using default version. UUID:'" + ssm_data["script"][
                     "package_uuid"] + "' does not exist."
             return {'headers': {**default_http_headers},
                     'statusCode': 400, 'body': error_msg}
+
+        ssm_data['script'] = script_selected
+
+        ssm_data_copy = copy.deepcopy(ssm_data)
+
+        parse_script_args(ssm_data_copy["script"]["script_arguments"])
 
         ''' SSM API call for remote execution '''
         response = ssm.start_automation_execution(  # API call to SSM Automation Document
@@ -255,7 +258,7 @@ def create_automation_job(ssm_data, auth_response):
                 'bucketName': [ssm_bucket],
                 'cmfInstance': [application],
                 'cmfEnvironment': [environment],
-                'payload': [json.dumps(ssm_data)],
+                'payload': [json.dumps(ssm_data_copy)],
                 'instanceID': [ssm_data["mi_id"]],
             },
         )
@@ -285,3 +288,15 @@ def create_automation_job(ssm_data, auth_response):
         logger.error(f"SSM: POST: create_ssm_automation_job, {err}")
         return {'headers': {**default_http_headers},
                 'statusCode': 400, 'body': str(err)}
+
+
+def parse_script_args(script_arguments):
+    # Loop through script_arguments dict and convert any key values that are arrays to a delimited string.
+    for key, value in script_arguments.items():
+        if isinstance(value, list):
+            script_arguments[key] = ','.join(value)
+        # if value is a string and contains a space then wrap in single quotes
+        elif isinstance(value, str) and ' ' in value:
+            script_arguments[key] = f"'{value}'"
+
+    return script_arguments

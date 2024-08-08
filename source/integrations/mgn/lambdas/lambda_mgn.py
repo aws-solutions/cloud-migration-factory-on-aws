@@ -19,15 +19,14 @@
 from __future__ import print_function
 import json
 import os
-import boto3
 import botocore.exceptions
 import logging
 import multiprocessing
-from botocore import config
 import lambda_mgn_template
 import lambda_mgn_launch
 import lambda_mgn_utils
 from policy import MFAuth
+import cmf_boto
 
 MGN_ACTIONS = [
     'Validate Launch Template',
@@ -45,13 +44,6 @@ MGN_ACTIONS = [
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
-if 'solution_identifier' in os.environ:
-    solution_identifier = json.loads(os.environ['solution_identifier'])
-    user_agent_extra_param = {"user_agent_extra": solution_identifier}
-    boto_config = config.Config(**user_agent_extra_param)
-else:
-    boto_config = None
-
 if 'cors' in os.environ:
     cors = os.environ['cors']
 else:
@@ -68,8 +60,8 @@ environment = os.environ['environment']
 servers_table_name = '{}-{}-servers'.format(application, environment)
 apps_table_name = '{}-{}-apps'.format(application, environment)
 
-servers_table = boto3.resource('dynamodb').Table(servers_table_name)
-apps_table = boto3.resource('dynamodb').Table(apps_table_name)
+servers_table = cmf_boto.resource('dynamodb').Table(servers_table_name)
+apps_table = cmf_boto.resource('dynamodb').Table(apps_table_name)
 
 
 # Pagination for server DynamoDB table scan
@@ -170,18 +162,6 @@ def get_target_aws_accounts(wave_id, apps, account_id, app_ids):
     return aws_accounts, errors
 
 
-def filter_applications(applications, app_ids):
-    filtered_apps = []
-    if len(app_ids) > 0:
-        for app in applications:
-            if app['app_id'] in app_ids:
-                filtered_apps.append(app)
-    else:
-        filtered_apps = applications
-
-    return filtered_apps
-
-
 def add_servers_to_target_account_matching_app(servers, account, app_id):
     for server in servers:
         if 'r_type' in server and server['r_type'] == 'Rehost' and 'app_id' in server and server['app_id'] == app_id:
@@ -247,14 +227,18 @@ def get_servers(target_aws_accounts, filtered_apps,
     return target_aws_accounts, errors
 
 
-def get_factory_servers(waveid, accountid, appidlist):
+def get_factory_servers(waveid, accountid, appidlist, server_ids=None):
     errors = []
     try:
         # Get all Apps and servers from migration factory
-        getserver = scan_dynamodb_server_table()
-        servers = sorted(getserver, key=lambda i: i['server_name'])
-        getapp = scan_dynamodb_app_table()
-        apps = sorted(getapp, key=lambda i: i['app_name'])
+        cmf_servers = scan_dynamodb_server_table()
+
+        cmf_servers = filter_items(cmf_servers, 'server_id', server_ids)
+        cmf_servers = sorted(cmf_servers, key=lambda i: i['server_name'])
+
+        cmf_app = scan_dynamodb_app_table()
+        cmf_app = filter_items(cmf_app, 'app_id', appidlist)
+        cmf_app = sorted(cmf_app, key=lambda i: i['app_name'])
         if accountid == '' and len(appidlist) == 0:
             msg = "ERROR: Either AWS Account Id or Application Id List must be provided"
             log.error(msg)
@@ -262,18 +246,15 @@ def get_factory_servers(waveid, accountid, appidlist):
             return [], errors
 
         # Get Unique target AWS account and region
-        target_aws_accounts, target_aws_accounts_errors = get_target_aws_accounts(waveid, apps, accountid, appidlist)
+        target_aws_accounts, target_aws_accounts_errors = get_target_aws_accounts(waveid, cmf_app, accountid, appidlist)
         if target_aws_accounts_errors:
             errors.extend(target_aws_accounts_errors)
             return [], errors
 
-        # Get App list
-        filtered_apps = filter_applications(apps, appidlist)
-
         # Get server list
         target_aws_accounts, get_servers_errors = get_servers(
-            target_aws_accounts, filtered_apps,
-            waveid, servers)
+            target_aws_accounts, cmf_app,
+            waveid, cmf_servers)
 
         errors.extend(get_servers_errors)
 
@@ -456,11 +437,12 @@ def verify_target_account_servers(serverlist):
             )
             # has session returned an error.
             if 'ERROR' in target_account_creds:
-                errors.append(f"Account: {str(account['aws_accountid'])}, region {str(account['aws_region'])}. {str(target_account_creds['ERROR'])}")
+                errors.append(
+                    f"Account: {str(account['aws_accountid'])}, region {str(account['aws_region'])}. {str(target_account_creds['ERROR'])}")
                 continue
             target_account_session = lambda_mgn_utils.get_session(target_account_creds,
                                                                   str(account['aws_region']))
-            mgn_client_base = target_account_session.client("mgn", account['aws_region'])
+            mgn_client_base = cmf_boto.session_client(target_account_session, "mgn", account['aws_region'])
             mgn_sourceservers = get_mgn_source_servers(mgn_client_base)
 
             msg, account, source_server_ids = verify_account_server(
@@ -493,7 +475,7 @@ def verify_target_account_servers(serverlist):
 def get_mgn_launch_template_id(creds, region, factoryserver, mgn_source_server_launch_template_ids):
     msg_process_id = f"PID: {str(os.getpid())}"
     session = lambda_mgn_utils.get_session(creds, region)
-    mgn_client = session.client("mgn", region_name=region, config=boto_config)
+    mgn_client = cmf_boto.session_client(session, "mgn", region_name=region)
     log.info(msg_process_id + " - Getting EC2 Launch template Id for " + factoryserver['server_name'])
     log.info(msg_process_id + " - " + str(factoryserver))
     ec2_launch_template_id = mgn_client.get_launch_configuration(sourceServerID=factoryserver['source_server_id'])[
@@ -564,14 +546,22 @@ def get_status_response(status_code, body, headers):
 def get_server_list(body):
     account_id = ''
     app_ids = []
+    server_ids = None
     status_response = {}
     if 'accountid' in body:
         account_id = str(body['accountid']).strip()
     elif 'appidlist' in body:
         app_ids = body['appidlist']
 
+    if 'server_ids' in body and body['server_ids']:
+        server_ids = body['server_ids']
+
     cmf_servers, errors = get_factory_servers(
-        body['waveid'], account_id, app_ids)
+        waveid=body['waveid'],
+        accountid=account_id,
+        appidlist=app_ids,
+        server_ids=server_ids
+    )
     if errors:
         log.error(errors)
         status_response = get_status_response(
@@ -676,3 +666,10 @@ def lambda_handler(event, _):
         status_response = get_status_response(
             400, str(e), {**default_http_headers})
         return status_response
+
+
+def filter_items(items, key, item_ids=None):
+    if item_ids:
+        return [item for item in items if item[key] in item_ids]
+    else:
+        return items

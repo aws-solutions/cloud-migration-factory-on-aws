@@ -4,17 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useEffect, useState} from 'react';
-import {DatePicker, FormField, SpaceBetween} from '@awsui/components-react';
+import React, { useEffect, useState } from "react";
+import { DatePicker, FormField, SpaceBetween } from "@awsui/components-react";
 
-const DateAttribute = ({attribute, value, isReadonly, errorText, handleUserInput, displayHelpInfoLink}) => {
-
+const DateAttribute = ({ attribute, value, isReadonly, errorText, handleUserInput, displayHelpInfoLink }) => {
   const [localValue, setLocalValue] = useState(value);
   const [currentErrorText, setCurrentErrorText] = useState(errorText);
 
-  function handleUpdate(event){
+  function handleUpdate(event) {
     setLocalValue(event.detail.value);
-    handleUserInput({field: attribute.name, value:  event.detail.value, validationError: currentErrorText})
+    handleUserInput({ field: attribute.name, value: event.detail.value, validationError: currentErrorText });
   }
 
   useEffect(() => {
@@ -24,18 +23,27 @@ const DateAttribute = ({attribute, value, isReadonly, errorText, handleUserInput
   return (
     <FormField
       key={attribute.name}
-      label={attribute.description ? <SpaceBetween direction='horizontal' size='xs'>{attribute.description}{displayHelpInfoLink ? displayHelpInfoLink(attribute) : undefined} </SpaceBetween> :<SpaceBetween direction='horizontal' size='xs'>{attribute.name}{displayHelpInfoLink(attribute)} </SpaceBetween>}
+      label={
+        attribute.description ? (
+          <SpaceBetween direction="horizontal" size="xs">
+            {attribute.description}
+            {displayHelpInfoLink ? displayHelpInfoLink(attribute) : undefined}{" "}
+          </SpaceBetween>
+        ) : (
+          <SpaceBetween direction="horizontal" size="xs">
+            {attribute.name}
+            {displayHelpInfoLink(attribute)}{" "}
+          </SpaceBetween>
+        )
+      }
       description={attribute.long_desc}
       errorText={currentErrorText}
     >
       <DatePicker
-        onChange={event => handleUpdate(event)}
-        value={localValue ? localValue : ''}
-        openCalendarAriaLabel={selectedDate =>
-          "Choose Date" +
-          (selectedDate
-            ? `, selected date is ${selectedDate}`
-            : "")
+        onChange={(event) => handleUpdate(event)}
+        value={localValue ? localValue : ""}
+        openCalendarAriaLabel={(selectedDate) =>
+          "Choose Date" + (selectedDate ? `, selected date is ${selectedDate}` : "")
         }
         nextMonthAriaLabel="Next month"
         placeholder="YYY/MM/DD"
@@ -45,7 +53,7 @@ const DateAttribute = ({attribute, value, isReadonly, errorText, handleUserInput
         ariaLabel={attribute.name}
       />
     </FormField>
-  )
+  );
 };
 
 export default DateAttribute;
