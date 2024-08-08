@@ -102,6 +102,58 @@
               "S": "date"
             }
           }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Baseline server capacity"
+            },
+            "name": {
+              "S": "wave_servers_baseline"
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Forecasted servers"
+            },
+            "name": {
+              "S": "wave_servers_forecast"
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Baseline application capacity"
+            },
+            "name": {
+              "S": "wave_apps_baseline"
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Forecasted apps"
+            },
+            "name": {
+              "S": "wave_apps_forecast"
+            },
+            "type": {
+              "S": "string"
+            }
+          }
         }
       ]
     }
@@ -671,6 +723,34 @@
         {
           "M": {
             "description": {
+              "S": "Secondary IP addresses"
+            },
+            "name": {
+              "S": "secondary_private_ip"
+            },
+            "type": {
+              "S": "multivalue-string"
+            },
+            "validation_regex": {
+              "S": "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\\.|$)){4}"
+            },
+            "validation_regex_msg": {
+              "S": "A valid IPv4 IP addresses must be provided."
+            },
+            "group": {
+              "S": "Target - Networking"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "4"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
               "S": "Instance Type"
             },
             "name": {
@@ -722,6 +802,9 @@
             },
             "group": {
               "S": "Target - Networking"
+            },
+            "group_order": {
+              "S": "3"
             },
             "system": {
               "BOOL": true
@@ -974,6 +1057,9 @@
             "group": {
               "S": "Target - Networking"
             },
+            "group_order": {
+              "S": "1"
+            },
             "help_content": {
               "M": {
                 "header": {
@@ -1039,6 +1125,9 @@
             "group": {
               "S": "Target - Networking"
             },
+            "group_order": {
+              "S": "2"
+            },
             "validation_regex": {
               "S": "^(eni-([a-z0-9]{8}|[a-z0-9]{17})$)"
             },
@@ -1088,6 +1177,64 @@
                       ]
                     }
                   }
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "conditions": {
+              "M": {
+                "outcomes": {
+                  "M": {
+                    "true": {
+                      "L": [
+                        {
+                          "S": "hidden"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "queries": {
+                  "L": [
+                    {
+                      "M": {
+                        "attribute": {
+                          "S": "r_type"
+                        },
+                        "comparator": {
+                          "S": "!="
+                        },
+                        "value": {
+                          "S": "Rehost"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "description": {
+              "S": "MGN Post launch actions"
+            },
+            "group": {
+              "S": "Migration Automation"
+            },
+            "group_order": {
+              "S": "2"
+            },
+            "name": {
+              "S": "server_mgn_post_launch"
+            },
+            "type": {
+              "S": "json"
+            },
+            "help_content": {
+              "M": {
+                "content_html": {
+                  "S": "To define the MGN Post Launch actions you should follow the 'Request Syntax' provided in the <a href=\"https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/put_source_server_action.html\"> AWS MGN API boto3 guidance</a>, with the following changes:\n<ul>\n    <li>The top level should be a JSON array of actions. starting with a opening square bracket and the last character being a closing square bracket. </il>\n    <li>There is no need to include actionID, this will create automatically.</li>\n    <li>For parameters, you should use the format:\n        <code>\n        \"parameters\": {\n            \"para1\": false,\n            \"para2\": 30,\n            \"para3\": \"m5.4xlarge\",\n        }\n        </code>\n    </li>\n</ul>\nExample of a single action definition:\n<code>\n    [\n        {\n            \"actionName\": \"MyAction\",\n            \"active\": true,\n            \"category\": \"OTHER\",\n            \"description\": \"Description of the action.\",\n            \"documentIdentifier\": \"Document-Name\",\n            \"documentVersion\": \"$DEFAULT\",\n            \"externalParameters\": {\n            \"InstanceId\": {\n                \"dynamicPath\": \"ec2.InstanceId\"\n            }\n            },\n            \"mustSucceedForCutover\": false,\n            \"order\": 1005,\n            \"parameters\": {\n                \"para1\": false,\n                \"para2\": 30,\n                \"para3\": \"m5.4xlarge\"\n            }\n        }\n    ]\n</code>"
                 }
               }
             }
@@ -1983,6 +2130,49 @@
             },
             "validation_regex_msg": {
               "S": "AWS account ID must be provided."
+            }
+          }
+        },
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "server_name"
+            },
+            "rel_key": {
+              "S": "server_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "appidlist"
+            },
+            "description": {
+              "S": "Optional - Servers"
+            },
+            "long_desc": {
+              "S": "If not specified all servers for the selected applications are included, to target specific servers only select them here."
+            },
+            "rel_entity": {
+              "S": "server"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "server_ids"
+            },
+            "rel_filter_attribute_name": {
+              "S": "app_id"
+            },
+            "group_order": {
+              "S": "4"
             }
           }
         },

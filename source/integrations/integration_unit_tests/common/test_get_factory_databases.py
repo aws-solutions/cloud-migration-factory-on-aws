@@ -150,3 +150,52 @@ class CMFGetFactoryDatabasesTestCase(TestCase):
         }, 'test_operation')
         with self.assertRaises(SystemExit):
             mfcommon.get_factory_databases('wave1', 'test_token')
+
+    @mock.patch('mfcommon.get_data_from_api')
+    def test_get_factory_databases_filtered(self, mock_get_data_from_api):
+        import mfcommon
+        mock_get_data_from_api.side_effect = [
+            ApiResponse([
+                {
+                    'database_id': 'db1',
+                    'database_name': 'db1',
+                    'app_id': 'app1'
+                },
+                {
+                    'database_id': 'db2',
+                    'database_name': 'db2',
+                    'app_id': 'app2'
+                }
+            ]),
+            ApiResponse([
+                {
+                    'app_id': 'app2',
+                    'app_name': 'app two',
+                    'wave_id': 'wave1',
+                    'aws_accountid': '111111111111',
+                    'aws_region': 'us-east-1'
+                },
+                {
+                    'app_id': 'app1',
+                    'app_name': 'app one',
+                    'wave_id': 'wave1',
+                    'aws_accountid': '111111111111',
+                    'aws_region': 'us-east-1'
+                }
+            ])
+        ]
+        result = mfcommon.get_factory_databases('wave1', 'test_token', ['app1'], ['db1'])
+        expected_result = [
+            {
+                'aws_accountid': '111111111111',
+                'aws_region': 'us-east-1',
+                'databases': [
+                    {
+                        'database_id': 'db1',
+                        'database_name': 'db1',
+                        'app_id': 'app1'
+                    }
+                ]
+            }
+        ]
+        self.assertEqual(expected_result, result)

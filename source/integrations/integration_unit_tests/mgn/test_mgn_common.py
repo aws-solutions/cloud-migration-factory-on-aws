@@ -603,8 +603,8 @@ def mock_sleep(ms):
     pass
 
 
-def mock_get_factory_servers(wave_id, token, os_split=True, rtype=None):
-    logger.debug(f'mock_get_factory_servers({wave_id}, {token}, {os_split}, {rtype})')
+def mock_get_factory_servers(waveid, token, app_ids=None, server_ids=None, os_split=True, rtype=None):
+    logger.debug(f'mock_get_factory_servers({waveid}, {token}, {app_ids}, {server_ids}. {os_split}, {rtype})')
     if os_split:
         return [
             {

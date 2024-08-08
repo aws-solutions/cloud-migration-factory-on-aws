@@ -3,18 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {DataHook, reducer, requestFailed, requestStarted, requestSuccessful} from '../resources/reducer';
+import { DataHook, reducer, requestFailed, requestStarted, requestSuccessful } from "../resources/reducer";
 
-import {useEffect, useReducer} from 'react';
+import { useEffect, useReducer } from "react";
 import ToolsApiClient from "../api_clients/toolsApiClient";
 
 export const useAutomationScripts: DataHook = () => {
-
-
   const [state, dispatch] = useReducer(reducer, {
     isLoading: true,
     data: [],
-    error: null
+    error: null,
   });
 
   async function update() {
@@ -26,11 +24,10 @@ export const useAutomationScripts: DataHook = () => {
       let apiAutomation = new ToolsApiClient();
       const response = await apiAutomation.getSSMScripts();
 
-      dispatch(requestSuccessful({data: response}));
-
+      dispatch(requestSuccessful({ data: response }));
     } catch (e: any) {
-      if (e.message !== 'Request aborted') {
-        console.error('Automation Scripts Hook', e);
+      if (e.message !== "Request aborted") {
+        console.error("Automation Scripts Hook", e);
       }
       dispatch(requestFailed({ error: e.message }));
 
@@ -55,8 +52,7 @@ export const useAutomationScripts: DataHook = () => {
     return () => {
       cancelledRequest = true;
     };
+  }, []);
 
-  },[]);
-
-  return [state , { update }];
+  return [state, { update }];
 };

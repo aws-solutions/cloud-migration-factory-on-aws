@@ -16,5 +16,5 @@ window.env = {
   COGNITO_APP_CLIENT_ID: "{{app-client-id}}",
   COGNITO_HOSTED_UI_URL: "{{cognito-hosted_ui_url}}",
   VERSION_UI: "{{version}}",
-  AUTO_LOGOUT_MINUTES: 30
+  AUTO_LOGOUT_MINUTES: 30,
 };

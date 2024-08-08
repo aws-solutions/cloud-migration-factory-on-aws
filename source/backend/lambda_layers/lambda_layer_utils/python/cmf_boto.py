@@ -22,6 +22,14 @@ def resource(*args, **kwargs):
     return boto3.resource(*args, **kwargs)
 
 
+def session_client(session, *args, **kwargs):
+    """
+    returns a boto session_client instrumented with a user agent
+    """
+    _add_user_agent(kwargs)
+    return session.client(*args, **kwargs)
+
+
 def _add_user_agent(kwargs):
     """
     adds a user agent to the kwargs if there isn't none

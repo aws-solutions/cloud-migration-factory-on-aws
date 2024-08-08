@@ -743,6 +743,18 @@ Resources:
             Type: string
           - Name: wave_status
             Type: string
+          - Name: wave_start_time
+            Type: string
+          - Name: wave_end_time
+            Type: string
+          - Name: wave_servers_baseline
+            Type: int
+          - Name: wave_servers_forecast
+            Type: int
+          - Name: wave_apps_baseline
+            Type: int
+          - Name: wave_apps_forecast
+            Type: int
           InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
           Location: !Sub s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/migration_tracker_wave_extract_data/
           SerdeInfo:

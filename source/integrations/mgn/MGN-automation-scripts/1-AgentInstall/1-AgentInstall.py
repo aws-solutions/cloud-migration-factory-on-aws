@@ -592,34 +592,25 @@ def process_msg_recv(output_message_queue, failure_count):
             task_name, failures, successful, len(messages)), flush=True)
 
 
-def parse_boolean(value):
-    value = value.lower()
-
-    if value in ["true", "yes", "y", "1", "t"]:
-        return True
-    elif value in ["false", "no", "n", "0", "f"]:
-        return False
-
-    return False
-
-
 def main(arguments):
     global cmf_api_access_token
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--Waveid', required=True)
-    parser.add_argument('--Force', default=False, type=parse_boolean)
-    parser.add_argument('--NoPrompts', default=False, type=parse_boolean,
+    parser.add_argument('--AppIds', default=None)
+    parser.add_argument('--ServerIds', default=None)
+    parser.add_argument('--Force', default=False, type=mfcommon.parse_boolean)
+    parser.add_argument('--NoPrompts', default=False, type=mfcommon.parse_boolean,
                         help='Specify if user prompts for passwords are allowed. Default = False')
     parser.add_argument('--SecretWindows', default=None)
     parser.add_argument('--SecretLinux', default=None)
-    parser.add_argument('--AWSUseIAMUserCredentials', default=False, type=parse_boolean)
+    parser.add_argument('--AWSUseIAMUserCredentials', default=False, type=mfcommon.parse_boolean)
     parser.add_argument('--Concurrency', default=10, type=int,
                         help='Specify if the task should be run in parallel. Default = 10')
     parser.add_argument('--S3Endpoint', default=None)
     parser.add_argument('--MGNEndpoint', default=None)
-    parser.add_argument('--UseSSL', default=False, type=parse_boolean)
+    parser.add_argument('--UseSSL', default=False, type=mfcommon.parse_boolean)
     parser.add_argument('--MGNIAMUser', default=None)
     args = parser.parse_args(arguments)
 
@@ -641,7 +632,14 @@ def main(arguments):
     print("".rjust(LOG_PADDING, LOG_PADDING_CHAR))
     print("Getting Server List".center(LOG_PADDING, LOG_PADDING_CHAR))
     print("".rjust(LOG_PADDING, LOG_PADDING_CHAR), flush=True)
-    get_servers, _, _ = mfcommon.get_factory_servers(args.Waveid, cmf_api_access_token, True, 'Rehost')
+    get_servers, _, _ = mfcommon.get_factory_servers(
+        waveid=args.Waveid,
+        app_ids=mfcommon.parse_list(args.AppIds),
+        server_ids=mfcommon.parse_list(args.ServerIds),
+        token=cmf_api_access_token,
+        os_split=True,
+        rtype='Rehost'
+    )
 
     print("".rjust(LOG_PADDING, LOG_PADDING_CHAR))
     print(task_name.center(LOG_PADDING, LOG_PADDING_CHAR))

@@ -3,22 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
-import {Box, Spinner} from '@awsui/components-react';
+import React from "react";
+import { Box, Spinner } from "@awsui/components-react";
 
 interface TestAttributeParams {
-  label: string,
-  children: React.ReactNode,
-  loading?: boolean
+  label: string;
+  children: React.ReactNode;
+  loading?: boolean;
 }
 
 // Attribute Display message content
-const TextAttribute = ({label, children, loading}: TestAttributeParams) => {
-
+const TextAttribute = ({ label, children, loading }: TestAttributeParams) => {
   function getBodyContent() {
-    if (typeof children === 'string' || children instanceof String) {
+    if (typeof children === "string" || children instanceof String) {
       if (loading) {
-        return <Spinner size="normal"/>;
+        return <Spinner size="normal" />;
       } else {
         return children;
       }
@@ -27,14 +26,14 @@ const TextAttribute = ({label, children, loading}: TestAttributeParams) => {
     }
   }
 
-  return <div>
-    <Box margin={{bottom: 'xxxs'}} color="text-label">
-      {label}
-    </Box>
+  return (
     <div>
-      {getBodyContent()}
+      <Box margin={{ bottom: "xxxs" }} color="text-label">
+        {label}
+      </Box>
+      <div>{getBodyContent()}</div>
     </div>
-  </div>;
+  );
 };
 
 export default TextAttribute;

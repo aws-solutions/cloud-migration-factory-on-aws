@@ -3,18 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {DataHook, reducer, requestFailed, requestStarted, requestSuccessful} from '../resources/reducer';
+import { DataHook, reducer, requestFailed, requestStarted, requestSuccessful } from "../resources/reducer";
 
-import {useEffect, useReducer} from 'react';
+import { useEffect, useReducer } from "react";
 import ToolsApiClient from "../api_clients/toolsApiClient";
 
 export const useAutomationJobs: DataHook = () => {
-
-
   const [state, dispatch] = useReducer(reducer, {
     isLoading: true,
     data: [],
-    error: null
+    error: null,
   });
 
   async function update(maximumDays: number | undefined = undefined) {
@@ -26,11 +24,10 @@ export const useAutomationJobs: DataHook = () => {
       let apiAutomation = new ToolsApiClient();
       const response = await apiAutomation.getSSMJobs(maximumDays);
 
-      dispatch(requestSuccessful({data: response}));
-
+      dispatch(requestSuccessful({ data: response }));
     } catch (e: any) {
-      if (e.message !== 'Request aborted') {
-        console.error('Automation Jobs Hook', e);
+      if (e.message !== "Request aborted") {
+        console.error("Automation Jobs Hook", e);
       }
       dispatch(requestFailed({ error: e.message }));
 
@@ -55,8 +52,7 @@ export const useAutomationJobs: DataHook = () => {
     return () => {
       cancelledRequest = true;
     };
+  }, []);
 
-  },[]);
-
-  return [state , { update }];
+  return [state, { update }];
 };

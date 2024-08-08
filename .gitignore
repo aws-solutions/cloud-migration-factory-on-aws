@@ -34,3 +34,6 @@ ehthumbs.db
 
 # Testing environment
 testing-venv
+
+# Python
+__pycache__

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useState} from 'react';
+import React, { useState } from "react";
 import {
   Alert,
   Box,
@@ -19,73 +19,63 @@ import {
   Multiselect,
   Select,
   SpaceBetween,
-  Tabs
-} from '@awsui/components-react';
-import {getNestedValuePath, setNestedValuePath} from "../resources/main";
+  Tabs,
+} from "@awsui/components-react";
+import { getNestedValuePath, setNestedValuePath } from "../resources/main";
 import ToolHelpEdit from "./ToolHelpEdit";
 import ToolHelp from "./ToolHelp";
 import SchemaAttributeConditionsEdit from "./SchemaAttributeConditionsEdit";
-import {EntitySchema} from "../models/EntitySchema";
+import { EntitySchema } from "../models/EntitySchema";
 
 type Props = {
-  title: string,
-  action: string,
-  attribute: any,
-  schemas: Record<string, EntitySchema>,
-  activeSchemaName: string,
-  closeModal: () => void,
-  onConfirmation: (item: { name: string }, action: string) => Promise<void>,
+  title: string;
+  action: string;
+  attribute: any;
+  schemas: Record<string, EntitySchema>;
+  activeSchemaName: string;
+  closeModal: () => void;
+  onConfirmation: (item: { name: string }, action: string) => Promise<void>;
 };
 
-const SchemaAttributeAmendModal = (
-  {
-    closeModal,
-    onConfirmation,
-    title,
-    attribute,
-    action,
-    schemas,
-    activeSchemaName
-  }: Props
-) => {
+const SchemaAttributeAmendModal = ({
+  closeModal,
+  onConfirmation,
+  title,
+  attribute,
+  action,
+  schemas,
+  activeSchemaName,
+}: Props) => {
   const [localAttr, setLocalAttr] = useState(attribute);
-  const [testRegexStr, setTestRegexStr] = useState('');
+  const [testRegexStr, setTestRegexStr] = useState("");
   const [saving, setSaving] = useState(false);
 
-  function handleUserInput(value: { field: any; value: any; }) {
-
+  function handleUserInput(value: { field: any; value: any }) {
     let newAttr = Object.assign({}, localAttr);
     setNestedValuePath(newAttr, value.field, value.value);
 
     if (value.field === "rel_entity") {
-      newAttr['rel_display_attribute'] = '';
-      newAttr['rel_key'] = '';
+      newAttr["rel_display_attribute"] = "";
+      newAttr["rel_key"] = "";
     }
 
     setLocalAttr(newAttr);
   }
 
-  function handleUserInputEditSchemaHelp(
-    key: string,
-    update: any
-  ) {
+  function handleUserInputEditSchemaHelp(key: string, update: any) {
     let tempUpdate = Object.assign({}, localAttr);
     if (!tempUpdate.help_content) {
-      tempUpdate['help_content'] = {};
+      tempUpdate["help_content"] = {};
     }
-    tempUpdate['help_content'][key] = update
+    tempUpdate["help_content"][key] = update;
     setLocalAttr(tempUpdate);
   }
 
-  function handleUserInputEditSchemaConditions(
-    key: any,
-    update: any
-  ) {
-    let tempUpdate = Object.assign({}, localAttr)
+  function handleUserInputEditSchemaConditions(key: any, update: any) {
+    let tempUpdate = Object.assign({}, localAttr);
 
-    setNestedValuePath(tempUpdate, key, update)
+    setNestedValuePath(tempUpdate, key, update);
     setLocalAttr(tempUpdate);
-
   }
 
   function handleSave() {
@@ -93,11 +83,7 @@ const SchemaAttributeAmendModal = (
     onConfirmation(localAttr, action);
   }
 
-  function returnValidationMessage(
-    regex: any,
-    value: string,
-    errorMessage: any
-  ) {
+  function returnValidationMessage(regex: any, value: string, errorMessage: any) {
     try {
       return !value.match(regex) ? errorMessage : undefined;
     } catch (e: any) {
@@ -105,214 +91,206 @@ const SchemaAttributeAmendModal = (
     }
   }
 
-  function getErrorText(
-    localAttr: { group_order: string; }
-  ) {
+  function getErrorText(localAttr: { group_order: string }) {
     if (localAttr.group_order && isNaN(parseInt(localAttr.group_order))) {
-      return 'Must be a whole number.';
+      return "Must be a whole number.";
     } else {
       return undefined;
     }
   }
 
   const getRelationshipTagsField = () => {
-    return (<FormField
-              label="Relationship display select tags"
-              description="Select the additional values that will be displayed as tags in the selections list."
-              errorText={!localAttr.rel_display_attribute ? "You must select an attribute to be displayed." : null}
-            >
-              {!localAttr.system
-                ?
-                <Multiselect
-                  //selectedOptions={localAttr.rel_additional_attributes ? {label: localAttr.rel_additional_attributes, value: localAttr.rel_entity} : null}
-                  selectedOptions={localAttr.rel_additional_attributes == null ? [] : localAttr.rel_additional_attributes.map((item: any) => {
-                    return {label: item, value: item}
-                  })}
-                  //onChange={event => handleUserInput({field: 'rel_additional_attributes', value: event.detail.selectedOption.value})}
-                  onChange={event => handleUserInput({
-                    field: 'rel_additional_attributes',
-                    value: event.detail.selectedOptions != null ? event.detail.selectedOptions.map(valueItem => valueItem.value) : [],
-                  })}
-                  options={
-                    localAttr.rel_entity
-                      ?
-                      schemas[localAttr.rel_entity].attributes.map((item) => {
-                        return {label: item.name, value: item.name};
-                      })
-                      :
-                      []
-                  }
-                  selectedAriaLabel={'selected'}
-                  filteringType="auto"
-                />
-                :
-                <Input
-                  value={localAttr.rel_additional_attributes}
-                  readOnly
-                />
-              }
-            </FormField>);
-  }
+    return (
+      <FormField
+        label="Relationship display select tags"
+        description="Select the additional values that will be displayed as tags in the selections list."
+        errorText={!localAttr.rel_display_attribute ? "You must select an attribute to be displayed." : null}
+      >
+        {!localAttr.system ? (
+          <Multiselect
+            //selectedOptions={localAttr.rel_additional_attributes ? {label: localAttr.rel_additional_attributes, value: localAttr.rel_entity} : null}
+            selectedOptions={
+              localAttr.rel_additional_attributes == null
+                ? []
+                : localAttr.rel_additional_attributes.map((item: any) => {
+                    return { label: item, value: item };
+                  })
+            }
+            //onChange={event => handleUserInput({field: 'rel_additional_attributes', value: event.detail.selectedOption.value})}
+            onChange={(event) =>
+              handleUserInput({
+                field: "rel_additional_attributes",
+                value:
+                  event.detail.selectedOptions != null
+                    ? event.detail.selectedOptions.map((valueItem) => valueItem.value)
+                    : [],
+              })
+            }
+            options={
+              localAttr.rel_entity
+                ? schemas[localAttr.rel_entity].attributes.map((item) => {
+                    return { label: item.name, value: item.name };
+                  })
+                : []
+            }
+            selectedAriaLabel={"selected"}
+            filteringType="auto"
+          />
+        ) : (
+          <Input value={localAttr.rel_additional_attributes} readOnly />
+        )}
+      </FormField>
+    );
+  };
 
   const getRelationshipKeyField = () => {
-    return (<FormField
-              label="Relationship key"
-              description=""
-              errorText={!localAttr.rel_key ? "You must select an attribute to be the key." : null}
-            >
-              {!localAttr.system
-                ?
-                <Select
-                  selectedOption={localAttr.rel_key ? {label: localAttr.rel_key, value: localAttr.rel_key} : null}
-                  onChange={event => handleUserInput({field: 'rel_key', value: event.detail.selectedOption.value})}
-                  options={
-                    localAttr.rel_entity
-                      ?
-                      schemas[localAttr.rel_entity].attributes.map((item) => {
-                        return {label: item.name, value: item.name};
-                      })
-                      :
-                      []
-                  }
-                  selectedAriaLabel={'selected'}
-                />
-                :
-                <Input
-                  value={localAttr.rel_key}
-                  readOnly
-                />
-              }
-            </FormField>);
-  }
+    return (
+      <FormField
+        label="Relationship key"
+        description=""
+        errorText={!localAttr.rel_key ? "You must select an attribute to be the key." : null}
+      >
+        {!localAttr.system ? (
+          <Select
+            selectedOption={localAttr.rel_key ? { label: localAttr.rel_key, value: localAttr.rel_key } : null}
+            onChange={(event) => handleUserInput({ field: "rel_key", value: event.detail.selectedOption.value })}
+            options={
+              localAttr.rel_entity
+                ? schemas[localAttr.rel_entity].attributes.map((item) => {
+                    return { label: item.name, value: item.name };
+                  })
+                : []
+            }
+            selectedAriaLabel={"selected"}
+          />
+        ) : (
+          <Input value={localAttr.rel_key} readOnly />
+        )}
+      </FormField>
+    );
+  };
 
   const getRelationshipDisplayValueField = () => {
-    return (<FormField
-              label="Relationship display value"
-              description=""
-              errorText={!localAttr.rel_display_attribute ? "You must select an attribute to be displayed." : null}
-            >
-              {!localAttr.system
-                ?
-                <Select
-                  selectedOption={localAttr.rel_display_attribute ? {label: localAttr.rel_display_attribute, value: localAttr.rel_entity} : null}
-                  onChange={event => handleUserInput({field: 'rel_display_attribute', value: event.detail.selectedOption.value})}
-                  options={
-                    localAttr.rel_entity
-                      ?
-                      schemas[localAttr.rel_entity].attributes.map((item) => {
-                        return {label: item.name, value: item.name};
-                      })
-                      :
-                      []
-                  }
-                  selectedAriaLabel={'selected'}
-                />
-                :
-                <Input
-                  value={localAttr.rel_display_attribute}
-                  readOnly
-                />
-              }
-            </FormField>);
-  }
+    return (
+      <FormField
+        label="Relationship display value"
+        description=""
+        errorText={!localAttr.rel_display_attribute ? "You must select an attribute to be displayed." : null}
+      >
+        {!localAttr.system ? (
+          <Select
+            selectedOption={
+              localAttr.rel_display_attribute
+                ? { label: localAttr.rel_display_attribute, value: localAttr.rel_entity }
+                : null
+            }
+            onChange={(event) =>
+              handleUserInput({ field: "rel_display_attribute", value: event.detail.selectedOption.value })
+            }
+            options={
+              localAttr.rel_entity
+                ? schemas[localAttr.rel_entity].attributes.map((item) => {
+                    return { label: item.name, value: item.name };
+                  })
+                : []
+            }
+            selectedAriaLabel={"selected"}
+          />
+        ) : (
+          <Input value={localAttr.rel_display_attribute} readOnly />
+        )}
+      </FormField>
+    );
+  };
 
   const getRelationshipSection = () => {
-    return (<SpaceBetween size="l">
-            <FormField
-              label="Relationship entity"
-              description=""
-            >
-              {!localAttr.system
-                ?
-                <Select
-                  selectedOption={localAttr.rel_entity ? {label: localAttr.rel_entity, value: localAttr.rel_entity} : null}
-                  onChange={event => {
-                    handleUserInput({field: 'rel_entity', value: event.detail.selectedOption.value});
-                  }}
-                  options={
-                    [
-                      {label: 'application', value: 'application'},
-                      {label: 'server', value: 'server'},
-                      {label: 'wave', value: 'wave'},
-                      {label: 'database', value: 'database'},
-                      {label: 'secret', value: 'secret'}
-                    ]
-                  }
-                  selectedAriaLabel={'selected'}
-                />
-                :
-                <Input
-                  value={localAttr.rel_entity}
-                  readOnly
-                />
+    return (
+      <SpaceBetween size="l">
+        <FormField label="Relationship entity" description="">
+          {!localAttr.system ? (
+            <Select
+              selectedOption={
+                localAttr.rel_entity ? { label: localAttr.rel_entity, value: localAttr.rel_entity } : null
               }
-            </FormField>
-            {getRelationshipKeyField()}
-            {getRelationshipDisplayValueField()}
-            {getRelationshipTagsField()}
-            <FormField
-              label="Value list"
-              description="Optional - Comma delimited list of additional values that can be selected."
-            >
-              < Input
-                value={localAttr.listvalue}
-                onChange={event => handleUserInput({field: 'listvalue', value: event.detail.value})}
-                readOnly={localAttr.system}
-              />
-            </FormField>
-            <FormField
-              label="Relationship filter attribute"
-              description="Select an attribute that will be used to filter the available options."
-            >
-              {!localAttr.system
-                ?
-                <Select
-                  selectedOption={localAttr.rel_filter_attribute_name ? {label: localAttr.rel_filter_attribute_name, value: localAttr.rel_entity} : null}
-                  onChange={event => handleUserInput({field: 'rel_filter_attribute_name', value: event.detail.selectedOption.value})}
-                  options={
-                    localAttr.rel_entity
-                      ?
-                      schemas[localAttr.rel_entity].attributes.map((item) => {
-                        return {label: item.name, value: item.name};
-                      })
-                      :
-                      []
-                  }
-                  selectedAriaLabel={'selected'}
-                />
-                :
-                <Input
-                  value={localAttr.rel_display_attribute}
-                  readOnly
-                />
+              onChange={(event) => {
+                handleUserInput({ field: "rel_entity", value: event.detail.selectedOption.value });
+              }}
+              options={[
+                { label: "application", value: "application" },
+                { label: "server", value: "server" },
+                { label: "wave", value: "wave" },
+                { label: "database", value: "database" },
+                { label: "secret", value: "secret" },
+              ]}
+              selectedAriaLabel={"selected"}
+            />
+          ) : (
+            <Input value={localAttr.rel_entity} readOnly />
+          )}
+        </FormField>
+        {getRelationshipKeyField()}
+        {getRelationshipDisplayValueField()}
+        {getRelationshipTagsField()}
+        <FormField
+          label="Value list"
+          description="Optional - Comma delimited list of additional values that can be selected."
+        >
+          <Input
+            value={localAttr.listvalue}
+            onChange={(event) => handleUserInput({ field: "listvalue", value: event.detail.value })}
+            readOnly={localAttr.system}
+          />
+        </FormField>
+        <FormField
+          label="Relationship filter attribute"
+          description="Select an attribute that will be used to filter the available options."
+        >
+          {!localAttr.system ? (
+            <Select
+              selectedOption={
+                localAttr.rel_filter_attribute_name
+                  ? { label: localAttr.rel_filter_attribute_name, value: localAttr.rel_entity }
+                  : null
               }
-            </FormField>
-            <FormField
-              label="Filter attribute"
-              description="Select an attribute that will provide the filter value."
-            >
-              {!localAttr.system
-                ?
-                <Select
-                  selectedOption={localAttr.source_filter_attribute_name ? {label: localAttr.source_filter_attribute_name, value: localAttr.rel_entity} : null}
-                  onChange={event => handleUserInput({field: 'source_filter_attribute_name', value: event.detail.selectedOption.value})}
-                  options={
-                    schemas[activeSchemaName].attributes.map((item: { name: any; }) => {
-                      return {label: item.name, value: item.name};
+              onChange={(event) =>
+                handleUserInput({ field: "rel_filter_attribute_name", value: event.detail.selectedOption.value })
+              }
+              options={
+                localAttr.rel_entity
+                  ? schemas[localAttr.rel_entity].attributes.map((item) => {
+                      return { label: item.name, value: item.name };
                     })
-                  }
-                  selectedAriaLabel={'selected'}
-                />
-                :
-                <Input
-                  value={localAttr.rel_display_attribute}
-                  readOnly
-                />
+                  : []
               }
-            </FormField>
-          </SpaceBetween>);
-  }
-
+              selectedAriaLabel={"selected"}
+            />
+          ) : (
+            <Input value={localAttr.rel_display_attribute} readOnly />
+          )}
+        </FormField>
+        <FormField label="Filter attribute" description="Select an attribute that will provide the filter value.">
+          {!localAttr.system ? (
+            <Select
+              selectedOption={
+                localAttr.source_filter_attribute_name
+                  ? { label: localAttr.source_filter_attribute_name, value: localAttr.rel_entity }
+                  : null
+              }
+              onChange={(event) =>
+                handleUserInput({ field: "source_filter_attribute_name", value: event.detail.selectedOption.value })
+              }
+              options={schemas[activeSchemaName].attributes.map((item: { name: any }) => {
+                return { label: item.name, value: item.name };
+              })}
+              selectedAriaLabel={"selected"}
+            />
+          ) : (
+            <Input value={localAttr.rel_display_attribute} readOnly />
+          )}
+        </FormField>
+      </SpaceBetween>
+    );
+  };
 
   return (
     <Modal
@@ -323,159 +301,117 @@ const SchemaAttributeAmendModal = (
       footer={
         <Box float="right">
           <SpaceBetween direction="horizontal" size="xs">
-            <Button onClick={closeModal} variant="link">Cancel</Button>
-            <Button onClick={handleSave} loading={saving} variant="primary">Save</Button>
+            <Button onClick={closeModal} variant="link">
+              Cancel
+            </Button>
+            <Button onClick={handleSave} loading={saving} variant="primary">
+              Save
+            </Button>
           </SpaceBetween>
         </Box>
       }
       header={title}
     >
       <SpaceBetween size="l">
-        <Alert
-          visible={localAttr.system}
-          type="warning"
-        >
+        <Alert visible={localAttr.system} type="warning">
           This is a system defined attribute, Programmatic name and Type cannot be altered.
         </Alert>
-        <FormField
-          label="Programmatic name"
-          description=""
-        >
+        <FormField label="Programmatic name" description="">
           <Input
             value={localAttr.name}
-            onChange={event => handleUserInput({field: 'name', value: event.detail.value})}
+            onChange={(event) => handleUserInput({ field: "name", value: event.detail.value })}
             readOnly={localAttr.system ? localAttr.system : false}
           />
         </FormField>
 
-        <FormField
-          label="Display name"
-          description=""
-        >
+        <FormField label="Display name" description="">
           <Input
             value={localAttr.description}
-            onChange={event => handleUserInput({field: 'description', value: event.detail.value})}
+            onChange={(event) => handleUserInput({ field: "description", value: event.detail.value })}
           />
         </FormField>
 
-        <FormField
-          label="Long description"
-          description=""
-        >
+        <FormField label="Long description" description="">
           <Input
             value={localAttr.long_desc}
-            onChange={event => handleUserInput({field: 'long_desc', value: event.detail.value})}
+            onChange={(event) => handleUserInput({ field: "long_desc", value: event.detail.value })}
           />
         </FormField>
 
-        <FormField
-          label="Type"
-          description=""
-        >
-          {!localAttr.system ?
-            (
-              <Select
-                selectedOption={localAttr.type ? {label: localAttr.type, value: localAttr.type} : null}
-                onChange={event => {
-                  handleUserInput({field: 'type', value: event.detail.selectedOption.value});
-                }
-                }
-                options={
-                  [
-                    {label: 'string', value: 'string'},
-                    {label: 'password', value: 'password'},
-                    {label: 'date', value: 'date'},
-                    {label: 'checkbox', value: 'checkbox'},
-                    {label: 'textarea', value: 'textarea'},
-                    {label: 'tag', value: 'tag'},
-                    {label: 'list', value: 'list'},
-                    {label: 'multivalue-string', value: 'multivalue-string'},
-                    {label: 'relationship', value: 'relationship'},
-                    {label: 'json', value: 'json'}
-                  ]
-                }
-                selectedAriaLabel={'selected'}
-              />
-            )
-            :
-            <Input
-              value={localAttr.type}
-              readOnly
+        <FormField label="Type" description="">
+          {!localAttr.system ? (
+            <Select
+              selectedOption={localAttr.type ? { label: localAttr.type, value: localAttr.type } : null}
+              onChange={(event) => {
+                handleUserInput({ field: "type", value: event.detail.selectedOption.value });
+              }}
+              options={[
+                { label: "string", value: "string" },
+                { label: "password", value: "password" },
+                { label: "date", value: "date" },
+                { label: "checkbox", value: "checkbox" },
+                { label: "textarea", value: "textarea" },
+                { label: "tag", value: "tag" },
+                { label: "list", value: "list" },
+                { label: "multivalue-string", value: "multivalue-string" },
+                { label: "relationship", value: "relationship" },
+                { label: "json", value: "json" },
+              ]}
+              selectedAriaLabel={"selected"}
             />
-          }
+          ) : (
+            <Input value={localAttr.type} readOnly />
+          )}
         </FormField>
 
+        {localAttr.type !== "relationship" ? undefined : getRelationshipSection()}
 
-
-
-
-        {localAttr.type !== "relationship"
-          ?
-          undefined
-          :
-          getRelationshipSection()
-        }
-
-        {localAttr.type === 'list' ?
-          <FormField
-            label="Value list"
-            description="Comma delimited list of options."
-          >
+        {localAttr.type === "list" ? (
+          <FormField label="Value list" description="Comma delimited list of options.">
             <Input
               value={localAttr.listvalue}
-              onChange={event => handleUserInput({field: 'listvalue', value: event.detail.value})}
+              onChange={(event) => handleUserInput({ field: "listvalue", value: event.detail.value })}
             />
           </FormField>
-          :
-          null
-        }
+        ) : null}
 
-        {localAttr.type === 'list' || localAttr.type === 'relationship' ?
-          <FormField
-            label="Multi Select"
-            description="Allow user to select multiple values."
-          >
+        {localAttr.type === "list" || localAttr.type === "relationship" ? (
+          <FormField label="Multi Select" description="Allow user to select multiple values.">
             <Checkbox
-              onChange={event => handleUserInput({field: 'listMultiSelect', value: event.detail.checked})}
+              onChange={(event) => handleUserInput({ field: "listMultiSelect", value: event.detail.checked })}
               checked={localAttr.listMultiSelect}
               disabled={!!localAttr.system}
             >
-              {'Multiple selection possible'}
+              {"Multiple selection possible"}
             </Checkbox>
           </FormField>
-          :
-          null
-        }
+        ) : null}
 
-        <FormField
-          label="Required"
-          description=""
-        >
+        <FormField label="Required" description="">
           <Checkbox
-            onChange={event => handleUserInput({field: 'required', value: event.detail.checked})}
+            onChange={(event) => handleUserInput({ field: "required", value: event.detail.checked })}
             checked={localAttr.required}
             disabled={!!localAttr.system}
           >
-            {'Attribute has to be populated'}
+            {"Attribute has to be populated"}
           </Checkbox>
         </FormField>
 
-        <FormField
-          label="Hidden"
-          description=""
-        >
+        <FormField label="Hidden" description="">
           <Checkbox
-            onChange={event => handleUserInput({field: 'hidden', value: event.detail.checked})}
+            onChange={(event) => handleUserInput({ field: "hidden", value: event.detail.checked })}
             checked={localAttr.hidden}
             disabled={!!localAttr.system}
           >
-            {'Attribute will not be displayed on screen.'}
+            {"Attribute will not be displayed on screen."}
           </Checkbox>
         </FormField>
         <ExpandableSection header="Conditional Hidden or Required">
           <SchemaAttributeConditionsEdit
             schemaAttributes={schemas[activeSchemaName].attributes}
-            editingSchemaConditionsTemp={getNestedValuePath(localAttr, 'conditions') ? getNestedValuePath(localAttr, 'conditions') : {}}
+            editingSchemaConditionsTemp={
+              getNestedValuePath(localAttr, "conditions") ? getNestedValuePath(localAttr, "conditions") : {}
+            }
             handleUserInputEditSchemaConditions={handleUserInputEditSchemaConditions}
             editDisabled={!!(localAttr.system && (localAttr.required || localAttr.hidden))}
           />
@@ -483,28 +419,26 @@ const SchemaAttributeAmendModal = (
 
         <ExpandableSection header="Info panel">
           <Tabs
-            tabs={
-              [{
-                label: 'Edit',
-                id: 'edit_info',
-                content:
+            tabs={[
+              {
+                label: "Edit",
+                id: "edit_info",
+                content: (
                   <ToolHelpEdit
-                    editingSchemaInfoHelpTemp={getNestedValuePath(localAttr, 'help_content') ? getNestedValuePath(localAttr, 'help_content') : {}}
+                    editingSchemaInfoHelpTemp={
+                      getNestedValuePath(localAttr, "help_content") ? getNestedValuePath(localAttr, "help_content") : {}
+                    }
                     handleUserInputEditSchemaHelp={handleUserInputEditSchemaHelp}
                   />
+                ),
               },
-                {
-                  label: 'Preview',
-                  id: 'preview_help',
-                  content:
-                    <ToolHelp
-                      helpContent={getNestedValuePath(localAttr, 'help_content')}
-                    />
-                }
-              ]
-            }
+              {
+                label: "Preview",
+                id: "preview_help",
+                content: <ToolHelp helpContent={getNestedValuePath(localAttr, "help_content")} />,
+              },
+            ]}
           />
-
         </ExpandableSection>
 
         <ExpandableSection header="Advanced options">
@@ -512,8 +446,10 @@ const SchemaAttributeAmendModal = (
             <Container
               className="custom-dashboard-container"
               header={
-                <Header variant="h2"
-                        description="Define groups and order for attribute to help the users understand the context of the attribute and group similar attributes.">
+                <Header
+                  variant="h2"
+                  description="Define groups and order for attribute to help the users understand the context of the attribute and group similar attributes."
+                >
                   Attribute Grouping & Positioning (optional)
                 </Header>
               }
@@ -524,7 +460,7 @@ const SchemaAttributeAmendModal = (
               >
                 <Input
                   value={localAttr.group}
-                  onChange={event => handleUserInput({field: 'group', value: event.detail.value})}
+                  onChange={(event) => handleUserInput({ field: "group", value: event.detail.value })}
                 />
               </FormField>
               <FormField
@@ -534,7 +470,7 @@ const SchemaAttributeAmendModal = (
               >
                 <Input
                   value={localAttr.group_order}
-                  onChange={event => handleUserInput({field: 'group_order', value: event.detail.value})}
+                  onChange={(event) => handleUserInput({ field: "group_order", value: event.detail.value })}
                 />
               </FormField>
             </Container>
@@ -542,8 +478,10 @@ const SchemaAttributeAmendModal = (
             <Container
               className="custom-dashboard-container"
               header={
-                <Header variant="h2"
-                        description="Define a regular expression which will be used to validate the content entered by a user.">
+                <Header
+                  variant="h2"
+                  description="Define a regular expression which will be used to validate the content entered by a user."
+                >
                   Input validation(optional)
                 </Header>
               }
@@ -551,39 +489,40 @@ const SchemaAttributeAmendModal = (
               <SpaceBetween size="l">
                 <FormField
                   label="Validation regular expresssion"
-                  description={<div>
-                    A full description of this syntax and its constructs can be viewed in the Java documentation,
-                    here:
-                    <Link
-                      external
-                      externalIconAriaLabel="Opens regex specification in a new tab"
-                      href="https://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html"
-                    />
-                  </div>}
+                  description={
+                    <div>
+                      A full description of this syntax and its constructs can be viewed in the Java documentation,
+                      here:
+                      <Link
+                        external
+                        externalIconAriaLabel="Opens regex specification in a new tab"
+                        href="https://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html"
+                      />
+                    </div>
+                  }
                 >
                   <SpaceBetween size="l">
                     <Input
                       value={localAttr.validation_regex}
-                      onChange={event => handleUserInput({field: 'validation_regex', value: event.detail.value})}
+                      onChange={(event) => handleUserInput({ field: "validation_regex", value: event.detail.value })}
                     />
                   </SpaceBetween>
                 </FormField>
 
-                <FormField
-                  label="Validation help message"
-                  description=""
-                >
+                <FormField label="Validation help message" description="">
                   <Input
                     value={localAttr.validation_regex_msg}
-                    onChange={event => handleUserInput({field: 'validation_regex_msg', value: event.detail.value})}
+                    onChange={(event) => handleUserInput({ field: "validation_regex_msg", value: event.detail.value })}
                   />
                 </FormField>
 
                 <Container
                   className="custom-dashboard-container"
                   header={
-                    <Header variant="h2"
-                            description="Test the validation by entering text below, this will not be saved.">
+                    <Header
+                      variant="h2"
+                      description="Test the validation by entering text below, this will not be saved."
+                    >
                       Validation simulator
                     </Header>
                   }
@@ -591,12 +530,13 @@ const SchemaAttributeAmendModal = (
                   <FormField
                     label="Test validation"
                     description="Enter text to verify the outcome of your regular expression."
-                    errorText={returnValidationMessage(localAttr.validation_regex, testRegexStr, localAttr.validation_regex_msg)}
+                    errorText={returnValidationMessage(
+                      localAttr.validation_regex,
+                      testRegexStr,
+                      localAttr.validation_regex_msg
+                    )}
                   >
-                    <Input
-                      value={testRegexStr}
-                      onChange={event => setTestRegexStr(event.detail.value)}
-                    />
+                    <Input value={testRegexStr} onChange={(event) => setTestRegexStr(event.detail.value)} />
                   </FormField>
                 </Container>
               </SpaceBetween>
@@ -605,8 +545,10 @@ const SchemaAttributeAmendModal = (
             <Container
               className="custom-dashboard-container"
               header={
-                <Header variant="h2"
-                        description="The data provided here will be output when the user requires examples of the data format during intake form loading and/or field input.">
+                <Header
+                  variant="h2"
+                  description="The data provided here will be output when the user requires examples of the data format during intake form loading and/or field input."
+                >
                   Example data
                 </Header>
               }
@@ -617,7 +559,7 @@ const SchemaAttributeAmendModal = (
               >
                 <Input
                   value={localAttr.sample_data_intake}
-                  onChange={event => handleUserInput({field: 'sample_data_intake', value: event.detail.value})}
+                  onChange={(event) => handleUserInput({ field: "sample_data_intake", value: event.detail.value })}
                 />
               </FormField>
               <FormField
@@ -626,7 +568,7 @@ const SchemaAttributeAmendModal = (
               >
                 <Input
                   value={localAttr.sample_data_form}
-                  onChange={event => handleUserInput({field: 'sample_data_form', value: event.detail.value})}
+                  onChange={(event) => handleUserInput({ field: "sample_data_form", value: event.detail.value })}
                 />
               </FormField>
               <FormField
@@ -635,14 +577,15 @@ const SchemaAttributeAmendModal = (
               >
                 <Input
                   value={localAttr.sample_data_api}
-                  onChange={event => handleUserInput({field: 'sample_data_api', value: event.detail.value})}
+                  onChange={(event) => handleUserInput({ field: "sample_data_api", value: event.detail.value })}
                 />
               </FormField>
             </Container>
           </SpaceBetween>
         </ExpandableSection>
       </SpaceBetween>
-    </Modal>)
+    </Modal>
+  );
 };
 
 export default SchemaAttributeAmendModal;

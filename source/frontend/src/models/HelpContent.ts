@@ -18,11 +18,11 @@ export interface Tag {
 }
 
 export type HelpContent = {
-  header?: string,
-  content_html?: string,
-  content_text?: string,
-  content?: string, // ATTN: some parts of the app pass `content` instead of `content_text`, that's probably a bug
+  header?: string;
+  content_html?: string;
+  content_text?: string;
+  content?: string; // ATTN: some parts of the app pass `content` instead of `content_text`, that's probably a bug
   text?: string;
-  content_md?: string,
-  content_links?: Tag[]
+  content_md?: string;
+  content_links?: Tag[];
 };

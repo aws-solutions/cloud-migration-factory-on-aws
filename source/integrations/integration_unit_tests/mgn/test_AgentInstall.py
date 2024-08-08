@@ -47,11 +47,11 @@ def mock_return_valid_factory_login():
     return "1234567890abcdefgh"
 
 
-def mock_return_valid_empty_factory_servers(waveid, token, os_split=True, rtype=None):
+def mock_return_valid_empty_factory_servers(waveid, token, app_ids=None, server_ids=None, os_split=True, rtype=None):
     return [], True, True
 
 
-def mock_return_valid_populated_factory_servers(waveid, token, os_split=True, rtype=None):
+def mock_return_valid_populated_factory_servers(waveid, token, app_ids=None, server_ids=None, os_split=True, rtype=None):
     valid_factory_servers = [
         {
             "aws_accountid": "111111111111",
@@ -115,20 +115,6 @@ def set_up_secret_manager():
 @mock_aws
 @mock.patch('builtins.open', new=mock_file_open)
 class AgentInstall(TestCase):
-
-    @mock.patch('builtins.open', new=mock_file_open)
-    def test_parse_boolean(self):
-        logger.info("Testing parse_boolean: "
-                    "function used to parse strings to bool")
-        agent_install = importlib.import_module('1-AgentInstall')
-
-        response = agent_install.parse_boolean('YES')
-
-        self.assertEqual(response, True)
-
-        response = agent_install.parse_boolean('NO')
-
-        self.assertEqual(response, False)
 
     @mock.patch("mfcommon.factory_login",
                 new=mock_return_valid_factory_login)

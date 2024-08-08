@@ -1,35 +1,34 @@
-import {HelpContent} from "./HelpContent";
-import {Database} from "./Database";
-import {Application} from "./Application";
-import {Wave} from "./Wave";
-import {Server} from "./Server";
+import { HelpContent } from "./HelpContent";
+import { Database } from "./Database";
+import { Application } from "./Application";
+import { Wave } from "./Wave";
+import { Server } from "./Server";
 
 export type SchemaMetaData = {
   schema_name: string;
   schema_type: string;
   friendly_name?: string;
-}
+};
 
 export type EntitySchema = {
-  schema_type: string,
-  friendly_name?: string,
-  attributes: Array<Attribute>,
-  schema_name: string,
-  group?: string,
-  description?: string,
-  actions?: Array<any>,
-  lastModifiedTimestamp?: string,
-  help_content?: HelpContent,
-}
+  schema_type: string;
+  friendly_name?: string;
+  attributes: Array<Attribute>;
+  schema_name: string;
+  group?: string;
+  description?: string;
+  actions?: Array<any>;
+  lastModifiedTimestamp?: string;
+  help_content?: HelpContent;
+};
 
-export type EntityName =
-  'secret' | 'script' | 'database' | 'server' | 'application' | 'wave' | 'policy';
+export type EntityName = "secret" | "script" | "database" | "server" | "application" | "wave" | "policy";
 
 export type Attribute = {
   sample_data_intake?: any;
-  conditions?: any,
-  default?: string,
-  description: string,
+  conditions?: any;
+  default?: string;
+  description: string;
   group?: string;
   group_order?: string;
   help_content?: HelpContent;
@@ -42,7 +41,7 @@ export type Attribute = {
   lookup?: string;
   name: string;
   readonly?: boolean;
-  rel_additional_attributes?: string[],
+  rel_additional_attributes?: string[];
   rel_attribute?: string;
   rel_display_attribute?: string;
   rel_entity?: EntityName;
@@ -54,10 +53,10 @@ export type Attribute = {
   system?: boolean;
   type: string;
   unique?: boolean;
-  validation_regex?: string
+  validation_regex?: string;
   validation_regex_msg?: string;
   valueKey?: string;
-}
+};
 
 export type DataLoadingState<T> = {
   data: T[];
@@ -66,11 +65,11 @@ export type DataLoadingState<T> = {
 };
 
 export type BaseData = {
-  secret?: DataLoadingState<any>,
-  script?: DataLoadingState<any>,
-  database?: DataLoadingState<Database>,
-  server?: DataLoadingState<Server>,
-  application?: DataLoadingState<Application>,
-  wave?: DataLoadingState<Wave>,
-  policy?: DataLoadingState<any>,
-}
+  secret?: DataLoadingState<any>;
+  script?: DataLoadingState<any>;
+  database?: DataLoadingState<Database>;
+  server?: DataLoadingState<Server>;
+  application?: DataLoadingState<Application>;
+  wave?: DataLoadingState<Wave>;
+  policy?: DataLoadingState<any>;
+};

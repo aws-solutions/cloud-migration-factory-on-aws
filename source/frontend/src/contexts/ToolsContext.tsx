@@ -1,13 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import React, {createContext, ReactNode, useMemo, useState} from 'react';
-import {HelpContent} from "../models/HelpContent";
-import {EntitySchema} from "../models/EntitySchema";
-import {capitalize} from "../resources/main";
+import React, { createContext, ReactNode, useMemo, useState } from "react";
+import { HelpContent } from "../models/HelpContent";
+import { EntitySchema } from "../models/EntitySchema";
+import { capitalize } from "../resources/main";
 
 export type ToolsContextType = {
-  toolsState: ToolsState,
+  toolsState: ToolsState;
   setHelpPanelContent: (content?: HelpContent, silent?: boolean) => void;
 
   /**
@@ -23,35 +23,31 @@ export type ToolsState = {
 
 // default context, used if no context is provided. automatically applied to tests
 const NULL_CONTEXT: ToolsContextType = {
-  setHelpPanelContent: (content, silent) => {
-  },
-  setHelpPanelContentFromSchema: (schemas: Record<string, EntitySchema>, schemaName: string) => {
-  },
-  setToolsOpen: (open: boolean) => {
-  },
-  toolsState: {toolsOpen: false}
+  setHelpPanelContent: (content, silent) => {},
+  setHelpPanelContentFromSchema: (schemas: Record<string, EntitySchema>, schemaName: string) => {},
+  setToolsOpen: (open: boolean) => {},
+  toolsState: { toolsOpen: false },
 };
 
 export const ToolsContext = createContext<ToolsContextType>(NULL_CONTEXT);
-export const ToolsContextProvider = ({children}: { children: ReactNode }) => {
-
+export const ToolsContextProvider = ({ children }: { children: ReactNode }) => {
   const [toolsState, setToolsState] = useState<ToolsState>({
     toolsOpen: false,
-    toolsHelpContent: undefined
+    toolsHelpContent: undefined,
   });
 
   const setHelpPanelContent = async (content?: HelpContent, silent = true) => {
     setToolsState((previousState: ToolsState) => {
-      if (content == previousState.toolsHelpContent){
+      if (content == previousState.toolsHelpContent) {
         // toggle help panel from Info link, as content is the same.
         return {
           toolsHelpContent: content,
-          toolsOpen: silent ? previousState.toolsOpen : !previousState.toolsOpen
+          toolsOpen: silent ? previousState.toolsOpen : !previousState.toolsOpen,
         };
       } else {
         return {
           toolsHelpContent: content,
-          toolsOpen: silent ? previousState.toolsOpen : true
+          toolsOpen: silent ? previousState.toolsOpen : true,
         };
       }
     });
@@ -62,26 +58,24 @@ export const ToolsContextProvider = ({children}: { children: ReactNode }) => {
 
     if (schemas && schema?.help_content) {
       schema.help_content.header = schema.friendly_name ? schema.friendly_name : capitalize(schemaName);
-      await setHelpPanelContent(schema.help_content)
+      await setHelpPanelContent(schema.help_content);
     }
-  }
+  };
 
   const setToolsOpen = (open: boolean) => {
-    setToolsState(previousState => ({
+    setToolsState((previousState) => ({
       ...previousState,
       toolsOpen: open,
     }));
-  }
+  };
 
   const context: ToolsContextType = useMemo<ToolsContextType>(() => {
-    return {toolsState, setHelpPanelContent, setHelpPanelContentFromSchema, setToolsOpen};
+    return { toolsState, setHelpPanelContent, setHelpPanelContentFromSchema, setToolsOpen };
   }, [toolsState]);
 
   return (
     <>
-      <ToolsContext.Provider value={context}>
-        {children}
-      </ToolsContext.Provider>
+      <ToolsContext.Provider value={context}>{children}</ToolsContext.Provider>
     </>
-  )
-}
+  );
+};

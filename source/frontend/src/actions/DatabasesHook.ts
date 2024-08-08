@@ -3,18 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {DataHook, reducer, requestStarted, requestSuccessful} from '../resources/reducer';
+import { DataHook, reducer, requestStarted, requestSuccessful } from "../resources/reducer";
 
-import {useEffect, useReducer} from 'react';
+import { useEffect, useReducer } from "react";
 import UserApiClient from "../api_clients/userApiClient";
 
 export const useGetDatabases: DataHook = () => {
-
-
   const [state, dispatch] = useReducer(reducer, {
     isLoading: true,
     data: [],
-    error: null
+    error: null,
   });
 
   const apiUser = new UserApiClient();
@@ -24,15 +22,13 @@ export const useGetDatabases: DataHook = () => {
     dispatch(requestStarted());
 
     try {
-
       const response = await apiUser.getDatabases();
-      dispatch(requestSuccessful({data: response}));
-
+      dispatch(requestSuccessful({ data: response }));
     } catch (e: any) {
-      if (e.message !== 'Request aborted') {
-        console.error('Databases Hook', e);
+      if (e.message !== "Request aborted") {
+        console.error("Databases Hook", e);
       }
-      dispatch(requestSuccessful({data: []}));
+      dispatch(requestSuccessful({ data: [] }));
     }
 
     return () => {
@@ -41,7 +37,6 @@ export const useGetDatabases: DataHook = () => {
   }
 
   useEffect(() => {
-
     let cancelledRequest;
 
     (async () => {
@@ -52,8 +47,7 @@ export const useGetDatabases: DataHook = () => {
     return () => {
       cancelledRequest = true;
     };
-
   }, []);
 
-  return [state, {update}];
+  return [state, { update }];
 };

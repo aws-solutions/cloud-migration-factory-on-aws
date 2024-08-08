@@ -137,6 +137,46 @@
                                             "S": "wave_end_time"
                                         }
                                     }
+                                },
+                                {
+                                    "M": {
+                                        "attr_type": {
+                                            "S": "wave"
+                                        },
+                                        "attr_name": {
+                                            "S": "wave_servers_baseline"
+                                        }
+                                    }
+                                },
+                                {
+                                    "M": {
+                                        "attr_type": {
+                                            "S": "wave"
+                                        },
+                                        "attr_name": {
+                                            "S": "wave_servers_forecast"
+                                        }
+                                    }
+                                },
+                                {
+                                    "M": {
+                                        "attr_type": {
+                                            "S": "wave"
+                                        },
+                                        "attr_name": {
+                                            "S": "wave_apps_baseline"
+                                        }
+                                    }
+                                },
+                                {
+                                    "M": {
+                                        "attr_type": {
+                                            "S": "wave"
+                                        },
+                                        "attr_name": {
+                                            "S": "wave_apps_forecast"
+                                        }
+                                    }
                                 }
                             ]
                         },
@@ -388,6 +428,36 @@
                                         },
                                         "attr_name": {
                                             "S": "dedicated_host_id"
+                                        }
+                                    }
+                                },
+                                {
+                                    "M": {
+                                        "attr_type": {
+                                            "S": "server"
+                                        },
+                                        "attr_name": {
+                                            "S": "secondary_private_ip"
+                                        }
+                                    }
+                                },
+                                {
+                                    "M": {
+                                        "attr_type": {
+                                            "S": "server"
+                                        },
+                                        "attr_name": {
+                                            "S": "server_mgn_post_launch"
+                                        }
+                                    }
+                                },
+                                {
+                                    "M": {
+                                        "attr_type": {
+                                            "S": "server"
+                                        },
+                                        "attr_name": {
+                                            "S": "secret_name"
                                         }
                                     }
                                 }

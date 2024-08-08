@@ -3,11 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useEffect, useState} from "react";
+import React, { useEffect, useState } from "react";
 import SideNavigation from "@awsui/components-react/side-navigation";
-import {capitalize} from "../resources/main";
-import {To, useLocation, useNavigate} from "react-router-dom";
-
+import { capitalize } from "../resources/main";
+import { To, useLocation, useNavigate } from "react-router-dom";
 
 interface ServiceNavigationProps {
   userGroups?: string[];
@@ -15,13 +14,12 @@ interface ServiceNavigationProps {
 }
 
 function ServiceNavigation(props: ServiceNavigationProps) {
-
   let navigate = useNavigate();
   const [items, setItems] = useState<any[]>([]);
-  let location = useLocation()
+  let location = useLocation();
 
   // If the provided link is empty, do not redirect pages
-  function onFollowHandler(ev: { preventDefault: () => void; detail: { href: To; }; }) {
+  function onFollowHandler(ev: { preventDefault: () => void; detail: { href: To } }) {
     ev.preventDefault();
     if (ev.detail.href) {
       navigate(ev.detail.href);
@@ -29,24 +27,28 @@ function ServiceNavigation(props: ServiceNavigationProps) {
   }
 
   const populateNavSubItems = (navItems: any[]) => {
-    let navSchemaItems = []
+    let navSchemaItems = [];
     if (props.schemaMetadata) {
       if (props.schemaMetadata.length > 0) {
         //Add user schemas to the navigation.
 
         for (const schema of props.schemaMetadata) {
-          if (schema['schema_type'] === 'user')  //Only add user schemas to navigation.
-          {
-            navSchemaItems.push({type: "link", text: schema['friendly_name'] ? schema['friendly_name'] : capitalize(schema['schema_name']), href: '/' + schema['schema_name'] + 's'})
+          if (schema["schema_type"] === "user") {
+            //Only add user schemas to navigation.
+            navSchemaItems.push({
+              type: "link",
+              text: schema["friendly_name"] ? schema["friendly_name"] : capitalize(schema["schema_name"]),
+              href: "/" + schema["schema_name"] + "s",
+            });
           }
         }
-        navSchemaItems.push({type: "link", text: "Import", href: "/import"});
-        navSchemaItems.push({type: "link", text: "Export", href: "/export"});
+        navSchemaItems.push({ type: "link", text: "Import", href: "/import" });
+        navSchemaItems.push({ type: "link", text: "Export", href: "/export" });
 
         navItems[1].items = navSchemaItems;
       }
     }
-  }
+  };
 
   useEffect(() => {
     let navItems = [];
@@ -57,11 +59,11 @@ function ServiceNavigation(props: ServiceNavigationProps) {
     }
     populateNavSubItems(navItems);
     setItems(navItems);
-  }, [props.userGroups, props.schemaMetadata])
+  }, [props.userGroups, props.schemaMetadata]);
 
   return (
     <SideNavigation
-      header={{text: "Migration Factory", href: "/"}}
+      header={{ text: "Migration Factory", href: "/" }}
       items={items}
       activeHref={`${location.pathname}`}
       onFollow={onFollowHandler}
@@ -74,7 +76,7 @@ const itemsUser = [
   {
     type: "section",
     text: "Overview",
-    items: [{type: "link", text: "Dashboard", href: "/"}],
+    items: [{ type: "link", text: "Dashboard", href: "/" }],
   },
   {
     type: "section",
@@ -85,11 +87,11 @@ const itemsUser = [
     type: "section",
     text: "Automation",
     items: [
-      {type: "link", text: "Jobs", href: "/automation/jobs"},
-      {type: "link", text: "Scripts", href: "/automation/scripts"},
+      { type: "link", text: "Jobs", href: "/automation/jobs" },
+      { type: "link", text: "Scripts", href: "/automation/scripts" },
     ],
   },
-  {type: "divider"},
+  { type: "divider" },
   {
     type: "link",
     text: "VERSION_UI" in env ? "Version: " + env.VERSION_UI : null,
@@ -100,7 +102,7 @@ const itemsAdmin = [
   {
     type: "section",
     text: "Overview",
-    items: [{type: "link", text: "Dashboard", href: "/"}],
+    items: [{ type: "link", text: "Dashboard", href: "/" }],
   },
   {
     type: "section",
@@ -111,8 +113,8 @@ const itemsAdmin = [
     type: "section",
     text: "Automation",
     items: [
-      {type: "link", text: "Jobs", href: "/automation/jobs"},
-      {type: "link", text: "Scripts", href: "/automation/scripts"},
+      { type: "link", text: "Jobs", href: "/automation/jobs" },
+      { type: "link", text: "Scripts", href: "/automation/scripts" },
     ],
   },
   {
@@ -120,8 +122,8 @@ const itemsAdmin = [
     text: "Administration",
     //defaultExpanded: false,
     items: [
-      {type: "link", text: "Permissions", href: "/admin/policy"},
-      {type: "link", text: "Attributes", href: "/admin/attribute"},
+      { type: "link", text: "Permissions", href: "/admin/policy" },
+      { type: "link", text: "Attributes", href: "/admin/attribute" },
       {
         type: "link",
         text: "Credential Manager",
@@ -129,7 +131,7 @@ const itemsAdmin = [
       },
     ],
   },
-  {type: "divider"},
+  { type: "divider" },
   {
     type: "link",
     text: "VERSION_UI" in env ? "Version: " + env.VERSION_UI : null,

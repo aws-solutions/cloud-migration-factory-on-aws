@@ -4,17 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, {useEffect, useState} from 'react';
-import {Checkbox, SpaceBetween,} from '@awsui/components-react';
+import React, { useEffect, useState } from "react";
+import { Checkbox, SpaceBetween } from "@awsui/components-react";
 
 // Attribute Display message content
-const CheckboxAttribute = ({attribute, value, isReadonly, handleUserInput, displayHelpInfoLink}) => {
-
+const CheckboxAttribute = ({ attribute, value, isReadonly, handleUserInput, displayHelpInfoLink }) => {
   const [localValue, setLocalValue] = useState(value);
 
-  function handleUpdate(update){
-    setLocalValue(update.value);
-    handleUserInput(update)
+  function handleUpdate(attribute, value, validationError) {
+    setLocalValue(value);
+    handleUserInput(attribute, value, validationError);
   }
 
   useEffect(() => {
@@ -24,14 +23,24 @@ const CheckboxAttribute = ({attribute, value, isReadonly, handleUserInput, displ
   return (
     <Checkbox
       key={attribute.name}
-      onChange={event => handleUpdate({field: attribute.name, value: event.detail.checked, validationError: null})}
+      onChange={(event) => handleUpdate(attribute, event.detail.checked, null)}
       checked={localValue}
       disabled={isReadonly}
       ariaLabel={attribute.name}
     >
-      {attribute.description ? <SpaceBetween direction='horizontal' size='xs'>{attribute.description}{displayHelpInfoLink(attribute)} </SpaceBetween> :<SpaceBetween direction='horizontal' size='xs'>{attribute.name}{displayHelpInfoLink(attribute)} </SpaceBetween>}
+      {attribute.description ? (
+        <SpaceBetween direction="horizontal" size="xs">
+          {attribute.description}
+          {displayHelpInfoLink(attribute)}{" "}
+        </SpaceBetween>
+      ) : (
+        <SpaceBetween direction="horizontal" size="xs">
+          {attribute.name}
+          {displayHelpInfoLink(attribute)}{" "}
+        </SpaceBetween>
+      )}
     </Checkbox>
-  )
+  );
 };
 
 export default CheckboxAttribute;

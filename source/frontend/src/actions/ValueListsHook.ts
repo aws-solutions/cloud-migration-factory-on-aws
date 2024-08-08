@@ -3,61 +3,56 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {reducer, requestStarted, requestSuccessful} from '../resources/reducer';
+import { reducer, requestStarted, requestSuccessful } from "../resources/reducer";
 
-import {useEffect, useReducer, useState} from 'react';
+import { useEffect, useReducer, useState } from "react";
 import ToolsApiClient from "../api_clients/toolsApiClient";
 import LoginApiClient from "../api_clients/loginApiClient";
 
 export const useValueLists = () => {
-
   const [state, dispatch] = useReducer(reducer, {
     isLoading: true,
     data: [],
-    error: null
+    error: null,
   });
 
   //Array of APIs that should be used to collect value lists for forms.
   const [valueListAPIs, setValueListAPIs] = useState<any>([]);
 
   function addValueListItem(item: any) {
-
     //Get current API list.
     let tmpvalueListAPIs = valueListAPIs;
 
     tmpvalueListAPIs.push(item);
 
     setValueListAPIs(tmpvalueListAPIs);
-
   }
 
   async function update() {
     const myAbortController = new AbortController();
-    
+
     dispatch(requestStarted());
 
     let tempValueList = [];
-    for ( const vlAPI of valueListAPIs) {
+    for (const vlAPI of valueListAPIs) {
       let result = {
         values: [],
-      }
+      };
 
-      if (vlAPI === '/admin/groups'){
+      if (vlAPI === "/admin/groups") {
         try {
           let apiLogin = new LoginApiClient();
           const response = await apiLogin.getGroups();
           result = {
             values: response,
-          }
+          };
           tempValueList[vlAPI] = result;
-
         } catch (e: any) {
           console.log(e);
 
           return () => {
             myAbortController.abort();
           };
-
         }
       } else {
         try {
@@ -65,23 +60,21 @@ export const useValueLists = () => {
           const response = await apiAutomation.getTool(vlAPI);
           result = {
             values: response,
-          }
+          };
           tempValueList[vlAPI] = result;
-
         } catch (e: any) {
-          if (e.message !== 'Request aborted') {
-            console.error('Value Lists Hook', e);
+          if (e.message !== "Request aborted") {
+            console.error("Value Lists Hook", e);
           }
 
           return () => {
             myAbortController.abort();
           };
-
         }
       }
     }
 
-    dispatch(requestSuccessful({data: tempValueList}));
+    dispatch(requestSuccessful({ data: tempValueList }));
 
     return () => {
       myAbortController.abort();
@@ -99,8 +92,7 @@ export const useValueLists = () => {
     return () => {
       cancelledRequest = true;
     };
+  }, [valueListAPIs]);
 
-  },[valueListAPIs]);
-
-  return [state , { update, addValueListItem }];
+  return [state, { update, addValueListItem }];
 };

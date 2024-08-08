@@ -42,9 +42,17 @@ def lambda_handler(event, context):
         UserPoolId=os.environ['userpool_id']
     )
 
+    response_users = response['Users']
+    while 'PaginationToken' in response:
+        response = client.list_users(
+            UserPoolId=os.environ['userpool_id'],
+            PaginationToken=response['PaginationToken']
+        )
+        response_users.extend(response['Users'])
+
     # Create MF formatted response with required data.
     users = []
-    for user in response['Users']:
+    for user in response_users:
         newuser = {}
         newuser['userRef'] = user['Username']
 

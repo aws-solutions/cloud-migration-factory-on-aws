@@ -14,3 +14,26 @@ Arguments:
     validation_regex: "^(?!\\s*$).+"
     validation_regex_msg: "Wave must be provided."
     required: true
+    group_order: "1"
+  - name: "AppIds"
+    description: "Optional - Application Names"
+    listMultiSelect: true
+    type: "relationship"
+    rel_display_attribute: "app_name"
+    rel_entity: "application"
+    rel_key: "app_id"
+    source_filter_attribute_name: "script.script_arguments.Waveid"
+    rel_filter_attribute_name: "wave_id"
+    required: false
+    group_order: "2"
+  - name: "ServerIds"
+    description: "Optional - Server Names"
+    listMultiSelect: true
+    type: "relationship"
+    rel_display_attribute: "server_name"
+    rel_entity: "server"
+    rel_key: "server_id"
+    source_filter_attribute_name: "script.script_arguments.AppIds"
+    rel_filter_attribute_name: "app_id"
+    required: false
+    group_order: "3"

@@ -47,7 +47,13 @@ query_columns = '"app"."app_name" , ' \
                 '"app"."app_id", ' \
                 '"app"."wave_id" , '\
                 '"wave"."wave_name", '\
-                '"wave"."wave_status", '\
+                '"wave"."wave_status", ' \
+                '"wave"."wave_start_time", ' \
+                '"wave"."wave_end_time", ' \
+                '"wave"."wave_apps_forecast", ' \
+                '"wave"."wave_apps_baseline", ' \
+                '"wave"."wave_servers_forecast", ' \
+                '"wave"."wave_servers_baseline", ' \
                 '"server"."server_name" , '\
                 '"server"."instancetype" , '\
                 '"server"."migration_status" , ' \

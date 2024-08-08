@@ -3,10 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {getNestedValuePath} from "./main";
-import {Attribute, BaseData, EntitySchema} from "../models/EntitySchema";
-import {CmfAddNotification} from "../models/AppChildProps";
-
+import { getNestedValuePath } from "./main";
+import { Attribute, BaseData, EntitySchema } from "../models/EntitySchema";
+import { CmfAddNotification } from "../models/AppChildProps";
 
 type QueryType = {
   comparator: any;
@@ -16,83 +15,71 @@ type QueryType = {
 
 type QueryResult = boolean | undefined;
 
-function isEqualsQueryTrue(
-  query: QueryType,
-  item: Record<string, any>
-): QueryResult {
-  let item_value = getNestedValuePath(item, query.attribute)
-  if (item_value && query.value) { //Check this condition has ability to provide outcome.
+function isEqualsQueryTrue(query: QueryType, item: Record<string, any>): QueryResult {
+  let item_value = getNestedValuePath(item, query.attribute);
+  if (item_value && query.value) {
+    //Check this condition has ability to provide outcome.
     //Attribute exists.
     return item_value === query.value;
   }
 }
 
-function isNotEqualsQueryTrue(
-  query: QueryType,
-  item: Record<string, any>
-): QueryResult {
-  let item_value = getNestedValuePath(item, query.attribute)
-  if (item_value && query.value) { //Check this condition has ability to provide outcome.
+function isNotEqualsQueryTrue(query: QueryType, item: Record<string, any>): QueryResult {
+  let item_value = getNestedValuePath(item, query.attribute);
+  if (item_value && query.value) {
+    //Check this condition has ability to provide outcome.
     //Attribute exists.
     return item_value !== query.value;
   }
 }
 
-function isNotEmptyQueryTrue(
-  query: QueryType,
-  item: Record<string, any>
-): QueryResult {
-  let item_value = getNestedValuePath(item, query.attribute)
-  if (item_value) { //Check this condition has ability to provide outcome.
+function isNotEmptyQueryTrue(query: QueryType, item: Record<string, any>): QueryResult {
+  let item_value = getNestedValuePath(item, query.attribute);
+  if (item_value) {
+    //Check this condition has ability to provide outcome.
     //Attribute exists.
     if (Array.isArray(item_value)) {
-      return item_value.length !== 0
+      return item_value.length !== 0;
     } else {
       //Not an array check value
-      return item_value !== '' && item_value !== false;
+      return item_value !== "" && item_value !== false;
     }
   } else {
     return false;
   }
 }
 
-function isEmptyQueryTrue(
-  query: QueryType,
-  item: Record<string, any>
-) {
-  let item_value = getNestedValuePath(item, query.attribute)
-  if (item_value) { //Check this condition has ability to provide outcome.
+function isEmptyQueryTrue(query: QueryType, item: Record<string, any>) {
+  let item_value = getNestedValuePath(item, query.attribute);
+  if (item_value) {
+    //Check this condition has ability to provide outcome.
     //Attribute exists.
 
     if (Array.isArray(item_value)) {
       return item_value.length > 0;
     } else {
       //Not an array check value
-      return item_value === '' || item_value === false;
+      return item_value === "" || item_value === false;
     }
   } else {
     return true;
   }
 }
 
-
-function evaluateQueryCondition(
-  query: QueryType,
-  item: Record<string, any>
-): QueryResult | null {
+function evaluateQueryCondition(query: QueryType, item: Record<string, any>): QueryResult | null {
   let queryResult = null;
 
   switch (query.comparator) {
-    case '=':
+    case "=":
       queryResult = isEqualsQueryTrue(query, item);
       break;
-    case '!=':
+    case "!=":
       queryResult = isNotEqualsQueryTrue(query, item);
       break;
-    case '!empty':
+    case "!empty":
       queryResult = isNotEmptyQueryTrue(query, item);
       break;
-    case 'empty':
+    case "empty":
       queryResult = isEmptyQueryTrue(query, item);
       break;
     default:
@@ -102,16 +89,13 @@ function evaluateQueryCondition(
   return queryResult;
 }
 
-function isRequiredOutcome(
-  outcomes: Record<string, any>,
-  type: string
-) {
+function isRequiredOutcome(outcomes: Record<string, any>, type: string) {
   if (type in outcomes) {
     for (const outcome of outcomes[type]) {
       switch (outcome) {
-        case 'required':
+        case "required":
           return true;
-        case 'not_required':
+        case "not_required":
           return false;
         default:
           break;
@@ -122,16 +106,13 @@ function isRequiredOutcome(
   return null;
 }
 
-function isHiddenOutcome(
-  outcomes: Record<string, any>,
-  type: string
-) {
+function isHiddenOutcome(outcomes: Record<string, any>, type: string) {
   if (type in outcomes) {
     for (const outcome of outcomes[type]) {
       switch (outcome) {
-        case 'hidden':
+        case "hidden":
           return true;
-        case 'not_hidden':
+        case "not_hidden":
           return false;
         default:
           break;
@@ -151,31 +132,29 @@ export function checkAttributeRequiredConditions(
 ) {
   let returnRequired = null;
   let returnHidden = null;
-  const comparisonTypeDefault = 'AND'
+  const comparisonTypeDefault = "AND";
 
   if (!conditions) {
     //No conditions passed.
-    return {'required': returnRequired, 'hidden': returnHidden};
+    return { required: returnRequired, hidden: returnHidden };
   }
 
   let queryResult = null;
 
   for (const query of conditions.queries) {
     let singleQueryResult = evaluateQueryCondition(query, item);
-    if (comparisonTypeDefault == 'AND')
-    {
-      if (singleQueryResult !== false) //AND the results.
-      {
+    if (comparisonTypeDefault == "AND") {
+      if (singleQueryResult !== false) {
+        //AND the results.
         queryResult = singleQueryResult;
       } else {
         queryResult = singleQueryResult;
         break; //At least one query is false, no need to continue.
       }
-    }
-    else // this is not reachable comparisonTypeDefault a constant 'AND'
-    {
-      if (singleQueryResult === true) //OR the results.
-      {
+    } // this is not reachable comparisonTypeDefault a constant 'AND'
+    else {
+      if (singleQueryResult === true) {
+        //OR the results.
         queryResult = singleQueryResult;
         break; //At least one query is true, no need to continue.
       } else {
@@ -186,31 +165,26 @@ export function checkAttributeRequiredConditions(
 
   //Evaluate true outcomes.
   if (queryResult) {
-    returnHidden = isHiddenOutcome(conditions.outcomes, 'true');
-    returnRequired = isRequiredOutcome(conditions.outcomes, 'true')
+    returnHidden = isHiddenOutcome(conditions.outcomes, "true");
+    returnRequired = isRequiredOutcome(conditions.outcomes, "true");
   } else if (queryResult !== null) {
-    returnHidden = isHiddenOutcome(conditions.outcomes, 'false');
-    returnRequired = isRequiredOutcome(conditions.outcomes, 'false')
+    returnHidden = isHiddenOutcome(conditions.outcomes, "false");
+    returnRequired = isRequiredOutcome(conditions.outcomes, "false");
   }
 
-  return {'required': returnRequired, 'hidden': returnHidden};
-
+  return { required: returnRequired, hidden: returnHidden };
 }
 
-function isAttributeRequired(
-  attribute: Attribute,
-  schema: EntitySchema,
-  includeConditional: boolean) {
-  let schemaKeyAttributeName = schema.schema_name === 'application' ? 'app_id' : schema.schema_name + '_id';
+function isAttributeRequired(attribute: Attribute, schema: EntitySchema, includeConditional: boolean) {
+  let schemaKeyAttributeName = schema.schema_name === "application" ? "app_id" : schema.schema_name + "_id";
 
   if (attribute.required && !attribute.hidden && attribute.name !== schemaKeyAttributeName) {
-    attribute.schema = schema.schema_name === 'app' ? 'application' : schema.schema_name;
+    attribute.schema = schema.schema_name === "app" ? "application" : schema.schema_name;
     return attribute;
-  } else if (attribute.conditions && includeConditional) { //does attribute have conditions defined, if yes then check if required is a possible outcome.
-    if (attribute.conditions.outcomes['true'])
-      return isRequiredOutcome(attribute.conditions.outcomes, 'true')
-    if (attribute.conditions.outcomes['false'])
-      return isRequiredOutcome(attribute.conditions.outcomes, 'false')
+  } else if (attribute.conditions && includeConditional) {
+    //does attribute have conditions defined, if yes then check if required is a possible outcome.
+    if (attribute.conditions.outcomes["true"]) return isRequiredOutcome(attribute.conditions.outcomes, "true");
+    if (attribute.conditions.outcomes["false"]) return isRequiredOutcome(attribute.conditions.outcomes, "false");
   }
 }
 
@@ -218,19 +192,15 @@ export function getRequiredAttributes(schema: EntitySchema, includeConditional =
   let required_attributes: Attribute[] = [];
 
   if (schema) {
-    required_attributes = schema.attributes.filter(attribute => isAttributeRequired(attribute, schema, includeConditional));
+    required_attributes = schema.attributes.filter((attribute) =>
+      isAttributeRequired(attribute, schema, includeConditional)
+    );
   }
 
   return required_attributes;
-
 }
 
-export function getRelationshipRecord(
-  attribute: Attribute,
-  relatedData: BaseData,
-  value: string
-) {
-
+export function getRelationshipRecord(attribute: Attribute, relatedData: BaseData, value: string) {
   // Check if related data for the entity required is present in relatedData object.
   const relEntity = attribute.rel_entity!;
   if (relatedData?.[relEntity] && !(relatedData[relEntity]?.isLoading || !value)) {
@@ -279,12 +249,15 @@ function getUnresolvedRelationships(
     for (const relationshipKeyValue of relationshipKeyValues) {
       let foundRecord = false;
       for (const resolvedRelationshipRecord of resolvedRelationshipRecords) {
-        if (getNestedValuePath(resolvedRelationshipRecord, relatedRecordKey).toLowerCase() === relationshipKeyValue.toLowerCase()) {
+        if (
+          getNestedValuePath(resolvedRelationshipRecord, relatedRecordKey).toLowerCase() ===
+          relationshipKeyValue.toLowerCase()
+        ) {
           foundRecord = true;
         }
       }
       if (!foundRecord) {
-        invalidRelationshipKeys.push(relationshipKeyValue)
+        invalidRelationshipKeys.push(relationshipKeyValue);
       }
     }
   }
@@ -299,21 +272,26 @@ function getRelationshipMultiSelectDisplayValues(
 ): {
   invalid?: any[];
   value: any;
-  status: "loaded"
+  status: "loaded";
 } {
   // Multiselect relationships value.
   const relEntity = attribute.rel_entity!;
-  let foundRelationshipRecords = relatedData[relEntity]?.data.filter(
-    (item: any) => isItemRelationshipMatch(attribute.rel_key, item, relationshipKeyValues)
-  ) ?? [];
+  let foundRelationshipRecords =
+    relatedData[relEntity]?.data.filter((item: any) =>
+      isItemRelationshipMatch(attribute.rel_key, item, relationshipKeyValues)
+    ) ?? [];
 
   let resolvedDisplayValues = foundRelationshipRecords.map((item: any) => {
-    return (getNestedValuePath(item, attribute.rel_display_attribute!))
+    return getNestedValuePath(item, attribute.rel_display_attribute!);
   });
 
-  let unresolvedRelationShips = getUnresolvedRelationships(attribute.rel_key, foundRelationshipRecords, relationshipKeyValues);
+  let unresolvedRelationShips = getUnresolvedRelationships(
+    attribute.rel_key,
+    foundRelationshipRecords,
+    relationshipKeyValues
+  );
 
-  return {status: 'loaded', value: resolvedDisplayValues, invalid: unresolvedRelationShips};
+  return { status: "loaded", value: resolvedDisplayValues, invalid: unresolvedRelationShips };
 }
 
 function getRelationshipSingleDisplayValue(
@@ -322,7 +300,7 @@ function getRelationshipSingleDisplayValue(
   currentValue: any | string
 ): {
   value: any;
-  status: "not found" | "loaded"
+  status: "not found" | "loaded";
 } {
   const relEntity = attribute.rel_entity!;
   let record = relatedData[relEntity]?.data.find((item: any) =>
@@ -331,15 +309,14 @@ function getRelationshipSingleDisplayValue(
 
   if (record) {
     let returnValue = null;
-    if (attribute.type === 'embedded_entity')
-      returnValue = getNestedValuePath(record, attribute.rel_attribute!)
+    if (attribute.type === "embedded_entity") returnValue = getNestedValuePath(record, attribute.rel_attribute!);
     else {
-      returnValue = getNestedValuePath(record, attribute.rel_display_attribute!)
+      returnValue = getNestedValuePath(record, attribute.rel_display_attribute!);
     }
 
-    return returnValue ? {status: 'loaded', value: returnValue} : {status: 'loaded', value: null};
+    return returnValue ? { status: "loaded", value: returnValue } : { status: "loaded", value: null };
   } else {
-    return currentValue ? {status: 'not found', value: currentValue} : {status: 'loaded', value: null};
+    return currentValue ? { status: "not found", value: currentValue } : { status: "loaded", value: null };
   }
 }
 
@@ -352,13 +329,12 @@ export function getRelationshipValue(
   status: "loaded" | "loading" | "not found";
   invalid?: any[];
 } {
-
   const relEntity = attribute.rel_entity!;
   if (relatedData?.[relEntity]) {
     //relatedData contains the related entity data to perform lookup.
     if (relatedData[relEntity]?.isLoading || !value) {
       //Loading relatedData still or value empty.
-      return value ? {status: 'loading', value: value} : {status: 'loaded', value: null};
+      return value ? { status: "loading", value: value } : { status: "loaded", value: null };
     } else {
       if (attribute.listMultiSelect) {
         return getRelationshipMultiSelectDisplayValues(attribute, relatedData, value);
@@ -370,26 +346,20 @@ export function getRelationshipValue(
 
   // By default, return null or the original value provided. default return will only be used when other lookups
   // failed to return data.
-  return value ? {status: 'not found', value: value} : {status: 'loaded', value: null};
+  return value ? { status: "not found", value: value } : { status: "loaded", value: null };
 }
 
-function appendValidationErrors(
-  errorList: any[],
-  validationErrors: any[]
-) {
+function appendValidationErrors(errorList: any[], validationErrors: any[]) {
   if (validationErrors?.length > 0) {
     for (const error of validationErrors) {
       for (const error_detail in error) {
-        errorList.push(error_detail + ' : ' + error[error_detail].join());
+        errorList.push(error_detail + " : " + error[error_detail].join());
       }
     }
   }
 }
 
-function appendExistingNameErrors(
-  errorList: any[],
-  existingNameErrors: any[]
-) {
+function appendExistingNameErrors(errorList: any[], existingNameErrors: any[]) {
   if (existingNameErrors?.length > 0) {
     for (const error of existingNameErrors) {
       errorList.push(error + " already exists.");
@@ -418,9 +388,7 @@ export function parsePUTResponseErrors(errors: any): any[] {
       } else {
         errorList.push(error);
       }
-
     }
-
   }
 
   return errorList;
@@ -437,17 +405,17 @@ export function apiActionErrorHandler(
   //Check if errors key exists from Lambda errors.
   if (error.response?.data?.errors) {
     response = error.response.data.errors;
-    response = parsePUTResponseErrors(response).join(',');
+    response = parsePUTResponseErrors(response).join(",");
   } else if (error.response?.data?.cause) {
     response = error.response.data.cause;
   } else {
-    response = 'Unknown error occurred.';
+    response = "Unknown error occurred.";
   }
 
   addNotification({
-    type: 'error',
+    type: "error",
     dismissible: true,
     header: action + " " + schemaName,
-    content: (response)
-  })
+    content: response,
+  });
 }

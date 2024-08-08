@@ -2,13 +2,13 @@
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
-import {API} from "@aws-amplify/api";
+import { API } from "@aws-amplify/api";
 
 export default class ToolsApiClient {
-  private readonly apiName = 'tools';
+  private readonly apiName = "tools";
 
   postTool(apiPath: string, data: any) {
-    return API.post(this.apiName, apiPath, {body: data});
+    return API.post(this.apiName, apiPath, { body: data });
   }
 
   getTool(apiPath: string) {
@@ -16,9 +16,9 @@ export default class ToolsApiClient {
   }
 
   getSSMJobs(maximumDays: number | undefined = undefined) {
-    let daysToReturn = ''
+    let daysToReturn = "";
     if (maximumDays !== undefined) {
-      daysToReturn = '?maximumdays=' + maximumDays
+      daysToReturn = "?maximumdays=" + maximumDays;
     }
     return API.get(this.apiName, "/ssm/jobs" + daysToReturn, {});
   }
@@ -36,11 +36,11 @@ export default class ToolsApiClient {
   }
 
   postSSMScripts(data: any) {
-    return API.post(this.apiName, "/ssm/scripts", {body: data});
+    return API.post(this.apiName, "/ssm/scripts", { body: data });
   }
 
   putSSMScripts(data: any) {
-    return API.put(this.apiName, "/ssm/scripts/" + data.package_uuid, {body: data});
+    return API.put(this.apiName, "/ssm/scripts/" + data.package_uuid, { body: data });
   }
 
   getCredentials() {

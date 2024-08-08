@@ -4,17 +4,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {Button, ButtonDropdown, Header, SpaceBetween,} from '@awsui/components-react';
+import { Button, ButtonDropdown, Header, SpaceBetween } from "@awsui/components-react";
 import React from "react";
 
 // Table header content, shows how many items are selected and contains the action stripe
-const TableHeader = ({ title, description, selectedItems, counter, handleRefreshClick, handleDeleteClick, handleEditClick, handleAddClick, handleActionSelection, actionItems, handleDownload, actionsButtonDisabled, disabledButtons, info}) => {
+const TableHeader = ({
+  title,
+  description,
+  selectedItems,
+  counter,
+  handleRefreshClick,
+  handleDeleteClick,
+  handleEditClick,
+  handleAddClick,
+  handleActionSelection,
+  actionItems,
+  handleDownload,
+  actionsButtonDisabled,
+  disabledButtons,
+  info,
+}) => {
   const isOnlyOneSelected = selectedItems ? selectedItems.length === 1 : false;
 
-  const disableActionsButton = actionsButtonDisabled !== undefined ? actionsButtonDisabled : !isOnlyOneSelected
+  const disableActionsButton = actionsButtonDisabled !== undefined ? actionsButtonDisabled : !isOnlyOneSelected;
 
-  function isButtonDisabled(buttonName){
-    if (disabledButtons && disabledButtons[buttonName]){
+  function isButtonDisabled(buttonName) {
+    if (disabledButtons && disabledButtons[buttonName]) {
       return disabledButtons[buttonName];
     } else {
       return false;
@@ -29,20 +44,40 @@ const TableHeader = ({ title, description, selectedItems, counter, handleRefresh
       info={info}
       actions={
         <SpaceBetween direction="horizontal" size="s">
-          {handleRefreshClick ?
-            <Button onClick={handleRefreshClick} iconAlign="right" iconName="refresh" ariaLabel={'Refresh'}/> : null}
-          {handleActionSelection ? <ButtonDropdown
-            items={actionItems}
-            onItemClick={handleActionSelection}
-            disabled={disableActionsButton}
-            expandableGroups
-            >Actions
-            </ButtonDropdown> : null}
-          {handleEditClick ? <Button onClick={handleEditClick} disabled={!isOnlyOneSelected || (isButtonDisabled('edit'))}> Edit</Button> : null}
-          {handleDeleteClick ? <Button onClick={handleDeleteClick} disabled={selectedItems.length === 0  || (isButtonDisabled('delete'))}> Delete</Button> : null}
-          {handleAddClick ? <Button onClick={handleAddClick} disabled={isButtonDisabled('add')} variant="primary"> Add</Button> : null}
-          {handleDownload ?
-            <Button onClick={handleDownload} iconName="download" variant="icon" ariaLabel={'Download'}/> : null}
+          {handleRefreshClick ? (
+            <Button onClick={handleRefreshClick} iconAlign="right" iconName="refresh" ariaLabel={"Refresh"} />
+          ) : null}
+          {handleActionSelection ? (
+            <ButtonDropdown
+              items={actionItems}
+              onItemClick={handleActionSelection}
+              disabled={disableActionsButton}
+              expandableGroups
+            >
+              Actions
+            </ButtonDropdown>
+          ) : null}
+          {handleEditClick ? (
+            <Button onClick={handleEditClick} disabled={!isOnlyOneSelected || isButtonDisabled("edit")}>
+              {" "}
+              Edit
+            </Button>
+          ) : null}
+          {handleDeleteClick ? (
+            <Button onClick={handleDeleteClick} disabled={selectedItems.length === 0 || isButtonDisabled("delete")}>
+              {" "}
+              Delete
+            </Button>
+          ) : null}
+          {handleAddClick ? (
+            <Button onClick={handleAddClick} disabled={isButtonDisabled("add")} variant="primary">
+              {" "}
+              Add
+            </Button>
+          ) : null}
+          {handleDownload ? (
+            <Button onClick={handleDownload} iconName="download" variant="icon" ariaLabel={"Download"} />
+          ) : null}
         </SpaceBetween>
       }
     >

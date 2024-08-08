@@ -32,8 +32,9 @@ def lambda_handler(event, context):
 
         elif event['RequestType'] == 'Delete':
             logger.info('Delete action')
+            delete_service_account()
             status = 'SUCCESS'
-            message = 'No deletion required'
+            message = 'Migration Factory Service Account deleted successfully'
 
         else:
             logger.info('SUCCESS!')
@@ -100,6 +101,18 @@ def create_service_account():
         SecretString=json.dumps({"username": ServiceAccountEmail, "password": pwd['RandomPassword']})
     )
 
+
+def delete_service_account():
+    secrets_manager_client = cmf_boto.client('secretsmanager')
+
+    secret_name = 'MFServiceAccount-' + PoolId
+    try:
+        secrets_manager_client.delete_secret(
+            SecretId=secret_name,
+            ForceDeleteWithoutRecovery=True
+        )
+    except Exception:
+        logger.error(f"Service account deletion failed to delete secret '{secret_name}' manual remove maybe required.")
 
 def respond(event, context, response_status, response_data):
     # Build response payload required by CloudFormation

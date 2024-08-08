@@ -1,9 +1,9 @@
-import {Box} from "@awsui/components-react";
-import React, {ReactNode} from "react";
+import { Box } from "@awsui/components-react";
+import React, { ReactNode } from "react";
 
-export const ValueWithLabel = ({label, children}: { label: string, children: ReactNode }) => (
+export const ValueWithLabel = ({ label, children }: { label: string; children: ReactNode }) => (
   <div>
-    <Box margin={{bottom: 'xxxs'}} color="text-label">
+    <Box margin={{ bottom: "xxxs" }} color="text-label">
       {label}
     </Box>
     <div>{children}</div>

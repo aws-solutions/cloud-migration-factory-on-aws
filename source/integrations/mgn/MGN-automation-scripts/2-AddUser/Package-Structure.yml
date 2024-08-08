@@ -21,7 +21,7 @@ Arguments:
     rel_display_attribute: "Name"
     rel_entity: "secret"
     rel_key: "Name"
-    group_order: "2"
+    group_order: "5"
   -
     name: "Waveid"
     description: "Wave Name"
@@ -33,6 +33,32 @@ Arguments:
     validation_regex_msg: "Wave must be provided."
     required: true
     group_order: "1"
+  - name: "AppIds"
+    description: "Optional - Application Names"
+    listMultiSelect: true
+    type: "relationship"
+    rel_display_attribute: "app_name"
+    rel_entity: "application"
+    rel_key: "app_id"
+    validation_regex: "^(?!\\s*$).+"
+    validation_regex_msg: "Application must be provided."
+    source_filter_attribute_name: "script.script_arguments.Waveid"
+    rel_filter_attribute_name: "wave_id"
+    required: false
+    group_order: "2"
+  - name: "ServerIds"
+    description: "Optional - Server Names"
+    listMultiSelect: true
+    type: "relationship"
+    rel_display_attribute: "server_name"
+    rel_entity: "server"
+    rel_key: "server_id"
+    validation_regex: "^(?!\\s*$).+"
+    validation_regex_msg: "Server must be provided."
+    source_filter_attribute_name: "script.script_arguments.AppIds"
+    rel_filter_attribute_name: "app_id"
+    required: false
+    group_order: "3"
   -
     name: "NewSecretWindows"
     long_desc: "Secret which has the new local user information"
@@ -41,7 +67,7 @@ Arguments:
     rel_display_attribute: "Name"
     rel_entity: "secret"
     rel_key: "Name"
-    group_order: "5"
+    group_order: "6"
   -
     name: "NewSecretLinux"
     long_desc: "Secret which has the new local user information"
@@ -50,4 +76,4 @@ Arguments:
     rel_display_attribute: "Name"
     rel_entity: "secret"
     rel_key: "Name"
-    group_order: "3"
+    group_order: "7"

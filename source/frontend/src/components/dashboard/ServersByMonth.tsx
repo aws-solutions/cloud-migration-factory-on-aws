@@ -3,24 +3,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
-import {BarChart, Box, Container, Header} from '@awsui/components-react';
-
+import React from "react";
+import { BarChart, Box, Container, Header } from "@awsui/components-react";
 
 type WaveServersByMonthParams = {
-  Waves: { data: any[]; isLoading: any; error: any; };
-  Apps: { data: any; isLoading: any; error: any; };
-  Servers: { data: any; isLoading: any; error: any; };
+  Waves: { data: any[]; isLoading: any; error: any };
+  Apps: { data: any; isLoading: any; error: any };
+  Servers: { data: any; isLoading: any; error: any };
 };
 
 // Attribute Display message content
 const WaveServersByMonth = (props: WaveServersByMonthParams) => {
-
-
   function getWaveApplications(dataApps: any[], wave_id: any) {
-    return dataApps?.filter(function (entry) {
-      return entry.wave_id === wave_id;
-    }) || [];
+    return (
+      dataApps?.filter(function (entry) {
+        return entry.wave_id === wave_id;
+      }) || []
+    );
   }
 
   function getWaveServers(wave_id: any, dataApps: any[], dataServers: any[]) {
@@ -28,7 +27,7 @@ const WaveServersByMonth = (props: WaveServersByMonthParams) => {
     let servers: any[] = [];
 
     for (let item in apps) {
-      let lservers = dataServers.filter(function (entry: { app_id: any; }) {
+      let lservers = dataServers.filter(function (entry: { app_id: any }) {
         return entry.app_id === apps[item].app_id;
       });
 
@@ -48,28 +47,27 @@ const WaveServersByMonth = (props: WaveServersByMonthParams) => {
       let startMon = i === startYear ? startDate.getMonth() : 0;
       for (let j = startMon; j <= endMonth; j = j > 12 ? j % 12 || 11 : j + 1) {
         let month = j + 1;
-        dates.push({x: [i, month].join('-'), y: 0});
+        dates.push({ x: [i, month].join("-"), y: 0 });
       }
     }
     return dates;
   }
 
-  let statusType: any = 'loading';
-  let chart_data: { x: string; y: number; }[] = []
+  let statusType: any = "loading";
+  let chart_data: { x: string; y: number }[] = [];
 
   //Get Wave end time into data array for chart.
   let waveStatus = props.Waves.data.map(function (value) {
-    let servers = getWaveServers(value['wave_id'], props.Apps.data, props.Servers.data)
+    let servers = getWaveServers(value["wave_id"], props.Apps.data, props.Servers.data);
 
-    if (value['wave_end_time']) {
-      let startDate = new Date(value['wave_end_time']);
+    if (value["wave_end_time"]) {
+      let startDate = new Date(value["wave_end_time"]);
 
-      return {x: startDate, y: servers.length};
+      return { x: startDate, y: servers.length };
     } else {
-      return {x: undefined, y: servers.length};
+      return { x: undefined, y: servers.length };
     }
   });
-
 
   //Remove waves that do not have an end date set.
   waveStatus = waveStatus.filter(function (value) {
@@ -98,78 +96,91 @@ const WaveServersByMonth = (props: WaveServersByMonthParams) => {
         let year = startDate.getFullYear();
 
         let item = chart_data.filter(function (entry) {
-          return entry.x === year + '-' + month;
+          return entry.x === year + "-" + month;
         });
 
         if (item.length === 1) {
           item[0].y += value.y;
         } else {
-          chart_data.push({x: year + '-' + month, y: value.y});
+          chart_data.push({ x: year + "-" + month, y: value.y });
         }
       }
     });
   }
 
-  if (!props.Waves.isLoading && !props.Waves.error && !props.Servers.isLoading && !props.Servers.error && !props.Apps.isLoading && !props.Apps.error) {
-    statusType = 'finished';
-  } else if ((!props.Waves.isLoading && props.Waves.error) || (!props.Servers.isLoading && props.Servers.error) || (!props.Apps.isLoading && props.Apps.error)) {
-    statusType = 'error';
+  if (
+    !props.Waves.isLoading &&
+    !props.Waves.error &&
+    !props.Servers.isLoading &&
+    !props.Servers.error &&
+    !props.Apps.isLoading &&
+    !props.Apps.error
+  ) {
+    statusType = "finished";
+  } else if (
+    (!props.Waves.isLoading && props.Waves.error) ||
+    (!props.Servers.isLoading && props.Servers.error) ||
+    (!props.Apps.isLoading && props.Apps.error)
+  ) {
+    statusType = "error";
   }
 
-  const series: any = chart_data.length == 0 ? [] : [
-    {
-      type: "bar",
-      data: chart_data,
-    }
-  ];
-  return <Container
-    header={
-      <Header
-        variant="h2"
-        description="Server migrations by month"
-      >
-        Server migrations by month
-      </Header>
-    }
-  >
-    <BarChart
-      series={series}
-      i18nStrings={{
-        filterLabel: "Filter displayed data",
-        filterPlaceholder: "Filter data",
-        filterSelectedAriaLabel: "selected",
-        legendAriaLabel: "Legend",
-        chartAriaRoleDescription: "line chart",
-      }}
-      ariaLabel="Single data series line chart"
-      errorText="Error loading data."
-      height={300}
-      hideFilter
-      hideLegend
-      loadingText="Loading chart"
-      recoveryText="Retry"
-      statusType={statusType}
-      xScaleType="categorical"
-      xTitle="Month"
-      yTitle="Number of servers"
-      empty={
-        <Box textAlign="center" color="inherit">
-          <b>No data available</b>
-          <Box variant="p" color="inherit">
-            There is no data available
-          </Box>
-        </Box>
+  const series: any =
+    chart_data.length == 0
+      ? []
+      : [
+          {
+            type: "bar",
+            data: chart_data,
+          },
+        ];
+  return (
+    <Container
+      header={
+        <Header variant="h2" description="Server migrations by month">
+          Server migrations by month
+        </Header>
       }
-      noMatch={
-        <Box textAlign="center" color="inherit">
-          <b>No matching data</b>
-          <Box variant="p" color="inherit">
-            There is no matching data to display
+    >
+      <BarChart
+        series={series}
+        i18nStrings={{
+          filterLabel: "Filter displayed data",
+          filterPlaceholder: "Filter data",
+          filterSelectedAriaLabel: "selected",
+          legendAriaLabel: "Legend",
+          chartAriaRoleDescription: "line chart",
+        }}
+        ariaLabel="Single data series line chart"
+        errorText="Error loading data."
+        height={300}
+        hideFilter
+        hideLegend
+        loadingText="Loading chart"
+        recoveryText="Retry"
+        statusType={statusType}
+        xScaleType="categorical"
+        xTitle="Month"
+        yTitle="Number of servers"
+        empty={
+          <Box textAlign="center" color="inherit">
+            <b>No data available</b>
+            <Box variant="p" color="inherit">
+              There is no data available
+            </Box>
           </Box>
-        </Box>
-      }
-    />
-  </Container>
+        }
+        noMatch={
+          <Box textAlign="center" color="inherit">
+            <b>No matching data</b>
+            <Box variant="p" color="inherit">
+              There is no matching data to display
+            </Box>
+          </Box>
+        }
+      />
+    </Container>
+  );
 };
 
 export default WaveServersByMonth;

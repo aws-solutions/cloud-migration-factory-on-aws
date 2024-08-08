@@ -27,6 +27,11 @@ import mfcommon
 
 def shutdown_windows_server(server, secret_name, no_prompts):
     success = True
+
+    if is_excluded_server(server):
+        print("Server excluded from shutdown : " + server['server_name'], flush=True)
+        return True
+
     windows_credentials = mfcommon.get_server_credentials(
         '',
         '',
@@ -87,6 +92,13 @@ def process_shutdown_for_linux_servers(cmf_servers, secret_name, no_prompts=True
 
     return failure_count
 
+# Check if server is excluded from shutdown
+def is_excluded_server(server):
+    if server.get('server_source_shutdown_exclude', False):
+        return True
+    else:
+        return False
+
 
 def process_shutdown_for_windows_servers(cmf_servers, secret_name, no_prompts=True):
     failure_count = 0
@@ -113,7 +125,9 @@ def main(arguments):
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--Waveid', required=True)
-    parser.add_argument('--NoPrompts', default=False, type=bool,
+    parser.add_argument('--AppIds', default=None)
+    parser.add_argument('--ServerIds', default=None)
+    parser.add_argument('--NoPrompts', default=False, type=mfcommon.parse_boolean,
                         help='Specify if user prompts for passwords are allowed. Default = False')
     parser.add_argument('--SecretWindows', default=None)
     parser.add_argument('--SecretLinux', default=None)
@@ -123,7 +137,12 @@ def main(arguments):
     token = mfcommon.factory_login()
 
     print("*Getting Server List*")
-    get_servers, linux_exist, windows_exist = mfcommon.get_factory_servers(args.Waveid, token)
+    get_servers, linux_exist, windows_exist = mfcommon.get_factory_servers(
+        waveid=args.Waveid,
+        app_ids=mfcommon.parse_list(args.AppIds),
+        server_ids=mfcommon.parse_list(args.ServerIds),
+        token=token,
+    )
 
     if windows_exist:
         if not args.SecretWindows:

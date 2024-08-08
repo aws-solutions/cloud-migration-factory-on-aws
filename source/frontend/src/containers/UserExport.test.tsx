@@ -1,12 +1,12 @@
-import {defaultTestProps, TEST_SESSION_STATE} from "../__tests__/TestUtils";
-import {render, screen} from "@testing-library/react";
-import {MemoryRouter} from "react-router-dom";
-import {SessionContext} from "../contexts/SessionContext";
+import { defaultTestProps, TEST_SESSION_STATE } from "../__tests__/TestUtils";
+import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { SessionContext } from "../contexts/SessionContext";
 import React from "react";
 import userEvent from "@testing-library/user-event";
 import * as XLSX from "xlsx";
 import UserExport from "./UserExport";
-import {ToolsContext} from "../contexts/ToolsContext";
+import { ToolsContext } from "../contexts/ToolsContext";
 
 function renderUserExportComponent(props = defaultTestProps) {
   const helpPanelMockContext = {
@@ -14,32 +14,32 @@ function renderUserExportComponent(props = defaultTestProps) {
     setHelpPanelContentFromSchema: jest.fn(),
     setToolsOpen: jest.fn(),
     toolsState: {
-      toolsOpen: false
-    }
+      toolsOpen: false,
+    },
   };
 
   return {
     renderResult: render(
-      <MemoryRouter initialEntries={['/export']}>
+      <MemoryRouter initialEntries={["/export"]}>
         <ToolsContext.Provider value={helpPanelMockContext}>
           <SessionContext.Provider value={TEST_SESSION_STATE}>
-            <div id='modal-root'/>
+            <div id="modal-root" />
             <UserExport></UserExport>
           </SessionContext.Provider>
         </ToolsContext.Provider>
       </MemoryRouter>
-    ), helpPanelMockContext
+    ),
+    helpPanelMockContext,
   };
 }
 
-test('the download button downloads an xlsx file', async () => {
+test("the download button downloads an xlsx file", async () => {
   // GIVEN
-  jest.spyOn(XLSX, 'writeFile').mockImplementation(() => {
-  });
-  jest.spyOn(XLSX.utils, 'json_to_sheet');
+  jest.spyOn(XLSX, "writeFile").mockImplementation(() => {});
+  jest.spyOn(XLSX.utils, "json_to_sheet");
 
-  const {helpPanelMockContext} = renderUserExportComponent();
-  const downloadButton = screen.getByRole('button', {name: 'Download All Data'});
+  const { helpPanelMockContext } = renderUserExportComponent();
+  const downloadButton = screen.getByRole("button", { name: "Download All Data" });
 
   // WHEN
   await userEvent.click(downloadButton);
@@ -48,8 +48,9 @@ test('the download button downloads an xlsx file', async () => {
   expect(XLSX.utils.json_to_sheet).toHaveBeenCalledTimes(4); // 1 sheet per entity type
   expect(XLSX.writeFile).toHaveBeenCalledTimes(1);
   expect(helpPanelMockContext.setHelpPanelContent).toHaveBeenCalledWith({
-    header: 'Export',
-    content_text: 'From here you can export all the data from the Migration Factory into a single multi tabbed Excel spreadsheet.'
+    header: "Export",
+    content_text:
+      "From here you can export all the data from the Migration Factory into a single multi tabbed Excel spreadsheet.",
   });
 });
 
