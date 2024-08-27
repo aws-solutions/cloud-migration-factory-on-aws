@@ -86,6 +86,7 @@ Resources:
                   - 'ssm:GetAutomationExecution'
                   - 'ssm:StartAutomationExecution'
                   - 'ssm:DescribeDocument'
+                  - 'ssm:GetDocument'
                 Resource:
                   - 'arn:aws:ssm:*:*:document/*'
                   - 'arn:aws:ssm:*:*:automation-definition/*:*'
@@ -93,6 +94,8 @@ Resources:
               - Effect: Allow
                 Action:
                   - 'ssm:DescribeInstanceInformation'
+                  - 'ssm:SendCommand'
+                  - 'ssm:StartSession'
                 Resource: '*'
         - PolicyName: MGNPostLaunchActions
           PolicyDocument:
