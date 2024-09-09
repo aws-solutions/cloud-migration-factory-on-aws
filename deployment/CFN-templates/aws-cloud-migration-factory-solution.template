@@ -4540,6 +4540,8 @@ Resources:
 
   AppMigService:
     Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - ToolsAPIDeploy
     Properties:
       TemplateURL: !Sub
        - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-mgn.template'
