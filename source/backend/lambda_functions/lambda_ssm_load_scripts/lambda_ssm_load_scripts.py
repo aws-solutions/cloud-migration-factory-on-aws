@@ -247,7 +247,7 @@ def lambda_handler(event, context):
         elif event['RequestType'] == 'Update':
             logger.info('Update action')
             upgrade_scripts()
-            # import_script_packages()
+            import_script_packages()
             status = 'SUCCESS'
             message = 'No update required'
 
