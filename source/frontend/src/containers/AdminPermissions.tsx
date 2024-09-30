@@ -5,7 +5,7 @@
 
 import React, { useContext, useState } from "react";
 import AdminApiClient from "../api_clients/adminApiClient";
-import { SpaceBetween, StatusIndicator, Tabs } from "@awsui/components-react";
+import { SpaceBetween, StatusIndicator, Tabs } from "@cloudscape-design/components";
 
 import { useAdminPermissions } from "../actions/AdminPermissionsHook";
 import ItemTable from "../components/ItemTable";

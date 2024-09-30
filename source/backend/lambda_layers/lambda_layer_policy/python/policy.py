@@ -39,13 +39,13 @@ class AuthPolicy(object):
     """The principal used for the policy, this should be a unique identifier for the end user."""
     version = "2012-10-17"
     """The policy version used for the evaluation. This should always be '2012-10-17'"""
-    path_regex  = "^[/.a-zA-Z0-9-\*]+$"
+    path_regex  = "^[/.a-zA-Z0-9-_\*]+$"
     """The regular expression used to validate resource paths for the policy"""
 
     """these are the internal lists of allowed and denied methods. These are lists
     of objects and each object has 2 properties: A resource ARN and a nullable
     conditions statement.
-    the build method processes these lists and generates the approriate
+    the build method processes these lists and generates the appropriate
     statements for the final policy"""
     allow_methods = []
     deny_methods = []
@@ -278,16 +278,17 @@ class MFAuth(object):
         if (api_type == 'admin'):
             logger.info('Admin API Access')
             if group is not None:
-                is_admin_group = False
-                for g in group:
-                    if 'admin' in g:
-                        is_admin_group = True
-                if is_admin_group == False:
+                if 'admin' in group:
+                    logger.info('Allowing Admin API Access, %s', email)
+                    try:
+                        policy.allow_method(method, path)
+                    except NameError as e:
+                        logger.info(f'Denying Admin API Access due to: {e} with user: {email}')
+                        policy.deny_all_methods()
+                else:
                     logger.info('Denying Admin API Access, %s', email)
                     policy.deny_all_methods()
-                else:
-                    logger.info('Allowing Admin API Access, %s', email)
-                    policy.allow_method(method, path)
+
             else:
                 logger.info('Denying Admin API, as user is not a member of any Cognito groups: %s', email)
                 policy.deny_all_methods()
@@ -296,16 +297,16 @@ class MFAuth(object):
         if (api_type == 'login'):
             logger.info('Login API Access')
             if group is not None:
-                is_admin_group = False
-                for g in group:
-                    if 'admin' in g:
-                        is_admin_group = True
-                if is_admin_group == False:
+                if 'admin' in group:
+                    logger.info('Allowing Login API Access, %s', email)
+                    try:
+                        policy.allow_method(method, path)
+                    except NameError as e:
+                        logger.info(f'Denying Admin API Access due to: {e} with user: {email}')
+                        policy.deny_all_methods()
+                else:
                     logger.info('Denying Login API Access: %s', email)
                     policy.deny_all_methods()
-                else:
-                    logger.info('Allowing Login API Access, %s', email)
-                    policy.allow_method(method, path)
             else:
                 logger.info('Denying Login API, as user is not a member of any Cognito groups: %s', email)
                 policy.deny_all_methods()

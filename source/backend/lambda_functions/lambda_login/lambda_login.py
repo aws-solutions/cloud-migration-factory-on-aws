@@ -6,12 +6,14 @@ import json
 import os
 
 import cmf_boto
-from cmf_logger import logger
+from cmf_logger import logger, log_event_received
 from cmf_utils import cors, default_http_headers
 
 
 def lambda_handler(event, _):
     response = {}
+    log_event_received(event)
+
     try:
         body = json.loads(event['body'])
         client = cmf_boto.client('cognito-idp')

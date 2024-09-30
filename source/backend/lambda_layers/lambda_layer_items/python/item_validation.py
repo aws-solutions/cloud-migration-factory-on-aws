@@ -2,15 +2,32 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import os
-import boto3
+import cmf_boto
+import functools
 import re
 import query_conditions
 from query_comparator_operations import query_comparator_operations_dictionary
+from boto3.dynamodb.conditions import Key
 
 application = os.environ['application']
 environment = os.environ['environment']
 
 ATTRIBUTE_MESSAGE_PREFIX = "Attribute "
+
+SCHEMA_TO_TABLE_NAME_OVERRIDE_MAP = {
+        'application': 'app',
+        'script': 'ssm-script'
+    }
+
+STATUS_TXT_IN_PROGRESS = 'In Progress'
+STATUS_TXT_COMPLETE = 'Complete'
+STATUS_TXT_NOT_STARTED = 'Not Started'
+STATUS_TXT_SKIPPED = 'Skip'
+STATUS_TXT_RETRY = 'Retry'
+STATUS_TXT_FAILED = 'Failed'
+STATUS_TXT_PENDING_APPROVAL = 'Pending Approval'
+STATUS_OK_TO_RETRY = [STATUS_TXT_COMPLETE, STATUS_TXT_SKIPPED, STATUS_TXT_FAILED]
+TASK_PREDECESSOR_ALLOWED_UPDATE_STATUS = [STATUS_TXT_COMPLETE, STATUS_TXT_SKIPPED]
 
 class UnSupportedOperationTypeException(Exception):
     pass
@@ -38,7 +55,8 @@ def get_required_attributes(schema, include_conditional=False):
         # Check if mandatory required flag set and not the system key attribute.
         if ('required' in attribute and attribute['required'] == True) \
             and not ('hidden' in attribute and attribute['hidden'] == True) \
-            and attribute['name'] != schema_system_key: 
+            and attribute['name'] != schema_system_key \
+            and attribute.get('type') != 'relationship':
             required_attributes.append(attribute)
         # if not mandatory required then is there a conditional required.
         elif 'conditions' in attribute and include_conditional:
@@ -87,10 +105,30 @@ def check_attribute_required_conditions(item, conditions):
 
 
 def check_valid_item_create(item, schema, related_items=None):
-    invalid_attributes = []
-
     required_attributes = get_required_attributes(schema, True)
+    invalid_attributes = check_required_attributes(item, required_attributes)
+    if len(invalid_attributes) > 0:
+        return invalid_attributes
 
+    # check that values are correct.
+    validation_errors = []
+    validation_errors.extend(validate_item_keys_and_values(item, schema['attributes'], related_items))
+    validation_errors.extend(invalid_attributes)
+
+    # Add schema-specification validation
+    if schema['schema_name'] == 'pipeline':
+        validation_errors.extend(check_valid_pipeline_create(item))
+    elif schema['schema_name'] == 'task_execution':
+        validation_errors.extend(check_valid_task_execution_update(item))
+
+    if len(validation_errors) > 0:
+        return validation_errors
+    else:
+        return None
+
+
+def check_required_attributes(item, required_attributes):
+    invalid_attributes = []
     for attribute in required_attributes:
         invalid_attribute_message = f"{ATTRIBUTE_MESSAGE_PREFIX}{attribute['name']} is required and not provided."
         is_valid = True
@@ -102,30 +140,12 @@ def check_valid_item_create(item, schema, related_items=None):
 
         if not is_valid:
             invalid_attributes.append(invalid_attribute_message)
-
-    if len(invalid_attributes) > 0:
-        return invalid_attributes
-
-    # check that values are correct.
-    validation_errors = validate_item_keys_and_values(item, schema['attributes'], related_items)
-
-    validation_errors.extend(invalid_attributes)
-
-    if len(validation_errors) > 0:
-        return validation_errors
-    else:
-        return None
+    return invalid_attributes
 
 
 def is_required_attribute_valid(item, attribute):
-    if attribute['name'] in item:
-        if not (item[attribute['name']] != '' and item[attribute['name']] is not None):
-            return False
-    # key not in item, missing required attribute.
-    else:
-        return False
-
-    return True
+    attr_value = functools.reduce(lambda obj, path: obj.get(path, ''), attribute['name'].split("."), item)
+    return bool(attr_value)
 
 
 def is_conditional_attribute_valid(item, attribute):
@@ -160,18 +180,11 @@ def get_related_items(related_schema_names):
         if not related_schema_name:
             continue
 
-        if related_schema_name == 'secret':
-            # Secrets are not stored in a DDB tables, no data will be returned.
-            continue
+        table_name_suffix = map_schema_to_table_name_suffix(related_schema_name)
 
-        if related_schema_name == 'application':
-            table_name = 'app'
-        else:
-            table_name = related_schema_name
+        related_table_name = '{}-{}-{}'.format(application, environment, table_name_suffix)
 
-        related_table_name = '{}-{}-{}s'.format(application, environment, table_name)
-
-        related_table = boto3.resource('dynamodb').Table(related_table_name)
+        related_table = cmf_boto.resource('dynamodb').Table(related_table_name)
         related_table_items = scan_dynamodb_data_table(related_table)  # get all items from related table.
         related_items[related_schema_name] = related_table_items
 
@@ -234,6 +247,8 @@ def get_relationship_data(items, schema):
 def validate_item_related_record(attribute, value, preloaded_related_items=None):
     if attribute['type'] != 'relationship':
         return None  # Not a relationship attribute, return success.
+    if attribute.get('rel_entity') == 'secret':
+        return None # Secrets are not saved in DDB so no check is possible also options list is provided by secrets manager.
 
     if 'rel_entity' not in attribute or 'rel_key' not in attribute:
         # invalid relationship attribute.
@@ -256,13 +271,12 @@ def validate_item_related_record(attribute, value, preloaded_related_items=None)
 
 def load_items_from_ddb(attribute):
     # No preloaded item provided, load from DDB table.
-    table_name = attribute['rel_entity']
-    if table_name == 'application':
-        table_name = 'app'
 
-    related_table_name = '{}-{}-{}s'.format(application, environment, table_name)
+    table_name_suffix = map_schema_to_table_name_suffix(attribute['rel_entity'])
 
-    related_table = boto3.resource('dynamodb').Table(related_table_name)
+    related_table_name = '{}-{}-{}'.format(application, environment, table_name_suffix)
+
+    related_table = cmf_boto.resource('dynamodb').Table(related_table_name)
     related_items = scan_dynamodb_data_table(related_table)  # get all items from related table.
     
     return related_items
@@ -306,12 +320,12 @@ def validate_list_type_attribute(item, attribute, key, errors):
     listvalue = attribute['listvalue'].lower().split(',')
     if 'listMultiSelect' in attribute and attribute['listMultiSelect'] == True:
         for item in item[key]:
-            if item.lower() not in listvalue:
+            if str(item).lower() not in listvalue:
                 message = ATTRIBUTE_MESSAGE_PREFIX + key + "'s value does not match any of the allowed values '" + \
                             attribute['listvalue'] + "' defined in the schema"
                 errors.append(message)
     else:
-        if item[key] != '' and item[key].lower() not in listvalue:
+        if item[key] != '' and str(item[key]).lower() not in listvalue:
                 message = ATTRIBUTE_MESSAGE_PREFIX + key + "'s value does not match any of the allowed values '" + \
                             attribute[
                                 'listvalue'] + "' defined in the schema"
@@ -321,12 +335,6 @@ def validate_list_type_attribute(item, attribute, key, errors):
 
 
 def validate_relationship_type_attribute(related_items, item, attribute, key, errors):
-
-    # Bypass with schemas that are not DDB based like secrets,
-    # in future we will support this but a bigger change.
-    if attribute.get('rel_bypass_validation', False):
-        return errors
-
     if related_items and attribute['rel_entity'] in related_items.keys():
         related_record_validation = validate_item_related_record(
             attribute, item[key],
@@ -408,11 +416,154 @@ def scan_dynamodb_data_table(data_table):
     return scan_data
 
 
+def query_dynamodb_index(data_table, index_name, key_condition):
+    response = data_table.query(
+        IndexName=index_name,
+        KeyConditionExpression=key_condition
+    )
+    query_data = response['Items']
+    while 'LastEvaluatedKey' in response:
+        print("Last Evaluated key is " + str(response['LastEvaluatedKey']))
+        response = data_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'], ConsistentRead=True)
+        query_data.extend(response['Items'])
+    return query_data
+
+
 def does_item_exist(new_item_key, new_item_value, current_items):
     # Search current_items for key and value that match.
     for item in current_items:
-        if new_item_key in item and item[new_item_key] == new_item_value:
+        if new_item_key in item and str(item[new_item_key]).lower() == str(new_item_value).lower():
             return True
 
     # Item not found in current_items.
     return False
+
+
+def get_task(task_id, task_version=0):
+    validation_errors = []
+    task_table_name = '{}-{}-ssm-scripts'.format(application, environment)
+    task_table = cmf_boto.resource('dynamodb').Table(task_table_name)
+
+    task = task_table.get_item(Key={'package_uuid': task_id, 'version' : int(task_version)})
+
+    if 'Item' not in task:
+        msg = f'Task ID "{task_id}" was not found'
+        print(msg)
+        validation_errors.append(msg)
+
+    return task, validation_errors
+
+
+def check_valid_pipeline_create(item):
+    validation_errors = []
+    pipeline_template_task_table_name = '{}-{}-pipeline_template_tasks'.format(application, environment)
+    pipeline_template_task_table = cmf_boto.resource('dynamodb').Table(pipeline_template_task_table_name)
+
+    pipeline_template_id = item['pipeline_template_id']
+    pipeline_template_tasks = query_dynamodb_index(
+        pipeline_template_task_table,
+        'pipeline_template_id-index',
+        Key('pipeline_template_id').eq(pipeline_template_id)
+    )
+    pipeline_task_arguments = item.get('task_arguments', [])
+
+    for pipeline_template_task in pipeline_template_tasks:
+        task_id = pipeline_template_task['task_id']
+        task_version = pipeline_template_task['task_version']
+
+        task, task_errors = get_task(task_id, task_version)
+        if task_errors:
+            validation_errors.extend(task_errors)
+            continue
+
+        if 'task_arguments' not in task['Item']:
+            # No arguments to validate
+            continue
+
+        task_template_arguments = task['Item']['task_arguments']
+        task_template_argument_names = [arg['name'] for arg in task_template_arguments]
+
+        required_attributes = [arg for arg in task_template_arguments if arg.get('required', False)]
+        task_args = {i:pipeline_task_arguments[i] for i in pipeline_task_arguments if i in task_template_argument_names}
+
+        errors = check_required_attributes(task_args, required_attributes)
+        validation_errors.extend(errors)
+
+        errors = validate_item_keys_and_values(task_args, task_template_arguments)
+        validation_errors.extend(errors)
+
+    return validation_errors
+
+
+def check_valid_task_execution_update(item):
+
+    task, task_errors = get_task(item['task_id'], item['task_version'])
+    if task_errors:
+        return task_errors
+
+    pipeline_id = item['pipeline_id']
+    task_execution_table_name = '{}-{}-task_executions'.format(application, environment)
+    task_execution_table = cmf_boto.resource('dynamodb').Table(task_execution_table_name)
+    task_executions = query_dynamodb_index(
+        task_execution_table,
+        'pipeline_id-index',
+        Key('pipeline_id').eq(pipeline_id)
+    )
+
+    validation_errors = validate_task_predecessors_status(item, task_executions)
+
+    current_task_execution = next(t for t in task_executions if t['task_execution_id'] == item['task_execution_id'])
+
+    if task['Item']['type'] == 'Automated' and current_task_execution['task_execution_status'] not in STATUS_OK_TO_RETRY:
+        msg = f'Can not update execution status for an automated task with status: {item["task_execution_status"]}'
+        print(msg)
+        validation_errors.append(msg)
+
+    return validation_errors
+
+def map_schema_to_table_name_suffix(schema_name):
+    table_name_suffix = schema_name
+
+    # if schema is found in the map then use the table name suffix assigned instead of schema name.
+    if SCHEMA_TO_TABLE_NAME_OVERRIDE_MAP.get(schema_name, None):
+        table_name_suffix = SCHEMA_TO_TABLE_NAME_OVERRIDE_MAP.get(schema_name)
+
+    # pluralize table name suffix.
+    table_name_suffix = f"{table_name_suffix}s"
+
+    return table_name_suffix
+
+def get_task_execution_predecessors(task_id, tasks):
+    predecessors = []
+    for task in tasks:
+        if task_id in task['task_successors']:
+            predecessors.append(task)
+
+    return predecessors
+
+
+def validate_task_predecessors_status(item, task_executions):
+    errors = []
+
+    # validate that all predecessor tasks are in a valid state to allow task updates.
+    predecessors = get_task_execution_predecessors(item['task_execution_id'], task_executions)
+
+    for predecessor in predecessors:
+        if predecessor['task_execution_status'] not in TASK_PREDECESSOR_ALLOWED_UPDATE_STATUS:
+            msg = f"Can not update execution status for task as predecessor '{predecessor['task_execution_name']}' as it is not in a valid state ({predecessor['task_execution_status']})"
+            errors.append(msg)
+
+    return errors
+
+
+def is_valid_id(schema, item_id):
+    if schema.get('key_type', 'number') == 'number':
+        pattern = re.compile("^\d+$")
+        if not pattern.match(item_id):
+            return False
+    elif schema.get('key_type', 'number') == 'uuid':
+        pattern = re.compile("^[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}\Z")
+        if not pattern.match(item_id):
+            return False
+
+    return True

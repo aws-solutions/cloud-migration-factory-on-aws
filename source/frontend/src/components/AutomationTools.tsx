@@ -3,15 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
-import { Button, Container, Form, Header, SpaceBetween } from "@awsui/components-react";
+import React, {useState} from "react";
+import {Button, Container, Form, Header, SpaceBetween} from "@cloudscape-design/components";
 import AllAttributes from "./ui_attributes/AllAttributes";
 
-import { setNestedValuePath } from "../resources/main";
-import { EntitySchema } from "../models/EntitySchema";
-import { UserAccess } from "../models/UserAccess";
-import { ClickDetail } from "@awsui/components-react/internal/events";
-import { CMFModal } from "./Modal";
+import {setNestedValuePath} from "../resources/main";
+import {EntitySchema} from "../models/EntitySchema";
+import {UserAccess} from "../models/UserAccess";
+import {CMFModal} from "./Modal";
 
 type AutomationToolsParams = {
   selectedItems: any;
@@ -75,7 +74,7 @@ const AutomationTools = (props: AutomationToolsParams) => {
     setDataChanged(true);
   }
 
-  function handleAction(e: CustomEvent<ClickDetail>, actionId: any) {
+  function handleAction(e: CustomEvent<any>, actionId: any) {
     props.handleAction(localTool, actionId);
   }
 

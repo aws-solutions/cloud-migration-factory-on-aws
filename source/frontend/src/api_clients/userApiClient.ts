@@ -31,6 +31,30 @@ export default class UserApiClient {
     return API.get(this.apiName, "/user/database", {});
   }
 
+  getPipelines() {
+    return API.get(this.apiName, "/user/pipeline", {});
+  }
+
+  getPipelineTemplates() {
+    return API.get(this.apiName, "/user/pipeline_template", {});
+  }
+
+  getPipelineTemplate(template_id: string) {
+    return API.get(this.apiName, "/user/pipeline_template/" + template_id, {});
+  }
+
+  getPipelineTemplateTasks() {
+    return API.get(this.apiName, "/user/pipeline_template_task", {});
+  }
+
+  getTasks() {
+    return API.get(this.apiName, "/user/task", {});
+  }
+
+  getTaskExecutions() {
+    return API.get(this.apiName, "/user/task_execution", {});
+  }
+
   getAppDatabases(app_id: string) {
     return API.get(this.apiName, "/user/database/appid/" + app_id, {});
   }
@@ -45,6 +69,18 @@ export default class UserApiClient {
 
   deleteServer(server_id: string) {
     return API.del(this.apiName, "/user/server/" + server_id, {});
+  }
+
+  deletePipeline(pipeline_id: string) {
+    return API.del(this.apiName, "/user/pipeline/" + pipeline_id, {});
+  }
+
+  deletePipelineTemplate(pipeline_template_id: string) {
+    return API.del(this.apiName, "/user/pipeline_template/" + pipeline_template_id, {});
+  }
+
+  deletePipelineTemplateTask(pipeline_template_task_id: string) {
+    return API.del(this.apiName, "/user/pipeline_template_task/" + pipeline_template_task_id, {});
   }
 
   postItem(item: any, schema: string) {

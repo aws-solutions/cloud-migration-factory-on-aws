@@ -3,16 +3,19 @@
 
 
 import json
+import os
+from unittest import mock
 from unittest.mock import patch
 from moto import mock_aws
 
 
-from test_common_utils import logger
+from test_common_utils import logger, default_mock_os_environ
 from test_lambda_cognito_base import exceptions as boto_core_exceptions, CognitoTestsBase
 
 import lambda_cognito_group_update
 
-
+@mock_aws
+@mock.patch.dict('os.environ', default_mock_os_environ)
 class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
     current_test_client = None
 
@@ -48,12 +51,8 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
                 'group_name': self.test_group_name_1
             }
         }
-        self.assertRaises(boto_core_exceptions.ClientError,
-                          lambda_cognito_group_update.lambda_handler,
-                          lambda_event, None)
-        with self.assertRaises(boto_core_exceptions.ClientError) as ex:
-            lambda_cognito_group_update.lambda_handler(lambda_event, None)
-        self.assertEqual('ResourceNotFoundException', ex.exception.response['Error']['Code'])
+        resp = lambda_cognito_group_update.lambda_handler(lambda_event, None)
+        self.assertEqual(404, resp['statusCode'])
 
     @mock_aws
     def test_lambda_handler_post_with_body(self):
@@ -80,6 +79,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
 
     @mock_aws
     def test_lambda_handler_post_with_body_error(self):
+        logger.info('test_lambda_handler_post_with_body_error')
         # send POST with one correct group and another faulty
         # the correct group has an extra attribute which would be ignored
         # assert that response is 400 with error message
@@ -109,6 +109,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
 
     @mock_aws
     def test_lambda_handler_post_with_body_group_exists(self):
+        logger.info('test_lambda_handler_post_with_body_group_exists')
         # create a group
         # send POST with two groups, one of them the above
         # assert that response is 400 with error message
@@ -138,6 +139,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
 
     @mock_aws
     def test_lambda_handler_post_with_body_group_exists_twice(self):
+        logger.info('test_lambda_handler_post_with_body_group_exists_twice')
         # create a group
         # send POST with two groups, one of them the above
         # assert that response is 400 with error message
@@ -173,6 +175,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
 
     @mock_aws
     def test_lambda_handler_other_http_verbs_and_unexpected(self):
+        logger.info('test_lambda_handler_other_http_verbs_and_unexpected')
         self.create_user_pool()
         self.create_group(self.test_group_name_1)
 
@@ -210,7 +213,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
         elif operation_name == 'CreateGroup' and kwarg['GroupName'] == 'NotAuthorizedException':
             raise LambdaCognitoGroupUpdateTest.current_test_client.exceptions.NotAuthorizedException({
                 'Error': {
-                    'Code': 500,
+                    'Code': 'NotAuthorizedException',
                     'Message': 'Simulated unauthorized exception'
                 }
             }, operation_name)
@@ -231,6 +234,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
 
     @patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     def test_lambda_handler_exceptions_unhandled_delete(self):
+        logger.info('test_lambda_handler_exceptions_unhandled_delete')
         self.create_user_pool()
         self.create_group(self.test_group_name_1)
         lambda_event = {
@@ -239,11 +243,18 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
                 'group_name': self.test_group_name_1
             }
         }
-        self.assertRaises(boto_core_exceptions.ClientError, lambda_cognito_group_update.lambda_handler,
-                          lambda_event, None)
+        response = lambda_cognito_group_update.lambda_handler(lambda_event, None)
+        self.assertEqual(500, response['statusCode'])
+        expected_error_message = "ClientError('An error occurred (500) when calling the DeleteGroup operation: UnExpected Error')"
+        error_message = json.loads(response['body'])[0]
+        self.assertEqual(expected_error_message, error_message)
+
+        # self.assertRaises(boto_core_exceptions.ClientError, lambda_cognito_group_update.lambda_handler,
+        #                   lambda_event, None)
 
     @patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     def test_lambda_handler_exceptions_not_authorized(self):
+        logger.info('test_lambda_handler_exceptions_not_authorized')
         # if the aws api call fails for 'DELETE' no error handing added
         # tests that the lambda throws the unhandled exception
         self.create_user_pool()
@@ -258,12 +269,15 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
                 ],
             }),
         }
-        self.assertRaises(self.boto_cognito_client.exceptions.NotAuthorizedException,
-                          lambda_cognito_group_update.lambda_handler,
-                          lambda_event, None)
+        response = lambda_cognito_group_update.lambda_handler(lambda_event, None)
+        self.assertEqual(400, response['statusCode'])
+        expected_error_message = 'Group update Lambda does not have permission to update groups in pool ID123. Cancelling update.'
+        error_message = json.loads(response['body'])[0]
+        self.assertEqual(expected_error_message, error_message)
 
     @patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     def test_lambda_handler_exceptions_client_error(self):
+        logger.info('test_lambda_handler_exceptions_client_error')
         lambda_event = {
             'httpMethod': 'POST',
             'body': json.dumps({
@@ -274,6 +288,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
                 ],
             }),
         }
+        os.environ['userpool_id'] = "ID123"
         response = lambda_cognito_group_update.lambda_handler(lambda_event, None)
         self.assertEqual(400, response['statusCode'])
         expected_error_message = 'Internal error.'
@@ -282,6 +297,7 @@ class LambdaCognitoGroupUpdateTest(CognitoTestsBase):
 
     @patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     def test_lambda_handler_exceptions_unknown_error(self):
+        logger.info('test_lambda_handler_exceptions_unknown_error')
         lambda_event = {
             'httpMethod': 'POST',
             'body': json.dumps({

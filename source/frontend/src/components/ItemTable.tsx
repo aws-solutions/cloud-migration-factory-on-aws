@@ -17,7 +17,7 @@ import {
   Table,
   TableProps,
   TextFilter,
-} from "@awsui/components-react";
+} from "@cloudscape-design/components";
 
 import {
   getColumnDefinitions,
@@ -25,15 +25,14 @@ import {
   getDefaultPreferences,
   getPageSelectorOptions,
 } from "../resources/ItemTableConfig";
-import { useCollection } from "@awsui/collection-hooks";
+import { useCollection } from "@cloudscape-design/collection-hooks";
 
 import { capitalize, resolveRelationshipValues } from "../resources/main";
 
 import TableHeader from "./TableHeader";
 import { filterCounter, headerCounter } from "../utils/table-utils";
-import { CancelableEventHandler, ClickDetail } from "@awsui/components-react/internal/events";
 import { EntitySchema } from "../models/EntitySchema";
-import { defaultAllDeny, EntityAccessRecord, ActionDenyType, UserAccess } from "../models/UserAccess";
+import { ActionDenyType, defaultAllDeny, EntityAccessRecord, UserAccess } from "../models/UserAccess";
 import { ClickEvent } from "../models/Events";
 import { ToolsContext } from "../contexts/ToolsContext";
 
@@ -44,11 +43,12 @@ type ItemTableParams = {
   description?: any;
   errorLoading: string;
   handleAction?: any;
-  handleAddItem?: CancelableEventHandler<ClickDetail>;
+  handleAddItem?: (event: CustomEvent) => void;
   handleDaysFilterChange?: (arg0: any) => void;
   handleDeleteItem?: any;
   handleDownloadItems?: any;
   handleEditItem?: any;
+  handleDuplicateItem?: any;
   handleRefreshClick?: (arg0: any) => any;
   handleSelectionChange?: (arg0: any[]) => void;
   isLoading?: boolean;
@@ -74,6 +74,7 @@ const ItemTable = ({
   handleDeleteItem,
   handleDownloadItems,
   handleEditItem,
+  handleDuplicateItem,
   handleRefreshClick,
   handleSelectionChange,
   isLoading,
@@ -88,20 +89,20 @@ const ItemTable = ({
 }: ItemTableParams) => {
   const { setHelpPanelContent } = useContext(ToolsContext);
 
-  const locaStorageKeys = {
+  const localStorageKeys = {
     tablePrefs: schemaName + "_table_prefs",
     tableAttributes: schemaName + "_table_attributes",
   };
 
   const [preferences, setPreferences] = useState(
-    localStorage[locaStorageKeys.tablePrefs]
-      ? JSON.parse(localStorage.getItem(locaStorageKeys.tablePrefs)!)
+    localStorage[localStorageKeys.tablePrefs]
+      ? JSON.parse(localStorage.getItem(localStorageKeys.tablePrefs)!)
       : getDefaultPreferences(schema, schemaKeyAttribute)
   );
   const [contentAttributes] = useState(getContentSelectorOptions(schema));
 
   React.useEffect(() => {
-    localStorage.setItem(locaStorageKeys.tablePrefs, JSON.stringify(preferences));
+    localStorage.setItem(localStorageKeys.tablePrefs, JSON.stringify(preferences));
   }, [preferences]);
 
   const {
@@ -259,6 +260,7 @@ const ItemTable = ({
       handleDeleteClick={handleDeleteItem ? handleDeleteItem : undefined}
       handleEditClick={handleEditItem ? handleEditItem : undefined}
       handleAddClick={handleAddItem ? handleAddItem : undefined}
+      handleDuplicateClick={handleDuplicateItem ? handleDuplicateItem : undefined}
       handleDownload={handleDownloadItems ? handleDownloadItems : undefined}
       disabledButtons={getEntityAccess()}
     />

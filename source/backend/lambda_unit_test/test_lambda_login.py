@@ -24,6 +24,7 @@ mock_os_environ = {
 @mock.patch.dict('os.environ', mock_os_environ)
 class LambdaLoginTest(unittest.TestCase):
 
+    @mock.patch.dict('os.environ', mock_os_environ)
     def setUp(self):
         self.user_name = 'testUserName'
         self.temporary_password = 'P2$Sword'

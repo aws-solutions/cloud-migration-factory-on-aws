@@ -20,6 +20,7 @@ ehthumbs.db
 # Webstorm IDE files
 /.idea/*
 /source/frontend/test-report.xml
+/source/frontend/dist
 
 # Frontend configuration file for local development
 /source/frontend/public/env_dev.js

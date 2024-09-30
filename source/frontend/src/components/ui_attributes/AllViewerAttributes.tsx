@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { Box, ExpandableSection, SpaceBetween } from "@awsui/components-react";
+import { Box, ExpandableSection, SpaceBetween } from "@cloudscape-design/components";
 
 import TextAttribute from "./TextAttribute";
 import RelatedRecordPopover from "./RelatedRecordPopover";

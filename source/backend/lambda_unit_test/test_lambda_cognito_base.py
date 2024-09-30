@@ -4,19 +4,26 @@
 
 import unittest
 import os
-import boto3
+from unittest import mock
+from moto import mock_aws
+from test_common_utils import default_mock_os_environ
 
+import boto3
+from unittest import mock
 import botocore.session
 import botocore.errorfactory
-
+from moto import mock_aws
+from test_common_utils import default_mock_os_environ
 
 model = botocore.session.get_session().get_service_model('cognito-idp')
 factory = botocore.errorfactory.ClientExceptionsFactory()
 exceptions = factory.create_client_exceptions(model)
 
-
+@mock.patch.dict('os.environ', default_mock_os_environ)
+@mock_aws
 class CognitoTestsBase(unittest.TestCase):
 
+    @mock.patch.dict('os.environ', default_mock_os_environ)
     def setUp(self):
         super().setUp()
         self.boto_cognito_client = boto3.client('cognito-idp')
@@ -119,7 +126,7 @@ class CognitoTestsBase(unittest.TestCase):
 
     def create_user_with_sms_mfa(self, user_name):
         self.create_verified_user(user_name)
-        response = self.boto_cognito_client.admin_set_user_mfa_preference(
+        self.boto_cognito_client.admin_set_user_mfa_preference(
             Username=user_name,
             UserPoolId=self.user_pool_id,
             SMSMfaSettings={

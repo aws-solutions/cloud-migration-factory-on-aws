@@ -1,6 +1,6 @@
-import { FlashbarProps } from "@awsui/components-react/flashbar/interfaces";
-import { EntitySchema, SchemaMetaData } from "./EntitySchema";
-import { ReactNode } from "react";
+import {FlashbarProps} from "@cloudscape-design/components";
+import {EntitySchema, SchemaMetaData} from "./EntitySchema";
+import {ReactNode} from "react";
 
 export type CmfAddNotification = {
   id?: string;

@@ -4,7 +4,7 @@
  */
 
 import React, { ReactNode } from "react";
-import { Box, Button, Modal, SpaceBetween } from "@awsui/components-react";
+import { Box, Button, Modal, SpaceBetween } from "@cloudscape-design/components";
 
 export type CMFModalProps = {
   header: ReactNode;
@@ -15,7 +15,7 @@ export type CMFModalProps = {
   children?: ReactNode;
 };
 
-// Wrapper for Modal component from @awsui/components-react to reduce duplication of defaults
+// Wrapper for Modal component from @cloudscape-design/components to reduce duplication of defaults
 export const CMFModal = ({ children, onDismiss, visible, onConfirmation, header, noCancel }: CMFModalProps) => {
   if (!visible) return <></>; // if modal is not visible, don't render it. it makes unit testing harder when there are multiple invisible modals in the DOM.
 

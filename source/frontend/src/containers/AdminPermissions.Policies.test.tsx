@@ -3,17 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {render, screen, waitFor, within} from "@testing-library/react";
 import React from "react";
-import "@testing-library/jest-dom";
+
 import AdminPermissions from "./AdminPermissions";
 import userEvent from "@testing-library/user-event";
-import { defaultTestProps, mockNotificationContext } from "../__tests__/TestUtils";
-import { server } from "../setupTests";
-import { rest } from "msw";
+import {defaultTestProps, mockNotificationContext} from "../__tests__/TestUtils";
+import {server} from "../setupTests";
+import {rest} from "msw";
 
 import policies from "../../test_data/default_policies.json";
-import { NotificationContext } from "../contexts/NotificationContext";
+import {NotificationContext} from "../contexts/NotificationContext";
 
 const renderAdminPermissionsComponent = () => {
   return {
@@ -77,7 +77,7 @@ test('submitting the "Add policy" form saves a new policy to API', async () => {
   expect(await screen.findByRole("heading", { name: "Add policy" })).toBeInTheDocument();
 
   // AND WHEN we populate all fields
-  await userEvent.type(screen.getByRole("textbox", { name: "Policy Name" }), "my-test-policy");
+  await userEvent.type(screen.getByRole("textbox", { name: "policy_name" }), "my-test-policy");
 
   await userEvent.click(screen.getByRole("button", { name: /Save/i }));
 
@@ -155,7 +155,7 @@ test('submitting the "Edit policy" form saves the updated policy to API', async 
   expect(await screen.findByRole("heading", { name: "Edit policy" })).toBeInTheDocument();
 
   // AND WHEN we populate all fields
-  await userEvent.type(screen.getByRole("textbox", { name: "Policy Name" }), "updated-policy");
+  await userEvent.type(screen.getByRole("textbox", { name: "policy_name" }), "updated-policy");
 
   await userEvent.click(screen.getByRole("button", { name: /Save/i }));
 

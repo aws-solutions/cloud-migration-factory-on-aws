@@ -3,17 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
+import {render, screen, waitFor, waitForElementToBeRemoved, within} from "@testing-library/react";
 import React from "react";
-import "@testing-library/jest-dom";
-import { defaultTestProps, mockNotificationContext, TEST_SESSION_STATE } from "../__tests__/TestUtils";
+
+import {defaultTestProps, mockNotificationContext, TEST_SESSION_STATE} from "../__tests__/TestUtils";
 import UserAutomationScripts from "./UserAutomationScripts";
-import { MemoryRouter } from "react-router-dom";
-import { SessionContext } from "../contexts/SessionContext";
-import { NotificationContext } from "../contexts/NotificationContext";
-import { server } from "../setupTests";
-import { rest } from "msw";
-import { generateTestAutomationScripts } from "../__tests__/mocks/ssm_api";
+import {MemoryRouter} from "react-router-dom";
+import {SessionContext} from "../contexts/SessionContext";
+import {NotificationContext} from "../contexts/NotificationContext";
+import {server} from "../setupTests";
+import {rest} from "msw";
+import {generateTestAutomationScripts} from "../__tests__/mocks/ssm_api";
 import userEvent from "@testing-library/user-event";
 
 const renderUserAutomationScriptsComponent = (props = defaultTestProps) => {
@@ -292,10 +292,11 @@ async function render_and_select_row(selRowIndex = 0) {
 
   expect(screen.getByRole("heading", { name: "Automation Scripts (1 of 8)" })).toBeVisible();
 
-  const selectedScriptName = within(row1).getAllByRole("cell")[1].innerHTML;
+  const selectedScriptName = within(row1).getAllByRole("cell")[1].textContent;
   expect(screen.getByRole("tab", { name: "Details" })).toBeInTheDocument();
   const detailsPanel = screen.getByRole("tabpanel", { name: "Details" });
   expect(detailsPanel).toBeVisible();
+  // @ts-ignore
   expect(within(detailsPanel).getByText(selectedScriptName)).toBeInTheDocument();
   expect(buttonActions).toBeEnabled();
 

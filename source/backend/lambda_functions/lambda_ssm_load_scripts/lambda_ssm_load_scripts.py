@@ -2,8 +2,8 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import os
-import boto3
 import json
+import traceback
 import uuid
 import base64
 import shutil
@@ -20,6 +20,7 @@ application = os.environ['application']
 environment = os.environ['environment']
 code_bucket = os.environ['code_bucket_name']
 key_prefix = os.environ['key_prefix']
+scripts_table_name = os.environ['ScriptsDynamoDBTable']
 
 lambda_client = cmf_boto.client('lambda')
 s3 = cmf_boto.client('s3')
@@ -200,6 +201,37 @@ def import_script_packages():
         logger.info(e)
 
 
+def upgrade_scripts():
+    all_scripts = get_all_ddb_table_items(scripts_table_name)
+    client_ddb = cmf_boto.client('dynamodb')
+
+    for script in all_scripts:
+        if ("lambda_function_name_suffix" not in script or "type" not in script) and (script.get("type", {}).get("S", None) != "Manual"):
+            logger.info(f'Upgrading script "{script["script_name"]["S"]}" version {script["version"]["N"]} to v4, using default of type=Automated and lambda_function_name_suffix=ssm')
+            script["lambda_function_name_suffix"] = {"S": "ssm"}
+            script["type"] = {"S": "Automated"}
+
+            client_ddb.put_item(
+                TableName=scripts_table_name,
+                Item=script
+            )
+
+
+def get_all_ddb_table_items(ddb_table_name):
+    client_ddb = cmf_boto.client('dynamodb')
+    response = client_ddb.scan(
+        TableName=ddb_table_name,
+        ConsistentRead=True
+    )
+    ddb_table_items = response['Items']
+
+    while 'LastEvaluatedKey' in response:
+        response = client_ddb.scan(ExclusiveStartKey=response['LastEvaluatedKey'], ConsistentRead=True)
+        ddb_table_items.extend(response['Items'])
+
+    return ddb_table_items
+
+
 def lambda_handler(event, context):
 
     try:
@@ -214,7 +246,8 @@ def lambda_handler(event, context):
 
         elif event['RequestType'] == 'Update':
             logger.info('Update action')
-            import_script_packages()
+            upgrade_scripts()
+            # import_script_packages()
             status = 'SUCCESS'
             message = 'No update required'
 
@@ -233,6 +266,7 @@ def lambda_handler(event, context):
         logger.info(e)
         status = 'FAILED'
         message = 'Exception during processing'
+        traceback.print_exc()
 
     response_data = {'Message': message}
     response = respond(event, context, status, response_data)

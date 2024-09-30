@@ -7,10 +7,12 @@ import base64
 import botocore
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import cmf_boto
 from cmf_logger import logger
+import cmf_pipeline
+from cmf_utils import CONST_DT_FORMAT, get_date_from_string
 
 application = os.environ["application"]
 environment = os.environ["environment"]
@@ -29,11 +31,6 @@ else:
     gatewayapi = cmf_boto.client("apigatewaymanagementapi", endpoint_url=socket_url)
 
 
-def unix_time_seconds(dt):
-    epoch = datetime.utcfromtimestamp(0)
-    return (dt - epoch).total_seconds()
-
-
 def update_log(ssm_id, output, ddb_retry_count):
     resp = ssm_jobs_table.get_item(TableName=ssm_jobs_table_name, Key={'SSMId': ssm_id})
     ssm_data = resp["Item"]
@@ -42,13 +39,14 @@ def update_log(ssm_id, output, ddb_retry_count):
         original_record_time = ssm_data["_history"]["outcomeDate"]
     else:
         original_record_time = ""
-    created_timestamp = ssm_data["_history"]["createdTimestamp"]
-    outcome_timestamp = datetime.utcnow()
+    created_timestamp = get_date_from_string(ssm_data["_history"]["createdTimestamp"])
+    outcome_timestamp = datetime.now(timezone.utc)
     outcome_timestamp_str = outcome_timestamp.isoformat(sep='T')
     ssm_data["_history"]["outcomeDate"] = outcome_timestamp_str
 
-    time_seconds_elapsed = unix_time_seconds(outcome_timestamp) - unix_time_seconds(
-        datetime.strptime(created_timestamp, "%Y-%m-%dT%H:%M:%S.%f"))
+    time_elapsed = outcome_timestamp - created_timestamp
+    time_seconds_elapsed = time_elapsed.total_seconds()
+
     ssm_data["_history"]["timeElapsed"] = str(time_seconds_elapsed)
     logger.debug("time elapsed: " + str(time_seconds_elapsed))
 
@@ -75,6 +73,16 @@ def update_log(ssm_id, output, ddb_retry_count):
                 break
     else:
         ssm_data["outputLastMessage"] = ''
+
+    pipeline_task_execution_status = cmf_pipeline.TaskExecutionStatus.IN_PROGRESS
+    if ssm_data.get('status') == "COMPLETE":
+        pipeline_task_execution_status = cmf_pipeline.TaskExecutionStatus.COMPLETE
+    elif ssm_data.get('status') == "TIMED-OUT" or ssm_data.get('status') == 'FAILED':
+        pipeline_task_execution_status = cmf_pipeline.TaskExecutionStatus.FAILED
+
+   # Update any related pipeline task executions
+    cmf_pipeline.update_task_execution_output(ssm_data["jobname"], ssm_data["outputLastMessage"], ssm_data["output"])
+    cmf_pipeline.update_task_execution_status(ssm_data["jobname"], pipeline_task_execution_status)
 
     notification['content'] = ssm_data["jobname"] + ' - ' + ssm_data["outputLastMessage"]
     notification['uuid'] = ssm_data["uuid"]

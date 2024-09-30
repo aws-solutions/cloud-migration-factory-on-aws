@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useContext, useEffect, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { toBase64 } from "../resources/main";
+import React, {useContext, useEffect, useState} from "react";
+import {useLocation, useNavigate, useParams} from "react-router-dom";
+import {toBase64} from "../resources/main";
 
 import {
   Alert,
@@ -17,17 +17,18 @@ import {
   Select,
   SpaceBetween,
   StatusIndicator,
-} from "@awsui/components-react";
+} from "@cloudscape-design/components";
 
 import AutomationScriptView from "../components/AutomationScriptView";
-import { useAutomationScripts } from "../actions/AutomationScriptsHook";
+import {useAutomationScripts} from "../actions/AutomationScriptsHook";
 import AutomationScriptsTable from "../components/AutomationScriptsTable";
 import AutomationScriptImport from "../components/AutomationScriptImport";
 import ToolsAPI from "../api_clients/toolsApiClient";
-import { ClickEvent } from "../models/Events";
-import { OptionDefinition } from "@awsui/components-react/internal/components/option/interfaces";
-import { NotificationContext } from "../contexts/NotificationContext";
-import { EntitySchema } from "../models/EntitySchema";
+import {ClickEvent} from "../models/Events";
+import {NotificationContext} from "../contexts/NotificationContext";
+import {EntitySchema} from "../models/EntitySchema";
+import {OptionDefinition} from "../utils/OptionDefinition.ts";
+
 
 const ViewAutomationScript = (props: { selectedItems: any[]; dataAll: any; schema: EntitySchema }) => {
   const [viewerCurrentTab, setViewerCurrentTab] = useState("details");
@@ -510,18 +511,13 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
   }
 
   function isActionsDisabled() {
-    if (props.userEntityAccess["script"] && props.userEntityAccess["script"].create && selectedItems.length === 1) {
-      return false;
-    }
-
-    return true;
+    return !(props?.userEntityAccess["script"].create && selectedItems.length === 1 && selectedItems[0]?.lambda_function_name_suffix === 'ssm');
   }
 
   function displayUpdatedDefault() {
     return (
       <SpaceBetween direction={"vertical"} size={"xxl"}>
         <Container
-          className="custom-dashboard-container"
           header={<Header variant="h2">Change default script version</Header>}
         >
           <SpaceBetween size={"xxl"} direction={"vertical"}>
@@ -597,10 +593,10 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
         selected.push(item[0]);
         handleItemSelectionChange(selected);
         //Check if URL contains edit path and switch to amend component.
-        if (location.pathname && location.pathname.match("/edit/")) {
+        if (location.pathname?.match("/edit/")) {
           handleEditItem(item[0]);
         }
-      } else if (location.pathname && location.pathname.match("/add")) {
+      } else if (location.pathname?.match("/add")) {
         //Add url used, redirect to add screen.
         handleAddItem();
       }

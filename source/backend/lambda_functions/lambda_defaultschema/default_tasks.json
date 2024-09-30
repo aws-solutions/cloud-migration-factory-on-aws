@@ -1,0 +1,2302 @@
+[
+  {
+    "package_uuid": {
+      "S": "845e43b1-4ff4-472c-a634-de4e2e4a78fb"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Create Home Region"
+    },
+    "script_description": {
+      "S": "Creates the Migration Hub home region in the selected region if it does not exist"
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGH"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listvalue": {
+              "S": "us-east-1,us-west-2,ap-southeast-2,ap-northeast-1,eu-central-1,eu-west-1,eu-west-2"
+            },
+            "name": {
+              "S": "home_region"
+            },
+            "description": {
+              "S": "Desired Migration Hub Home Region"
+            },
+            "type": {
+              "S": "list"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group": {
+              "S": "Migration Hub Arguments"
+            },
+            "group_order": {
+              "S": "1"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "2c585097-0e13-4e42-994d-8f1269f7c97d"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Import ADS Discovery Data"
+    },
+    "script_description": {
+      "S": "Import Application Discovery Service (ADS) server and application data"
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGH"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "description": {
+              "S": "Target AWS account ID"
+            },
+            "type": {
+              "S": "string"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^[0-9]{12}$"
+            },
+            "name": {
+              "S": "aws_accountid"
+            },
+            "validation_regex_msg": {
+              "S": "AWS account ID must be provided."
+            },
+            "group": {
+              "S": "Target CMF Resource Arguments"
+            },
+            "group_order": {
+              "S": "2"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Target AWS Region"
+            },
+            "name": {
+              "S": "aws_region"
+            },
+            "type": {
+              "S": "list"
+            },
+            "listvalue": {
+              "S": "us-east-2,us-east-1,us-west-1,us-west-2,af-south-1,ap-east-1,ap-southeast-3,ap-south-1,ap-northeast-3,ap-northeast-2,ap-southeast-1,ap-southeast-2,ap-northeast-1,ca-central-1,cn-north-1,cn-northwest-1,eu-central-1,eu-west-1,eu-west-2,eu-south-1,eu-west-3,eu-north-1,me-south-1,sa-east-1"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group": {
+              "S": "Target CMF Resource Arguments"
+            },
+            "group_order": {
+              "S": "2"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Default Migration Strategy"
+            },
+            "name": {
+              "S": "r_type"
+            },
+            "type": {
+              "S": "list"
+            },
+            "listvalue": {
+              "S": "Retire,Retain,Relocate,Rehost,Repurchase,Replatform,Rearchitect,TBC"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "long_desc": {
+              "S": "Default migration strategy that will be set for all imported servers"
+            },
+            "group": {
+              "S": "Target CMF Resource Arguments"
+            },
+            "group_order": {
+              "S": "2"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "22f4df1d-4b0e-43fa-bf4e-0b335375eeff"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Import EC2 Recommendations"
+    },
+    "script_description": {
+      "S": "Import EC2 Recommendations"
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGH"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "long_desc": {
+              "S": "Choose the CPU/RAM sizing criteria to determine the best instance match for each of your servers. The percentile of utilization option requires data collected by Discovery Agents or Connectors."
+            },
+            "description": {
+              "S": "CPU/RAM Sizing Preference"
+            },
+            "type": {
+              "S": "list"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "listvalue": {
+              "S": "Maximum utilization,Current server specification,Average utilization,Percentile of utilization"
+            },
+            "name": {
+              "S": "sizing_preference"
+            },
+            "group": {
+              "S": "EC2 Recommendations Arguments"
+            },
+            "group_order": {
+              "S": "3"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "The preferred percentile of CPU/RAM utilization"
+            },
+            "type": {
+              "S": "string"
+            },
+            "name": {
+              "S": "percentile_of_utilization"
+            },
+            "validation_regex": {
+              "S": "^[1-9][0-9]?$|^100$"
+            },
+            "group": {
+              "S": "EC2 Recommendations Arguments"
+            },
+            "group_order": {
+              "S": "3"
+            },
+            "conditions": {
+              "M": {
+                "queries": {
+                  "L": [
+                    {
+                      "M": {
+                        "comparator": {
+                          "S": "="
+                        },
+                        "value": {
+                          "S": "Percentile of utilization"
+                        },
+                        "attribute": {
+                          "S": "task_arguments.sizing_preference"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "outcomes": {
+                  "M": {
+                    "true": {
+                      "L": [
+                        {
+                          "S": "required"
+                        }
+                      ]
+                    },
+                    "false": {
+                      "L": [
+                        {
+                          "S": "hidden"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Current server specification match preference"
+            },
+            "name": {
+              "S": "current_server_specification_match_preference"
+            },
+            "type": {
+              "S": "list"
+            },
+            "listvalue": {
+              "S": "Direct Match,Custom Match"
+            },
+            "group": {
+              "S": "EC2 Recommendations Arguments"
+            },
+            "group_order": {
+              "S": "3"
+            },
+            "conditions": {
+              "M": {
+                "queries": {
+                  "L": [
+                    {
+                      "M": {
+                        "comparator": {
+                          "S": "="
+                        },
+                        "value": {
+                          "S": "Current server specification"
+                        },
+                        "attribute": {
+                          "S": "task_arguments.sizing_preference"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "outcomes": {
+                  "M": {
+                    "true": {
+                      "L": [
+                        {
+                          "S": "required"
+                        }
+                      ]
+                    },
+                    "false": {
+                      "L": [
+                        {
+                          "S": "hidden"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Percent of CPU specification"
+            },
+            "type": {
+              "S": "string"
+            },
+            "name": {
+              "S": "percent_of_cpu_specification"
+            },
+            "validation_regex": {
+              "S": "^[1-9][0-9]?$|^100$"
+            },
+            "group": {
+              "S": "EC2 Recommendations Arguments"
+            },
+            "group_order": {
+              "S": "3"
+            },
+            "conditions": {
+              "M": {
+                "queries": {
+                  "L": [
+                    {
+                      "M": {
+                        "comparator": {
+                          "S": "="
+                        },
+                        "value": {
+                          "S": "Custom Match"
+                        },
+                        "attribute": {
+                          "S": "task_arguments.current_server_specification_match_preference"
+                        }
+                      }
+                    },
+                    {
+                      "M": {
+                        "comparator": {
+                          "S": "="
+                        },
+                        "value": {
+                          "S": "Current server specification"
+                        },
+                        "attribute": {
+                          "S": "task_arguments.sizing_preference"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "outcomes": {
+                  "M": {
+                    "true": {
+                      "L": [
+                        {
+                          "S": "required"
+                        }
+                      ]
+                    },
+                    "false": {
+                      "L": [
+                        {
+                          "S": "hidden"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Percent of RAM specification"
+            },
+            "type": {
+              "S": "string"
+            },
+            "name": {
+              "S": "percent_of_ram_specification"
+            },
+            "validation_regex": {
+              "S": "^[1-9][0-9]?$|^100$"
+            },
+            "group": {
+              "S": "EC2 Recommendations Arguments"
+            },
+            "group_order": {
+              "S": "3"
+            },
+            "conditions": {
+              "M": {
+                "queries": {
+                  "L": [
+                    {
+                      "M": {
+                        "comparator": {
+                          "S": "="
+                        },
+                        "value": {
+                          "S": "Custom Match"
+                        },
+                        "attribute": {
+                          "S": "task_arguments.current_server_specification_match_preference"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "outcomes": {
+                  "M": {
+                    "true": {
+                      "L": [
+                        {
+                          "S": "required"
+                        }
+                      ]
+                    },
+                    "false": {
+                      "L": [
+                        {
+                          "S": "hidden"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "long_desc": {
+              "S": "Specify the EC2 instance family that you don't want to be included in your recommendations"
+            },
+            "description": {
+              "S": "EC2 Instance Family Exclusions"
+            },
+            "type": {
+              "S": "list"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "ec2_instance_family_exclusions"
+            },
+            "listvalue": {
+              "S": "T2,T3,T3a,M4,M5,M5a,M5ad,M5d,M5dn,M5n,M5zn,M6a,M6i,M6id,M6idn,M6in,C4,C5,C5ad,C5d,C5n,C6a,C6i,C6id,C6in,Hpc6a,Hpc6id,R4,R5,R5a,R5ad,R5b,R5d,R5dn,R5n,R6a,R6i,R6id,R6idn,R6in,U-12tb1,U-18tb1,U-24tb1,U-3tb1,U-6tb1,U-9tb1,X1,X1e,X2idn,X2iedn,X2iezn,Z1d,Trn1,Trn1n,Inf1,Inf2,Dl1,F1,G3,G3s,G4ad,G4dn,G5,P2,P3,P3dn,P4d,Vt1,I3,I3en,I3p,I4i,D2,D3,D3en,H1"
+            },
+            "group": {
+              "S": "EC2 Recommendations Arguments"
+            },
+            "group_order": {
+              "S": "3"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "abc3ddbb-ee1c-40e2-aaca-303c3908aa9b"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Validate Launch Template"
+    },
+    "script_description": {
+      "S": "Validates the configuration data stored in CMF for each server is valid before attempting cutover activities."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            },
+            "group_order": {
+              "S": "1"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group": {
+              "S": "Resource Arguments"
+            },
+            "group_order": {
+              "S": "1"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "013b51e9-9c5c-4859-ab8b-8989cd3b71af"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Launch Test Instances"
+    },
+    "script_description": {
+      "S": "Launches test instances for source servers via MGN replication agent(s)"
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "7e4d9659-ae66-4cdb-8b1d-57d3d0d769f2"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Mark as Ready for Cutover"
+    },
+    "script_description": {
+      "S": "Changes the status of the source server to mark as ready for cutover, so that user is able to launch a cutover instance."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "9ece35ae-5817-42fe-ab7d-e199d9a10c46"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Launch Cutover Instances"
+    },
+    "script_description": {
+      "S": "Launches cutover instances for source servers via MGN replication agent(s)"
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "a39ac9a0-da38-419d-8a1b-e9a5d399bbd4"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Finalize Cutover"
+    },
+    "script_description": {
+      "S": "Marks migration for source servers as complete."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "845e43b1-4ff4-472c-a634-de4e2e4a78fb"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Create Home Region"
+    },
+    "script_description": {
+      "S": "Creates the Migration Hub home region in the selected region if it does not exist"
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGH"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listvalue": {
+              "S": "us-east-1,us-west-2,ap-southeast-2,ap-northeast-1,eu-central-1,eu-west-1,eu-west-2"
+            },
+            "name": {
+              "S": "home_region"
+            },
+            "description": {
+              "S": "Desired Migration Hub Home Region"
+            },
+            "type": {
+              "S": "list"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group": {
+              "S": "Migration Hub Arguments"
+            },
+            "group_order": {
+              "S": "1"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "2c585097-0e13-4e42-994d-8f1269f7c97d"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Import ADS Discovery Data"
+    },
+    "script_description": {
+      "S": "Import Application Discovery Service (ADS) server and application data"
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGH"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "description": {
+              "S": "Target AWS account ID"
+            },
+            "type": {
+              "S": "string"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^[0-9]{12}$"
+            },
+            "name": {
+              "S": "aws_accountid"
+            },
+            "validation_regex_msg": {
+              "S": "AWS account ID must be provided."
+            },
+            "group": {
+              "S": "Target CMF Resource Arguments"
+            },
+            "group_order": {
+              "S": "2"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Target AWS Region"
+            },
+            "name": {
+              "S": "aws_region"
+            },
+            "type": {
+              "S": "list"
+            },
+            "listvalue": {
+              "S": "us-east-2,us-east-1,us-west-1,us-west-2,af-south-1,ap-east-1,ap-southeast-3,ap-south-1,ap-northeast-3,ap-northeast-2,ap-southeast-1,ap-southeast-2,ap-northeast-1,ca-central-1,cn-north-1,cn-northwest-1,eu-central-1,eu-west-1,eu-west-2,eu-south-1,eu-west-3,eu-north-1,me-south-1,sa-east-1"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group": {
+              "S": "Target CMF Resource Arguments"
+            },
+            "group_order": {
+              "S": "2"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Default Migration Strategy"
+            },
+            "name": {
+              "S": "r_type"
+            },
+            "type": {
+              "S": "list"
+            },
+            "listvalue": {
+              "S": "Retire,Retain,Relocate,Rehost,Repurchase,Replatform,Rearchitect,TBC"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "long_desc": {
+              "S": "Default migration strategy that will be set for all imported servers"
+            },
+            "group": {
+              "S": "Target CMF Resource Arguments"
+            },
+            "group_order": {
+              "S": "2"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "22f4df1d-4b0e-43fa-bf4e-0b335375eeff"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Import EC2 Recommendations"
+    },
+    "script_description": {
+      "S": "Import EC2 Recommendations"
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGH"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "long_desc": {
+              "S": "Choose the CPU/RAM sizing criteria to determine the best instance match for each of your servers. The percentile of utilization option requires data collected by Discovery Agents or Connectors."
+            },
+            "description": {
+              "S": "CPU/RAM Sizing Preference"
+            },
+            "type": {
+              "S": "list"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "listvalue": {
+              "S": "Maximum utilization,Current server specification,Average utilization,Percentile of utilization"
+            },
+            "name": {
+              "S": "sizing_preference"
+            },
+            "group": {
+              "S": "EC2 Recommendations Arguments"
+            },
+            "group_order": {
+              "S": "3"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "The preferred percentile of CPU/RAM utilization"
+            },
+            "type": {
+              "S": "string"
+            },
+            "name": {
+              "S": "percentile_of_utilization"
+            },
+            "validation_regex": {
+              "S": "^[1-9][0-9]?$|^100$"
+            },
+            "group": {
+              "S": "EC2 Recommendations Arguments"
+            },
+            "group_order": {
+              "S": "3"
+            },
+            "conditions": {
+              "M": {
+                "queries": {
+                  "L": [
+                    {
+                      "M": {
+                        "comparator": {
+                          "S": "="
+                        },
+                        "value": {
+                          "S": "Percentile of utilization"
+                        },
+                        "attribute": {
+                          "S": "task_arguments.sizing_preference"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "outcomes": {
+                  "M": {
+                    "true": {
+                      "L": [
+                        {
+                          "S": "required"
+                        }
+                      ]
+                    },
+                    "false": {
+                      "L": [
+                        {
+                          "S": "hidden"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Current server specification match preference"
+            },
+            "name": {
+              "S": "current_server_specification_match_preference"
+            },
+            "type": {
+              "S": "list"
+            },
+            "listvalue": {
+              "S": "Direct Match,Custom Match"
+            },
+            "group": {
+              "S": "EC2 Recommendations Arguments"
+            },
+            "group_order": {
+              "S": "3"
+            },
+            "conditions": {
+              "M": {
+                "queries": {
+                  "L": [
+                    {
+                      "M": {
+                        "comparator": {
+                          "S": "="
+                        },
+                        "value": {
+                          "S": "Current server specification"
+                        },
+                        "attribute": {
+                          "S": "task_arguments.sizing_preference"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "outcomes": {
+                  "M": {
+                    "true": {
+                      "L": [
+                        {
+                          "S": "required"
+                        }
+                      ]
+                    },
+                    "false": {
+                      "L": [
+                        {
+                          "S": "hidden"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Percent of CPU specification"
+            },
+            "type": {
+              "S": "string"
+            },
+            "name": {
+              "S": "percent_of_cpu_specification"
+            },
+            "validation_regex": {
+              "S": "^[1-9][0-9]?$|^100$"
+            },
+            "group": {
+              "S": "EC2 Recommendations Arguments"
+            },
+            "group_order": {
+              "S": "3"
+            },
+            "conditions": {
+              "M": {
+                "queries": {
+                  "L": [
+                    {
+                      "M": {
+                        "comparator": {
+                          "S": "="
+                        },
+                        "value": {
+                          "S": "Custom Match"
+                        },
+                        "attribute": {
+                          "S": "task_arguments.current_server_specification_match_preference"
+                        }
+                      }
+                    },
+                    {
+                      "M": {
+                        "comparator": {
+                          "S": "="
+                        },
+                        "value": {
+                          "S": "Current server specification"
+                        },
+                        "attribute": {
+                          "S": "task_arguments.sizing_preference"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "outcomes": {
+                  "M": {
+                    "true": {
+                      "L": [
+                        {
+                          "S": "required"
+                        }
+                      ]
+                    },
+                    "false": {
+                      "L": [
+                        {
+                          "S": "hidden"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Percent of RAM specification"
+            },
+            "type": {
+              "S": "string"
+            },
+            "name": {
+              "S": "percent_of_ram_specification"
+            },
+            "validation_regex": {
+              "S": "^[1-9][0-9]?$|^100$"
+            },
+            "group": {
+              "S": "EC2 Recommendations Arguments"
+            },
+            "group_order": {
+              "S": "3"
+            },
+            "conditions": {
+              "M": {
+                "queries": {
+                  "L": [
+                    {
+                      "M": {
+                        "comparator": {
+                          "S": "="
+                        },
+                        "value": {
+                          "S": "Custom Match"
+                        },
+                        "attribute": {
+                          "S": "task_arguments.current_server_specification_match_preference"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "outcomes": {
+                  "M": {
+                    "true": {
+                      "L": [
+                        {
+                          "S": "required"
+                        }
+                      ]
+                    },
+                    "false": {
+                      "L": [
+                        {
+                          "S": "hidden"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "long_desc": {
+              "S": "Specify the EC2 instance family that you don't want to be included in your recommendations"
+            },
+            "description": {
+              "S": "EC2 Instance Family Exclusions"
+            },
+            "type": {
+              "S": "list"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "ec2_instance_family_exclusions"
+            },
+            "listvalue": {
+              "S": "T2,T3,T3a,M4,M5,M5a,M5ad,M5d,M5dn,M5n,M5zn,M6a,M6i,M6id,M6idn,M6in,C4,C5,C5ad,C5d,C5n,C6a,C6i,C6id,C6in,Hpc6a,Hpc6id,R4,R5,R5a,R5ad,R5b,R5d,R5dn,R5n,R6a,R6i,R6id,R6idn,R6in,U-12tb1,U-18tb1,U-24tb1,U-3tb1,U-6tb1,U-9tb1,X1,X1e,X2idn,X2iedn,X2iezn,Z1d,Trn1,Trn1n,Inf1,Inf2,Dl1,F1,G3,G3s,G4ad,G4dn,G5,P2,P3,P3dn,P4d,Vt1,I3,I3en,I3p,I4i,D2,D3,D3en,H1"
+            },
+            "group": {
+              "S": "EC2 Recommendations Arguments"
+            },
+            "group_order": {
+              "S": "3"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "abc3ddbb-ee1c-40e2-aaca-303c3908aa9b"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Validate Launch Template"
+    },
+    "script_description": {
+      "S": "Validates the configuration data stored in CMF for each server is valid before attempting cutover activities."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            },
+            "group_order": {
+              "S": "1"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group": {
+              "S": "Resource Arguments"
+            },
+            "group_order": {
+              "S": "1"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "013b51e9-9c5c-4859-ab8b-8989cd3b71af"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Launch Test Instances"
+    },
+    "script_description": {
+      "S": "Launches test instances for source servers via MGN replication agent(s)"
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "7e4d9659-ae66-4cdb-8b1d-57d3d0d769f2"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Mark as Ready for Cutover"
+    },
+    "script_description": {
+      "S": "Changes the status of the source server to mark as ready for cutover, so that user is able to launch a cutover instance."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "9ece35ae-5817-42fe-ab7d-e199d9a10c46"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Launch Cutover Instances"
+    },
+    "script_description": {
+      "S": "Launches cutover instances for source servers via MGN replication agent(s)"
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+    {
+    "package_uuid": {
+      "S": "1ef12eb0-c4ac-43fc-867e-8127745772c3"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Manual"
+    },
+    "script_description": {
+      "S": "This is a manual task which will require acknowledgement by the user to proceed."
+    },
+    "type": {
+      "S": "Manual"
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "1ef12eb0-c4ac-43fc-867e-8127745772c3"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Manual"
+    },
+    "script_description": {
+      "S": "This is a manual task which will require acknowledgement by the user to proceed."
+    },
+    "type": {
+      "S": "Manual"
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "a39ac9a0-da38-419d-8a1b-e9a5d399bbd4"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Finalize Cutover"
+    },
+    "script_description": {
+      "S": "Marks migration for source servers as complete."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  }
+]

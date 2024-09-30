@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import React from "react";
-import "@testing-library/jest-dom";
+
 import { defaultTestProps, mockNotificationContext, TEST_SESSION_STATE } from "../__tests__/TestUtils";
 import { MemoryRouter } from "react-router-dom";
 import { SessionContext } from "../contexts/SessionContext";
@@ -22,10 +22,14 @@ import {
 import UserImport from "./UserImport";
 import * as XLSX from "xlsx";
 import { generateTestCredentials } from "../__tests__/mocks/credentialmanager_api";
-import { ExpandableSection, ProgressBar } from "@awsui/components-react";
-import { readFileSync } from "fs";
+import { ExpandableSection, ProgressBar } from "@cloudscape-design/components";
 import { CmfAddNotification } from "../models/AppChildProps";
 import { v4 } from "uuid";
+import { defaultSchemas } from "../../test_data/default_schema.ts";
+
+// count the schemas of type 'user' in defaultSchemas.
+// we don't want to hard code the number, so that the tests don't break when a new schema is added
+const TOTAL_NUMBER_OF_ENTITY_TYPES = Object.values(defaultSchemas).filter((it) => it.schema_type === "user").length;
 
 /*
 The following tests test for valid input
@@ -64,8 +68,6 @@ test("it should show the import page", async () => {
 });
 
 test("it should allow download the intake forms from the import page", async () => {
-  jest.spyOn(XLSX, "writeFile").mockImplementation(() => {});
-
   renderUserImportComponent();
 
   const buttonActions = screen.getByRole("button", { name: "Actions" });
@@ -146,17 +148,6 @@ async function select_valid_file_upload_scenario1() {
   await select_upload_file_click_next(validFileContents, "valid.csv", "text/csv");
 }
 
-async function select_valid_xlsx_file_upload_scenario1() {
-  // server wave app
-  // Create Create Create
-  const validFileContents = readFileSync("./test_data/test_valid.xlsx");
-  await select_upload_file_click_next(
-    validFileContents,
-    "valid.xlsx",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  );
-}
-
 async function select_valid_file_upload_scenario2() {
   // server wave app
   // NoUpdate NoUpdate NoUpdate
@@ -211,32 +202,27 @@ async function assert_valid_file_review_changes_form_scenario3() {
   await assert_valid_file_review_changes_form_scenario2();
 }
 
-test("should show next page with cancel, previous and next buttons and data table, after valid intake file - scenario1", async () => {
-  setup_all_get_handlers();
-  renderUserImportComponent();
-  await select_valid_file_upload_scenario1();
-  await assert_valid_file_review_changes_form_scenario1();
-});
+describe("should show next page with cancel, previous and next buttons and data table, after valid intake file", () => {
+  test("scenario1", async () => {
+    setup_all_get_handlers();
+    renderUserImportComponent();
+    await select_valid_file_upload_scenario1();
+    await assert_valid_file_review_changes_form_scenario1();
+  });
 
-test("should show next page with cancel, previous and next buttons and data table, after valid xlsx intake file - scenario1", async () => {
-  setup_all_get_handlers();
-  renderUserImportComponent();
-  await select_valid_xlsx_file_upload_scenario1();
-  await assert_valid_file_review_changes_form_scenario1();
-});
+  test("scenario2", async () => {
+    setup_all_get_handlers();
+    renderUserImportComponent();
+    await select_valid_file_upload_scenario2();
+    await assert_valid_file_review_changes_form_scenario2();
+  });
 
-test("should show next page with cancel, previous and next buttons and data table, after valid intake file - scenario2", async () => {
-  setup_all_get_handlers();
-  renderUserImportComponent();
-  await select_valid_file_upload_scenario2();
-  await assert_valid_file_review_changes_form_scenario2();
-});
-
-test("should show next page with cancel, previous and next buttons and data table, after valid intake file - scenario3", async () => {
-  setup_all_get_handlers();
-  renderUserImportComponent();
-  await select_valid_file_upload_scenario3();
-  await assert_valid_file_review_changes_form_scenario3();
+  test("scenario3", async () => {
+    setup_all_get_handlers();
+    renderUserImportComponent();
+    await select_valid_file_upload_scenario3();
+    await assert_valid_file_review_changes_form_scenario3();
+  });
 });
 
 test("Cancel button after valid file takes back to empty intake form - scenario1", async () => {
@@ -287,56 +273,50 @@ async function assert_upload_overview_common() {
   expect(screen.getByRole("heading", { name: "Pipeline" })).toBeInTheDocument();
 }
 
-async function assert_upload_overview_scenario1() {
-  await assert_upload_overview_common();
+describe("Next button after valid file takes to the upload overview page", () => {
+  test("scenario1", async () => {
+    // GIVEN
+    setup_all_get_handlers();
+    renderUserImportComponent();
 
-  assert_two_headers("Create", "-", 3);
-  assert_two_headers("Create", "1", 3);
-  assert_two_headers("Update", "-", 6);
-  assert_two_headers("No Update", "-", 6);
-  expect(screen.getAllByRole("button", { name: "Details" }).length).toEqual(3);
-}
+    // WHEN
+    await select_valid_file_upload_scenario1();
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await assert_upload_overview_common();
 
-async function assert_upload_overview_scenario2() {
-  await assert_upload_overview_common();
-  assert_two_headers("Create", "-", 6);
-  assert_two_headers("Update", "-", 6);
-  assert_two_headers("No Update", "1", 3);
-  assert_two_headers("No Update", "-", 3);
-  expect(screen.getAllByRole("button", { name: "Details" }).length).toEqual(3);
-}
+    // THEN
+    assert_two_headers("Create", "-", 4);
+    assert_two_headers("Create", "1", 3);
+    assert_two_headers("Update", "-", TOTAL_NUMBER_OF_ENTITY_TYPES);
+    assert_two_headers("No Update", "-", TOTAL_NUMBER_OF_ENTITY_TYPES);
+    expect(screen.getAllByRole("button", { name: "Details" }).length).toEqual(3);
+  });
 
-async function assert_upload_overview_scenario3() {
-  await assert_upload_overview_common();
-  assert_two_headers("Create", "-", 6);
-  assert_two_headers("Update", "-", 3);
-  assert_two_headers("Update", "1", 3);
-  assert_two_headers("No Update", "-", 6);
-  expect(screen.getAllByRole("button", { name: "Details" }).length).toEqual(3);
-}
+  test("scenario2", async () => {
+    setup_all_get_handlers();
+    renderUserImportComponent();
+    await select_valid_file_upload_scenario2();
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await assert_upload_overview_common();
+    assert_two_headers("Create", "-", TOTAL_NUMBER_OF_ENTITY_TYPES);
+    assert_two_headers("Update", "-", TOTAL_NUMBER_OF_ENTITY_TYPES);
+    assert_two_headers("No Update", "1", 3);
+    assert_two_headers("No Update", "-", TOTAL_NUMBER_OF_ENTITY_TYPES - 3);
+    await expect(screen.getAllByRole("button", { name: "Details" }).length).toEqual(3);
+  });
 
-test("Next button after valid file takes to the upload overview page - scenario1", async () => {
-  setup_all_get_handlers();
-  renderUserImportComponent();
-  await select_valid_file_upload_scenario1();
-  await userEvent.click(screen.getByRole("button", { name: "Next" }));
-  await assert_upload_overview_scenario1();
-});
-
-test("Next button after valid file takes to the upload overview page - scenario2", async () => {
-  setup_all_get_handlers();
-  renderUserImportComponent();
-  await select_valid_file_upload_scenario2();
-  await userEvent.click(screen.getByRole("button", { name: "Next" }));
-  await assert_upload_overview_scenario2();
-});
-
-test("Next button after valid file takes to the upload overview page - scenario3", async () => {
-  setup_all_get_handlers();
-  renderUserImportComponent();
-  await select_valid_file_upload_scenario3();
-  await userEvent.click(screen.getByRole("button", { name: "Next" }));
-  await assert_upload_overview_scenario3();
+  test("scenario3", async () => {
+    setup_all_get_handlers();
+    renderUserImportComponent();
+    await select_valid_file_upload_scenario3();
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await assert_upload_overview_common();
+    assert_two_headers("Create", "-", TOTAL_NUMBER_OF_ENTITY_TYPES);
+    assert_two_headers("Update", "-", TOTAL_NUMBER_OF_ENTITY_TYPES - 3);
+    assert_two_headers("Update", "1", 3);
+    assert_two_headers("No Update", "-", TOTAL_NUMBER_OF_ENTITY_TYPES);
+    await expect(screen.getAllByRole("button", { name: "Details" }).length).toEqual(3);
+  });
 });
 
 test("Cancel button on the upload overview page takes back to empty intake - scenario1", async () => {

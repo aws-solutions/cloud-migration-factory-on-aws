@@ -34,7 +34,7 @@ echo "--------------------------------------------------------------------------
 echo "[Unit Tests] Running Frontend Unit Tests"
 echo "------------------------------------------------------------------------------"
 
-npm run test -- --watchAll=false
+npm run test:coverage
 if [ $? -eq 0 ]
   then
     echo "  ---- SUCCESS: Frontend Unit tests passed."

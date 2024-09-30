@@ -1,7 +1,6 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
-
-
+import io
 import os
 import sys
 import unittest
@@ -12,7 +11,6 @@ import json
 import boto3
 from moto import mock_aws
 
-import test_common_utils
 from test_common_utils import LambdaContextLogStream, RequestsResponse, SerializedDictMatcher, logger, \
     default_mock_os_environ
 
@@ -21,8 +19,10 @@ mock_os_environ = {
     'RoleDynamoDBTable': 'RoleDynamoDBTable',
     'SchemaDynamoDBTable': 'SchemaDynamoDBTable',
     'PolicyDynamoDBTable': 'PolicyDynamoDBTable',
+    'PipelineTemplateDynamoDBTable': 'PipelineTemplateDynamoDBTable',
+    'ScriptsDynamoDBTable': 'ScriptsDynamoDBTable',
+    'PipelineTemplateTaskDynamoDBTable': 'PipelineTemplateTaskDynamoDBTable'
 }
-
 
 @mock.patch.dict('os.environ', mock_os_environ)
 @mock_aws
@@ -37,6 +37,8 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         cls.json_schema_file = open(dir_lambda_defaultschema + '/default_schema.json')
         cls.json_policies_file = open(dir_lambda_defaultschema + '/default_policies.json')
         cls.json_roles_file = open(dir_lambda_defaultschema + '/default_roles.json')
+        cls.default_pipeline_templates_import_file = open(dir_lambda_defaultschema + '/default_pipeline_templates_import.json')
+        cls.default_pipeline_tasks_file = open(dir_lambda_defaultschema + '/default_tasks.json')
 
         # save the builtin open
         cls.builtin_open = open
@@ -51,20 +53,32 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         'RoleDynamoDBTable': 'RoleDynamoDBTable',
         'SchemaDynamoDBTable': 'SchemaDynamoDBTable',
         'PolicyDynamoDBTable': 'PolicyDynamoDBTable',
+        'PipelineTemplateDynamoDBTable': 'PipelineTemplateDynamoDBTable',
+        'ScriptsDynamoDBTable': 'ScriptsDynamoDBTable',
+        'PipelineTemplateTaskDynamoDBTable': 'PipelineTemplateTaskDynamoDBTable'
     })
+
     def setUp(self):
         self.test_url = 'http://www.example.com'
         self.table_role = os.getenv('RoleDynamoDBTable')
         self.table_schema = os.getenv('SchemaDynamoDBTable')
         self.table_policy = os.getenv('PolicyDynamoDBTable')
+        self.table_pipeline_template = os.getenv('PipelineTemplateDynamoDBTable')
+        self.table_pipeline_template_tasks = os.getenv('PipelineTemplateTaskDynamoDBTable')
+        self.table_scripts = os.getenv('ScriptsDynamoDBTable')
 
         dir_lambda_defaultschema = [d for d in sys.path if d.endswith('lambda_defaultschema')][0]
         with open(dir_lambda_defaultschema + '/default_schema.json') as json_schema_file:
             self.json_schema = json.load(json_schema_file)
         with open(dir_lambda_defaultschema + '/default_policies.json') as json_policies_file:
             self.json_policies = json.load(json_policies_file)
-        with open(dir_lambda_defaultschema + '/default_roles.json') as json_roles:
-            self.json_roles = json.load(json_roles)
+        with open(dir_lambda_defaultschema + '/default_roles.json') as json_roles_file:
+            self.json_roles = json.load(json_roles_file)
+        with open(dir_lambda_defaultschema + '/default_pipeline_templates_import.json') as default_pipeline_templates_import_file:
+            self.json_default_pipeline_templates_import_file = json.load(default_pipeline_templates_import_file)
+        with open(
+                dir_lambda_defaultschema + '/default_tasks.json') as json_default_pipeline_tasks_file:
+            self.json_default_pipeline_tasks_file = json.load(json_default_pipeline_tasks_file)
 
         # create the dynamodb tables
         self.ddb_client = boto3.client('dynamodb')
@@ -88,6 +102,7 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
                 {"AttributeName": "schema_name", "AttributeType": "S"},
             ],
         )
+
         self.ddb_client.create_table(
             TableName=self.table_policy,
             BillingMode='PAY_PER_REQUEST',
@@ -96,6 +111,39 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
             ],
             AttributeDefinitions=[
                 {"AttributeName": "policy_id", "AttributeType": "S"},
+            ],
+        )
+
+        self.ddb_client.create_table(
+            TableName=self.table_pipeline_template_tasks,
+            BillingMode='PAY_PER_REQUEST',
+            KeySchema=[
+                {"AttributeName": "pipeline_template_task_id", "KeyType": "HASH"},
+            ],
+            AttributeDefinitions=[
+                {"AttributeName": "pipeline_template_task_id", "AttributeType": "S"},
+            ],
+        )
+
+        self.ddb_client.create_table(
+            TableName=self.table_pipeline_template,
+            BillingMode='PAY_PER_REQUEST',
+            KeySchema=[
+                {"AttributeName": "pipeline_template_id", "KeyType": "HASH"},
+            ],
+            AttributeDefinitions=[
+                {"AttributeName": "pipeline_template_id", "AttributeType": "S"},
+            ],
+        )
+
+        self.ddb_client.create_table(
+            TableName=self.table_scripts,
+            BillingMode='PAY_PER_REQUEST',
+            KeySchema=[
+                {"AttributeName": "package_uuid", "KeyType": "HASH"},
+            ],
+            AttributeDefinitions=[
+                {"AttributeName": "package_uuid", "AttributeType": "S"},
             ],
         )
 
@@ -140,6 +188,10 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
             return LambdaDefaultSchemaTest.json_policies_file
         elif file_name == 'default_roles.json':
             return LambdaDefaultSchemaTest.json_roles_file
+        elif file_name == 'default_pipeline_templates_import.json':
+            return LambdaDefaultSchemaTest.default_pipeline_templates_import_file
+        elif file_name == 'default_tasks.json':
+            return LambdaDefaultSchemaTest.default_pipeline_tasks_file
         else:
             return LambdaDefaultSchemaTest.builtin_open(*args, **kwargs)
 
@@ -174,56 +226,79 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         self.assertEqual(0, len(policies))
 
     @patch('lambda_defaultschema.requests')
+    @patch('lambda_defaultschema.lambda_client')
     @patch('builtins.open', new=mock_file_open)
-    def test_lambda_handler_create(self, mock_requests):
+    def test_lambda_handler_create(self, mock_lambda_client, mock_requests):
         import lambda_defaultschema
 
+        mock_lambda_client.invoke.return_value = {
+            'Payload': io.StringIO('{"body": "[]"}')
+        }
+
         mock_requests.put.return_value = RequestsResponse(200)
+
         response = lambda_defaultschema.lambda_handler(self.event_create, self.lambda_context)
         mock_requests.put.assert_called_once_with(self.event_create['ResponseURL'],
-                                                  data=SerializedDictMatcher('Status', 'SUCCESS'),
+                                                  data=SerializedDictMatcher('Status',
+                                                                             'SUCCESS'),
                                                   headers=ANY,
                                                   timeout=ANY)
+
         self.assertEqual({
             'Response': 'SUCCESS'
-            }, response)
+        }, response)
         self.assert_table_contents()
 
     @patch('lambda_defaultschema.requests')
+    @patch('lambda_defaultschema.lambda_client')
     @patch('builtins.open', new=mock_file_open)
-    def test_lambda_handler_create_exception(self, mock_requests):
+    def test_lambda_handler_create_exception(self, mock_lambda_client, mock_requests):
         import lambda_defaultschema
+
+        mock_lambda_client.invoke.return_value = {
+            'Payload': io.StringIO('{"body": "[]"}')
+        }
 
         mock_requests.put.side_effect = Exception('test exception')
         response = lambda_defaultschema.lambda_handler(self.event_create, self.lambda_context)
         mock_requests.put.assert_called_once_with(self.event_create['ResponseURL'],
                                                   data=SerializedDictMatcher('Status',
-                                                                                                     'SUCCESS'),
+                                                                             'SUCCESS'),
                                                   headers=ANY,
                                                   timeout=ANY)
         self.assertEqual({
             'Response': 'FAILED'
-            }, response)
+        }, response)
         # the contents are saved to the tables even with an error
         self.assert_table_contents()
 
     @patch('lambda_defaultschema.requests')
+    @patch('lambda_defaultschema.lambda_client')
     @patch('builtins.open', new=mock_file_open)
-    def test_lambda_handler_update(self, mock_requests):
+    def test_lambda_handler_update(self, mock_lambda_client, mock_requests):
         import lambda_defaultschema
 
+        mock_lambda_client.invoke.return_value = {
+            'Payload': io.StringIO('{"body": "[]"}')
+        }
+
         mock_requests.put.return_value = RequestsResponse(200)
+        lambda_defaultschema.SCHEMA_TABLE = self.table_schema
+        lambda_defaultschema.ROLE_TABLE = self.table_role
+        lambda_defaultschema.POLICY_TABLE = self.table_policy
+        lambda_defaultschema.PIPELINE_TEMPLATE_TABLE = self.table_pipeline_template
+        lambda_defaultschema.PIPELINE_TEMPLATE_TASK_TABLE = self.table_pipeline_template_tasks
         response = lambda_defaultschema.lambda_handler(self.event_update, self.lambda_context)
         mock_requests.put.assert_called_once_with(self.event_create['ResponseURL'],
                                                   data=SerializedDictMatcher('Status',
-                                                                                                     'SUCCESS'),
+                                                                             'SUCCESS'),
                                                   headers=ANY,
                                                   timeout=ANY)
 
         self.assertDictEqual({
             'Response': 'SUCCESS'
-            }, response)
-        self.assert_table_contents_empty()
+        }, response)
+        self.assert_table_contents()
 
     @patch('lambda_defaultschema.requests')
     @patch('builtins.open', new=mock_file_open)
@@ -234,12 +309,12 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         response = lambda_defaultschema.lambda_handler(self.event_delete, self.lambda_context)
         mock_requests.put.assert_called_once_with(self.event_create['ResponseURL'],
                                                   data=SerializedDictMatcher('Status',
-                                                                                                     'SUCCESS'),
+                                                                             'SUCCESS'),
                                                   headers=ANY,
                                                   timeout=ANY)
         self.assertEqual({
             'Response': 'SUCCESS'
-            }, response)
+        }, response)
         self.assert_table_contents_empty()
 
     @patch('lambda_defaultschema.requests')
@@ -251,34 +326,34 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         response = lambda_defaultschema.lambda_handler(self.event_unknown, self.lambda_context)
         mock_requests.put.assert_called_once_with(self.event_create['ResponseURL'],
                                                   data=SerializedDictMatcher('Status',
-                                                                                                     'SUCCESS'),
+                                                                             'SUCCESS'),
                                                   headers=ANY,
                                                   timeout=ANY)
         self.assertEqual({
             'Response': 'SUCCESS'
-            }, response)
+        }, response)
         self.assert_table_contents_empty()
-
 
     @patch('lambda_defaultschema.requests')
     @patch('builtins.open', new=mock_file_open)
     def test_lambda_handler_exception(self, mock_requests):
         import lambda_defaultschema
 
-
         mock_requests.put.return_value = RequestsResponse(200)
         # simulate error by setting the wrong table name for all tables so that the test still good if the order changes
         lambda_defaultschema.SCHEMA_TABLE = self.table_schema + '_FAIL'
         lambda_defaultschema.ROLE_TABLE = self.table_role + '_FAIL'
         lambda_defaultschema.POLICY_TABLE = self.table_policy + '_FAIL'
+        lambda_defaultschema.PIPELINE_TEMPLATE_TABLE = self.table_pipeline_template + '_FAIL'
+        lambda_defaultschema.PIPELINE_TEMPLATE_TASK_TABLE = self.table_pipeline_template_tasks + '_FAIL'
         response = lambda_defaultschema.lambda_handler(self.event_create, self.lambda_context)
         mock_requests.put.assert_called_once_with(self.event_create['ResponseURL'],
                                                   data=SerializedDictMatcher('Status',
-                                                                                                     'FAILED'),
+                                                                             'FAILED'),
                                                   headers=ANY,
                                                   timeout=ANY)
         # the final response though is SUCCESS
         self.assertEqual({
             'Response': 'SUCCESS'
-            }, response)
+        }, response)
         self.assert_table_contents_empty()

@@ -4,7 +4,7 @@
  */
 
 import React, { useContext, useState } from "react";
-import { SpaceBetween } from "@awsui/components-react";
+import { SpaceBetween } from "@cloudscape-design/components";
 
 import CredentialManagerTable from "../components/CredentialManagerTable";
 import { useCredentialManager } from "../actions/CredentialManagerHook";

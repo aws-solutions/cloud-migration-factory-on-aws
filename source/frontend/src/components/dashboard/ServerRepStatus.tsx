@@ -5,7 +5,7 @@
  */
 
 import React from "react";
-import { Box, Container, Header, PieChart } from "@awsui/components-react";
+import { Box, Container, Header, PieChart } from "@cloudscape-design/components";
 
 // Attribute Display message content
 const ServerRepStatus = ({ data }) => {

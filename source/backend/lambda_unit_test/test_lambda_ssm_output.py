@@ -33,9 +33,11 @@ class LambdaSSMOutputTest(LambdaSSMBaseTest):
     @mock_aws
     def setUp(self) -> None:
         import lambda_ssm_output
+        import cmf_pipeline
         self.ddb_client = boto3.client('dynamodb')
         test_common_utils.create_and_populate_ssm_jobs(self.ddb_client, lambda_ssm_output.ssm_jobs_table_name)
         test_common_utils.create_and_populate_connection_ids(self.ddb_client, lambda_ssm_output.connectionIds_table_name)
+        test_common_utils.create_and_populate_tasks(self.ddb_client, cmf_pipeline.task_executions_table_name)
 
         self.log_message = 'test log entry'
         self.log_message_prefix = 'CMF-TEST:'
@@ -110,6 +112,8 @@ class LambdaSSMOutputTest(LambdaSSMBaseTest):
         import lambda_ssm_output
         ssm_id = self.put_recent_job(lambda_ssm_output.ssm_jobs_table, 1, 5)
         item = lambda_ssm_output.ssm_jobs_table.get_item(Key={'SSMId': ssm_id})['Item']
+        print("HEEERRE")
+        print(item)
         item['_history']['outcomeDate'] = datetime.utcnow().isoformat(sep='T')
         lambda_ssm_output.ssm_jobs_table.put_item(Item=item)
         response = lambda_ssm_output.lambda_handler(self.create_event(ssm_id), None)

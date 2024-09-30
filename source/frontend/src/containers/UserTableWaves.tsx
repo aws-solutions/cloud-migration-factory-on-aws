@@ -9,7 +9,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { getChanges, userAutomationActionsMenuItems } from "../resources/main";
 import { exportTable } from "../utils/xlsx-export";
 
-import { ButtonDropdownProps, SpaceBetween } from "@awsui/components-react";
+import { ButtonDropdownProps, SpaceBetween } from "@cloudscape-design/components";
 
 import ItemAmend from "../components/ItemAmend";
 import { WaveDetailsView } from "../components/WaveView";

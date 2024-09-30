@@ -1,0 +1,253 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "(%%SOLUTION_ID%%-mgh) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution. Version:%%VERSION%%"
+
+Parameters:
+  CodeBucket: # Upload Code in this bucket
+    Description: S3 bucket where all the code reside
+    Type: String
+
+  KeyPrefix:
+    Description: S3 key Prefix where all the code reside
+    Type: String
+
+  Application:
+    Type: String
+    Description: Application name, used to name all AWS resources.
+    Default: migration-factory
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+  Environment:
+    Type: String
+    Description: Environment name, used to name all AWS resources (.i.e dev, test, prod)
+    Default: test
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+  CognitoUserPool:
+    Type: String
+    Description: Cognito User Pool Id
+
+  CognitoUserPoolArn:
+    Type: String
+    Description: Cognito User Pool Arn
+
+  solutionUUID:
+    Type: String
+    Description: AWS Solution UUID
+
+  RoleDynamoDBTableArn:
+    Type: String
+
+  PolicyDynamoDBTableArn:
+    Type: String
+
+  LambdaLayerStdPythonLibs:
+    Type: String
+
+  LambdaLayerMFPolicyLib:
+    Type: String
+
+  LambdaLayerMFUtilsLib:
+    Type: String
+
+  CORS:
+    Type: String
+
+  LambdaRuntimePython:
+    Type: String
+    Default: python3.10
+
+  UserAPI:
+    Type: String
+
+  CognitoUserPoolId:
+    Type: String
+
+  CognitoUserPoolClientId:
+    Type: String
+
+  LoginAPI:
+    Type: String
+
+  AdminAPI:
+    Type: String
+
+  PipelineTaskExecutionOutputLambdaARN:
+    Type: String
+
+  UserAPIRequestValidatorId:
+    Type: String
+    Description: 'The ID of the User API Request Validator'
+
+  LoginApiRequestValidatorId:
+    Type: String
+    Description: 'The ID of the Login API Request Validator'
+
+  AdminAPIRequestValidatorId:
+    Type: String
+    Description: 'The ID of the Admin API Request Validator'
+
+Mappings:
+  Solution:
+    Data:
+      SolutionID: '%%SOLUTION_ID%%'
+      SolutionVersion: '%%VERSION%%'
+
+Resources:
+  ## IAM Role for Migration Hub Service Lambda
+  MGHLambdaRole:
+    DependsOn: MGHLogGroup
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-MGHLambdaRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: !Sub ${Application}-${Environment}-MGHLambda
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'discovery:DescribeConfigurations'
+                  - 'discovery:DescribeExportTasks'
+                  - 'discovery:ListConfigurations'
+                  - 'discovery:StartExportTask'
+                  - 'mgh:CreateHomeRegionControl'
+                  - 'mgh:DeleteHomeRegionControl'
+                  - 'mgh:DescribeHomeRegionControls'
+                  - 'mgh:GetHomeRegion'
+                Resource: '*'
+              -
+                Effect: Allow
+                Action:
+                - 'iam:PassRole'
+                - 'sts:AssumeRole'
+                Resource: 'arn:aws:iam::*:role/CMF-*'
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${MGHLogGroup}:*"
+              -
+                Effect: Allow
+                Action:
+                  - s3:HeadBucket
+                  - s3:HeadObject
+                  - s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${CodeBucket}*"
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                Resource:
+                  - !Join ['', [!Ref RoleDynamoDBTableArn, '*']]
+                  - !Join ['', [!Ref PolicyDynamoDBTableArn, '*']]
+              -
+                Effect: Allow
+                Action:
+                  - 'secretsmanager:GetSecretValue'
+                Resource: !Sub 'arn:aws:secretsmanager:*:${AWS::AccountId}:secret:*'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: F38
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  LambdaFunctionMGH:
+    Type: AWS::Lambda::Function
+    Properties:
+      Environment:
+        Variables:
+          application: !Sub ${Application}
+          environment: !Sub ${Environment}
+          solutionUUID: !Ref solutionUUID
+          region: !Ref "AWS::Region"
+          cors: !Ref CORS
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          AWS_ACCOUNT_ID: !Ref "AWS::AccountId"
+          USER_API: !Ref UserAPI
+          USER_POOL_ID: !Ref CognitoUserPoolId
+          LOGIN_API: !Ref LoginAPI
+          USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClientId
+          ADMIN_API: !Ref AdminAPI
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_mgh.zip"]]
+      Description: This is the lambda function for migration hub service integration
+      FunctionName: !Sub ${Application}-${Environment}-MGH
+      Handler: "lambda_mgh.lambda_handler"
+      Role: !GetAtt MGHLambdaRole.Arn
+      Runtime: !Ref LambdaRuntimePython
+      MemorySize: 2048
+      Timeout: 720
+      LoggingConfig:
+        LogGroup: !Ref MGHLogGroup
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-MGH
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  MGHLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Application}-${Environment}-MGH
+      RetentionInDays: 180
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: "SSE is currently not supported, CMK is not ideal for this solution"
+
+  MGHPermissionPipelineTaskExecutionOutput:
+    DependsOn: MGHLogGroup
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref PipelineTaskExecutionOutputLambdaARN
+      Action: 'lambda:InvokeFunction'
+      Principal: !Sub 'logs.${AWS::Region}.amazonaws.com'
+      SourceArn: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${MGHLogGroup}:*"
+
+  SubscriptionFilter:
+    DependsOn: MGHPermissionPipelineTaskExecutionOutput
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      LogGroupName: !Ref MGHLogGroup
+      FilterPattern: ""
+      DestinationArn: !Ref PipelineTaskExecutionOutputLambdaARN

@@ -39,7 +39,7 @@ props.schema["server"] = {
         "^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]*[A-Za-z0-9])$",
       name: "server_name",
       description: "Server Name",
-      validation_regex_msg: "Server names must contain only aplhanumeric, hyphen or period characters.",
+      validation_regex_msg: "Server names must contain only alphanumeric, hyphen or period characters.",
       group_order: "-1000",
       type: "string",
       required: true,

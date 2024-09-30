@@ -1,0 +1,178 @@
+[
+  {
+    "pipeline_template_task_id": {
+      "S": "66fd7134-0e7a-45d2-83b4-293334a782ea"
+    },
+    "pipeline_template_id": {
+      "S": "1"
+    },
+    "pipeline_template_task_name": {
+      "S": "Create Migration Hub home region"
+    },
+    "task_id": {
+      "S": "845e43b1-4ff4-472c-a634-de4e2e4a78fb"
+    },
+    "task_successors": {
+      "L": [
+        {
+          "S": "5bb0df75-7d2a-4257-a114-d7a56e8746fd"
+        }
+      ]
+    },
+    "task_version": {
+      "S": "1"
+    },
+    "_history": {
+      "M": {
+        "createdBy": {
+          "M": {
+            "email": {
+              "S": "someone@example.com"
+            },
+            "userRef": {
+              "S": "0468d488-50a1-706b-dfb1-4a977a1e105b"
+            }
+          }
+        },
+        "createdTimestamp": {
+          "S": "2024-09-17T11:00:41.343207+00:00"
+        }
+      }
+    }
+  },
+  {
+    "pipeline_template_task_id": {
+      "S": "5bb0df75-7d2a-4257-a114-d7a56e8746fd"
+    },
+    "pipeline_template_id": {
+      "S": "1"
+    },
+    "pipeline_template_task_name": {
+      "S": "Discover on-premise data"
+    },
+    "task_id": {
+      "S": "ab9c240c-9cbf-4a7e-9ddc-c44f9f6d3952"
+    },
+    "task_version": {
+      "S": "1"
+    },
+    "_history": {
+      "M": {
+        "createdBy": {
+          "M": {
+            "email": {
+              "S": "someone@example.com"
+            },
+            "userRef": {
+              "S": "0468d488-50a1-706b-dfb1-4a977a1e105b"
+            }
+          }
+        },
+        "createdTimestamp": {
+          "S": "2024-09-17T11:00:41.343207+00:00"
+        }
+      }
+    }
+  },
+  {
+    "pipeline_template_task_id": {
+      "S": "b67d5739-e8b3-4ff3-aa61-0a07a2e554e6"
+    },
+    "pipeline_template_id": {
+      "S": "2"
+    },
+    "pipeline_template_task_name": {
+      "S": "Initialize MGN in AWS account"
+    },
+    "task_id": {
+      "S": "ab9c240c-9cbf-4a7e-9ddc-c44f9f6d3952"
+    },
+    "task_successors": {
+      "L": [
+        {
+          "S": "70c36fba-8991-4708-b410-485688ee5710"
+        }
+      ]
+    },
+    "task_version": {
+      "S": "1"
+    },
+    "_history": {
+      "M": {
+        "createdBy": {
+          "M": {
+            "email": {
+              "S": "someone@example.com"
+            },
+            "userRef": {
+              "S": "0468d488-50a1-706b-dfb1-4a977a1e105b"
+            }
+          }
+        },
+        "createdTimestamp": {
+          "S": "2024-09-17T11:00:46.663473+00:00"
+        },
+        "lastModifiedBy": {
+          "M": {
+            "email": {
+              "S": "someone@example.com"
+            },
+            "userRef": {
+              "S": "0468d488-50a1-706b-dfb1-4a977a1e105b"
+            }
+          }
+        },
+        "lastModifiedTimestamp": {
+          "S": "2024-09-17T11:46:11.744266"
+        }
+      }
+    }
+  },
+  {
+    "pipeline_template_task_id": {
+      "S": "70c36fba-8991-4708-b410-485688ee5710"
+    },
+    "pipeline_template_id": {
+      "S": "2"
+    },
+    "pipeline_template_task_name": {
+      "S": "Check MGN Prerequisites"
+    },
+    "task_id": {
+      "S": "2471d562-6123-4499-bcae-af3a6bff92a8"
+    },
+    "task_version": {
+      "S": "1"
+    },
+    "_history": {
+      "M": {
+        "createdBy": {
+          "M": {
+            "email": {
+              "S": "someone@example.com"
+            },
+            "userRef": {
+              "S": "0468d488-50a1-706b-dfb1-4a977a1e105b"
+            }
+          }
+        },
+        "createdTimestamp": {
+          "S": "2024-09-17T11:00:46.663473+00:00"
+        },
+        "lastModifiedBy": {
+          "M": {
+            "email": {
+              "S": "someone@example.com"
+            },
+            "userRef": {
+              "S": "0468d488-50a1-706b-dfb1-4a977a1e105b"
+            }
+          }
+        },
+        "lastModifiedTimestamp": {
+          "S": "2024-09-17T11:27:13.004208"
+        }
+      }
+    }
+  }
+]

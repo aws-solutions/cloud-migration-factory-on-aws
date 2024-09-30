@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Container, Header, SpaceBetween, TagEditor } from "@awsui/components-react";
+import { Container, Header, SpaceBetween, TagEditor } from "@cloudscape-design/components";
 
 const TagAttribute = ({ attribute, tags, handleUserInput, displayHelpInfoLink }) => {
   const [localValue, setLocalValue] = useState([]);

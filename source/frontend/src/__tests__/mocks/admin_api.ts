@@ -724,7 +724,7 @@ export const mock_admin_api = [
               "^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]*[A-Za-z0-9])$",
             name: "server_name",
             description: "Server Name",
-            validation_regex_msg: "Server names must contain only aplhanumeric, hyphen or period characters.",
+            validation_regex_msg: "Server names must contain only alphanumeric, hyphen or period characters.",
             group_order: "-1000",
             type: "string",
             required: true,
@@ -752,7 +752,7 @@ export const mock_admin_api = [
               "^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]*[A-Za-z0-9])$",
             name: "server_fqdn",
             description: "Server FQDN",
-            validation_regex_msg: "Server FQDN must contain only aplhanumeric, hyphen or period charaters.",
+            validation_regex_msg: "Server FQDN must contain only alphanumeric, hyphen or period charaters.",
             group_order: "-999",
             type: "string",
             required: true,
@@ -1304,6 +1304,282 @@ export const mock_admin_api = [
           },
         ],
         schema_name: "database",
+      })
+    );
+  }),
+  rest.get("/admin/schema/pipeline_template", (request, response, context) => {
+    return response(
+      context.status(200),
+      context.json({
+        "schema_name": "pipeline_template",
+        "attributes": [
+          {
+            "description": "Pipeline Template Id",
+            "hidden": true,
+            "name": "pipeline_template_id",
+            "required": true,
+            "system": true,
+            "type": "string"
+          },
+          {
+            "description": "Pipeline Template Name",
+            "name": "pipeline_template_name",
+            "required": true,
+            "system": true,
+            "type": "string"
+          },
+          {
+            "description": "Pipeline Template Description",
+            "name": "pipeline_template_description",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "schema_type": "user"
+      })
+    );
+  }),
+  rest.get("/admin/schema/pipeline_template_task", (request, response, context) => {
+    return response(
+      context.status(200),
+      context.json({
+        "schema_name": "pipeline_template_task",
+        "attributes": [
+          {
+            "description": "Pipeline Template ID",
+            "hidden": true,
+            "name": "pipeline_template_id",
+            "rel_display_attribute": "pipeline_template_name",
+            "rel_entity": "pipeline_template",
+            "rel_key": "pipeline_template_id",
+            "required": true,
+            "system": true,
+            "type": "relationship"
+          },
+          {
+            "description": "Task Name",
+            "group_order": "2",
+            "name": "task_id",
+            "rel_display_attribute": "script_name",
+            "rel_entity": "script",
+            "rel_key": "package_uuid",
+            "required": true,
+            "system": true,
+            "type": "relationship"
+          },
+          {
+            "description": "Task Version",
+            "group_order": "3",
+            "name": "task_version",
+            "required": true,
+            "system": true,
+            "type": "string"
+          },
+          {
+           "description": "Successors",
+           "group_order": "4",
+           "listMultiSelect": true,
+           "long_desc": "Next task",
+           "name": "task_successors",
+           "rel_display_attribute": "pipeline_template_task_name",
+           "rel_entity": "pipeline_template_task",
+           "rel_filter_attribute_name": "pipeline_template_id",
+           "rel_key": "pipeline_template_task_id",
+           "required": false,
+           "source_filter_attribute_name": "pipeline_template_id",
+           "system": true,
+           "type": "relationship"
+          },
+          {
+            "description": "Internal name identifier",
+            "hidden": true,
+            "name": "pipeline_template_task_name",
+            "required": true,
+            "system": true,
+            "type": "string"
+          }
+        ],
+        "schema_type": "system"
+      })
+    );
+  }),
+  rest.get("/admin/schema/pipeline", (request, response, context) => {
+    return response(
+      context.status(200),
+      context.json({
+        "schema_name": "pipeline",
+        "attributes": [
+          {
+            "description": "Pipeline Id",
+            "hidden": true,
+            "name": "pipeline_id",
+            "required": true,
+            "system": true,
+            "type": "string"
+          },
+          {
+            "description": "Pipeline Name",
+            "group_order": "1",
+            "name": "pipeline_name",
+            "required": true,
+            "system": true,
+            "type": "string"
+          },
+          {
+            "description": "Pipeline Description",
+            "group_order": "2",
+            "name": "pipeline_description",
+            "required": true,
+            "system": true,
+            "type": "string"
+          },
+          {
+            "description": "Pipeline Status",
+            "group_order": "3",
+            "hiddenCreate": true,
+            "name": "pipeline_status",
+            "required": true,
+            "system": true,
+            "type": "status"
+          },
+          {
+            "description": "Pipeline Template ID",
+            "group_order": "4",
+            "name": "pipeline_template_id",
+            "rel_display_attribute": "pipeline_template_name",
+            "rel_entity": "pipeline_template",
+            "rel_key": "pipeline_template_id",
+            "required": true,
+            "system": true,
+            "type": "relationship"
+          },
+          {
+            "description": "Task Arguments",
+            "group_order": "5",
+            "long_desc": "Template Task Arguments",
+            "lookup": "task.package_uuid",
+            "name": "task_arguments",
+            "rel_attribute": "script_arguments",
+            "rel_entity": "script",
+            "rel_key": "package_uuid",
+            "required": true,
+            "system": true,
+            "type": "embedded_entity"
+          },
+          {
+            "description": "Current Task ID",
+            "group_order": "6",
+            "hiddenCreate": true,
+            "name": "current_task_id",
+            "required": false,
+            "system": true,
+            "type": "string"
+          }
+        ],
+        "schema_type": "user"
+      })
+    );
+  }),
+  rest.get("/admin/schema/task_execution", (request, response, context) => {
+    return response(
+      context.status(200),
+      context.json({
+        "schema_name": "task_execution",
+        "attributes": [
+          {
+            "description": "Task Execution ID",
+            "hidden": true,
+            "name": "task_execution_id",
+            "required": true,
+            "system": true,
+            "type": "string"
+          },
+          {
+            "description": "Task Execution Name",
+            "hidden": true,
+            "name": "task_execution_name",
+            "required": true,
+            "system": true,
+            "type": "string"
+          },
+          {
+            "description": "Pipeline Name",
+            "hidden": true,
+            "name": "pipeline_id",
+            "rel_display_attribute": "pipeline_name",
+            "rel_entity": "pipeline",
+            "rel_key": "pipeline_id",
+            "system": true,
+            "type": "relationship"
+          },
+          {
+           "description": "Successors",
+           "group_order": "4",
+           "listMultiSelect": true,
+           "long_desc": "Next task",
+           "name": "task_successors",
+           "rel_display_attribute": "task_execution_name",
+           "rel_entity": "task_execution",
+           "rel_filter_attribute_name": "pipeline_template_id",
+           "rel_key": "task_execution_id",
+           "required": false,
+           "source_filter_attribute_name": "pipeline_template_id",
+           "system": true,
+           "type": "relationship"
+          },
+          {
+            "description": "Task Name",
+            "group_order": "2",
+            "long_desc": "Pipeline Task Name",
+            "name": "task_id",
+            "rel_display_attribute": "pipeline_template_task_name",
+            "rel_entity": "pipeline_template_task",
+            "rel_key": "task_id",
+            "required": true,
+            "system": true,
+            "type": "relationship"
+          },
+          {
+            "description": "Task Version",
+            "group_order": "2",
+            "long_desc": "Pipeline Task version",
+            "name": "task_version",
+            "required": true,
+            "system": true,
+            "type": "string"
+          },
+          {
+            "description": "Task Execution Status",
+            "group_order": "5",
+            "name": "task_execution_status",
+            "required": true,
+            "system": true,
+            "type": "status"
+          },
+          {
+            "description": "Last Message",
+            "group_order": "6",
+            "long_desc": "Last Message.",
+            "name": "outputLastMessage",
+            "required": true,
+            "system": true,
+            "type": "string"
+          },
+          {
+            "description": "Log Output",
+            "hidden": true,
+            "name": "output",
+            "system": true,
+            "type": "json"
+          },
+          {
+            "description": "Task Execution Inputs",
+            "hidden": true,
+            "name": "task_execution_inputs",
+            "type": "json"
+          }
+        ],
+        "schema_type": "system"
       })
     );
   }),

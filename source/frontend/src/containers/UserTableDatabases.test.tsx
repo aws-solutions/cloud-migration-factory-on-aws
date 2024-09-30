@@ -139,7 +139,7 @@ test("submitting the add form saves a new database to API", async () => {
   expect(screen.getAllByText("You must specify a valid value.")[0]).toBeInTheDocument();
 
   // AND WHEN we populate all fields
-  await userEvent.type(screen.getByRole("textbox", { name: "Database Name" }), "my-test-database");
+  await userEvent.type(screen.getByRole("textbox", { name: "database_name" }), "my-test-database");
 
   await userEvent.click(screen.getByLabelText("Application"));
   await userEvent.click(await screen.findByText("Unit testing App 1"));
@@ -253,7 +253,7 @@ test("submitting the edit form saves the database to API", async () => {
   expect(await within(dialog).findByText("Unit testing App 1")).toBeInTheDocument();
 
   // AND WHEN we edit some data and hit 'save'
-  const databaseNameInput = screen.getByRole("textbox", { name: "Database Name" });
+  const databaseNameInput = screen.getByRole("textbox", { name: "database_name" });
   await userEvent.type(databaseNameInput, "-some-name");
   await userEvent.click(await screen.findByRole("button", { name: /Save/i }));
 
@@ -295,7 +295,7 @@ test("when update fails with server error, display notification", async () => {
   const saveButton = await screen.findByRole("button", { name: /Save/i });
 
   // AND WHEN we edit some data and hit 'save'
-  const databaseNameInput = screen.getByRole("textbox", { name: "Database Name" });
+  const databaseNameInput = screen.getByRole("textbox", { name: "database_name" });
   await userEvent.type(databaseNameInput, "-some-name");
   await userEvent.click(await screen.findByRole("button", { name: /Save/i }));
 
@@ -435,7 +435,6 @@ test("delete multiple databases", async () => {
 
 test("click on export downloads an xlsx file", async () => {
   // GIVEN
-  jest.spyOn(XLSX, "writeFile").mockImplementation(() => {});
   jest.spyOn(XLSX.utils, "json_to_sheet");
 
   const testDatabases = generateTestDatabases(2);
@@ -459,7 +458,6 @@ test("click on export downloads an xlsx file", async () => {
 
 test("selecting a row and click on export downloads an xlsx file", async () => {
   // GIVEN
-  jest.spyOn(XLSX, "writeFile").mockImplementation(() => {});
   jest.spyOn(XLSX.utils, "json_to_sheet");
 
   const testDatabases = generateTestDatabases(2);

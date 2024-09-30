@@ -7,7 +7,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { Auth } from "@aws-amplify/auth";
 import AuthRoutes from "./AuthenticatedRoutes";
 import UserApiClient from "./api_clients/userApiClient";
-import { AppLayout, Button, Flashbar, StatusIndicator } from "@awsui/components-react";
+import { AppLayout, Button, Flashbar, StatusIndicator } from "@cloudscape-design/components";
 import { useSchema } from "./actions/SchemaHook";
 import ServiceNavigation from "./components/servicenavigation";
 import { useAdminPermissions } from "./actions/AdminPermissionsHook";
@@ -19,6 +19,7 @@ import { entityAccessFromPermissions } from "./utils/entity-access-from-permissi
 import { NotificationContext } from "./contexts/NotificationContext";
 import { CMFTopNavigation } from "./components/CMFTopNavigation";
 import { ToolsContext } from "./contexts/ToolsContext";
+import { SplitPanelContext } from "./contexts/SplitPanelContext";
 
 let websocket: WebSocket | null = null;
 let activityTimerID: ReturnType<typeof setInterval> | null = null;
@@ -36,6 +37,7 @@ const App = () => {
   const { idToken, userName, userGroups } = useContext(SessionContext);
   const { notifications, addNotification } = useContext(NotificationContext);
   const { toolsState, setToolsOpen } = useContext(ToolsContext);
+  const { splitPanelState, setSplitPanelOpen } = useContext(SplitPanelContext);
   const navigate = useNavigate();
 
   const locaStorageKeys = {
@@ -335,6 +337,10 @@ const App = () => {
         disableBodyScroll={true}
         onToolsChange={({ detail }) => setToolsOpen(detail.open)}
         toolsOpen={toolsState.toolsOpen}
+        splitPanelOpen={!splitPanelState.splitPanelContent || splitPanelState.splitPanelOpen}
+        splitPanel={splitPanelState.splitPanelContent}
+        splitPanelPreferences={{ position: "side" }}
+        onSplitPanelToggle={({ detail }) => setSplitPanelOpen(detail.open)}
       />
     );
   }

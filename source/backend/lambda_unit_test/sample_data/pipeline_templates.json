@@ -1,0 +1,58 @@
+[
+    {
+   "pipeline_template_id": {
+    "S": "1"
+   },
+   "pipeline_template_description": {
+    "S": "Imports Application Discovery Service (ADS) inventory data and EC2 recommendations"
+   },
+   "pipeline_template_name": {
+    "S": "Migration Hub Import"
+   },
+   "_history": {
+    "M": {
+     "createdBy": {
+      "M": {
+       "email": {
+        "S": "someone@example.com"
+       },
+       "userRef": {
+        "S": "0468d488-50a1-706b-dfb1-4a977a1e105b"
+       }
+      }
+     },
+     "createdTimestamp": {
+      "S": "2024-09-17T11:00:37.943349+00:00"
+     }
+    }
+   }
+  },
+  {
+ "pipeline_template_id": {
+  "S": "2"
+ },
+ "pipeline_template_description": {
+  "S": "Facilitates server replications via Application Migration Service (MGN) for the selected wave"
+ },
+ "pipeline_template_name": {
+  "S": "Rehost with Application Migration Service (MGN)"
+ },
+ "_history": {
+  "M": {
+   "createdBy": {
+    "M": {
+     "email": {
+      "S": "someone@example.com"
+     },
+     "userRef": {
+      "S": "0468d488-50a1-706b-dfb1-4a977a1e105b"
+     }
+    }
+   },
+   "createdTimestamp": {
+    "S": "2024-09-17T11:00:43.603504+00:00"
+   }
+  }
+ }
+}
+]

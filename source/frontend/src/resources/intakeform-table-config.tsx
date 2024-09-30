@@ -5,7 +5,7 @@
  */
 
 import React from "react";
-import { ExpandableSection, SpaceBetween, StatusIndicator } from "@awsui/components-react";
+import { ExpandableSection, SpaceBetween, StatusIndicator } from "@cloudscape-design/components";
 import { getNestedValuePath } from "./main";
 
 const ErrorCell = (props) => {

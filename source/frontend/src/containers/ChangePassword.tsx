@@ -7,7 +7,7 @@ import React, { useEffect, useState } from "react";
 import { Auth } from "@aws-amplify/auth";
 
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Container, Form, FormField, Header, Input, SpaceBetween } from "@awsui/components-react";
+import { Box, Button, Container, Form, FormField, Header, Input, SpaceBetween } from "@cloudscape-design/components";
 
 const ChangePassword = () => {
   let navigate = useNavigate();

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { FormField, Input, SpaceBetween, TagEditor, Textarea } from "@awsui/components-react";
+import { FormField, Input, SpaceBetween, TagEditor, Textarea } from "@cloudscape-design/components";
 import React from "react";
 import { HelpContent, Tag } from "../models/HelpContent";
 

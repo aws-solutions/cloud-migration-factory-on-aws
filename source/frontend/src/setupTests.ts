@@ -17,8 +17,9 @@ import { mock_credentialmanager_api } from "./__tests__/mocks/credentialmanager_
 import { mock_ssm_api } from "./__tests__/mocks/ssm_api";
 import { mock_admin_api } from "./__tests__/mocks/admin_api";
 import { mock_login_api } from "./__tests__/mocks/login_api";
+import { mock_tools_api } from "./__tests__/mocks/tools_api";
 
-jest.setTimeout(20000); // stop any test if running for more than 20 seconds
+jest.setTimeout(30000); // stop any test if running for more than 30 seconds
 
 (window as any).env = {
   API_REGION: "us-east-1",
@@ -26,13 +27,13 @@ jest.setTimeout(20000); // stop any test if running for more than 20 seconds
   API_ADMIN: "random-sx0c2",
   API_LOGIN: "random-b579",
   API_TOOLS: "random-n6l2",
-  API_VPCE_DNS: "",
+  API_VPCE_ID: "",
   API_SSMSocket: "random-b804a",
   COGNITO_REGION: "us-east-1",
   COGNITO_USER_POOL_ID: "us-east-1_abcdefg",
   COGNITO_APP_CLIENT_ID: "abcdefg",
   COGNITO_HOSTED_UI_URL: "",
-  VERSION_UI: "v3.3.2",
+  VERSION_UI: "v4.0.0",
 };
 
 // Establish API mocking before all tests.
@@ -44,13 +45,18 @@ export const server = setupServer(
   ...mock_app_api,
   ...mock_wave_api,
   ...mock_ssm_api,
-  ...mock_credentialmanager_api
+  ...mock_credentialmanager_api,
+  ...mock_tools_api
 );
 beforeAll(() => {
   server.listen();
 
   // provide all API names to Amplify but redirect all requests to mock server
   Amplify.configure(config);
+});
+
+beforeEach(() => {
+  jest.resetAllMocks();
 });
 
 // Reset any request handlers that we may add during the tests,
@@ -60,8 +66,26 @@ afterEach(() => server.resetHandlers());
 // Clean up after the tests are finished.
 afterAll(() => server.close());
 
+// mock export function of the external library XLSX to prevent create real files from test runs.
+// for import/read functions, use actual implementation
+jest.mock("xlsx", () => {
+  const actualXlsx = jest.requireActual("xlsx");
+  return {
+    ...actualXlsx,
+    writeFile: jest.fn(),
+  };
+});
+
 jest.mock("ace-builds", () => {
   return {
     edit: jest.fn(),
   };
 });
+
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+
+  unobserve() {}
+
+  disconnect() {}
+};

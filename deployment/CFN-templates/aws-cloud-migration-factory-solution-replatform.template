@@ -105,6 +105,13 @@ Parameters:
     Type: String
     Default: python3.11
 
+  AccessLoggingBucket:
+    Type: String
+
+  ToolsApiRequestValidatorId:
+    Type: String
+    Description: "Tools Rest API Request validator Id"
+
 Mappings:
   Solution:
     Data:
@@ -248,6 +255,7 @@ Resources:
       HttpMethod: "POST"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidatorId
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -272,6 +280,7 @@ Resources:
       HttpMethod: "POST"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidatorId
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -298,6 +307,7 @@ Resources:
       HttpMethod: "POST"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidatorId
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -790,6 +800,9 @@ Resources:
           Value: !Ref Environment
       VersioningConfiguration:
          Status: 'Enabled'
+      LoggingConfiguration:
+        DestinationBucketName: !Ref AccessLoggingBucket
+        LogFilePrefix: gfbuild-cftemplates
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -797,3 +810,20 @@ Resources:
             reason: "This bucket is for to generate cloud formation template by lambda code, user does not allow direct access"
           - id: W51
             reason: "This bucket access is controlled by IAM policies"
+
+  GFBuildCloudFormationBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref GFBuildCloudFormationTemplateBucket
+      PolicyDocument:
+        Statement:
+            - 
+              Action: s3:*
+              Effect: Deny
+              Principal: '*'
+              Resource:
+                - !Sub "${GFBuildCloudFormationTemplateBucket.Arn}/*"
+                - !GetAtt GFBuildCloudFormationTemplateBucket.Arn
+              Condition:
+                Bool:
+                  aws:SecureTransport: 'false'

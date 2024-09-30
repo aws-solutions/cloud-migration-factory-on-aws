@@ -6,7 +6,7 @@
 import React, { useContext, useEffect } from "react";
 import { exportAll } from "../utils/xlsx-export";
 
-import { Button } from "@awsui/components-react";
+import { Button } from "@cloudscape-design/components";
 
 import { useMFApps } from "../actions/ApplicationsHook";
 import { useGetServers } from "../actions/ServersHook";

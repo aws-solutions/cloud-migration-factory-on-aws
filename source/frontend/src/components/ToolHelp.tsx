@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { HelpPanel, Link, SpaceBetween } from "@awsui/components-react";
+import { HelpPanel, Link, SpaceBetween } from "@cloudscape-design/components";
 import React from "react";
 import { HelpContent } from "../models/HelpContent";
 

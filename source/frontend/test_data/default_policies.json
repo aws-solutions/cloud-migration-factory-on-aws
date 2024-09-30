@@ -292,6 +292,10 @@
       },
       {
         "create": true,
+        "schema_name": "mgh"
+      },
+      {
+        "create": true,
         "schema_name": "ce"
       },
       {

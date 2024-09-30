@@ -5,6 +5,7 @@
 
 import React, { useContext, useState } from "react";
 import {
+  Alert,
   Checkbox,
   Container,
   FormField,
@@ -15,12 +16,15 @@ import {
   SpaceBetween,
   Tabs,
   Textarea,
-} from "@awsui/components-react";
+} from "@cloudscape-design/components";
 
 import { useMFApps } from "../../actions/ApplicationsHook";
 import { useGetServers } from "../../actions/ServersHook";
 import { useMFWaves } from "../../actions/WavesHook";
 import { useAutomationScripts } from "../../actions/AutomationScriptsHook";
+import { useGetPipelineTemplates } from "../../actions/PipelineTemplatesHook";
+import { useGetPipelines } from "../../actions/PipelinesHook";
+import { useGetPipelineTemplateTasks } from "../../actions/PipelineTemplateTasksHook";
 
 import JsonAttribute from "./JsonAttribute";
 import Audit from "./Audit";
@@ -47,7 +51,7 @@ import CheckboxAttribute from "./CheckboxAttribute";
 import { ToolsContext } from "../../contexts/ToolsContext";
 import { Attribute, BaseData, EntitySchema } from "../../models/EntitySchema";
 import { SchemaAccess, UserAccess } from "../../models/UserAccess";
-import { OptionDefinition } from "@awsui/components-react/internal/components/option/interfaces";
+import { OptionDefinition } from "../../utils/OptionDefinition.ts";
 
 const constDefaultGroupName = "Details";
 
@@ -81,6 +85,12 @@ const AllAttributes = (props: AllAttributesParams) => {
   const [{ isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets }] = useCredentialManager();
   const [{ isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases }] = useGetDatabases();
   const [{ isLoading: permissionsIsLoading, data: permissionsData }] = useAdminPermissions();
+  const [{ isLoading: isLoadingPipelines, data: dataPipelines, error: errorPipelines }] = useGetPipelines();
+  const [{ isLoading: isLoadingPipelineTemplates, data: dataPipelineTemplates, error: errorPipelineTemplates }] =
+    useGetPipelineTemplates();
+  const [
+    { isLoading: isLoadingPipelineTemplateTasks, data: dataPipelineTemplateTasks, error: errorPipelineTemplateTasks },
+  ] = useGetPipelineTemplateTasks();
 
   const allData: BaseData = {
     secret: { data: dataSecrets, isLoading: isLoadingSecrets, error: errorSecrets },
@@ -89,6 +99,17 @@ const AllAttributes = (props: AllAttributesParams) => {
     server: { data: dataServers, isLoading: isLoadingServers, error: errorServers },
     application: { data: dataApps, isLoading: isLoadingApps, error: errorApps },
     wave: { data: dataWaves, isLoading: isLoadingWaves, error: errorWaves },
+    pipeline: { data: dataPipelines, isLoading: isLoadingPipelines, error: errorPipelines },
+    pipeline_template: {
+      data: dataPipelineTemplates,
+      isLoading: isLoadingPipelineTemplates,
+      error: errorPipelineTemplates,
+    },
+    pipeline_template_task: {
+      data: dataPipelineTemplateTasks,
+      isLoading: isLoadingPipelineTemplateTasks,
+      error: errorPipelineTemplateTasks,
+    },
   };
 
   const [formValidationErrors, setFormValidationErrors] = useState<any[]>([]);
@@ -228,6 +249,25 @@ const AllAttributes = (props: AllAttributesParams) => {
       case "policy":
         listFull = getSelectOptions(permissionsData.policies, permissionsIsLoading, attribute, currentRecord);
         break;
+      case "pipeline":
+        listFull = getSelectOptions(dataPipelines, isLoadingPipelines, attribute, currentRecord);
+        break;
+      case "pipeline_template":
+        listFull = getSelectOptions(
+          allData.pipeline_template?.data || dataPipelineTemplates,
+          isLoadingPipelineTemplates,
+          attribute,
+          currentRecord
+        );
+        break;
+      case "pipeline_template_task":
+        listFull = getSelectOptions(
+          dataPipelineTemplateTasks,
+          isLoadingPipelineTemplateTasks,
+          attribute,
+          currentRecord
+        );
+        break;
       default:
         return [];
     }
@@ -318,7 +358,7 @@ const AllAttributes = (props: AllAttributesParams) => {
       for (const itemValue of value) {
         const validationError = validateValue(itemValue, attribute);
         if (validationError === null && itemValue && !attribute?.listvalue?.includes(itemValue)) {
-          const relatedRecord = getRelationshipRecord(attribute, allData, itemValue);
+          const relatedRecord = getRelationshipRecord(attribute, allData, [itemValue]);
           if (relatedRecord === null || relatedRecord.length === 0) {
             errorMsg = "Related record not found based on value provided, please check your selections.";
             break;
@@ -843,7 +883,10 @@ const AllAttributes = (props: AllAttributesParams) => {
   function isAttributeHidden(attribute: Attribute, item: any) {
     const checkConditions = checkAttributeRequiredConditions(item, attribute.conditions);
 
-    return (!attribute.hidden && checkConditions.hidden === null) || checkConditions.hidden === false;
+    return (
+      (!attribute.hidden && !attribute.hiddenCreate && checkConditions.hidden === null) ||
+      checkConditions.hidden === false
+    );
   }
 
   function buildAttributeUI(attributes: Attribute[]) {
@@ -861,6 +904,7 @@ const AllAttributes = (props: AllAttributesParams) => {
           case "checkbox":
             return (
               <CheckboxAttribute
+                key={displayKey}
                 attribute={attribute}
                 isReadonly={attributeReadOnly}
                 value={getNestedValuePath(props.item, attribute.name)}
@@ -920,6 +964,7 @@ const AllAttributes = (props: AllAttributesParams) => {
           case "tag":
             return (
               <TagAttribute
+                key={displayKey}
                 attribute={attribute}
                 tags={getNestedValuePath(props.item, attribute.name)}
                 handleUserInput={props.handleUserInput}
@@ -929,6 +974,7 @@ const AllAttributes = (props: AllAttributesParams) => {
           case "list":
             return (
               <ListAttribute
+                key={displayKey}
                 attribute={attribute}
                 isReadonly={attributeReadOnly}
                 value={getNestedValuePath(props.item, attribute.name)}
@@ -940,6 +986,7 @@ const AllAttributes = (props: AllAttributesParams) => {
           case "relationship":
             return (
               <RelationshipAttribute
+                key={displayKey}
                 schemas={props.schemas}
                 attribute={attribute}
                 isReadonly={attributeReadOnly}
@@ -960,6 +1007,7 @@ const AllAttributes = (props: AllAttributesParams) => {
           case "groups":
             return (
               <GroupsAttribute
+                key={displayKey}
                 attribute={attribute}
                 isReadonly={attributeReadOnly}
                 value={getNestedValuePath(props.item, attribute.name)}
@@ -971,6 +1019,7 @@ const AllAttributes = (props: AllAttributesParams) => {
           case "policies":
             return (
               <PoliciesAttribute
+                key={displayKey}
                 attribute={attribute}
                 isReadonly={attributeReadOnly}
                 options={getRelationshipSelect(attribute, props.item)}
@@ -981,17 +1030,80 @@ const AllAttributes = (props: AllAttributesParams) => {
               />
             );
           case "embedded_entity":
+            let embedded_entity_schema = getRelationshipValue(
+              attribute,
+              allData,
+              getNestedValuePath(props.item, attribute.lookup!)
+            );
+
+            /**
+             * Override embedded_entity for pipeline since it is a double lookup
+             */
+            if (props.schemaName === "pipeline") {
+              let template_tasks = allData.pipeline_template_task?.data.filter((ptt) => {
+                return ptt.pipeline_template_id === props.item.pipeline_template_id;
+              });
+
+              if (!template_tasks) {
+                return null;
+              }
+
+              let embedded_task_arg_schemas = template_tasks?.map((templateTask) => {
+                return allData.script?.data.find((t) => {
+                  return t.package_uuid === templateTask.task_id;
+                });
+              });
+
+              let missing_scripts = [];
+
+              for (let script_idx = 0; script_idx < template_tasks.length; script_idx++) {
+                if (!embedded_task_arg_schemas[script_idx]) {
+                  missing_scripts.push(template_tasks[script_idx]);
+                }
+              }
+
+              if (template_tasks && missing_scripts.length > 0) {
+                return (
+                  <Alert
+                    statusIconAriaLabel="Error"
+                    type="error"
+                    header="Could not locate the following scripts attached to the pipeline template selected."
+                  >
+                    {missing_scripts.map((task) => {
+                      return <p>{task.task_id}</p>;
+                    })}
+                  </Alert>
+                );
+              }
+
+              let embedded_task_arg_schemas_attributes = embedded_task_arg_schemas?.flatMap((task: any) =>
+                getRelationshipValue(attribute, allData, getNestedValuePath({ task }, attribute.lookup))
+              );
+
+              // De-duping duplicate embedded entity values across pipeline template tasks
+              const embedded_entity_values = embedded_task_arg_schemas_attributes
+                ?.flatMap((schema) => schema.value)
+                .filter(Boolean);
+              const embedded_entity_value_names = embedded_entity_values?.map(
+                (entity_value) => entity_value.__orig_name || entity_value.name
+              );
+              embedded_entity_schema = {
+                status: "loaded",
+                value: embedded_entity_values?.filter((value, index) => {
+                  const val_name = value.__orig_name || value.name;
+                  return embedded_entity_value_names?.indexOf(val_name) == index;
+                }),
+              };
+            }
+
             return (
               <EmbeddedEntityAttribute
+                key={displayKey}
                 schemas={props.schemas}
                 parentSchemaType={props.schema.schema_type}
                 parentSchemaName={props.schemaName}
                 parentUserAccess={props.userAccess}
-                embeddedEntitySchema={getRelationshipValue(
-                  attribute,
-                  allData,
-                  getNestedValuePath(props.item, attribute.lookup!)
-                )}
+                embeddedEntitySchema={embedded_entity_schema}
                 embeddedItem={props.item}
                 handleUpdateValidationErrors={props.handleUpdateValidationErrors}
                 attribute={attribute}
@@ -1001,6 +1113,7 @@ const AllAttributes = (props: AllAttributesParams) => {
           case "date":
             return (
               <DateAttribute
+                key={displayKey}
                 attribute={attribute}
                 isReadonly={attributeReadOnly}
                 value={getNestedValuePath(props.item, attribute.name)}

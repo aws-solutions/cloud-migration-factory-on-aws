@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState } from "react";
 
-import { Box, Button, CollectionPreferences, Pagination, Table, TextFilter } from "@awsui/components-react";
+import { Box, Button, CollectionPreferences, Pagination, Table, TextFilter } from "@cloudscape-design/components";
 
 import {
   DEFAULT_PREFERENCES,
@@ -17,7 +17,7 @@ import {
 
 import { resolveRelationshipValues } from "../resources/main";
 
-import { useCollection } from "@awsui/collection-hooks";
+import { useCollection } from "@cloudscape-design/collection-hooks";
 
 import TableHeader from "./TableHeader";
 import { filterCounter, headerCounter } from "../utils/table-utils";

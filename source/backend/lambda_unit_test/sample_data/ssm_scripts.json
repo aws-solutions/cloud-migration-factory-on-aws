@@ -12,6 +12,9 @@
     "latest": {
       "N": "1"
     },
+    "type": {
+      "S": "Automated"
+    },
     "script_arguments": {
       "L": [
         {
@@ -96,6 +99,12 @@
     },
     "version": {
       "N": "1"
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "ssm"
     },
     "script_arguments": {
       "L": [

@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { BarChart, Box, Container, Header } from "@awsui/components-react";
+import { BarChart, Box, Container, Header } from "@cloudscape-design/components";
 
 type WaveServersByMonthParams = {
   Waves: { data: any[]; isLoading: any; error: any };

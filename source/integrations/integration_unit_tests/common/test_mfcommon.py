@@ -19,6 +19,8 @@ mock_requests_get_missing_server_fqdn, \
 mock_requests_get_same_server_os, \
 mock_requests_get_invalid_server_os, \
 mock_requests_put, \
+mock_requests_post, \
+mock_requests_with_failed_status_code, \
 mock_requests_with_connection_error, \
 mock_raise_paramiko_ssh_exception, \
 mock_raise_io_exception, \
@@ -34,27 +36,8 @@ mock_execute_cmd_via_ssh_with_suse, \
 mock_subprocess_run, \
 logger, \
 mock_file_open
-# from mfcommon import mf_config
-# from mfcommon import factory_login, \
-# mf_config, get_server_credentials, \
-# get_credentials, \
-# get_factory_servers, \
-# get_mf_config_user_api_id, \
-# get_api_endpoint_headers, \
-# get_api_endpoint_url, \
-# api_stage, \
-# update_server_migration_status, \
-# update_server_replication_status, \
-# get_mgn_source_server, \
-# execute_cmd, \
-# execute_cmd_via_ssh, \
-# create_csv_report, \
-# find_distribution, \
-# add_windows_servers_to_trusted_hosts, \
-# logger
 
         
-@mock.patch.dict('os.environ', default_mock_os_environ)
 @mock.patch.dict('os.environ', default_mock_os_environ)
 @mock_aws
 class CommonTestCase(TestCase):
@@ -76,6 +59,7 @@ class CommonTestCase(TestCase):
         self.mf_config['UserPoolId'] = self.ctb.user_pool_id
         self.mf_config['UserPoolClientId'] = os.environ['clientId']
         self.mf_config['session'] = self.session
+        self.mf_config['UserApi'] = "xxxxxx"
 
         # Initialize configurations for credentials test
         self.local_username = ""
@@ -124,6 +108,8 @@ class CommonTestCase(TestCase):
         self.using_key = True
         self.command = "test_command"
         self.multi_threaded = False
+        self.api_id = "test_api_id"
+        self.status_update_payload = [{"migration_status": "test_status"}]
 
     def tearDown(self):
         pass
@@ -159,7 +145,6 @@ class CommonTestCase(TestCase):
             "USERNAME": "test@example.com",
             "PASSWORD": "test_password",
             "IS_SSH_KEY": "false",
-            "SECRET_TYPE": "OS",
             "OS_TYPE": "Windows",
             "SECRET_TYPE": "OS",
             "SECRET_KEY": "test_secret_key",
@@ -182,8 +167,12 @@ class CommonTestCase(TestCase):
 
     def update_credential_configurations(
             self, local_username="", local_password="",
-            server={}, secret_override="test_secret",
+            server=None, secret_override="test_secret",
             no_user_prompts=False):
+
+        if not server:
+            server = {}
+
         self.local_username = local_username
         self.local_password = local_password
         self.server = server
@@ -505,11 +494,11 @@ class CommonTestCase(TestCase):
                 os_split=self.os_split,
                 rtype=self.r_type
             )
-        self.assertEqual(se.exception.code, None)
+        self.assertIsNone(se.exception.code)
         response = print_str.getvalue()
         print("Response: ", response)
-        expected_response = ("ERROR: Bad response from API https://xxxxxx.exe.execute-api.us-east-1.amazonaws.com"
-                             "/prod/user/server/user/server. The method is not implemented\n")
+        expected_response = ("ERROR: Bad response from API https://xxxxxx.execute-api.us-east-1.amazonaws.com"
+                             "/prod/user/server/user/server. Not yet implemented\n")
         self.assertEqual(response, expected_response)
 
     @mock.patch("requests.get", new=mock_requests_get_empty_accounts)
@@ -525,7 +514,7 @@ class CommonTestCase(TestCase):
                 token=self.token,
                 os_split=self.os_split,
                 rtype=self.r_type)
-        self.assertEqual(se.exception.code, None)
+        self.assertIsNone(se.exception.code)
         response = print_str.getvalue()
         print("Response: ", response)
         expected_response = "ERROR: AWS Account list for wave_id 1 is empty....\n"
@@ -562,7 +551,7 @@ class CommonTestCase(TestCase):
                 token=self.token,
                 os_split=self.os_split,
                 rtype=self.r_type)
-        self.assertEqual(se.exception.code, None)
+        self.assertIsNone(se.exception.code)
         response = print_str.getvalue()
         print("Response: ", response)
         expected_response = "ERROR: Incorrect AWS Account Id Length for app: app_name_1\n"
@@ -582,7 +571,7 @@ class CommonTestCase(TestCase):
                 os_split=self.os_split,
                 rtype=self.r_type
             )
-        self.assertEqual(se.exception.code, None)
+        self.assertIsNone(se.exception.code)
         response = print_str.getvalue()
         print("Response: ", response)
         expected_response = \
@@ -602,7 +591,7 @@ class CommonTestCase(TestCase):
                 token=self.token,
                 os_split=self.os_split,
                 rtype=self.r_type)
-        self.assertEqual(se.exception.code, None)
+        self.assertIsNone(se.exception.code)
         response = print_str.getvalue()
         print("Response: ", response)
         expected_response = \
@@ -716,7 +705,7 @@ class CommonTestCase(TestCase):
                 os_split=self.os_split,
                 rtype=self.r_type
             )
-        self.assertEqual(se.exception.code, None)
+        self.assertIsNone(se.exception.code)
         response = print_str.getvalue()
         print("Response: ", response)
         expected_response = \
@@ -737,11 +726,11 @@ class CommonTestCase(TestCase):
                 os_split=self.os_split,
                 rtype=self.r_type
             )
-        self.assertEqual(se.exception.code, None)
+        self.assertIsNone(se.exception.code)
         response = print_str.getvalue()
         print("Response: ", response)
         expected_response = \
-        "ERROR: Could not connect to API endpoint https://xxxxxx.exe.execute-api.us-east-1.amazonaws.com/prod/user/server/user/server.\n"
+        "ERROR: Could not connect to API endpoint https://xxxxxx.execute-api.us-east-1.amazonaws.com/prod/user/server/user/server.\n"
         self.assertEqual(response, expected_response)
 
     def test_get_mf_config_user_api_id_with_user_api(self):
@@ -759,28 +748,26 @@ class CommonTestCase(TestCase):
         logger.info("Testing test_mfcommon: "
                     "test_get_mf_config_user_api_id_without_user_api")
         from mfcommon import get_mf_config_user_api_id
-        user_api_url = self.mf_config["UserApiUrl"]
-        del(self.mf_config["UserApiUrl"])
+        user_api_url = self.mf_config["UserApi"]
+        del(self.mf_config["UserApi"])
 
         str_io = io.StringIO()
         with self.assertRaises(SystemExit) as se, \
             contextlib.redirect_stdout(str_io) as print_str:
                 get_mf_config_user_api_id()
-        self.assertEqual(se.exception.code, None)
+        self.assertIsNone(se.exception.code)
         response = print_str.getvalue()
         print("Response: ", response)
         expected_response = \
         "ERROR: Invalid FactoryEndpoints.json file. UserApi or UserApiUrl not present.\n"
         self.assertEqual(response, expected_response)
-        self.mf_config["UserApiUrl"] = user_api_url #Reset to default value
+        self.mf_config["UserApi"] = user_api_url #Reset to default value
 
     def test_get_api_endpoint_headers_with_vpce_id(self):
         logger.info("Testing test_mfcommon: "
                     "test_get_api_endpoint_headers_with_vpce_id")
         from mfcommon import get_api_endpoint_headers
         self.mf_config["VpceId"] = "test_vpce_id"
-        # token = "test_token"
-        api_id = "test_api_id"
         response = get_api_endpoint_headers(self.token)
         print("Response: ", response)
         expected_response = {
@@ -822,7 +809,7 @@ class CommonTestCase(TestCase):
         response = print_str.getvalue()
         print("Response: ", response)
         expected_response = \
-            "ERROR: Bad response from API https://xxxxxx.exe.execute-api.us-east-1.amazonaws.com/prod/user/server/test_server_1/user/server/test_server_1. The method is not implemented\n"
+            "ERROR: Bad response from API https://xxxxxx.execute-api.us-east-1.amazonaws.com/prod/user/server/test_server_1/user/server/test_server_1. Not yet implemented\n"
         self.assertEqual(response, expected_response)
 
     @mock.patch("requests.put", new=mock_requests_with_connection_error)
@@ -834,11 +821,11 @@ class CommonTestCase(TestCase):
         with self.assertRaises(SystemExit) as se, \
             contextlib.redirect_stdout(str_io) as print_str:
                 update_server_migration_status(self.token, self.server_id, self.status)
-        self.assertEqual(se.exception.code, None)
+        self.assertIsNone(se.exception.code)
         response = print_str.getvalue()
         print("Response: ", response)
         expected_response = \
-        "ERROR: Could not connect to API endpoint https://xxxxxx.exe.execute-api.us-east-1.amazonaws.com/prod/user/server/test_server_1/user/server/test_server_1.\n"
+        "ERROR: Could not connect to API endpoint https://xxxxxx.execute-api.us-east-1.amazonaws.com/prod/user/server/test_server_1/user/server/test_server_1.\n"
         self.assertEqual(response, expected_response)
 
     @mock.patch("requests.put", new=mock_requests_put)
@@ -857,7 +844,7 @@ class CommonTestCase(TestCase):
         self.mgn_source_servers[0]["isArchived"] = True
         response = get_mgn_source_server(self.cmf_server, self.mgn_source_servers)
         print("Response: ", response)
-        self.assertEqual(response, None)
+        self.assertIsNone(response)
         self.mgn_source_servers[0]["isArchived"] = False # Reset to default value
 
     def test_get_mgn_source_server_for_matching_ip(self):
@@ -892,7 +879,7 @@ class CommonTestCase(TestCase):
         response = get_mgn_source_server(
             self.cmf_server, self.mgn_source_servers)
         print("Response: ", response)
-        self.assertEqual(response, None)
+        self.assertIsNone(response)
 
          # Reset to default value
         self.mgn_source_servers[0]["sourceProperties"] \
@@ -908,7 +895,7 @@ class CommonTestCase(TestCase):
             ["networkInterfaces"][0]["ips"] = ["test_ip_1"]
         response = get_mgn_source_server(self.cmf_server, self.mgn_source_servers)
         print("Response: ", response)
-        self.assertEqual(response, None)
+        self.assertIsNone(response)
 
         # Reset to default value
         self.mgn_source_servers[0]["sourceProperties"] \
@@ -1151,7 +1138,7 @@ class CommonTestCase(TestCase):
         from mfcommon import parse_boolean
         for value in true_values:
             result = parse_boolean(value)
-            self.assertEqual(True, result)
+            self.assertTrue(result)
 
     def test_parse_boolean_false_values(self):
         false_values = ["false", "no", "n", "0", "f"]
@@ -1159,7 +1146,7 @@ class CommonTestCase(TestCase):
         from mfcommon import parse_boolean
         for value in false_values:
             result = parse_boolean(value)
-            self.assertEqual(False, result)
+            self.assertFalse(result)
 
     def test_parse_boolean_other_values(self):
         other_values = ["2", "q", "random", "!@34]", "-5"]
@@ -1167,4 +1154,43 @@ class CommonTestCase(TestCase):
         from mfcommon import parse_boolean
         for value in other_values:
             result = parse_boolean(value)
-            self.assertEqual(False, result)
+            self.assertFalse(result)
+
+    @mock.patch("requests.post", new=mock_requests_post)
+    def test_post_server_migration_status(self):
+        logger.info("Testing cmf_request_common: "
+                    "test_post_server_migration_status")
+        from mfcommon import post_data_to_api
+        response = post_data_to_api(self.token, self.api_id, '/user/server', self.status_update_payload)
+        print("Response: ", response)
+        self.assertEqual(response.status_code, 200)
+
+    @mock.patch("requests.post", new=mock_requests_with_failed_status_code)
+    def test_post_server_migration_status_with_failed_status_code(self):
+        logger.info("Testing cmf_request_common: "
+                    "test_post_server_migration_status_with_failed_status_code")
+        from mfcommon import post_data_to_api
+        str_io = io.StringIO()
+        with contextlib.redirect_stdout(str_io) as print_str:
+            post_data_to_api(self.token, self.api_id, '/user/server', self.status_update_payload)
+        response = print_str.getvalue()
+        print("Response: ", response)
+        expected_response = \
+            f'ERROR: Bad response from API https://{self.api_id}.execute-api.us-east-1.amazonaws.com/prod/user/server. \n'
+        self.assertEqual(response, expected_response)
+
+    @mock.patch("requests.post", new=mock_requests_with_connection_error)
+    def test_post_server_migration_status_with_connection_error(self):
+        logger.info("Testing cmf_request_common: "
+                    "test_post_server_migration_status_with_connection_error")
+        from mfcommon import post_data_to_api
+        str_io = io.StringIO()
+        with self.assertRaises(SystemExit) as se, \
+                contextlib.redirect_stdout(str_io) as print_str:
+            post_data_to_api(self.token, self.api_id, '/user/server', self.status_update_payload)
+        self.assertIsNone(se.exception.code)
+        response = print_str.getvalue()
+        print("Response: ", response)
+        expected_response = \
+            f'ERROR: Could not connect to API endpoint https://{self.api_id}.execute-api.us-east-1.amazonaws.com/prod/user/server.\n'
+        self.assertEqual(response, expected_response)

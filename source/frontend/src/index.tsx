@@ -4,17 +4,19 @@
  */
 
 import React from "react";
-import { createRoot } from "react-dom/client";
-import { Amplify } from "@aws-amplify/core";
+import {createRoot} from "react-dom/client";
+import {Amplify} from "@aws-amplify/core";
 import App from "./App";
-import "@awsui/global-styles/index.css";
-import { BrowserRouter } from "react-router-dom";
-import { SessionContextProvider } from "./contexts/SessionContext";
-import { Auth } from "@aws-amplify/auth";
-import { NotificationContextProvider } from "./contexts/NotificationContext";
-import { ToolsContextProvider } from "./contexts/ToolsContext";
+import "@cloudscape-design/global-styles/index.css";
+import {BrowserRouter} from "react-router-dom";
+import {SessionContextProvider} from "./contexts/SessionContext";
+import {Auth} from "@aws-amplify/auth";
+import {NotificationContextProvider} from "./contexts/NotificationContext";
+import {ToolsContextProvider} from "./contexts/ToolsContext";
+import {SplitPanelContextProvider} from "./contexts/SplitPanelContext";
 
 const env = (window as any).env;
+console.log(env);
 
 type EndpointConfig = {
   name: string;
@@ -160,9 +162,11 @@ document.addEventListener("DOMContentLoaded", () => {
     <BrowserRouter>
       <NotificationContextProvider>
         <ToolsContextProvider>
-          <SessionContextProvider>
-            <App />
-          </SessionContextProvider>
+          <SplitPanelContextProvider>
+            <SessionContextProvider>
+              <App />
+            </SessionContextProvider>
+          </SplitPanelContextProvider>
         </ToolsContextProvider>
       </NotificationContextProvider>
     </BrowserRouter>

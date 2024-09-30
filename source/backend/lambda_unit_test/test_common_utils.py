@@ -42,6 +42,32 @@ default_mock_os_environ = {
 }
 
 
+def create_and_populate_tasks(ddb_client, tasks_table_name, data_file_name='tasks.json'):
+    ddb_client.create_table(
+        TableName=tasks_table_name,
+        BillingMode='PAY_PER_REQUEST',
+        KeySchema=[
+            {'AttributeName': 'task_execution_id', 'KeyType': 'HASH'}
+        ],
+        AttributeDefinitions=[
+            {'AttributeName': 'task_execution_id', 'AttributeType': 'S'},
+            {'AttributeName': 'pipeline_id', 'AttributeType': 'S'},
+            {'AttributeName': 'task_id', 'AttributeType': 'S'},
+        ],
+        GlobalSecondaryIndexes=[
+            {"IndexName": "pipeline_id-index",
+             "KeySchema": [
+                 {"AttributeName": "pipeline_id", "KeyType": "HASH"},
+                 {"AttributeName": "task_id", "KeyType": "HASH"}
+             ],
+             "Projection": {
+                 "ProjectionType": "ALL"}
+             }
+        ]
+    )
+    populate_table(ddb_client, tasks_table_name, data_file_name)
+
+
 def create_and_populate_servers(ddb_client, servers_table_name, data_file_name='servers.json'):
     ddb_client.create_table(
         TableName=servers_table_name,
@@ -93,6 +119,63 @@ def create_and_populate_apps(ddb_client, apps_table_name, data_file_name='apps.j
     )
     populate_table(ddb_client, apps_table_name, data_file_name)
 
+
+def create_and_populate_pipeline_templates(ddb_client, table_name, data_file_name=None):
+    ddb_client.create_table(
+        TableName=table_name,
+        BillingMode='PAY_PER_REQUEST',
+        KeySchema=[
+            {'AttributeName': 'pipeline_template_id', 'KeyType': 'HASH'},
+        ],
+        AttributeDefinitions=[
+            {'AttributeName': 'pipeline_template_id', 'AttributeType': 'S'},
+        ],
+        GlobalSecondaryIndexes=[
+            {
+                'IndexName': 'pipeline_template_id-index',
+                'KeySchema': [
+                    {
+                        'AttributeName': 'pipeline_template_id',
+                        'KeyType': 'HASH'
+                    },
+                ],
+                'Projection': {
+                    'ProjectionType': 'ALL'
+                }
+            }
+        ]
+    )
+    if data_file_name:
+        populate_table(ddb_client, table_name, data_file_name)
+
+
+def create_and_populate_pipeline_template_tasks(ddb_client, table_name, data_file_name=None):
+    ddb_client.create_table(
+        TableName=table_name,
+        BillingMode='PAY_PER_REQUEST',
+        KeySchema=[
+            {'AttributeName': 'pipeline_template_task_id', 'KeyType': 'HASH'},
+        ],
+        AttributeDefinitions=[
+            {'AttributeName': 'pipeline_template_task_id', 'AttributeType': 'S'},
+        ],
+        GlobalSecondaryIndexes=[
+            {
+                'IndexName': 'pipeline_template_task_id-index',
+                'KeySchema': [
+                    {
+                        'AttributeName': 'pipeline_template_task_id',
+                        'KeyType': 'HASH'
+                    },
+                ],
+                'Projection': {
+                    'ProjectionType': 'ALL'
+                }
+            }
+        ]
+    )
+    if data_file_name:
+        populate_table(ddb_client, table_name, data_file_name)
 
 def create_and_populate_waves(ddb_client, waves_table_name, data_file_name='waves.json'):
     ddb_client.create_table(
@@ -201,6 +284,35 @@ def create_and_populate_ssm_scripts(ddb_client, table_name, data_file_name='ssm_
         ]
     )
     populate_table(ddb_client, table_name, data_file_name)
+
+
+def create_and_populate_pipelines(ddb_client, table_name, data_file_name='pipelines.json'):
+    ddb_client.create_table(
+        TableName=table_name,
+        BillingMode='PAY_PER_REQUEST',
+        KeySchema=[
+            {'AttributeName': 'pipeline_id', 'KeyType': 'HASH'},
+        ],
+        AttributeDefinitions=[
+            {'AttributeName': 'pipeline_id', 'AttributeType': 'S'},
+        ],
+        GlobalSecondaryIndexes=[
+            {
+                'IndexName': 'pipeline_id-index',
+                'KeySchema': [
+                    {
+                        'AttributeName': 'pipeline_id',
+                        'KeyType': 'HASH'
+                    },
+                ],
+                'Projection': {
+                    'ProjectionType': 'ALL'
+                }
+            }
+        ]
+    )
+    if data_file_name:
+        populate_table(ddb_client, table_name, data_file_name)
 
 
 def populate_table(ddb_client, table_name, data_file_name):

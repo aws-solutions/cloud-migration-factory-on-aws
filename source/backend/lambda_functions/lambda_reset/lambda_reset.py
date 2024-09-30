@@ -7,9 +7,11 @@ import os
 
 import cmf_boto
 from cmf_utils import cors, default_http_headers
+from cmf_logger import logger, log_event_received
 
 
 def lambda_handler(event, _):
+    log_event_received(event)
 
     body = json.loads(event['body'])    
     userid = body['username']

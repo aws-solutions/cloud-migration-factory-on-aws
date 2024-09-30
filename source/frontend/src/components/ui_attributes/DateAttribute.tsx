@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { DatePicker, FormField, SpaceBetween } from "@awsui/components-react";
+import { DatePicker, FormField, SpaceBetween } from "@cloudscape-design/components";
 
 const DateAttribute = ({ attribute, value, isReadonly, errorText, handleUserInput, displayHelpInfoLink }) => {
   const [localValue, setLocalValue] = useState(value);

@@ -27,7 +27,7 @@ class LambdaRunAthenaSavedQueryTest(unittest.TestCase):
     @mock.patch.dict('os.environ', mock_os_environ)
     def setUp(self) -> None:
         self.athena_client = boto3.client('athena')
-        self.athena_client.create_work_group(Name=os.getenv('workgroup'))
+        self.athena_client.create_work_group(Name=os.getenv('workgroup'), Configuration={})
         # add sleep to make sure that the resource is created
         time.sleep(5)
         logger.info(f'{os.getenv("workgroup")} athena work group created')
@@ -41,4 +41,4 @@ class LambdaRunAthenaSavedQueryTest(unittest.TestCase):
         response = lambda_run_athena_savedquery.lambda_handler(None, context)
         # the function doesn't return anything, so no validation with moto
         # can add test with patch that validate arguments called with
-        self.assertEqual(None, response)
+        self.assertIsNone(response)

@@ -4,11 +4,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from "react";
-import { CodeEditor, FormField, SpaceBetween } from "@awsui/components-react";
+import React, {useEffect, useState} from "react";
+import {CodeEditor, FormField, SpaceBetween} from "@cloudscape-design/components";
 
 import ace from "ace-builds";
-import "ace-builds/webpack-resolver";
+import 'ace-builds/src-noconflict/mode-json';
+import 'ace-builds/src-noconflict/theme-textmate';
+import 'ace-builds/src-noconflict/theme-monokai';
+import 'ace-builds/src-noconflict/worker-json';
+import 'ace-builds/src-noconflict/theme-dawn';
+import 'ace-builds/src-noconflict/theme-github';
+import 'ace-builds/src-noconflict/ext-language_tools';
+
+ace.config?.set("basePath", "/assets/ace-builds/src-noconflict/");
 
 // Attribute Display message content
 const JsonAttribute = ({ attribute, item, handleUserInput, errorText, displayHelpInfoLink }) => {

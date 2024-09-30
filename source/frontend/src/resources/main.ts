@@ -9,7 +9,7 @@
 
 import { Attribute, EntitySchema } from "../models/EntitySchema";
 import { UserAccess } from "../models/UserAccess";
-import { ButtonDropdownProps } from "@awsui/components-react";
+import { ButtonDropdownProps } from "@cloudscape-design/components";
 
 /**
  * Compares the provided newItem object to the object based in the dataArray of the matching key, returning the difference.
@@ -19,8 +19,13 @@ import { ButtonDropdownProps } from "@awsui/components-react";
  * @param keepCalculated - all keys which start with __ will be ignored by default, if set to true they will not be evaluated but returned to the output.
  * @returns {{}|null}
  */
-export function getChanges(newItem: any, dataArray: any[], key: string, keepCalculated = false) {
+export function getChanges(newItem: any, dataArray: any[] | undefined, key: string, keepCalculated = false) {
   let update: Record<string, any> = {};
+
+  if (!dataArray) {
+  //   dataArray undefined, this is to be assumed as the first item.
+    return newItem;
+  }
 
   let currentItem = dataArray.find((item) => {
     if (item[key].toLowerCase() === newItem[key].toLowerCase()) {
@@ -376,7 +381,7 @@ export function getNestedValue(obj: any, ...args: string[]) {
  * @param path
  * @returns {undefined|*}
  */
-export function getNestedValuePath(obj: any, path: string) {
+export function getNestedValuePath(obj: any, path: string | undefined) {
   if (path) {
     return path.split(".").reduce((obj, pathElement) => obj && obj[pathElement], obj);
   } else {
@@ -541,7 +546,16 @@ export const toBase64 = (file: File) =>
  * @param {string} s - The string to capitalize.
  * @returns {string} Returns the capitalized version of param s.
  */
-export const capitalize = (s: string) => (s && s[0].toUpperCase() + s.slice(1)) || "";
+export const capitalizeWord = (s: string) => (s && s[0].toUpperCase() + s.slice(1)) || "";
+export const capitalize = (s: string) => {
+  if (!s) return "";
+  const capitalizedArray = s.split("_").map((word) => capitalizeWord(word));
+  return capitalizedArray.join(" ");
+};
+export const capitalizeAndPluralize = (s: string) => {
+  if (!s) return "";
+  return `${capitalize(s)}s`;
+};
 
 function extracted(
   existingItems: any[],

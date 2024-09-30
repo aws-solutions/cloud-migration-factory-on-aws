@@ -171,7 +171,7 @@ test("submitting the add form saves a new wave to API", async () => {
   expect(screen.getAllByText("You must specify a valid value.")[0]).toBeInTheDocument();
 
   // AND WHEN we populate all fields
-  await userEvent.type(screen.getByRole("textbox", { name: "Wave Name" }), "my-test-wave");
+  await userEvent.type(screen.getByRole("textbox", { name: "wave_name" }), "my-test-wave");
 
   await userEvent.click(screen.getByLabelText("Wave Status"));
   await userEvent.click(await screen.findByText("Not started"));
@@ -271,7 +271,7 @@ test("submitting the edit form saves the wave to API", async () => {
   expect(saveButton).toBeEnabled();
 
   // AND WHEN we edit some data and hit 'save'
-  const waveNameInput = screen.getByRole("textbox", { name: "Wave Name" });
+  const waveNameInput = screen.getByRole("textbox", { name: "wave_name" });
   await userEvent.type(waveNameInput, "-some-name");
   await userEvent.click(await screen.findByRole("button", { name: /Save/i }));
 
@@ -313,7 +313,7 @@ test("when update fails with server error, display notification", async () => {
   const saveButton = await screen.findByRole("button", { name: /Save/i });
 
   // AND WHEN we edit some data and hit 'save'
-  const waveNameInput = screen.getByRole("textbox", { name: "Wave Name" });
+  const waveNameInput = screen.getByRole("textbox", { name: "wave_name" });
   await userEvent.type(waveNameInput, "-some-name");
   await userEvent.click(await screen.findByRole("button", { name: /Save/i }));
 
@@ -375,7 +375,7 @@ test("when update fails with 200 success response, parse error", async () => {
   const saveButton = await screen.findByRole("button", { name: /Save/i });
 
   // AND WHEN we edit some data and hit 'save'
-  const waveNameInput = screen.getByRole("textbox", { name: "Wave Name" });
+  const waveNameInput = screen.getByRole("textbox", { name: "wave_name" });
   await userEvent.type(waveNameInput, "-some-name");
   await userEvent.click(saveButton);
 
@@ -513,7 +513,6 @@ test("delete multiple waves", async () => {
 
 test("click on export downloads an xlsx file", async () => {
   // GIVEN
-  jest.spyOn(XLSX, "writeFile").mockImplementation(() => {});
   jest.spyOn(XLSX.utils, "json_to_sheet");
 
   const testWaves = generateTestWaves(2);
@@ -537,7 +536,6 @@ test("click on export downloads an xlsx file", async () => {
 
 test("selecting a row and click on export downloads an xlsx file", async () => {
   // GIVEN
-  jest.spyOn(XLSX, "writeFile").mockImplementation(() => {});
   jest.spyOn(XLSX.utils, "json_to_sheet");
 
   const testWaves = generateTestWaves(2);

@@ -9,6 +9,7 @@ from policy import MFAuth
 
 import cmf_boto
 from cmf_utils import cors, default_http_headers
+from cmf_logger import logger, log_event_received
 
 application = os.environ['application']
 environment = os.environ['environment']
@@ -28,6 +29,8 @@ def extract_validation_list_error(validation_list):
 
 
 def lambda_handler(event, _):
+    log_event_received(event)
+
     # Verify user has access to run ec2 replatform functions.
     auth = MFAuth()
     auth_response = auth.get_user_resource_creation_policy(event, 'EC2')
