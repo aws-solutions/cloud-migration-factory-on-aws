@@ -5,7 +5,14 @@
  */
 
 import React from "react";
-import { ColumnLayout, Container, ExpandableSection, Header, Popover, SpaceBetween } from "@awsui/components-react";
+import {
+  ColumnLayout,
+  Container,
+  ExpandableSection,
+  Header,
+  Popover,
+  SpaceBetween,
+} from "@cloudscape-design/components";
 
 import { capitalize } from "../../resources/main";
 import AllViewerAttributes from "../ui_attributes/AllViewerAttributes";

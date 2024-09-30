@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { FormField, SpaceBetween, Textarea } from "@awsui/components-react";
+import { FormField, SpaceBetween, Textarea } from "@cloudscape-design/components";
 
 const MultiValueStringAttribute = ({
   attribute,

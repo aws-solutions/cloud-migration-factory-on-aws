@@ -59,6 +59,20 @@ class LambdaRoleTest(unittest.TestCase):
                         }
                     ],
                     'role_name': 'FactoryReadOnly'
+                },
+                {
+                    'role_id': '3',
+                    'groups': [
+                        {
+                            'group_name': 'orchestrator'
+                        }
+                    ],
+                    'policies': [
+                        {
+                            'policy_id': '3'
+                        }
+                    ],
+                    'role_name': 'FactoryAutomationTaskOrchestrator'
                 }
             ]),
         }
@@ -238,16 +252,18 @@ class LambdaRoleTest(unittest.TestCase):
                 ],
                 'groups': [
                     {
-                        'group_name': 'TestGroup'
+                        'group_name': 'orchestrator'
                     }
                 ]
             })
         }
         response = lambda_role.lambda_handler(event_post, None)
+        print("HEREE")
+        print(response)
         self.assertEqual(200, json.loads(response['body'])['ResponseMetadata']['HTTPStatusCode'])
-        inserted_item = lambda_role.roles_table.get_item(Key={'role_id': '3'})['Item']
+        inserted_item = lambda_role.roles_table.get_item(Key={'role_id': '4'})['Item']
         expected_item = {
-            'role_id': '3',
+            'role_id': '4',
             'role_name': 'TestRole',
             'policies': [
                 {
@@ -256,7 +272,7 @@ class LambdaRoleTest(unittest.TestCase):
             ],
             'groups': [
                 {
-                    'group_name': 'TestGroup'
+                    'group_name': 'orchestrator'
                 }
             ]
         }

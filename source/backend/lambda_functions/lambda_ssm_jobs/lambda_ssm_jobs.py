@@ -2,14 +2,16 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import json
-from datetime import datetime
-from datetime import timedelta
+import traceback
+from datetime import datetime, timezone, timedelta
 import os
 import uuid
+import threading
 
 import cmf_boto
-from cmf_logger import logger
-from cmf_utils import cors, default_http_headers
+import cmf_logger
+import cmf_pipeline
+from cmf_utils import get_date_from_string, cors, default_http_headers, CONST_DT_FORMAT
 
 application = os.environ['application']
 environment = os.environ['environment']
@@ -20,29 +22,48 @@ table = dynamodb.Table(ssm_jobs_table_name)
 job_timeout_seconds = 60 * 720  # 12 hours
 default_maximum_days_logs_returned = 30  # Set to None to return all logs.
 
-CONST_DT_FORMAT = '%Y-%m-%dT%H:%M:%S.%f'
 HISTORY_DDB_EXPRESSION_NAME = '#_history'
 HISTORY_ATTRIBUTE_NAME = '_history'
 
+def logging_filter(record):
+    record.task_execution_id = logging_context.task_execution_id
+    record.status = logging_context.status
+    return True
 
-def unix_time_seconds(dt):
-    epoch = datetime.utcfromtimestamp(0)
-    return (dt - epoch).total_seconds()
+logging_context = threading.local()
+logger = cmf_logger.init_task_execution_logger(logging_filter)
+
+def logging_filter(record):
+    record.task_execution_id = logging_context.task_execution_id
+    record.status = logging_context.status
+    return True
+
+logging_context = threading.local()
+logger = cmf_logger.init_task_execution_logger(logging_filter)
+
+def logging_filter(record):
+    record.task_execution_id = logging_context.task_execution_id
+    record.status = logging_context.status
+    return True
+
+logging_context = threading.local()
+logger = cmf_logger.init_task_execution_logger(logging_filter)
 
 
 def get_latest_datetimestamp(job_history):
     if 'completedTimestamp' in job_history:
-        return datetime.strptime(job_history["completedTimestamp"], CONST_DT_FORMAT)
+        return get_date_from_string(job_history["completedTimestamp"])
 
     if 'createdTimestamp' in job_history:
-        return datetime.strptime(job_history["createdTimestamp"], CONST_DT_FORMAT)
+        return get_date_from_string(job_history["createdTimestamp"])
 
 
 def update_job_status(ssm_data):
-    current_time = datetime.utcnow()
+    current_time = datetime.now(timezone.utc)
     current_time_str = current_time.isoformat(sep='T')
-    created_timestamp = datetime.strptime(ssm_data[HISTORY_ATTRIBUTE_NAME]["createdTimestamp"], CONST_DT_FORMAT)
-    time_seconds_elapsed = unix_time_seconds(current_time) - unix_time_seconds(created_timestamp)
+    created_timestamp = get_date_from_string(ssm_data[HISTORY_ATTRIBUTE_NAME]["createdTimestamp"])
+    time_elapsed = current_time - created_timestamp
+    time_seconds_elapsed = time_elapsed.total_seconds()
     if time_seconds_elapsed > job_timeout_seconds:
         logger.info('Job timeout breached')
         logger.info(ssm_data)
@@ -55,6 +76,9 @@ def process_post(event):
     logger.info("Processing POST")
     job_uuid = str(uuid.uuid4())
     ssm_data = json.loads(event['payload']['body'])
+    logging_context.task_execution_id = ssm_data['jobname']
+
+    logger.info("Processing SSM jobs POST")
     ssm_data["status"] = "RUNNING"
 
     # Assign an id for the job as not currently set.
@@ -75,7 +99,7 @@ def process_get(event):
     maximum_days_logs_returned = get_maximum_days_of_logs_to_provide(event)
 
     if maximum_days_logs_returned is not None:
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         current_time = current_time + timedelta(days=-maximum_days_logs_returned)
         current_time_str = current_time.isoformat(sep='T')
 
@@ -159,7 +183,7 @@ def get_maximum_days_of_logs_to_provide(event):
         return default_maximum_days_logs_returned
 
 
-def lambda_handler(event, _):
+def process_event(event):
     logger.debug(event)
     if 'payload' in event and event['payload']['httpMethod'] == 'POST':
         return process_post(event)
@@ -167,3 +191,17 @@ def lambda_handler(event, _):
         return process_get(event)
     elif event['httpMethod'] == 'DELETE':
         return process_delete(event)
+
+
+def lambda_handler(event, _):
+    cmf_logger.log_event_received(event)
+
+    logging_context.status = cmf_pipeline.TaskExecutionStatus.IN_PROGRESS.value
+    logging_context.task_execution_id = ""
+
+    try:
+        return process_event(event)
+    except Exception as e:
+        logging_context.status = cmf_pipeline.TaskExecutionStatus.FAILED.value
+        logger.info(f"SSM jobs error, {e}")
+        traceback.print_exc()

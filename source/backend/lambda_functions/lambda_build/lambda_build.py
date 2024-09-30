@@ -12,7 +12,7 @@ import zipfile
 import cmf_boto
 import requests
 from botocore.exceptions import ClientError
-from cmf_logger import logger
+from cmf_logger import logger, log_event_received
 
 USER_API = os.getenv('USER_API')
 ADMIN_API = os.getenv('ADMIN_API')
@@ -183,10 +183,8 @@ def deploy_static_site():
 
 
 def lambda_handler(event, context):
+    log_event_received(event)
     try:
-        logger.info(f"Event:\n {event}")
-        logger.info(f"Context:\n {context}")
-
         if event['RequestType'] == 'Create':
             logger.info('Create action')
 

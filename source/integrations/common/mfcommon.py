@@ -1,7 +1,6 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-
 import sys
 import requests
 import json
@@ -15,12 +14,6 @@ import subprocess
 import csv
 import logging
 
-if not sys.warnoptions:
-    import warnings
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", category=Warning)
-    import paramiko
-
 ts = calendar.timegm(time.gmtime())
 # Constants referenced from other modules.
 api_stage = 'prod'
@@ -32,14 +25,20 @@ waveendpoint = '/user/wave'
 REQUESTS_DEFAULT_TIMEOUT = 60
 
 PREFIX_CREDENTIALS_STORE = 'cached_secret:'
+ERROR_MSG_PREFIX = "ERROR:"
 credentials_store = {}
 
 logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.ERROR)  # //NOSONAR Basic configuration doesn't pose security risk
 logger = logging.getLogger()
 logger.setLevel(logging.ERROR)
 
-with open('FactoryEndpoints.json') as json_file:
-    mf_config = json.load(json_file)
+
+# Attempt to open the configuration file, if not present most likely this is a Lambda invocation so config override used.
+try:
+    with open('FactoryEndpoints.json') as json_file:
+        mf_config = json.load(json_file)
+except FileNotFoundError:
+    mf_config = None
 
 
 # start of the external interface / functions to be called by clients ###############
@@ -52,7 +51,7 @@ def get_mf_config_user_api_id():
     elif "UserApiUrl" in mf_config:
         return extract_api_id_from_url(mf_config["UserApiUrl"])
     else:
-        print("ERROR: Invalid FactoryEndpoints.json file. UserApi or UserApiUrl not present.")
+        print(f"{ERROR_MSG_PREFIX} Invalid FactoryEndpoints.json file. UserApi or UserApiUrl not present.")
         sys.exit()
 
 
@@ -65,61 +64,91 @@ def get_api_endpoint_headers(token):
     return {"Authorization": token}
 
 
-def get_api_endpoint_url(api_id, api_endpoint):
-    if 'VpceId' in mf_config and mf_config['VpceId'] != '':
-        return f'https://{api_id}-{mf_config["VpceId"]}.execute-api.{mf_config["Region"]}.amazonaws.com/{api_stage}{api_endpoint}'
+def get_api_endpoint_url(api_id, api_endpoint, mf_config_override=None):
+
+    if mf_config_override:
+        local_mf_config = mf_config_override
     else:
-        return f'https://{api_id}.execute-api.{mf_config["Region"]}.amazonaws.com/{api_stage}{api_endpoint}'
+        local_mf_config = mf_config
+
+    if 'VpceId' in local_mf_config and local_mf_config['VpceId'] != '':
+        return f'https://{api_id}-{local_mf_config["VpceId"]}.execute-api.{local_mf_config["Region"]}.amazonaws.com/{api_stage}{api_endpoint}'
+    else:
+        return f'https://{api_id}.execute-api.{local_mf_config["Region"]}.amazonaws.com/{api_stage}{api_endpoint}'
 
 
-def build_requests_parameters(token, api_id, api_path):
+def build_requests_parameters(token, api_id, api_path, mf_config_override=None):
     return {
-        "url": get_api_endpoint_url(api_id, api_path),
+        "url": get_api_endpoint_url(api_id, api_path, mf_config_override),
         "headers": get_api_endpoint_headers(token),
         "timeout": REQUESTS_DEFAULT_TIMEOUT
     }
 
 
-def get_data_from_api(token, api_id, api_path):
-    request_parameters = build_requests_parameters(token, api_id, api_path)
+def get_data_from_api(token, api_id, api_path, mf_config_override=None):
+    request_parameters = build_requests_parameters(token, api_id, api_path, mf_config_override)
 
     try:
         requests_response = requests.get(**request_parameters)  # nosec B113
     except requests.exceptions.ConnectionError:
-        msg = f'ERROR: Could not connect to API endpoint {request_parameters["url"]}{api_path}.'
+        msg = f'{ERROR_MSG_PREFIX} Could not connect to API endpoint {request_parameters["url"]}{api_path}.'
         print(msg)
         sys.exit()
 
     if requests_response.status_code != 200:
-        msg = f'ERROR: Bad response from API {request_parameters["url"]}{api_path}. {requests_response.text}'
+        msg = f'{ERROR_MSG_PREFIX} Bad response from API {request_parameters["url"]}{api_path}. {requests_response.text}'
         print(msg)
         sys.exit()
 
     return requests_response
 
 
-def put_data_to_api(token, api_id, api_path, payload):
-    request_parameters = build_requests_parameters(token, api_id, api_path)
+def post_data_to_api(token, api_id, api_path, payload, mf_config_override=None):
+    request_parameters = build_requests_parameters(token, api_id, api_path, mf_config_override)
+    request_parameters['data'] = json.dumps(payload)
+
+    try:
+        requests_response = requests.post(**request_parameters)  # nosec B113
+
+    except requests.exceptions.ConnectionError:
+        msg = f'{ERROR_MSG_PREFIX} Could not connect to API endpoint {request_parameters["url"]}.'
+        print(msg)
+        sys.exit()
+
+    if requests_response.status_code != 200:
+        msg = f'{ERROR_MSG_PREFIX} Bad response from API {request_parameters["url"]}. {requests_response.text}'
+        print(msg)
+
+    return requests_response
+
+
+def put_data_to_api(token, api_id, api_path, payload, mf_config_override=None):
+    request_parameters = build_requests_parameters(token, api_id, api_path, mf_config_override)
     request_parameters['data'] = json.dumps(payload)
 
     try:
         requests_response = requests.put(**request_parameters)  # nosec B113
 
     except requests.exceptions.ConnectionError:
-        msg = f'ERROR: Could not connect to API endpoint {request_parameters["url"]}{api_path}.'
+        msg = f'{ERROR_MSG_PREFIX} Could not connect to API endpoint {request_parameters["url"]}{api_path}.'
         print(msg)
         sys.exit()
 
     if requests_response.status_code != 200:
-        msg = f'ERROR: Bad response from API {request_parameters["url"]}{api_path}. {requests_response.text}'
+        msg = f'{ERROR_MSG_PREFIX} Bad response from API {request_parameters["url"]}{api_path}. {requests_response.text}'
         print(msg)
 
     return requests_response
 
 
-def factory_login(silent=False):
-    login_data, username, using_secret = get_cmf_user_login_data(mf_config)
-    token = validate_cmf_user_login(mf_config, login_data, username, using_secret, silent=silent)
+def factory_login(silent=False, mf_config_override=None):
+    if mf_config_override:
+        local_mf_config = mf_config_override
+    else:
+        local_mf_config = mf_config
+
+    login_data, username, using_secret = get_cmf_user_login_data(local_mf_config)
+    token = validate_cmf_user_login(local_mf_config, login_data, username, using_secret, silent=silent)
 
     return token
 
@@ -258,8 +287,10 @@ def is_cmf_server_match_for_mgn_ip_address(interface, cmf_server):
 def is_cmf_server_match_for_mgn_hostname(mgn_source_server, cmf_server):
     cmf_server_name = clean_value(cmf_server['server_name'])
     cmf_server_fqdn = clean_value(cmf_server['server_fqdn'])
-    mgn_server_hostname = clean_value(mgn_source_server['sourceProperties']['identificationHints']['hostname'])
-    mgn_server_fqdn = clean_value(mgn_source_server['sourceProperties']['identificationHints']['fqdn'])
+    mgn_server_hostname = clean_value(mgn_source_server['sourceProperties']['identificationHints']
+                                      .get('hostname', '{notset}'))
+    mgn_server_fqdn = clean_value(mgn_source_server['sourceProperties']['identificationHints']
+                                  .get('fqdn','{notset}'))
 
     if cmf_server_name == mgn_server_hostname or cmf_server_name == mgn_server_fqdn \
         or cmf_server_fqdn == mgn_server_hostname or cmf_server_fqdn == mgn_server_fqdn:
@@ -303,6 +334,12 @@ def execute_cmd(host, username, key, cmd, using_key):
 
 
 def execute_cmd_via_ssh(host, username, key, cmd, using_key, multi_threaded=False):
+    if not sys.warnoptions:
+        import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        import paramiko
+
     # Function provides scripts a standard function to run remote commands against ssh enabled systems.
     output = ''
     error = ''
@@ -330,6 +367,12 @@ def execute_cmd_via_ssh(host, username, key, cmd, using_key, multi_threaded=Fals
 
 
 def open_ssh(host, username, key_pwd, using_key, multi_threaded=False):
+    if not sys.warnoptions:
+        import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        import paramiko
+
     base_error = f"Unable to connect to host {host} with username {username} due to"
     ssh = None
     error = ''
@@ -470,11 +513,11 @@ def get_factory_databases(waveid, token, app_ids=None, database_ids=None, rtype=
             msgs = str(error).split(":")[1:]
             for msg in msgs:
                 err = err + msg
-            msg = "ERROR: " + err
+            msg = f"{ERROR_MSG_PREFIX} {err}"
             print(msg)
             sys.exit()
         else:
-            msg = "ERROR: " + str(error)
+            msg = f"{ERROR_MSG_PREFIX} {str(error)}"
             print(msg)
             sys.exit()
 
@@ -486,7 +529,7 @@ def factory_database_accounts_from_apps(apps, waveid):
             if str(app['wave_id']) == str(waveid):
                 factory_database_update_accounts(app, aws_accounts)
     if len(aws_accounts) == 0:
-        msg = "ERROR: Target accounts for wave " + waveid + " is empty...."
+        msg = f"{ERROR_MSG_PREFIX} Target accounts for wave {waveid} is empty...."
         print(msg)
         sys.exit()
 
@@ -502,7 +545,7 @@ def factory_database_update_accounts(app, aws_accounts):
         if target_account not in aws_accounts:
             aws_accounts.append(target_account)
     else:
-        msg = "ERROR: Incorrect AWS Account Id Length for app: " + app['app_name']
+        msg = f"{ERROR_MSG_PREFIX} Incorrect AWS Account Id Length for app: {app['app_name']}"
         print(msg)
         sys.exit()
 
@@ -516,8 +559,8 @@ def factory_database_extract_databases(aws_accounts, databases, apps, waveid, rt
                 factory_database_match_databases_apps(app, waveid, account, rtype, databases)
         print("")
         if len(account['databases']) == 0:
-            msg = "ERROR: Database list for wave " + waveid + " and account: " + account[
-                'aws_accountid'] + " region: " + account['aws_region'] + " is empty...."
+            msg = (f"{ERROR_MSG_PREFIX} Database list for wave {waveid} and account: {account['aws_accountid']} "
+                   f"region: {account['aws_region']} is empty....")
             print(msg)
 
 
@@ -766,7 +809,7 @@ def get_aws_account_region(apps, waveid, os_split):
                 return aws_accounts, sys_exit
 
     if len(aws_accounts) == 0:
-        msg = f"ERROR: AWS Account list for wave_id {waveid} is empty...."
+        msg = f"{ERROR_MSG_PREFIX} AWS Account list for wave_id {waveid} is empty...."
         print(msg)
         sys_exit = True
 
@@ -787,7 +830,7 @@ def extract_aws_account_region(app, os_split, aws_accounts):
         if target_account not in aws_accounts:
             aws_accounts.append(target_account)
     else:
-        msg = f"ERROR: Incorrect AWS Account Id Length for app: {app['app_name']}"
+        msg = f"{ERROR_MSG_PREFIX} Incorrect AWS Account Id Length for app: {app['app_name']}"
         print(msg)
         sys_exit = True
 
@@ -832,7 +875,7 @@ def verify_server_os_and_fqdn(server, os_split, account):
                 elif server['server_os_family'].lower() == 'linux':
                     account['servers_linux'].append(server)
                 else:
-                    print(f"ERROR: Invalid server_os_family for: {server['server_name']}, "
+                    print(f"{ERROR_MSG_PREFIX} Invalid server_os_family for: {server['server_name']}, "
                           f"please select either Windows or Linux")
                     sys_exit = True
                     return account, sys_exit
@@ -840,10 +883,10 @@ def verify_server_os_and_fqdn(server, os_split, account):
                 account['servers'].append(server)
             print(server['server_fqdn'])
         else:
-            print(f"ERROR: server_fqdn for server: {server['server_name']} doesn't exist")
+            print(f"{ERROR_MSG_PREFIX} server_fqdn for server: {server['server_name']} doesn't exist")
             sys_exit = True
     else:
-        print(f"ERROR: server_os_family does not exist for: {server['server_name']}")
+        print(f"{ERROR_MSG_PREFIX} server_os_family does not exist for: {server['server_name']}")
         sys_exit = True
 
     return account, sys_exit
@@ -876,11 +919,11 @@ def handle_client_error(error):
         msgs = str(error).split(":")[1:]
         for msg in msgs:
             err = err + msg
-        msg = "ERROR: " + err
+        msg = f"{ERROR_MSG_PREFIX} {err}"
         print(msg)
         sys_exit = True
     else:
-        msg = "ERROR: " + str(error)
+        msg = f"{ERROR_MSG_PREFIX} {str(error)}"
         print(msg)
         sys_exit = True
 
@@ -943,9 +986,9 @@ def factory_login_with_mfa(username, r_content, mf_config):
             one_time_code = input("Please provide MFA One Time Code: ")
         except EOFError:
             print("", flush=True)
-            print("ERROR: MFA is enabled for the service account; this is not supported when used with "
-                  "CMF automation, if MFA is required, scripts must be run from the command line of the "
-                  "automation server.", flush=True)
+            print(f"{ERROR_MSG_PREFIX} MFA is enabled for the service account; this is not supported when used with "
+                  f"CMF automation, if MFA is required, scripts must be run from the command line of the "
+                  f"automation server.", flush=True)
             sys.exit(1)
         mfa_challenge_data = {
             'username': username, 'mfacode': one_time_code, 'session': r_content['Session']}
@@ -957,7 +1000,7 @@ def factory_login_with_mfa(username, r_content, mf_config):
             token = str(json.loads(r_mfa['body']))
             return token
         if r_mfa['statusCode'] == 502 or r_mfa['statusCode'] == 400:
-            print("ERROR: Incorrect MFA One Time Code provided....")
+            print(f"{ERROR_MSG_PREFIX} Incorrect MFA One Time Code provided....")
             sys.exit(1)
 
 
@@ -979,9 +1022,9 @@ def validate_cmf_user_login(mf_config, login_data, username, using_secret, silen
             return token
 
         if r['statusCode'] == 502 or r['statusCode'] == 400:
-            error_message = "ERROR: Incorrect username or password...."
+            error_message = f"{ERROR_MSG_PREFIX} Incorrect username or password...."
             if using_secret:
-                error_message = "ERROR: Incorrect username or password stored in Secrets Manager [MFServiceAccount-" + \
+                error_message = f"{ERROR_MSG_PREFIX} Incorrect username or password stored in Secrets Manager [MFServiceAccount-" + \
                                 mf_config[
                                     'UserPoolId'] + "] in region " + mf_config['Region'] + "."
             print(error_message)
@@ -992,8 +1035,8 @@ def validate_cmf_user_login(mf_config, login_data, username, using_secret, silen
     except requests.ConnectionError as e:
         logger.error(e)
         raise SystemExit(
-            "ERROR: Connecting to the Login API failed, please check Login API in FactoryEndpoints.json file. "
-            "If the API endpoint is correct, please close cmd and open a new cmd to run the script again")
+            f"{ERROR_MSG_PREFIX} Connecting to the Login API failed, please check Login API in FactoryEndpoints.json file. "
+            f"If the API endpoint is correct, please close cmd and open a new cmd to run the script again")
 
 
 def get_login_response(mf_config, auth_data):

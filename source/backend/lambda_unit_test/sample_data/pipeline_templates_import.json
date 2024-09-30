@@ -1,0 +1,234 @@
+[
+  {
+    "pipeline_template_id": "1",
+    "pipeline_template_name": "Migration Hub Import",
+    "pipeline_template_description": "Imports Application Discovery Service (ADS) inventory data and EC2 recommendations",
+    "version": "0",
+    "pipeline_template_tasks": [
+      {
+        "pipeline_template_task_id": "1",
+        "pipeline_template_id": "1",
+        "task_id": "845e43b1-4ff4-472c-a634-de4e2e4a78fb",
+        "task_sequence_number": "1",
+        "pipeline_template_task_name": "1-create_home_region",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "2",
+        "pipeline_template_id": "1",
+        "task_id": "ab9c240c-9cbf-4a7e-9ddc-c44f9f6d3952",
+        "task_sequence_number": "2",
+        "pipeline_template_task_name": "1-discover_on_premises_data",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "3",
+        "pipeline_template_id": "1",
+        "task_id": "eaf6fb22-f817-40aa-9f56-2a5d9d90449d",
+        "task_sequence_number": "3",
+        "pipeline_template_task_name": "1-group_inventory",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "4",
+        "pipeline_template_id": "1",
+        "task_id": "2c585097-0e13-4e42-994d-8f1269f7c97d",
+        "task_sequence_number": "4",
+        "pipeline_template_task_name": "1-import_ads_inventory",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "5",
+        "pipeline_template_id": "1",
+        "task_id": "22f4df1d-4b0e-43fa-bf4e-0b335375eeff",
+        "task_sequence_number": "5",
+        "pipeline_template_task_name": "1-import_ec2_rec",
+        "task_version": "1"
+      }
+    ]
+  },
+  {
+    "pipeline_template_id": "2",
+    "pipeline_template_name": "Rehost with Application Migration Service (MGN)",
+    "pipeline_template_description": "Facilitates server replications via Application Migration Service (MGN) for the selected wave",
+    "version": "0",
+    "pipeline_template_tasks": [
+      {
+        "pipeline_template_task_id": "9",
+        "pipeline_template_id": "2",
+        "task_id": "copy_post_launch_scripts_to_automation_server",
+        "task_sequence_number": "4",
+        "pipeline_template_task_name": "2-copy_post_launch_scripts_to_automation_server",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "10",
+        "pipeline_template_id": "2",
+        "task_id": "copy_post_launch_scripts_to_source_servers",
+        "task_sequence_number": "5",
+        "pipeline_template_task_name": "2-copy_post_launch_scripts_to_source_servers",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "27",
+        "pipeline_template_id": "2",
+        "task_id": "finalize_cutover",
+        "task_sequence_number": "22",
+        "pipeline_template_task_name": "2-finalize_cutover",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "6",
+        "pipeline_template_id": "2",
+        "task_id": "0a92f0e9-83ce-4947-b3e7-337807840c9b",
+        "task_sequence_number": "1",
+        "pipeline_template_task_name": "2-initialize_mgn",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "8",
+        "pipeline_template_id": "2",
+        "task_id": "install_mgn_agents",
+        "task_sequence_number": "3",
+        "pipeline_template_task_name": "2-install_mgn_agents",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "21",
+        "pipeline_template_id": "2",
+        "task_id": "launch_cutover_instances",
+        "task_sequence_number": "16",
+        "pipeline_template_task_name": "2-launch_cutover_instances",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "14",
+        "pipeline_template_id": "2",
+        "task_id": "launch_test_instances",
+        "task_sequence_number": "9",
+        "pipeline_template_task_name": "2-launch_test_instances",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "17",
+        "pipeline_template_id": "2",
+        "task_id": "mark_as_ready_for_cutover",
+        "task_sequence_number": "12",
+        "pipeline_template_task_name": "2-mark_as_ready_for_cutover",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "25",
+        "pipeline_template_id": "2",
+        "task_id": "post_cutover_validation",
+        "task_sequence_number": "20",
+        "pipeline_template_task_name": "2-post_cutover_validation",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "23",
+        "pipeline_template_id": "2",
+        "task_id": "ready_to_verify_target_server_connection",
+        "task_sequence_number": "18",
+        "pipeline_template_task_name": "2-ready_to_verify_target_server_connection",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "20",
+        "pipeline_template_id": "2",
+        "task_id": "shutdown_all_source_servers",
+        "task_sequence_number": "15",
+        "pipeline_template_task_name": "2-shutdown_all_source_servers",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "12",
+        "pipeline_template_id": "2",
+        "task_id": "validate_launch_template",
+        "task_sequence_number": "7",
+        "pipeline_template_task_name": "2-validate_launch_template",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "22",
+        "pipeline_template_id": "2",
+        "task_id": "verify_instance_status",
+        "task_sequence_number": "17",
+        "pipeline_template_task_name": "2-verify_instance_status_cutover",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "15",
+        "pipeline_template_id": "2",
+        "task_id": "verify_instance_status",
+        "task_sequence_number": "10",
+        "pipeline_template_task_name": "2-verify_instance_status_test_cutover",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "7",
+        "pipeline_template_id": "2",
+        "task_id": "verify_mgn_prerequisites",
+        "task_sequence_number": "2",
+        "pipeline_template_task_name": "2-verify_mgn_prerequisites",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "19",
+        "pipeline_template_id": "2",
+        "task_id": "verify_mgn_replication_status",
+        "task_sequence_number": "14",
+        "pipeline_template_task_name": "2-verify_mgn_replication_status-post-cutover",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "11",
+        "pipeline_template_id": "2",
+        "task_id": "verify_mgn_replication_status",
+        "task_sequence_number": "6",
+        "pipeline_template_task_name": "2-verify_mgn_replication_status_test_cutover",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "16",
+        "pipeline_template_id": "2",
+        "task_id": "verify_ready_for_cutover",
+        "task_sequence_number": "11",
+        "pipeline_template_task_name": "2-verify_ready_for_cutover",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "26",
+        "pipeline_template_id": "2",
+        "task_id": "verify_ready_for_finalization",
+        "task_sequence_number": "21",
+        "pipeline_template_task_name": "2-verify_ready_for_finalization",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "18",
+        "pipeline_template_id": "2",
+        "task_id": "verify_ready_for_source_server_shutdown",
+        "task_sequence_number": "13",
+        "pipeline_template_task_name": "2-verify_ready_for_source_server_shutdown",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "13",
+        "pipeline_template_id": "2",
+        "task_id": "verify_ready_launch_test_instances",
+        "task_sequence_number": "8",
+        "pipeline_template_task_name": "2-verify_ready_launch_test_instances",
+        "task_version": "1"
+      },
+      {
+        "pipeline_template_task_id": "24",
+        "pipeline_template_id": "2",
+        "task_id": "verify_target_server_connection",
+        "task_sequence_number": "19",
+        "pipeline_template_task_name": "2-verify_target_server_connection",
+        "task_version": "1"
+      }
+    ]
+  }
+]

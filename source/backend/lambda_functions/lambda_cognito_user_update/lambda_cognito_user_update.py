@@ -4,10 +4,11 @@
 
 import json
 import botocore
+import botocore.exceptions
 import os
 
 import cmf_boto
-from cmf_logger import logger
+from cmf_logger import logger, log_event_received
 from cmf_utils import cors, default_http_headers
 
 
@@ -84,17 +85,36 @@ def delete_user(user, client_cognito_idp):
     )
 
 
-def update_user(user, client_cognito_idp):
-    errors = []
-    try:
-        # Get current groups for user
-        user_groups = client_cognito_idp.admin_list_groups_for_user(
-            Username=user['username'],
-            UserPoolId=os.environ['userpool_id']
+def get_all_groups_for_user(client_cognito_idp, username):
+    extra_args = {}
+    user_groups = []
+
+    while True:
+        result = client_cognito_idp.admin_list_groups_for_user(
+            Username=username,
+            UserPoolId=os.environ['userpool_id'],
+            **extra_args
         )
 
+        user_groups.extend(result['Groups'])
+
+        if 'NextToken' in result:
+            extra_args['NextToken'] = result['NextToken']
+        else:
+            break
+
+    return user_groups
+
+
+def update_user(user, client_cognito_idp):
+    errors = []
+
+    try:
+        # Get current groups for user
+        user_groups = get_all_groups_for_user(client_cognito_idp, user['username'])
+
         current_group_names = []
-        for group in user_groups['Groups']:
+        for group in user_groups:
             current_group_names.append(group['GroupName'])
 
         # Support for updating all groups to match the list provided.
@@ -118,19 +138,19 @@ def update_user(user, client_cognito_idp):
         if 'delete' in user and user['delete']:
             delete_user(user, client_cognito_idp)
 
-    except client_cognito_idp.exceptions.UserNotFoundException:
-        logger.info("User '%s' does not exist , skipping user updates." % user['username'])
-        errors.append("User '%s'  does not exist , skipping user updates." % user['username'])
-    except client_cognito_idp.exceptions.NotAuthorizedException:
-        logger.error("User update Lambda does not have permission to update users "
-                     "in pool %s. Cancelling update." % os.environ['userpool_id'])
-        errors.append("User update Lambda does not have permission to update users "
-                      "in pool %s. Cancelling update." % os.environ['userpool_id'])
-        raise
     except botocore.exceptions.ClientError as boto_client_error:
-        # Error not specific boto client error.
-        logger.error(boto_client_error)
-        errors.append("Internal error.")
+        if boto_client_error.response['Error']['Code'] == 'NotAuthorizedException':
+            logger.error("User update Lambda does not have permission to update users "
+                         "in pool %s. Cancelling update." % os.environ['userpool_id'])
+            errors.append("User update Lambda does not have permission to update users "
+                          "in pool %s. Cancelling update." % os.environ['userpool_id'])
+        elif boto_client_error.response['Error']['Code'] == 'UserNotFoundException':
+            logger.info("User '%s' does not exist , skipping user updates." % user['username'])
+            errors.append("User '%s'  does not exist , skipping user updates." % user['username'])
+        else:
+            # Error not specific boto client error.
+            logger.error(boto_client_error)
+            errors.append("Internal error.")
     except Exception as unknown_error:
         logger.error(unknown_error)
         errors.append("Internal error.")
@@ -139,6 +159,8 @@ def update_user(user, client_cognito_idp):
 
 
 def lambda_handler(event, _):
+    log_event_received(event)
+
     client_cognito_idp = cmf_boto.client('cognito-idp')
     body = json.loads(event['body'])
     errors = []

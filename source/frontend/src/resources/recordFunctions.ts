@@ -200,7 +200,7 @@ export function getRequiredAttributes(schema: EntitySchema, includeConditional =
   return required_attributes;
 }
 
-export function getRelationshipRecord(attribute: Attribute, relatedData: BaseData, value: string) {
+export function getRelationshipRecord(attribute: Attribute, relatedData: BaseData, value: string | string[]) {
   // Check if related data for the entity required is present in relatedData object.
   const relEntity = attribute.rel_entity!;
   if (relatedData?.[relEntity] && !(relatedData[relEntity]?.isLoading || !value)) {
@@ -308,7 +308,7 @@ function getRelationshipSingleDisplayValue(
   );
 
   if (record) {
-    let returnValue = null;
+    let returnValue;
     if (attribute.type === "embedded_entity") returnValue = getNestedValuePath(record, attribute.rel_attribute!);
     else {
       returnValue = getNestedValuePath(record, attribute.rel_display_attribute!);

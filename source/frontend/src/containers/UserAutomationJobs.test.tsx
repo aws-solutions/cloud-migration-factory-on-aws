@@ -3,19 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
+import {render, screen, waitFor, waitForElementToBeRemoved, within} from "@testing-library/react";
 import React from "react";
-import "@testing-library/jest-dom";
-import { defaultTestProps, mockNotificationContext, TEST_SESSION_STATE } from "../__tests__/TestUtils";
-import { MemoryRouter } from "react-router-dom";
-import { SessionContext } from "../contexts/SessionContext";
+
+import {defaultTestProps, mockNotificationContext, TEST_SESSION_STATE} from "../__tests__/TestUtils";
+import {MemoryRouter} from "react-router-dom";
+import {SessionContext} from "../contexts/SessionContext";
 import UserAutomationJobs from "./UserAutomationJobs";
-import { NotificationContext } from "../contexts/NotificationContext";
-import { server } from "../setupTests";
-import { rest } from "msw";
-import { generateTestAutomationJobs, generateTestAutomationScripts } from "../__tests__/mocks/ssm_api";
+import {NotificationContext} from "../contexts/NotificationContext";
+import {server} from "../setupTests";
+import {rest} from "msw";
+import {generateTestAutomationJobs, generateTestAutomationScripts} from "../__tests__/mocks/ssm_api";
 import userEvent from "@testing-library/user-event";
-import { generateTestApps, generateTestWaves } from "../__tests__/mocks/user_api";
+import {generateTestApps, generateTestWaves} from "../__tests__/mocks/user_api";
 
 const renderUserAutomationJobsComponent = () => {
   return {
@@ -129,13 +129,14 @@ async function assert_selected_details() {
   const table = screen.getByRole("table");
   const tbody = within(table).getAllByRole("rowgroup")[1];
   const row1 = within(tbody).getAllByRole("row")[0];
-  const selectedJobName = within(row1).getAllByRole("cell")[1].innerHTML;
+  const selectedJobName = (within(row1).getAllByRole("cell")[1]).textContent;
   const detailsTabHeader = screen.getByRole("tab", { name: "Details" });
   const logTabHeader = screen.getByRole("tab", { name: "Log" });
   expect(detailsTabHeader).toBeInTheDocument();
   expect(logTabHeader).toBeInTheDocument();
 
   const detailsTabPanel = screen.getByRole("tabpanel", { name: "Details" });
+  // @ts-ignore
   expect(within(detailsTabPanel).getAllByText(selectedJobName)[0]).toBeVisible();
 
   await userEvent.click(logTabHeader);
@@ -199,7 +200,7 @@ test("clicking Cancel from Run Automations takes back to jobs list", async () =>
 });
 
 async function fill_in_automation_attributes() {
-  const jobNameTextBox = screen.getByRole("textbox", { name: "Job Name" });
+  const jobNameTextBox = screen.getByRole("textbox", { name: "jobname" });
   await userEvent.type(jobNameTextBox, "Test Job");
 
   // select script name
@@ -208,7 +209,7 @@ async function fill_in_automation_attributes() {
   const optionScript2 = screen.getByRole("option", { name: "0-Check MGN Prerequisites 1" });
   await userEvent.click(optionScript2);
   //fill in the param for the selected option
-  const param1TextBox = screen.getByRole("textbox", { name: /replication server ip\./i });
+  const param1TextBox = screen.getByRole("textbox", { name: "script.script_arguments.ReplicationServerIP" });
   await userEvent.type(param1TextBox, "192.168.0.5");
 
   //select automation server

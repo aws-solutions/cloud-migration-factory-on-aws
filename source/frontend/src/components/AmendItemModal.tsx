@@ -4,7 +4,7 @@
  */
 
 import React, { ReactNode, useEffect, useState } from "react";
-import { Box, Button, Modal, SpaceBetween } from "@awsui/components-react";
+import { Box, Button, Modal, SpaceBetween } from "@cloudscape-design/components";
 import { setNestedValuePath } from "../resources/main";
 import AllAttributes from "./ui_attributes/AllAttributes";
 import { EntitySchema } from "../models/EntitySchema";

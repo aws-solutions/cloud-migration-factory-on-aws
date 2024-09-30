@@ -7,7 +7,7 @@ import React, { useContext, useEffect, useState } from "react";
 import UserApiClient from "../api_clients/userApiClient";
 import * as XLSX from "xlsx";
 
-import { ExpandableSection, ProgressBar } from "@awsui/components-react";
+import { ExpandableSection, ProgressBar } from "@cloudscape-design/components";
 
 import { useMFApps } from "../actions/ApplicationsHook";
 import { useGetServers } from "../actions/ServersHook";

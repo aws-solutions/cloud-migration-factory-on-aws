@@ -18,7 +18,7 @@ import {
   Link,
   SpaceBetween,
   Wizard,
-} from "@awsui/components-react";
+} from "@cloudscape-design/components";
 
 const AutomationScriptImport = (props) => {
   const [selectedFile, setSelectedFile] = useState(null);

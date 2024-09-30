@@ -9,7 +9,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import ItemAmend from "../components/ItemAmend";
 import { getChanges } from "../resources/main";
 import { exportTable } from "../utils/xlsx-export";
-import { SpaceBetween } from "@awsui/components-react";
+import { SpaceBetween } from "@cloudscape-design/components";
 
 import ServerView from "../components/ServerView";
 import { useMFApps } from "../actions/ApplicationsHook";

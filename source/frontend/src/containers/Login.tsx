@@ -18,7 +18,7 @@ import {
   Link,
   SpaceBetween,
   TextContent,
-} from "@awsui/components-react";
+} from "@cloudscape-design/components";
 
 const Login = () => {
   let location = useLocation();

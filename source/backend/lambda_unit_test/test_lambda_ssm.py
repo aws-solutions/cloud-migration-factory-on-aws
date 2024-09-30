@@ -178,13 +178,13 @@ class LambdaSSMTest(unittest.TestCase):
             'httpMethod': 'POST',
             'body': json.dumps({
                 'jobname': 'test_job',
-                'mi_id': 'test_mi_id',
                 'script': {
                     'package_uuid': 'test_uuid',
                     'script_version': 'test_version',
                     'script_arguments': {
                         'arg1': 'value1',
-                        'arg2': 'value2'
+                        'arg2': 'value2',
+                        'mi_id': 'test_mi_id'
                     }
                 }
             })
@@ -193,13 +193,13 @@ class LambdaSSMTest(unittest.TestCase):
             'httpMethod': 'POST',
             'body': json.dumps({
                 'jobname': 'test_job',
-                'mi_id': 'test_mi_id',
                 'script': {
                     'package_uuid': 'test_uuid',
                     'script_version': '0',
                     'script_arguments': {
                         'arg1': 'value1',
-                        'arg2': 'value2'
+                        'arg2': 'value2',
+                        'mi_id': 'test_mi_id'
                     }
                 }
             })
@@ -208,13 +208,13 @@ class LambdaSSMTest(unittest.TestCase):
             'httpMethod': 'POST',
             'body': json.dumps({
                 'jobname': 'test_job',
-                'mi_id': 'test_mi_id',
                 'script': {
                     'package_uuid': 'test_uuid_1',
                     'script_version': '0',
                     'script_arguments': {
                         'arg1': 'value1',
-                        'arg2': 'value2'
+                        'arg2': 'value2',
+                        'mi_id': 'test_mi_id'
                     }
                 }
             })
@@ -230,6 +230,7 @@ class LambdaSSMTest(unittest.TestCase):
         response = lambda_ssm.lambda_handler(self.event_get, None)
         expected = {
             'headers': lambda_ssm.default_http_headers,
+            'statusCode': 200,
             'body': json.dumps([
                 {
                     'mi_id': 'instance_001',
@@ -262,7 +263,7 @@ class LambdaSSMTest(unittest.TestCase):
         expected = {
             'headers': lambda_ssm.default_http_headers,
             'statusCode': 400,
-            'body': 'Request parameters missing: jobname,mi_id,script',
+            'body': 'Request parameters missing: jobname,script',
         }
         self.assertEqual(expected, response)
 
@@ -303,8 +304,6 @@ class LambdaSSMTest(unittest.TestCase):
         mock_lamda.invoke.side_effect = mock_lamda_invoke
         mock_ssm.start_automation_execution = mock_start_automation_execution
         response = lambda_ssm.lambda_handler(self.event_post, None)
-        print("THIS ONE HERE")
-        print(response)
         self.assertEqual(lambda_ssm.default_http_headers, response['headers'])
         self.assertIn('"SSMId: test_mi_id', response['body'])
 

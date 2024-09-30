@@ -1,0 +1,154 @@
+[
+  {
+    "task_execution_id": {
+      "S": "1"
+    },
+    "pipeline_id": {
+      "S": "1"
+    },
+    "task_execution_status": {
+      "S": "Not Started"
+    },
+    "task_execution_inputs": {
+      "M": {
+        "mi_id": {
+          "S": "testmi"
+        }
+      }
+    },
+    "task_successors": {
+      "L": []
+    },
+    "task_version": {
+      "S": "1"
+    },
+    "task_id": {
+      "S": "11111111-1111-1111-1111-111111111"
+    },
+    "_history": {
+      "M": {
+        "lastModifiedTimestamp": {
+          "S": "test"
+        },
+        "lastModifiedBy": {
+          "S": "test"
+        }
+      }
+    }
+  },
+  {
+    "task_execution_id": {
+      "S": "2"
+    },
+    "pipeline_id": {
+      "S": "2"
+    },
+    "task_execution_status": {
+      "S": "Complete"
+    },
+    "task_execution_inputs": {
+      "M": {
+        "mi_id": {
+          "S": "testmi"
+        }
+      }
+    },
+    "task_successors": {
+      "L": []
+    },
+    "task_version": {
+      "S": "1"
+    },
+    "task_id": {
+      "S": "11111111-1111-1111-1111-111111111"
+    },
+    "_history": {
+      "M": {
+        "lastModifiedTimestamp": {
+          "S": "test"
+        },
+        "lastModifiedBy": {
+          "S": "test"
+        }
+      }
+    }
+  },
+  {
+    "task_execution_id": {
+      "S": "3"
+    },
+    "pipeline_id": {
+      "S": "3"
+    },
+    "task_execution_status": {
+      "S": "Complete"
+    },
+    "task_execution_inputs": {
+      "M": {
+        "mi_id": {
+          "S": "testmi"
+        }
+      }
+    },
+    "task_successors": {
+      "L": [
+        {
+          "S": "4"
+        }
+      ]
+    },
+    "task_version": {
+      "S": "1"
+    },
+    "task_id": {
+      "S": "11111111-1111-1111-1111-111111111"
+    },
+    "_history": {
+      "M": {
+        "lastModifiedTimestamp": {
+          "S": "test"
+        },
+        "lastModifiedBy": {
+          "S": "test"
+        }
+      }
+    }
+  },
+  {
+    "task_execution_id": {
+      "S": "4"
+    },
+    "pipeline_id": {
+      "S": "3"
+    },
+    "task_execution_status": {
+      "S": "Not Started"
+    },
+    "task_execution_inputs": {
+      "M": {
+        "mi_id": {
+          "S": "testmi"
+        }
+      }
+    },
+    "task_successors": {
+      "L": []
+    },
+    "task_version": {
+      "S": "1"
+    },
+    "task_id": {
+      "S": "11111111-1111-1111-1111-111111111"
+    },
+    "_history": {
+      "M": {
+        "lastModifiedTimestamp": {
+          "S": "test"
+        },
+        "lastModifiedBy": {
+          "S": "test"
+        }
+      }
+    }
+  }
+]

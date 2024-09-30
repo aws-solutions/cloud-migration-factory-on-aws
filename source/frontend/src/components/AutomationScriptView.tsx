@@ -5,7 +5,7 @@
  */
 
 import React from "react";
-import { ColumnLayout, Container, Header, SpaceBetween, Tabs } from "@awsui/components-react";
+import { ColumnLayout, Container, Header, SpaceBetween, Tabs } from "@cloudscape-design/components";
 
 import AllViewerAttributes from "../components/ui_attributes/AllViewerAttributes";
 import Audit from "./ui_attributes/Audit";

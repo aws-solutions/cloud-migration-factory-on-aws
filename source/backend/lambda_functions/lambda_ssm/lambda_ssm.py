@@ -3,13 +3,15 @@
 import copy
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 from policy import MFAuth
+import threading
 
 import cmf_boto
-from cmf_logger import logger
 from cmf_utils import cors, default_http_headers
+import cmf_pipeline
+from cmf_logger import logger, log_event_received, init_task_execution_logger
 
 application = os.environ['application']
 environment = os.environ['environment']
@@ -29,26 +31,50 @@ lambda_client = cmf_boto.client('lambda')
 ssm = cmf_boto.client("ssm")
 ec2 = cmf_boto.client('ec2')
 
+def logging_filter(record):
+    record.task_execution_id = logging_context.task_execution_id
+    record.status = logging_context.status
+    return True
+
+logging_context = threading.local()
+logger = init_task_execution_logger(logging_filter)
+
 
 def lambda_handler(event, _):
-    logging_context = f"SSM: {event['httpMethod']}"
-    logger.debug('Invocation: %s', logging_context)
+    log_event_received(event)
+
+    logging_context.status = cmf_pipeline.TaskExecutionStatus.IN_PROGRESS.value
+    logging_context.task_execution_id = ''
+
+    status_response = process_event(event)
+    if status_response['statusCode'] != 200:
+        logging_context.status = cmf_pipeline.TaskExecutionStatus.FAILED.value
+
+    logger.info(f"Lambda SSM processing complete with body: {status_response.get('body', '')}")
+    return status_response
+
+
+def process_event(event):
+    ssm_logging_context = f"SSM: {event['httpMethod']}"
+    logger.debug('Invocation: %s', ssm_logging_context)
     if event['httpMethod'] == 'GET':
 
         mi_list = get_cmf_automation_servers()
 
         return {'headers': {**default_http_headers},
+                'statusCode': 200,
                 'body': json.dumps(mi_list)}
 
     elif event['httpMethod'] == 'POST':
+        body = json.loads(event['body'])
+        logging_context.task_execution_id = body.get('jobname', '')
 
         # Get record audit
         auth = MFAuth()
         auth_response = auth.get_user_resource_creation_policy(event, 'ssm_job')
 
         if auth_response['action'] == 'allow':
-
-            create_response = create_automation_job(json.loads(event["body"]), auth_response)
+            create_response = create_automation_job(body, auth_response)
 
             logger.debug(f"Invocation: {logging_context}, {json.dumps(create_response)}")
 
@@ -67,11 +93,11 @@ def is_cmf_automation_server_instance(ssm_managed_instance):
         tags = ssm.list_tags_for_resource(ResourceType='ManagedInstance',
                                           ResourceId=ssm_managed_instance['InstanceId'])
         if 'TagList' in tags and len(tags['TagList']) > 0:
-            automation_tag = {}
-            automation_tag['Key'] = 'role'
-            automation_tag['Value'] = 'mf_automation'
-            if automation_tag in tags['TagList']:
-                return True
+                automation_tag = {}
+                automation_tag['Key'] = 'role'
+                automation_tag['Value'] = 'mf_automation'
+                if automation_tag in tags['TagList']:
+                    return True
     else:
         tags = ec2.describe_tags(Filters=[
             {
@@ -80,17 +106,16 @@ def is_cmf_automation_server_instance(ssm_managed_instance):
             }
         ])
         if 'Tags' in tags and len(tags['Tags']) > 0:
-            automation_tag = {
-                'Key': 'role',
-                'Value': 'mf_automation',
-                'ResourceType': 'instance',
-                'ResourceId': ssm_managed_instance['InstanceId']
-            }
-            if automation_tag in tags['Tags']:
-                return True
+                automation_tag = {
+                    'Key': 'role',
+                    'Value': 'mf_automation',
+                    'ResourceType': 'instance',
+                    'ResourceId': ssm_managed_instance['InstanceId']
+                }
+                if automation_tag in tags['Tags']:
+                    return True
 
     return False
-
 
 def get_cmf_automation_servers():
     ssm_managed_instances = []
@@ -137,11 +162,14 @@ def get_validation_errors(ssm_data):
     if "jobname" not in ssm_data.keys():
         validation_errors.append('jobname')
 
-    if "mi_id" not in ssm_data.keys():
-        validation_errors.append('mi_id')
-
     if "script" not in ssm_data.keys():
         validation_errors.append('script')
+    else:
+        if "script_arguments" not in ssm_data['script'].keys():
+            validation_errors.append('script_arguments')
+        else:
+            if "mi_id" not in ssm_data['script']['script_arguments'].keys():
+                validation_errors.append('mi_id')
 
     return validation_errors
 
@@ -181,7 +209,7 @@ def create_automation_job(ssm_data, auth_response):
 
     if 'user' in auth_response:
         last_modified_by = auth_response['user']
-        last_modified_timestamp = datetime.utcnow().isoformat()
+        last_modified_timestamp = datetime.now(timezone.utc).isoformat()
 
     ssm_data["_history"] = {}
     ssm_data["_history"]["createdBy"] = last_modified_by
@@ -199,7 +227,7 @@ def create_automation_job(ssm_data, auth_response):
 
     # Build payload for SSM request.
 
-    ssm_data["SSMId"] = ssm_data["mi_id"] + "+" + ssm_data["uuid"] + "+" + ssm_data["_history"][
+    ssm_data["SSMId"] = ssm_data["script"]["script_arguments"]["mi_id"] + "+" + ssm_data["uuid"] + "+" + ssm_data["_history"][
         "createdTimestamp"]
     ssm_data['output'] = ''
 
@@ -259,7 +287,7 @@ def create_automation_job(ssm_data, auth_response):
                 'cmfInstance': [application],
                 'cmfEnvironment': [environment],
                 'payload': [json.dumps(ssm_data_copy)],
-                'instanceID': [ssm_data["mi_id"]],
+                'instanceID': [ssm_data["script"]["script_arguments"]["mi_id"]],
             },
         )
 
@@ -283,6 +311,7 @@ def create_automation_job(ssm_data, auth_response):
                              Payload=json.dumps(jobs_event))
 
         return {'headers': {**default_http_headers},
+                'statusCode': 200,
                 'body': json.dumps("SSMId: " + ssm_data["SSMId"])}
     except Exception as err:
         logger.error(f"SSM: POST: create_ssm_automation_job, {err}")
@@ -298,5 +327,8 @@ def parse_script_args(script_arguments):
         # if value is a string and contains a space then wrap in single quotes
         elif isinstance(value, str) and ' ' in value:
             script_arguments[key] = f"'{value}'"
+
+    # remove system attribute as does not need to be passed to script.
+    script_arguments.pop('mi_id', None)
 
     return script_arguments

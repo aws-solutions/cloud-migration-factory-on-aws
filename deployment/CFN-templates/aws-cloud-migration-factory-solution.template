@@ -124,6 +124,22 @@ Parameters:
     Default: false
     AllowedValues: [ true, false ]
 
+  UserAPIRequestValidatorId:
+    Type: String
+    Description: 'The ID of the User API Request Validator'
+
+  ToolsApiRequestValidatorId:
+    Type: String
+    Description: 'The ID of the Tools API Request Validator'
+
+  LoginApiRequestValidatorId:
+    Type: String
+    Description: 'The ID of the Login API Request Validator'
+
+  AdminAPIRequestValidatorId:
+    Type: String
+    Description: 'The ID of the Admin API Request Validator'
+
 Mappings:
   Send:
     AnonymousUsage:
@@ -140,6 +156,10 @@ Mappings:
       SolutionName: 'Cloud Migration Factory on AWS'
     LambdaRuntime:
       Python: python3.11
+  API:
+    prod:
+      DefaultThrottlingRateLimit: 10000
+      DefaultThrottlingBurstLimit: 5000
 
 Conditions:
   DeployTracker: !Equals [!Ref Tracker, true]
@@ -149,7 +169,7 @@ Conditions:
   DeployCloudFront: !Or [ !Condition DeploymentTypePublic, !Condition DeployWAF]
   DeploymentPrivate: !Equals [!Ref DeploymentType, 'Private']
   DeployFederation: !Equals [!Ref CognitoFederation, true]
-  
+
 Resources:
   AccessLoggingBucket:
     Type: AWS::S3::Bucket
@@ -197,6 +217,16 @@ Resources:
             Effect: "Deny"
             Resource: !GetAtt AccessLoggingBucket.Arn
             Principal: "*"
+          - 
+            Action: s3:*
+            Effect: Deny
+            Principal: '*'
+            Resource:
+              - !Sub "${AccessLoggingBucket.Arn}/*"
+              - !GetAtt AccessLoggingBucket.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
 
   FrontEndBucket:
     Type: AWS::S3::Bucket
@@ -245,6 +275,16 @@ Resources:
             Condition:
               StringEquals:
                 AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudfrontDistribution.Id}"
+          - 
+            Action: s3:*
+            Effect: Deny
+            Principal: '*'
+            Resource:
+              - !Sub "${FrontEndBucket.Arn}/*"
+              - !GetAtt FrontEndBucket.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
 
   CloudFrontOriginAccessControl:
     Condition: DeployCloudFront
@@ -336,7 +376,7 @@ Resources:
           headers['x-content-type-options'] = { value: 'nosniff'};
           headers['x-frame-options'] = {value: 'DENY'};
           headers['x-xss-protection'] = {value: '1; mode=block'};
-        
+          headers['cache-control'] = {value: 'no-store, no-cache'};
           // Return the response to viewers
           return response;
         }
@@ -446,6 +486,8 @@ Resources:
   ServersDynamoDBTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       AttributeDefinitions:
         -
           AttributeName: "server_id"
@@ -488,6 +530,105 @@ Resources:
           - id: W74
             reason: "Default encryption is enabled with no additional charge"
 
+  LambdaFunctionServerTableStream:
+    Type: AWS::Lambda::Function
+    Properties:
+      Environment:
+        Variables:
+          application: !Sub ${Application}
+          environment: !Sub ${Environment}
+          region: !Ref "AWS::Region"
+          AWS_ACCOUNT_ID: !Ref "AWS::AccountId"
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_server_stream.zip"]]
+      Description: This is the lambda function for processing DynamoDB server item changes
+      FunctionName: !Sub ${Application}-${Environment}-server-table-stream
+      Handler: "lambda_server_stream.lambda_handler"
+      Role: !GetAtt ServerTableStreamLambdaRole.Arn
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+      MemorySize: 2048
+      Timeout: 720
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  ServerTableStreamLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-ServerTableStreamLambdaRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: !Sub ${Application}-${Environment}-ServerTableStreamLambdaRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'discovery:DescribeConfigurations'
+                  - 'mgh:AssociateDiscoveredResource'
+                  - 'mgh:CreateProgressUpdateStream'
+                  - 'mgh:GetHomeRegion'
+                  - 'mgh:ImportMigrationTask'
+                  - 'mgh:NotifyMigrationTaskState'
+                Resource: '*'
+              - Action:
+                  - 'dynamodb:DescribeStream'
+                  - 'dynamodb:GetRecords'
+                  - 'dynamodb:GetShardIterator'
+                  - 'dynamodb:ListStreams'
+                Effect: Allow
+                Resource:
+                  - !GetAtt ServersDynamoDBTable.StreamArn
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: F38
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  ServerTableStreamStreamMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt ServersDynamoDBTable.StreamArn
+      FunctionName: !GetAtt LambdaFunctionServerTableStream.Arn
+      StartingPosition: LATEST
+
   AppsDynamoDBTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -521,9 +662,112 @@ Resources:
           - id: W74
             reason: "Default encryption is enabled with no additional charge"
 
+  LambdaFunctionWaveTableStream:
+    Type: AWS::Lambda::Function
+    Properties:
+      Environment:
+        Variables:
+          application: !Sub ${Application}
+          environment: !Sub ${Environment}
+          region: !Ref "AWS::Region"
+          AWS_ACCOUNT_ID: !Ref "AWS::AccountId"
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_wave_stream.zip"]]
+      Description: This is the lambda function for processing DynamoDB wave item changes
+      FunctionName: !Sub ${Application}-${Environment}-wave-table-stream
+      Handler: "lambda_wave_stream.lambda_handler"
+      Role: !GetAtt WaveTableStreamLambdaRole.Arn
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+      MemorySize: 2048
+      Timeout: 720
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  WaveTableStreamLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-WaveTableStreamLambdaRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: !Sub ${Application}-${Environment}-WaveTableStreamLambdaRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'discovery:ListConfigurations'
+                  - 'mgh:GetHomeRegion'
+                  - 'mgh:NotifyApplicationState'
+                Resource: '*'
+              - Action:
+                  - 'dynamodb:DescribeStream'
+                  - 'dynamodb:GetRecords'
+                  - 'dynamodb:GetShardIterator'
+                  - 'dynamodb:ListStreams'
+                Effect: Allow
+                Resource:
+                  - {Fn::GetAtt: 'WavesDynamoDBTable.StreamArn'}
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:Scan'
+                Resource:
+                  - !Join [ '', [ !GetAtt AppsDynamoDBTable.Arn, '*' ] ]
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: F38
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  WaveTableStreamStreamMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt WavesDynamoDBTable.StreamArn
+      FunctionName: !GetAtt LambdaFunctionWaveTableStream.Arn
+      StartingPosition: LATEST
+
   WavesDynamoDBTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       AttributeDefinitions:
         -
           AttributeName: "wave_id"
@@ -598,6 +842,238 @@ Resources:
             reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
           - id: W74
             reason: "Default encryption is enabled with no additional charge"
+
+  # Pipeline Table stream
+  LambdaFunctionPipelineTableStream:
+    Type: AWS::Lambda::Function
+    Properties:
+      Environment:
+        Variables:
+          application: !Sub ${Application}
+          environment: !Sub ${Environment}
+          region: !Ref "AWS::Region"
+          AWS_ACCOUNT_ID: !Ref "AWS::AccountId"
+          PIPELINE_TEMPLATE_TASKS_TABLE_NAME: !GetAtt AutomationService.Outputs.PipelineTemplateTasksTable
+          TASK_EXECUTIONS_TABLE_NAME: !GetAtt AutomationService.Outputs.TaskExecutionsTable
+          PIPELINES_TABLE_NAME: !GetAtt AutomationService.Outputs.PipelinesTable
+          AnonymousUsageData: !FindInMap ["Send", "AnonymousUsage", "Data"]
+          solutionUUID: !GetAtt CreateUniqueID.UUID
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_pipeline_stream.zip"]]
+      Description: This is the lambda function for processing DynamoDB pipeline item changes
+      Handler: "lambda_pipeline_stream.lambda_handler"
+      FunctionName: !Sub ${Application}-${Environment}-pipeline-table-stream
+      Role: !GetAtt PipelineTableStreamLambdaRole.Arn
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+      MemorySize: 2048
+      Timeout: 720
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  PipelineTableStreamLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-PipelineTableStreamLambdaRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: !Sub ${Application}-${Environment}-PipelineTableStreamLambdaRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - 'dynamodb:DescribeStream'
+                  - 'dynamodb:GetRecords'
+                  - 'dynamodb:GetShardIterator'
+                  - 'dynamodb:ListStreams'
+                Effect: Allow
+                Resource:
+                  - !GetAtt AutomationService.Outputs.PipelinesTableStreamArn
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:UpdateItem'
+                Resource:
+                  - !Join [ '', [!GetAtt AutomationService.Outputs.PipelineTemplateTasksTableArn, '*' ] ]
+                  - !Join [ '', [!GetAtt AutomationService.Outputs.TaskExecutionsTableArn, '*' ] ]
+                  - !Join [ '', [!GetAtt AutomationService.Outputs.PipelinesTableArn, '*' ] ]
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: F38
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  PipelineTableStreamStreamMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt AutomationService.Outputs.PipelinesTableStreamArn
+      FunctionName: !GetAtt LambdaFunctionPipelineTableStream.Arn
+      StartingPosition: LATEST
+
+  # Task Orchestrator Lambda
+  TaskOrchestratorLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Environment:
+        Variables:
+          application: !Sub ${Application}
+          environment: !Sub ${Environment}
+          region: !Ref "AWS::Region"
+          PIPELINE_TEMPLATE_TASKS_TABLE_NAME: !GetAtt AutomationService.Outputs.PipelineTemplateTasksTable
+          TASK_EXECUTIONS_TABLE_NAME: !GetAtt AutomationService.Outputs.TaskExecutionsTable
+          PIPELINES_TABLE_NAME: !GetAtt AutomationService.Outputs.PipelinesTable
+          SCRIPTS_TABLE_NAME: !GetAtt AutomationService.Outputs.ScriptsTable
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          AnonymousUsageData: !FindInMap ["Send", "AnonymousUsage", "Data"]
+          solutionUUID: !GetAtt CreateUniqueID.UUID
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_task_orchestrator.zip"]]
+      Description: This is the lambda function for orchestrating task executions
+      Handler: "lambda_task_orchestrator.lambda_handler"
+      FunctionName: !Sub ${Application}-${Environment}-task-orchestrator
+      Role: !GetAtt TaskOrchestratorLambdaRole.Arn
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+      MemorySize: 2048
+      Timeout: 720
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  TaskOrchestratorLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-TaskOrchestratorLambdaRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: !Sub ${Application}-${Environment}-TaskOrchestratorPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - 'dynamodb:DescribeStream'
+                  - 'dynamodb:GetRecords'
+                  - 'dynamodb:GetShardIterator'
+                  - 'dynamodb:ListStreams'
+                Effect: Allow
+                Resource:
+                  - !GetAtt AutomationService.Outputs.PipelinesTableStreamArn
+                  - !GetAtt AutomationService.Outputs.TaskExecutionsTableStreamArn
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:Scan'
+                Resource:
+                  - !Join [ '', [!GetAtt AutomationService.Outputs.PipelineTemplateTasksTableArn, '*' ] ]
+                  - !Join [ '', [!GetAtt AutomationService.Outputs.PipelinesTableArn, '*' ] ]
+                  - !Join [ '', [!GetAtt AutomationService.Outputs.TaskExecutionsTableArn, '*' ] ]
+                  - !Join [ '', [!GetAtt AutomationService.Outputs.ScriptsTableArn, '*' ] ]
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              -
+                Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: '*'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: F38
+            reason: "The resources ARN is unknown, because it is based on user's input"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  TaskOrchestratorPipelinesTableStreamMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt AutomationService.Outputs.PipelinesTableStreamArn
+      FunctionName: !GetAtt TaskOrchestratorLambdaFunction.Arn
+      StartingPosition: LATEST
+
+  TaskOrchestratorTaskExecutionsTableStreamMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt AutomationService.Outputs.TaskExecutionsTableStreamArn
+      FunctionName: !GetAtt TaskOrchestratorLambdaFunction.Arn
+      StartingPosition: LATEST
 
   # Cognito
   CognitoUserPool:
@@ -797,6 +1273,38 @@ Resources:
             }
         - !Ref 'AWS::NoValue'
 
+  ToolsApiRequestValidator:
+    Type: 'AWS::ApiGateway::RequestValidator'
+    Properties:
+      Name: ToolsAPIValidateQueryStringAndHeaders
+      RestApiId: !Ref ToolsAPI
+      ValidateRequestBody: false
+
+  ToolsAPISsmReqValidationModel:
+    Type: 'AWS::ApiGateway::Model'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ContentType: 'application/json'
+      Description: 'Validation model for Tools API query paths'
+      Name: 'ToolsAPIRequestValidationModel'
+      Schema:
+        $schema: 'http://json-schema.org/draft-04/schema#'
+        title: 'ToolsAPI Query Paths'
+        type: 'object'
+        properties:
+          jobid:
+            type: 'string'
+            pattern: '^[A-Za-z0-9_\-\.]+$'
+          scriptid:
+            type: 'string'
+            pattern: '^[A-Za-z0-9_\-\.]+$'
+          version:
+            type: 'string'
+            pattern: '^[A-Za-z0-9_\-\.]+$'
+          action:
+            type: 'string'
+            pattern: '^[A-Za-z0-9_\-\.]+$'
+
   ToolsAPIGatewayResponses4xx:
     Type: AWS::ApiGateway::GatewayResponse
     Properties:
@@ -826,6 +1334,9 @@ Resources:
   ToolsAPIDeploy:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
+      - APIMethodTemplateExportImportOPTIONS
+      - APIMethodTemplateExportImportGet
+      - APIMethodTemplateExportImportPost
       - APIMethodSSMOPTIONS
       - APIMethodSSMGet
       - APIMethodSSMPost
@@ -847,6 +1358,12 @@ Resources:
     Properties:
       RestApiId: !Ref ToolsAPI
       StageName: prod
+      StageDescription:
+        AccessLogSetting:
+          DestinationArn: !GetAtt APIGatewayLogGroup.Arn
+          Format: $context.extendedRequestId $context.identity.sourceIp $context.identity.caller $context.identity.user [$context.requestTime] "$context.httpMethod $context.resourcePath $context.protocol" $context.status $context.responseLength $context.requestId
+        ThrottlingBurstLimit: !FindInMap [ "API", "prod", "DefaultThrottlingBurstLimit" ]
+        ThrottlingRateLimit: !FindInMap [ "API", "prod", "DefaultThrottlingRateLimit" ]
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -854,6 +1371,96 @@ Resources:
             reason: "As this is for internal use only tool, and very low number of API calls, no usage plan is required"
           - id: W45
             reason: "StageDescription cannot be specified when stage referenced by StageName already exists"
+
+  APIResourceToolsPipelines:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !GetAtt ToolsAPI.RootResourceId
+      PathPart: "pipelines"
+
+  APIResourceTemplateExportImport:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref APIResourceToolsPipelines
+      PathPart: "templates"
+
+  APIMethodTemplateExportImportOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceTemplateExportImport
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
+              "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodTemplateExportImportGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceTemplateExportImport
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionTemplateExportImportArn}/invocations'
+
+  APIMethodTemplateExportImportPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceTemplateExportImport
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionTemplateExportImportArn}/invocations'
 
   APIResourceSSM:
     Type: 'AWS::ApiGateway::Resource'
@@ -898,6 +1505,7 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -921,6 +1529,7 @@ Resources:
       HttpMethod: "POST"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -980,6 +1589,7 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1003,6 +1613,7 @@ Resources:
       HttpMethod: "POST"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1061,6 +1672,9 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      RequestModels:
+        application/json: !Ref ToolsAPISsmReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1084,6 +1698,9 @@ Resources:
       HttpMethod: "PUT"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      RequestModels:
+        application/json: !Ref ToolsAPISsmReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1107,6 +1724,9 @@ Resources:
       HttpMethod: "DELETE"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      RequestModels:
+        application/json: !Ref ToolsAPISsmReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1165,6 +1785,9 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      RequestModels:
+        application/json: !Ref ToolsAPISsmReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1223,6 +1846,9 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      RequestModels:
+        application/json: !Ref ToolsAPISsmReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1282,6 +1908,7 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1305,6 +1932,7 @@ Resources:
       HttpMethod: "POST"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1363,6 +1991,7 @@ Resources:
       HttpMethod: "DELETE"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1419,6 +2048,13 @@ Resources:
         }
         - !Ref 'AWS::NoValue'
 
+  LoginApiRequestValidator:
+    Type: 'AWS::ApiGateway::RequestValidator'
+    Properties:
+      Name: LoginApiValidateQueryStringAndHeaders
+      RestApiId: !Ref LoginAPI
+      ValidateRequestBody: false
+
   LoginAPIGatewayResponses4xx:
     Type: AWS::ApiGateway::GatewayResponse
     Properties:
@@ -1470,7 +2106,9 @@ Resources:
       StageDescription:
         AccessLogSetting:
           DestinationArn: !GetAtt APIGatewayLogGroup.Arn
-          Format: "$context.requestId"
+          Format: $context.extendedRequestId $context.identity.sourceIp $context.identity.caller $context.identity.user [$context.requestTime] "$context.httpMethod $context.resourcePath $context.protocol" $context.status $context.responseLength $context.requestId
+        ThrottlingBurstLimit: !FindInMap [ "API", "prod", "DefaultThrottlingBurstLimit" ]
+        ThrottlingRateLimit: !FindInMap [ "API", "prod", "DefaultThrottlingRateLimit" ]
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -1491,6 +2129,7 @@ Resources:
       ResourceId: !Ref APIResourceLogin
       HttpMethod: "POST"
       AuthorizationType: "NONE"
+      RequestValidatorId: !Ref LoginApiRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1581,6 +2220,7 @@ Resources:
       ResourceId: !Ref APIResourceLoginPwdReset
       HttpMethod: "POST"
       AuthorizationType: "NONE"
+      RequestValidatorId: !Ref LoginApiRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1644,6 +2284,7 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref LoginGetAuthorizer
+      RequestValidatorId: !Ref LoginApiRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1699,6 +2340,38 @@ Resources:
           ]
         }
         - !Ref 'AWS::NoValue'
+
+  AdminAPIRequestValidator:
+    Type: 'AWS::ApiGateway::RequestValidator'
+    Properties:
+      Name: AdminAPIValidateQueryStringAndHeaders
+      RestApiId: !Ref AdminAPI
+      ValidateRequestBody: false
+
+  AdminAPIReqValidationModel:
+    Type: 'AWS::ApiGateway::Model'
+    Properties:
+      RestApiId: !Ref AdminAPI
+      ContentType: 'application/json'
+      Description: 'Validation model for Admin API query paths'
+      Name: 'AdminAPIRequestValidationModel'
+      Schema:
+        $schema: 'http://json-schema.org/draft-04/schema#'
+        title: 'AdminAPI Query Paths'
+        type: 'object'
+        properties:
+          group_name:
+            type: 'string'
+            pattern: '^[A-Za-z0-9_\-\.]+$'
+          Policy_id:
+            type: 'string'
+            pattern: '^[A-Za-z0-9_\-\.]+$'
+          role_id:
+            type: 'string'
+            pattern: '^[A-Za-z0-9_\-\.]+$'
+          schema_name:
+            type: 'string'
+            pattern: '^[A-Za-z0-9_\-\.]+$'
 
   AdminAPIGatewayResponses4xx:
     Type: AWS::ApiGateway::GatewayResponse
@@ -1766,7 +2439,9 @@ Resources:
       StageDescription:
         AccessLogSetting:
           DestinationArn: !GetAtt APIGatewayLogGroup.Arn
-          Format: "$context.requestId"
+          Format: $context.extendedRequestId $context.identity.sourceIp $context.identity.caller $context.identity.user [$context.requestTime] "$context.httpMethod $context.resourcePath $context.protocol" $context.status $context.responseLength $context.requestId
+        ThrottlingBurstLimit: !FindInMap [ "API", "prod", "DefaultThrottlingBurstLimit" ]
+        ThrottlingRateLimit: !FindInMap [ "API", "prod", "DefaultThrottlingRateLimit" ]
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -1823,6 +2498,7 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref AdminGetAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1846,6 +2522,7 @@ Resources:
       HttpMethod: "PUT"
       AuthorizationType: "CUSTOM"
       AuthorizerId: !Ref AdminAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1905,6 +2582,7 @@ Resources:
       HttpMethod: "POST"
       AuthorizationType: "CUSTOM"
       AuthorizerId: !Ref AdminAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -1963,6 +2641,9 @@ Resources:
       HttpMethod: "DELETE"
       AuthorizationType: "CUSTOM"
       AuthorizerId: !Ref AdminAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
+      RequestModels:
+        application/json: !Ref AdminAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2021,6 +2702,7 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref AdminGetAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2044,6 +2726,7 @@ Resources:
       HttpMethod: "POST"
       AuthorizationType: "CUSTOM"
       AuthorizerId: !Ref AdminAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2102,6 +2785,9 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref AdminGetAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
+      RequestModels:
+        application/json: !Ref AdminAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2125,6 +2811,9 @@ Resources:
       HttpMethod: "PUT"
       AuthorizationType: "CUSTOM"
       AuthorizerId: !Ref AdminAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
+      RequestModels:
+        application/json: !Ref AdminAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2148,6 +2837,9 @@ Resources:
       HttpMethod: "DELETE"
       AuthorizationType: "CUSTOM"
       AuthorizerId: !Ref AdminAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
+      RequestModels:
+        application/json: !Ref AdminAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2206,6 +2898,7 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref AdminGetAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2264,6 +2957,9 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref AdminGetAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
+      RequestModels:
+        application/json: !Ref AdminAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2287,6 +2983,9 @@ Resources:
       HttpMethod: "PUT"
       AuthorizationType: "CUSTOM"
       AuthorizerId: !Ref AdminAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
+      RequestModels:
+        application/json: !Ref AdminAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2310,6 +3009,9 @@ Resources:
       HttpMethod: "POST"
       AuthorizationType: "CUSTOM"
       AuthorizerId: !Ref AdminAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
+      RequestModels:
+        application/json: !Ref AdminAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2368,6 +3070,7 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref AdminGetAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2391,6 +3094,7 @@ Resources:
       HttpMethod: "POST"
       AuthorizationType: "CUSTOM"
       AuthorizerId: !Ref AdminAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2449,6 +3153,9 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref AdminGetAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
+      RequestModels:
+        application/json: !Ref AdminAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2472,6 +3179,9 @@ Resources:
       HttpMethod: "PUT"
       AuthorizationType: "CUSTOM"
       AuthorizerId: !Ref AdminAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
+      RequestModels:
+        application/json: !Ref AdminAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2495,6 +3205,9 @@ Resources:
       HttpMethod: "DELETE"
       AuthorizationType: "CUSTOM"
       AuthorizerId: !Ref AdminAuthorizer
+      RequestValidatorId: !Ref AdminAPIRequestValidator
+      RequestModels:
+        application/json: !Ref AdminAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2551,6 +3264,35 @@ Resources:
         }
         - !Ref 'AWS::NoValue'
 
+  UserAPIRequestValidator:
+    Type: 'AWS::ApiGateway::RequestValidator'
+    Properties:
+      Name: UserAPIValidateQueryStringAndHeaders
+      RestApiId: !Ref UserAPI
+      ValidateRequestBody: false
+
+  UserAPIReqValidationModel:
+    Type: 'AWS::ApiGateway::Model'
+    Properties:
+      RestApiId: !Ref UserAPI
+      ContentType: 'application/json'
+      Description: 'Validation model for User API query path'
+      Name: 'UserAPIReqValidationValidationModel'
+      Schema:
+        $schema: 'http://json-schema.org/draft-04/schema#'
+        title: 'UserAPI QueryString Paths'
+        type: 'object'
+        properties:
+          schema:
+            type: 'string'
+            pattern: '^[A-Za-z0-9_\-\.]+$'
+          id:
+            type: 'string'
+            pattern: '^[A-Za-z0-9_\-\.]+$'
+          appid:
+            type: 'string'
+            pattern: '^[A-Za-z0-9_\-\.]+$'
+
   UserAPIGatewayResponses4xx:
     Type: AWS::ApiGateway::GatewayResponse
     Properties:
@@ -2597,7 +3339,9 @@ Resources:
       StageDescription:
         AccessLogSetting:
           DestinationArn: !GetAtt APIGatewayLogGroup.Arn
-          Format: "$context.requestId"
+          Format: $context.extendedRequestId $context.identity.sourceIp $context.identity.caller $context.identity.user [$context.requestTime] "$context.httpMethod $context.resourcePath $context.protocol" $context.status $context.responseLength $context.requestId
+        ThrottlingBurstLimit: !FindInMap [ "API", "prod", "DefaultThrottlingBurstLimit" ]
+        ThrottlingRateLimit: !FindInMap [ "API", "prod", "DefaultThrottlingRateLimit" ]
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -2654,6 +3398,9 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref UserAuthorizer
+      RequestValidatorId: !Ref UserAPIRequestValidator
+      RequestModels:
+        application/json: !Ref UserAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2677,6 +3424,9 @@ Resources:
       HttpMethod: "POST"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref UserAuthorizer
+      RequestValidatorId: !Ref UserAPIRequestValidator
+      RequestModels:
+        application/json: !Ref UserAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2735,6 +3485,9 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref UserAuthorizer
+      RequestValidatorId: !Ref UserAPIRequestValidator
+      RequestModels:
+        application/json: !Ref UserAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2758,6 +3511,9 @@ Resources:
       HttpMethod: "PUT"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref UserAuthorizer
+      RequestValidatorId: !Ref UserAPIRequestValidator
+      RequestModels:
+        application/json: !Ref UserAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2781,6 +3537,9 @@ Resources:
       HttpMethod: "DELETE"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref UserAuthorizer
+      RequestValidatorId: !Ref UserAPIRequestValidator
+      RequestModels:
+        application/json: !Ref UserAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2846,6 +3605,9 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref UserAuthorizer
+      RequestValidatorId: !Ref UserAPIRequestValidator
+      RequestModels:
+        application/json: !Ref UserAPIReqValidationModel
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2876,6 +3638,7 @@ Resources:
       HttpMethod: "GET"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref UserAuthorizer
+      RequestValidatorId: !Ref UserAPIRequestValidator
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -2955,6 +3718,10 @@ Resources:
                   - !Join [ '', [ !GetAtt AppsDynamoDBTable.Arn, '*' ] ]
                   - !Join [ '', [ !GetAtt WavesDynamoDBTable.Arn, '*' ] ]
                   - !Join [ '', [ !GetAtt DBsDynamoDBTable.Arn, '*' ] ]
+                  - !Join [ '', [!GetAtt AutomationService.Outputs.PipelinesTableArn, '*' ] ]
+                  - !Join [ '', [!GetAtt AutomationService.Outputs.PipelineTemplatesTableArn, '*' ] ]
+                  - !Join [ '', [!GetAtt AutomationService.Outputs.PipelineTemplateTasksTableArn, '*' ] ]
+                  - !Join [ '', [!GetAtt AutomationService.Outputs.TaskExecutionsTableArn, '*' ] ]
               - Effect: Allow
                 Action:
                   - 'dynamodb:GetItem'
@@ -2964,6 +3731,7 @@ Resources:
                 Resource:
                   - !Join [ '', [ !GetAtt RoleDynamoDBTable.Arn, '*' ] ]
                   - !Join [ '', [ !GetAtt PolicyDynamoDBTable.Arn, '*' ] ]
+                  - !Join [ '', [ !GetAtt AutomationService.Outputs.ScriptsTableArn, '*' ] ]
               - Effect: Allow
                 Action:
                   - 'logs:CreateLogGroup'
@@ -3270,6 +4038,9 @@ Resources:
                   - !Join ['', [!GetAtt RoleDynamoDBTable.Arn, '*']]
                   - !Join ['', [!GetAtt SchemaDynamoDBTable.Arn, '*']]
                   - !Join ['', [!GetAtt PolicyDynamoDBTable.Arn, '*']]
+                  - !Join ['', [!GetAtt AutomationService.Outputs.PipelineTemplatesTableArn, '*']]
+                  - !Join ['', [!GetAtt AutomationService.Outputs.ScriptsTableArn, '*']]
+                  - !Join ['', [!GetAtt AutomationService.Outputs.PipelineTemplateTasksTableArn, '*']]
               -
                 Effect: Allow
                 Action:
@@ -3277,6 +4048,12 @@ Resources:
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              -
+                Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                Resource:
+                  - !Sub '${AutomationService.Outputs.LambdaFunctionTemplateExportImportArn}'
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -4211,9 +4988,14 @@ Resources:
       Role: !GetAtt DefaultSchemaLambdaRole.Arn
       Environment:
         Variables:
+          application: !Ref Application
+          environment: !Ref Environment
           RoleDynamoDBTable: !Ref RoleDynamoDBTable
           SchemaDynamoDBTable: !Ref SchemaDynamoDBTable
           PolicyDynamoDBTable: !Ref PolicyDynamoDBTable
+          PipelineTemplateDynamoDBTable: !GetAtt AutomationService.Outputs.PipelineTemplatesTable
+          ScriptsDynamoDBTable: !GetAtt AutomationService.Outputs.ScriptsTable
+          PipelineTemplateTaskDynamoDBTable: !GetAtt AutomationService.Outputs.PipelineTemplateTasksTable
           SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
           SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
       Tags:
@@ -4292,7 +5074,7 @@ Resources:
     Type: Custom::CustomResource
     Properties:
       ServiceToken: !GetAtt 'DefaultSchema.Arn'
-      Test: '%%VERSION%%'
+      Version: '%%VERSION%%'
 
   CreateUniqueID:
     Type: Custom::CreateUuid
@@ -4519,6 +5301,89 @@ Resources:
       # If the version changes it will trigger an update
       Version: '%%VERSION%%'
 
+  LambdaFunctionPipelineTaskExecutionOutput:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_pipeline_task_execution_output.lambda_handler
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+      FunctionName: !Sub ${Application}-${Environment}-pipeline-task-execution-output
+      Timeout: '300'
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_pipeline_task_execution_output.zip"]]
+      Role: !GetAtt LambdaFunctionPipelineTaskExecutionRole.Arn
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-pipeline-task-execution-output
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaFunctionPipelineTaskExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-pipeline-task-execution-output-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-task_executions"
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
 # Nested stacks.
 
   MigrationTracker:
@@ -4537,9 +5402,12 @@ Resources:
         LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
         LambdaLayerMFUtilsLib: !Ref LambdaLayerMFUtilsLib
         LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+        AccessLoggingBucket: !Ref AccessLoggingBucket
 
   AppMigService:
     Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - ToolsAPIDeploy
     Properties:
       TemplateURL: !Sub
        - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-mgn.template'
@@ -4568,6 +5436,40 @@ Resources:
         LambdaLayerMFUtilsLib: !Ref LambdaLayerMFUtilsLib
         CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
         LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+        PipelineTaskExecutionOutputLambdaARN: !GetAtt LambdaFunctionPipelineTaskExecutionOutput.Arn
+        ToolsApiRequestValidatorId: !Ref ToolsApiRequestValidator
+
+  MGHService:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub
+       - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-mgh.template'
+       -  S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+          KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+      Parameters:
+        Application: !Ref Application
+        Environment: !Ref Environment
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+        CognitoUserPool: !Ref CognitoUserPool
+        CognitoUserPoolArn: !GetAtt CognitoUserPool.Arn
+        solutionUUID: !GetAtt CreateUniqueID.UUID
+        RoleDynamoDBTableArn: !GetAtt RoleDynamoDBTable.Arn
+        PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
+        LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
+        LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
+        LambdaLayerMFUtilsLib: !Ref LambdaLayerMFUtilsLib
+        CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+        LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+        UserAPI: !Ref UserAPI
+        CognitoUserPoolId: !Ref CognitoUserPool
+        LoginAPI: !Ref LoginAPI
+        CognitoUserPoolClientId: !Ref CognitoAppClient
+        AdminAPI: !Ref AdminAPI
+        PipelineTaskExecutionOutputLambdaARN: !GetAtt LambdaFunctionPipelineTaskExecutionOutput.Arn
+        AdminAPIRequestValidatorId: !Ref AdminAPIRequestValidator
+        LoginApiRequestValidatorId: !Ref LoginApiRequestValidator
+        UserAPIRequestValidatorId: !Ref UserAPIRequestValidator
 
   CredentialManager:
     Type: AWS::CloudFormation::Stack
@@ -4597,6 +5499,8 @@ Resources:
         LambdaLayerMFUtilsLib: !Ref LambdaLayerMFUtilsLib
         CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
         LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+        ToolsApiRequestValidatorId: !Ref ToolsApiRequestValidator
+        AdminAPIRequestValidatorId: !Ref AdminAPIRequestValidator
 
   AutomationService:
     Type: AWS::CloudFormation::Stack
@@ -4627,9 +5531,14 @@ Resources:
         LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
         LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
         LambdaLayerMFUtilsLib: !Ref LambdaLayerMFUtilsLib
+        LambdaLayerMFItemsLib: !Ref LambdaLayerMFItemsLib
         CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
         IsDeploymentPrivate: !If [ DeploymentPrivate, true, false ]
         LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+        PipelineTaskExecutionOutputLambdaARN: !GetAtt LambdaFunctionPipelineTaskExecutionOutput.Arn
+        ToolsApiRequestValidatorId: !Ref ToolsApiRequestValidator
+        LoginApiRequestValidatorId: !Ref LoginApiRequestValidator
+        UserAPIRequestValidatorId: !Ref UserAPIRequestValidator
 
   ReplatformService:
     Type: AWS::CloudFormation::Stack
@@ -4667,6 +5576,8 @@ Resources:
         SchemaDynamoTableName: !Ref SchemaDynamoDBTable
         CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
         LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+        AccessLoggingBucket: !Ref AccessLoggingBucket
+        ToolsApiRequestValidatorId: !Ref ToolsApiRequestValidator
 
   WAFBEStack:
     Type: AWS::CloudFormation::Stack
@@ -5000,3 +5911,26 @@ Outputs:
     Description: 'Factory Service account User name'
     Value: !Ref ServiceAccountEmail
 
+  ToolsApiRequestValidatorId:
+    Description: "ID of the Tools API Request Validator"
+    Value: !Ref ToolsApiRequestValidator
+    Export:
+      Name: !Sub "${AWS::StackName}-ToolsApiRequestValidatorId"
+
+  AdminAPIRequestValidatorId:
+    Description: "ID of the Admin API Request Validator"
+    Value: !Ref AdminAPIRequestValidator
+    Export:
+      Name: !Sub "${AWS::StackName}-AdminAPIRequestValidatorId"
+
+  LoginApiRequestValidatorId:
+    Description: "ID of the Admin API Request Validator"
+    Value: !Ref LoginApiRequestValidator
+    Export:
+      Name: !Sub "${AWS::StackName}-LoginApiRequestValidatorId"
+
+  UserAPIRequestValidatorId:
+    Description: "ID of the Admin API Request Validator"
+    Value: !Ref UserAPIRequestValidator
+    Export:
+      Name: !Sub "${AWS::StackName}-UserAPIRequestValidatorId"

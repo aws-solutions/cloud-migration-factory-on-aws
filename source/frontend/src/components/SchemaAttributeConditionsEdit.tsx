@@ -13,7 +13,7 @@ import {
   Multiselect,
   Select,
   SpaceBetween,
-} from "@awsui/components-react";
+} from "@cloudscape-design/components";
 import React from "react";
 
 const SchemaAttributeConditionsEdit = ({

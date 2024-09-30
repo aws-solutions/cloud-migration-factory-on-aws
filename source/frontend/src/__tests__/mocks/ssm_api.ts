@@ -97,6 +97,8 @@ export function generateTestAutomationScripts(count: number, data?: { appId: str
         long_desc: "IP Address of an AWS MGN Replication EC2 Instance.",
       },
     ],
+    lambda_function_name_suffix: 'ssm',
+    type: 'Automated',
     script_masterfile: "0-Prerequisites-checks.py",
     default: "1",
     latest: index === 1 ? "2" : "1", // so that there is one entry with two versions

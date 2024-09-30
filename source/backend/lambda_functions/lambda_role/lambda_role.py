@@ -6,7 +6,7 @@ import os
 import json
 
 import cmf_boto
-from cmf_logger import logger
+from cmf_logger import logger, log_event_received
 from cmf_utils import cors, default_http_headers
 
 application = os.environ['application']
@@ -112,6 +112,8 @@ def get_next_id(ids: list[int]):
 
 
 def lambda_handler(event, _):
+    log_event_received(event)
+
     if event['httpMethod'] == 'GET':
         logger.info('GET')
         return process_get(event)

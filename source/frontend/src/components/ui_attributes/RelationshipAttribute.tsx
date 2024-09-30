@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Button, FormField, Grid, Multiselect, Select, SpaceBetween } from "@awsui/components-react";
+import { Button, FormField, Grid, Multiselect, Select, SpaceBetween } from "@cloudscape-design/components";
 import RelatedRecordPopover from "./RelatedRecordPopover";
 
 const RelationshipAttribute = ({

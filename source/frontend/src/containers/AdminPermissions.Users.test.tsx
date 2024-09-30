@@ -3,17 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render, screen, within } from "@testing-library/react";
+import {render, screen, within} from "@testing-library/react";
 import React from "react";
-import "@testing-library/jest-dom";
+
 import AdminPermissions from "./AdminPermissions";
 import userEvent from "@testing-library/user-event";
-import { defaultTestProps, mockNotificationContext } from "../__tests__/TestUtils";
-import { server } from "../setupTests";
-import { rest } from "msw";
+import {defaultTestProps, mockNotificationContext} from "../__tests__/TestUtils";
+import {server} from "../setupTests";
+import {rest} from "msw";
 
 import users from "../../test_data/default_users.json";
-import { NotificationContext } from "../contexts/NotificationContext";
+import {NotificationContext} from "../contexts/NotificationContext";
 
 const renderAdminPermissionsComponent = () => {
   return {

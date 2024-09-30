@@ -1,4 +1,3 @@
-import { CancelableEventHandler, NonCancelableCustomEvent } from "@awsui/components-react/internal/events";
 import {
   Alert,
   Button,
@@ -9,16 +8,18 @@ import {
   Header,
   Icon,
   Link,
+  NonCancelableCustomEvent,
   Select,
   SpaceBetween,
   Wizard,
-} from "@awsui/components-react";
-import React, { useContext } from "react";
-import { ToolsContext } from "../../contexts/ToolsContext";
+} from "@cloudscape-design/components";
+import React, {useContext} from "react";
+import {ToolsContext} from "../../contexts/ToolsContext";
 import IntakeFormTable from "../IntakeFormTable";
 import ImportOverview from "./ImportOverview";
-import { CompletionNotification } from "../../models/CompletionNotification";
-import { ImportCompletion } from "./ImportCompletion";
+import {CompletionNotification} from "../../models/CompletionNotification";
+import {ImportCompletion} from "./ImportCompletion";
+import {CancelableEventHandler} from "../../utils/OptionDefinition.ts";
 
 type ImportIntakeWizardParams = {
   errors: number;

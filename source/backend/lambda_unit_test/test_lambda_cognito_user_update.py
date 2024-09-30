@@ -3,15 +3,17 @@
 
 
 import json
+from unittest import mock
 from unittest.mock import patch
 from moto import mock_aws
 
-from test_common_utils import logger
+from test_common_utils import logger, default_mock_os_environ
 from test_lambda_cognito_base import exceptions as boto_core_exceptions, CognitoTestsBase
 
 import lambda_cognito_user_update
 
-
+@mock_aws
+@mock.patch.dict('os.environ', default_mock_os_environ)
 class LambdaCognitoUserUpdateTest(CognitoTestsBase):
     current_test_client = None
 
@@ -136,9 +138,9 @@ class LambdaCognitoUserUpdateTest(CognitoTestsBase):
         response = lambda_cognito_user_update.lambda_handler(lambda_event, None)
         self.assertEqual(200, response['statusCode'])
         user1 = self.boto_cognito_client.admin_get_user(UserPoolId=self.user_pool_id, Username=self.test_user_name_1)
-        self.assertEqual(True, user1['Enabled'])
+        self.assertTrue( user1['Enabled'])
         user2 = self.boto_cognito_client.admin_get_user(UserPoolId=self.user_pool_id, Username=self.test_user_name_2)
-        self.assertEqual(False, user2['Enabled'])
+        self.assertFalse(user2['Enabled'])
 
     @mock_aws
     def test_lambda_handler_delete_user(self):
@@ -249,9 +251,9 @@ class LambdaCognitoUserUpdateTest(CognitoTestsBase):
             })
         }
         LambdaCognitoUserUpdateTest.current_test_client = self.boto_cognito_client
-        self.assertRaises(self.boto_cognito_client.exceptions.NotAuthorizedException,
-                          lambda_cognito_user_update.lambda_handler,
-                          lambda_event, None)
+
+        response = lambda_cognito_user_update.lambda_handler(lambda_event, None)
+        self.assertEqual(400, response['statusCode'])
 
     @patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     def test_lambda_handler_exceptions_client_error(self):

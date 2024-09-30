@@ -7,7 +7,7 @@ import json
 from typing import Any
 
 import cmf_boto
-from cmf_logger import logger
+from cmf_logger import logger, log_event_received
 from cmf_utils import cors, default_http_headers
 
 application = os.environ['application']
@@ -28,6 +28,8 @@ class PolicyAttrException(Exception):
 
 
 def lambda_handler(event, _):
+    log_event_received(event)
+
     logger.info(event['httpMethod'])
     if event['httpMethod'] == 'GET':
         return process_get(event)

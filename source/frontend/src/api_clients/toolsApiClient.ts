@@ -11,6 +11,26 @@ export default class ToolsApiClient {
     return API.post(this.apiName, apiPath, { body: data });
   }
 
+  postPipelineTemplateImport(data: any) {
+    return this.postTool("/pipelines/templates", data);
+  }
+
+  getPipelineTemplatesExport() {
+    return this.getTool("/pipelines/templates");
+  }
+
+  getPipelineTemplateExport(template_ids: string[]) {
+    return API.get(
+      this.apiName,
+      '/pipelines/templates',
+      {
+        queryStringParameters: {
+            pipeline_template_id: template_ids
+          }
+      }
+    );
+  }
+
   getTool(apiPath: string) {
     return API.get(this.apiName, apiPath, {});
   }

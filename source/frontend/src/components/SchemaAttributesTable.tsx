@@ -14,7 +14,7 @@ import {
   Table,
   TableProps,
   TextFilter,
-} from "@awsui/components-react";
+} from "@cloudscape-design/components";
 
 import {
   DEFAULT_PREFERENCES,
@@ -23,7 +23,7 @@ import {
   PAGE_SELECTOR_OPTIONS,
 } from "../resources/schemaattr-table-config";
 
-import { useCollection } from "@awsui/collection-hooks";
+import { useCollection } from "@cloudscape-design/collection-hooks";
 
 import TableHeader from "./TableHeader";
 import { filterCounter, headerCounter } from "../utils/table-utils";
@@ -37,6 +37,7 @@ type SchemaAttributesTableParams = {
   handleDeleteItem: any;
   handleEditItem: any;
   handleAddItem: any;
+  handleDuplicateItem?: any;
 };
 const SchemaAttributesTable = (props: SchemaAttributesTableParams) => {
   const [preferences, setPreferences] = useState<CollectionPreferencesProps.Preferences>(DEFAULT_PREFERENCES);
@@ -78,6 +79,7 @@ const SchemaAttributesTable = (props: SchemaAttributesTableParams) => {
       handleDeleteClick={props.handleDeleteItem ? props.handleDeleteItem : undefined}
       handleEditClick={props.handleEditItem ? props.handleEditItem : undefined}
       handleAddClick={props.handleAddItem ? props.handleAddItem : undefined}
+      handleDuplicateClick={props.handleDuplicateItem ? props.handleDuplicateItem : undefined}
       description={undefined}
       handleRefreshClick={undefined}
       handleActionSelection={undefined}

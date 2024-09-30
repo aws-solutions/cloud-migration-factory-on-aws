@@ -226,7 +226,7 @@ cp ./migration-tracker/GlueScript/Migration_Tracker_Wave_Extract_Script.py $buil
 #echo "[Unit Tests] Running Frontend Unit Tests"
 #echo "------------------------------------------------------------------------------"
 #
-#jest
+#npm run test:coverage
 #if [ $? -eq 0 ]
 #  then
 #    echo "  ---- SUCCESS: Frontend Unit tests passed."
@@ -275,7 +275,12 @@ else
   security_expiry_date=$(date +%Y-%m-%dT%H:%M:%Sz -d +1year)
 fi
 
-cd ./build/
+# cd into /frontend/dist and zip contents. error out if /dist doesnt exist
+if [ ! -d "./dist/" ]; then
+    echo "Error: ./dist/ directory does not exist."
+    exit 1  # Exit with a non-zero exit code to indicate an error
+fi
+cd ./dist/
 
 echo "Updating security.txt expiry date to $security_expiry_date"
 replace="s#%%SECURITY_EXPIRY_DATE%%#$security_expiry_date#g"

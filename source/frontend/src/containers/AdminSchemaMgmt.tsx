@@ -17,7 +17,7 @@ import {
   SpaceBetween,
   StatusIndicator,
   Tabs,
-} from "@awsui/components-react";
+} from "@cloudscape-design/components";
 
 import SchemaAttributesTable from "../components/SchemaAttributesTable";
 import { capitalize, getNestedValuePath } from "../resources/main";
@@ -127,7 +127,7 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
 
   function handleEditSchemaSettings(schema: object | undefined) {
     setEditingSchemaSettings(true);
-    if (schema == undefined) {
+    if (schema === undefined) {
       setEditingSchemaSettingsTemp({});
     } else {
       setEditingSchemaSettingsTemp(schema);

@@ -9,8 +9,6 @@ import {
 
 test("exports an array of objects to an excel spreadsheet", () => {
   // GIVEN
-  jest.spyOn(XLSX, "writeFile").mockImplementation(jest.fn());
-
   const items = generateTestApps(2);
 
   // WHEN
@@ -30,8 +28,6 @@ test("exports an array of objects to an excel spreadsheet", () => {
 
 test("exports all items", () => {
   // GIVEN
-  jest.spyOn(XLSX, "writeFile").mockImplementation(jest.fn());
-
   const items = {
     applications: generateTestApps(3),
     databases: generateTestDatabases(2),
@@ -59,8 +55,6 @@ test("exports all items", () => {
 
 test("exports an array of objects to an excel spreadsheet where object contains over sized data", () => {
   // GIVEN
-  jest.spyOn(XLSX, "writeFile").mockImplementation(jest.fn());
-
   const items = generateTestApps(2);
 
   // @ts-ignore
@@ -83,8 +77,6 @@ test("exports an array of objects to an excel spreadsheet where object contains 
 
 test("exports an array of objects to an excel spreadsheet with a object containing an array value", () => {
   // GIVEN
-  jest.spyOn(XLSX, "writeFile").mockImplementation(jest.fn());
-
   const items = generateTestApps(2);
 
   // @ts-ignore

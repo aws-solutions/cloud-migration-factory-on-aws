@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { ColumnLayout, SpaceBetween } from "@awsui/components-react";
+import { ColumnLayout, SpaceBetween } from "@cloudscape-design/components";
 
 import TextAttribute from "./TextAttribute";
 import { getNestedValuePath } from "../../resources/main";

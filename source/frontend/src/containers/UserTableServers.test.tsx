@@ -139,8 +139,8 @@ test("submitting the add form saves a new server to API", async () => {
   expect(screen.getAllByText("You must specify a valid value.")[0]).toBeInTheDocument();
 
   // AND WHEN we populate all fields
-  await userEvent.type(screen.getByRole("textbox", { name: "Server Name" }), "my-test-server");
-  await userEvent.type(screen.getByRole("textbox", { name: "Server FQDN" }), "foo");
+  await userEvent.type(screen.getByRole("textbox", { name: "server_name" }), "my-test-server");
+  await userEvent.type(screen.getByRole("textbox", { name: "server_fqdn" }), "foo");
 
   await userEvent.click(screen.getByLabelText("Application"));
   await userEvent.click(await screen.findByText("Unit testing App 1"));
@@ -153,8 +153,8 @@ test("submitting the add form saves a new server to API", async () => {
   await userEvent.click(screen.getByLabelText("Server OS Family"));
   await userEvent.click(await screen.findByText("windows"));
 
-  await userEvent.type(screen.getByRole("textbox", { name: "Server Environment" }), "Production");
-  await userEvent.type(screen.getByRole("textbox", { name: "Server OS Version" }), "Production");
+  await userEvent.type(screen.getByRole("textbox", { name: "server_environment" }), "Production");
+  await userEvent.type(screen.getByRole("textbox", { name: "server_os_version" }), "Production");
 
   // THEN expect no more validation errors
   const saveButton = await screen.findByRole("button", { name: /Save/i });
@@ -276,7 +276,7 @@ test("submitting the edit form saves the server to API", async () => {
   expect(await within(dialog).findByText("Unit testing App 1")).toBeInTheDocument();
 
   // AND WHEN we edit some data and hit 'save'
-  const serverNameInput = screen.getByRole("textbox", { name: "Server Name" });
+  const serverNameInput = screen.getByRole("textbox", { name: "server_name" });
   await userEvent.type(serverNameInput, "-some-name");
   await userEvent.click(await screen.findByRole("button", { name: /Save/i }));
 
@@ -318,7 +318,7 @@ test("when update fails with server error, display notification", async () => {
   await screen.findByRole("button", { name: /Save/i });
 
   // AND WHEN we edit some data and hit 'save'
-  const serverNameInput = screen.getByRole("textbox", { name: "Server Name" });
+  const serverNameInput = screen.getByRole("textbox", { name: "server_name" });
   await userEvent.type(serverNameInput, "-some-name");
   await userEvent.click(await screen.findByRole("button", { name: /Save/i }));
 
@@ -458,7 +458,6 @@ test("delete multiple servers", async () => {
 
 test("click on export downloads an xlsx file", async () => {
   // GIVEN
-  jest.spyOn(XLSX, "writeFile").mockImplementation(() => {});
   jest.spyOn(XLSX.utils, "json_to_sheet");
 
   const testServers = generateTestServers(2);
@@ -482,7 +481,6 @@ test("click on export downloads an xlsx file", async () => {
 
 test("selecting a row and click on export downloads an xlsx file", async () => {
   // GIVEN
-  jest.spyOn(XLSX, "writeFile").mockImplementation(() => {});
   jest.spyOn(XLSX.utils, "json_to_sheet");
 
   const testServers = generateTestServers(2);

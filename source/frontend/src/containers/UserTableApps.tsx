@@ -9,7 +9,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import ItemAmend from "../components/ItemAmend";
 import { getChanges } from "../resources/main";
 import { exportTable } from "../utils/xlsx-export";
-import { Box, Button, Modal, SpaceBetween } from "@awsui/components-react";
+import { Box, Button, Modal, SpaceBetween } from "@cloudscape-design/components";
 
 import ApplicationView from "../components/ApplicationView";
 import { useMFApps } from "../actions/ApplicationsHook";

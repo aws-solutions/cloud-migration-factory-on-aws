@@ -130,9 +130,20 @@ def mock_get_servers(target_aws_accounts, filtered_apps, waveid, servers):
     ]
     return account_servers, error_list
 
+
 def mock_update_ec2_launch_template(verified_servers, body):
     return {}
-    
+
+
+def mock_get_mgn_launch_template_id(creds, region, factoryserver, mgn_source_server_launch_template_ids, task_execution_id=""):
+    mgn_source_server_launch_template_ids[factoryserver['server_name']] = "lt-01238c059e3466abc"
+    return {}
+
+
+def mock_multiprocessing_update_success(serverlist, creds, region, action, return_dict, status_list):
+    status_list.append(len(serverlist))
+
+
 def mock_mgn_describe_source_servers():
     logger.info(f"MGN_TEST_SCENARIO: {MGN_TEST_SCENARIO}")
     response = {
@@ -477,4 +488,5 @@ def mock_boto_api_call(obj, operation_name, kwarg):
     elif operation_name == 'RemoveSourceServerAction':
         return mock_mgn_remove_source_server_action()
     else:
+        print(f"NOT FOUND: {operation_name}")
         return orig_boto_api_call(obj, operation_name, kwarg)

@@ -93,6 +93,13 @@ Parameters:
     Type: String
     Default: python3.11
 
+  PipelineTaskExecutionOutputLambdaARN:
+    Type: String
+
+  ToolsApiRequestValidatorId:
+    Type: String
+    Description: "Tools Rest API Request validator Id"
+
 Mappings:
   Solution:
     Data:
@@ -126,6 +133,7 @@ Resources:
 
   APIMethodMGNOPTIONS:
     Type: AWS::ApiGateway::Method
+    DependsOn: LambdaPermissionMGN
     Properties:
       RestApiId: !Ref ToolsAPI
       ResourceId: !Ref APIResourceMGN
@@ -154,12 +162,14 @@ Resources:
 
   APIMethodMGNPost:
     Type: AWS::ApiGateway::Method
+    DependsOn: LambdaPermissionMGN
     Properties:
       RestApiId: !Ref ToolsAPI
       ResourceId: !Ref APIResourceMGN
       HttpMethod: "POST"
       AuthorizationType: "COGNITO_USER_POOLS"
       AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidatorId
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
@@ -177,6 +187,7 @@ Resources:
 
   ## IAM Role for Application Migration Service Lambda
   MGNLambdaRole:
+    DependsOn: MGNLogGroup
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub ${Application}-${Environment}-MGNLambdaRole
@@ -230,7 +241,7 @@ Resources:
                   - 'logs:CreateLogGroup'
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
-                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${MGNLogGroup}:*"
               - 
                 Effect: Allow
                 Action:
@@ -287,6 +298,8 @@ Resources:
       Runtime: !Ref LambdaRuntimePython
       MemorySize: 2048
       Timeout: 720
+      LoggingConfig:
+        LogGroup: !Ref MGNLogGroup
       Tags:
         -
           Key: application
@@ -316,3 +329,31 @@ Resources:
       Action: 'lambda:InvokeFunction'
       Principal: 'apigateway.amazonaws.com'
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
+
+  MGNLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Application}-${Environment}-MGN-Log
+      RetentionInDays: 180
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: "SSE is currently not supported, CMK is not ideal for this solution"
+
+  MGNPermissionPipelineTaskExecutionOutput:
+    DependsOn: MGNLogGroup
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref PipelineTaskExecutionOutputLambdaARN
+      Action: 'lambda:InvokeFunction'
+      Principal: !Sub 'logs.${AWS::Region}.amazonaws.com'
+      SourceArn: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${MGNLogGroup}:*"
+
+  SubscriptionFilter:
+    DependsOn: MGNPermissionPipelineTaskExecutionOutput
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      LogGroupName: !Ref MGNLogGroup
+      FilterPattern: ""
+      DestinationArn: !Ref PipelineTaskExecutionOutputLambdaARN

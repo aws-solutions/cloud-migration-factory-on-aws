@@ -113,8 +113,8 @@ In order to run the frontend app locally for development, you need to deploy the
 and then configure the local frontend to use the deployed backend in the cloud.
 To do so,
 - In the S3 console, locate the S3 bucket with the name `migration-factory-test-<ACOUNT_ID>-front-end`
-- Download the file `env_dev.js` from that bucket and place it under /frontend/public next to the existing `env.js` file
-- Run `npm run start`. The app will become available under `http://localhost:3000` and read the settings from `env_dev.js`
+- Download the file `env.js` from the above bucket, rename it to `env_dev.js` to your local development environment, and place it under `source/frontend/public/` folder next to the existing `env.js` file.
+- Run `npm run start`. The app will become available under [http://localhost:3000](http://localhost:3000) and read the settings from `env_dev.js`
 - Use a browser extension to bypass CORS errors on localhost
 - To log in, create a Cognito user in the AWS Cognito Console as described in the Implementation Guide
 

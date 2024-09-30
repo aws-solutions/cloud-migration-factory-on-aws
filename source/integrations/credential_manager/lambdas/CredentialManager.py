@@ -7,11 +7,13 @@ import UpdateSecret
 import CreatePlainTextSecret
 
 from cmf_utils import default_http_headers
+from cmf_logger import logger, log_event_received
 
 
 def lambda_handler(event, _):
+    log_event_received(event)
     if event['httpMethod'] == 'GET':
-        print("sending to ListSecret")
+        logger.info("sending to ListSecret")
         return {**{'headers': default_http_headers}, **ListSecret.list()}
     if event['body']:
         body = json.loads(event['body'])
@@ -20,21 +22,21 @@ def lambda_handler(event, _):
         return process_post(secret_type, event)
     if event['httpMethod'] == 'DELETE':
         if secret_type == 'keyValue' or secret_type == 'OS' or secret_type == 'plainText':
-            print("sending to DeleteSecret")
+            logger.info("sending to DeleteSecret")
             return {**{'headers': default_http_headers}, **DeleteSecret.delete(event)}
     if event['httpMethod'] == 'PUT':
         if secret_type == 'keyValue' or secret_type == 'OS' or secret_type == 'plainText':
-            print("sending to UpdateSecret")
+            logger.info("sending to UpdateSecret")
             return {**{'headers': default_http_headers}, **UpdateSecret.update(event)}
 
 
 def process_post(secret_type, event):
     if secret_type == 'OS':
-        print("sending to CreateOsSecret")
+        logger.info("sending to CreateOsSecret")
         return {**{'headers': default_http_headers}, **CreateOsSecret.create(event)}
     if secret_type == 'keyValue':
-        print("sending to CreateKeyValueSecret")
+        logger.info("sending to CreateKeyValueSecret")
         return {**{'headers': default_http_headers}, **CreateKeyValueSecret.create(event)}
     if secret_type == 'plainText':
-        print("sending to CreatePlainTextSecret")
+        logger.info("sending to CreatePlainTextSecret")
         return {**{'headers': default_http_headers}, **CreatePlainTextSecret.create(event)}

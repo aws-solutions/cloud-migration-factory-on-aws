@@ -11,13 +11,15 @@ import boto3
 from unittest import mock
 
 from moto import mock_aws
-from test_common_utils import LambdaContextLogStream, RequestsResponse, default_mock_os_environ
+
+from test_common_utils import LambdaContextLogStream, RequestsResponse, default_mock_os_environ, create_and_populate_ssm_scripts
 
 
 mock_os_environ = {
     **default_mock_os_environ,
     'code_bucket_name': 'test_code_bucket_name',
-    'key_prefix': 'test_key_prefix'
+    'key_prefix': 'test_key_prefix',
+    'ScriptsDynamoDBTable': 'ScriptsDynamoDBTable',
 }
 
 
@@ -30,6 +32,7 @@ class LambdaSSMLoadScriptsTest(unittest.TestCase):
         os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
         import lambda_ssm_load_scripts
         self.s3_client = boto3.client('s3')
+        self.table_scripts = os.getenv('ScriptsDynamoDBTable')
         self.lambda_client = boto3.client('lambda')
         self.iam_client = boto3.client('iam')
         self.bucket_name = os.getenv('code_bucket_name')
@@ -38,6 +41,10 @@ class LambdaSSMLoadScriptsTest(unittest.TestCase):
                                                                        '/sample_ssm_scripts.zip'
         self.s3_client.upload_file(file_to_upload, self.bucket_name,
                                    lambda_ssm_load_scripts.default_scripts_s3_key)
+
+        # create the dynamodb tables
+        self.ddb_client = boto3.client('dynamodb')
+        create_and_populate_ssm_scripts(self.ddb_client, self.table_scripts)
 
         test_role = self.iam_client.create_role(
             RoleName='cmf_test',
