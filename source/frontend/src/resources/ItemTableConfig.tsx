@@ -3,8 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { capitalize, getNestedValue, getNestedValuePath, returnLocaleDateTime, sortAscendingComparator } from "./main";
-import { Button, StatusIndicator } from "@awsui/components-react";
+import {
+  capitalizeAndPluralize,
+  getNestedValue,
+  getNestedValuePath,
+  returnLocaleDateTime,
+  sortAscendingComparator,
+} from "./main";
+import { Button, StatusIndicator } from "@cloudscape-design/components";
 import React from "react";
 import { Attribute, EntitySchema } from "../models/EntitySchema";
 
@@ -210,6 +216,9 @@ function getColumnDefinitionsDefault(attr: Attribute, schemaName: string, provid
       ),
     minWidth: 180,
     sortingField: attr.name,
+    ...(attr.name === "task_sequence_number" && {
+      sortingComparator: (a: any, b: any) => a.task_sequence_number - b.task_sequence_number,
+    }),
   };
 }
 
@@ -413,9 +422,9 @@ export function getContentSelectorOptions(schema: { attributes: any[] }) {
 
 export function getPageSelectorOptions(schemaName: string) {
   return [
-    { value: 10, label: "10 " + capitalize(schemaName + "s") },
-    { value: 30, label: "30 " + capitalize(schemaName + "s") },
-    { value: 50, label: "50 " + capitalize(schemaName + "s") },
+    { value: 10, label: "10 " + capitalizeAndPluralize(schemaName) },
+    { value: 30, label: "30 " + capitalizeAndPluralize(schemaName) },
+    { value: 50, label: "50 " + capitalizeAndPluralize(schemaName) },
   ];
 }
 

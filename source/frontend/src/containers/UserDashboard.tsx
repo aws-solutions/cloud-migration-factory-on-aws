@@ -5,7 +5,7 @@
 
 import React, { useContext, useEffect } from "react";
 
-import { Grid, SpaceBetween } from "@awsui/components-react";
+import { Grid, SpaceBetween } from "@cloudscape-design/components";
 
 import { useMFApps } from "../actions/ApplicationsHook";
 import { useGetServers } from "../actions/ServersHook";

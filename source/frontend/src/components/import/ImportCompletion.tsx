@@ -1,6 +1,5 @@
-import { ClickDetail } from "@awsui/components-react/internal/events";
-import React, { ReactNode } from "react";
-import { EntitySchema } from "../../models/EntitySchema";
+import React, {ReactNode} from "react";
+import {EntitySchema} from "../../models/EntitySchema";
 import {
   Alert,
   Button,
@@ -10,11 +9,11 @@ import {
   Header,
   ProgressBar,
   SpaceBetween,
-} from "@awsui/components-react";
+} from "@cloudscape-design/components";
 import ImportOverview from "./ImportOverview";
 
 type ImportCompletionParams = {
-  cancelClick: (arg0: CustomEvent<ClickDetail>) => void;
+  cancelClick: (arg0: CustomEvent) => void;
   setActiveStepIndex: (arg0: number) => void;
   committed: any;
   committing: any;

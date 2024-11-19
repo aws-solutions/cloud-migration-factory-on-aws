@@ -37,6 +37,9 @@ Parameters:
     Type: String
     Default: python3.11
 
+  AccessLoggingBucket:
+    Type: String
+
 Mappings:
   Solution:
     Data:
@@ -66,6 +69,9 @@ Resources:
           Value: !Ref Environment
       VersioningConfiguration:
          Status: 'Enabled'
+      LoggingConfiguration:
+        DestinationBucketName: !Ref AccessLoggingBucket
+        LogFilePrefix: migration-tracker
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -73,6 +79,23 @@ Resources:
             reason: "This bucket is for Glue Service, user does not allow direct access"
           - id: W51
             reason: "This bucket access is controled by IAM policies"
+
+  MigrationTrackerBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MigrationTrackerBucket
+      PolicyDocument:
+        Statement:
+            - 
+              Action: s3:*
+              Effect: Deny
+              Principal: '*'
+              Resource:
+                - !Sub "${MigrationTrackerBucket.Arn}/*"
+                - !GetAtt MigrationTrackerBucket.Arn
+              Condition:
+                Bool:
+                  aws:SecureTransport: 'false'
 
   MigrationTrackerAthenaResultsBucket:
     Type: AWS::S3::Bucket
@@ -96,6 +119,9 @@ Resources:
           Value: !Ref Environment
       VersioningConfiguration:
          Status: 'Enabled'
+      LoggingConfiguration:
+        DestinationBucketName: !Ref AccessLoggingBucket
+        LogFilePrefix: athena-results
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -103,6 +129,23 @@ Resources:
             reason: "This bucket is for Athena Service, user does not allow direct access"
           - id: W51
             reason: "This bucket access is controled by IAM policies"
+
+  MigrationTrackerAthenaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MigrationTrackerAthenaResultsBucket
+      PolicyDocument:
+        Statement:
+            - 
+              Action: s3:*
+              Effect: Deny
+              Principal: '*'
+              Resource:
+                - !Sub "${MigrationTrackerAthenaResultsBucket.Arn}/*"
+                - !GetAtt MigrationTrackerAthenaResultsBucket.Arn
+              Condition:
+                Bool:
+                  aws:SecureTransport: 'false'
 
 ## IAM Role for  Glue
   GlueServiceRole:

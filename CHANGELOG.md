@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2024-9-30
+### Added
+- PIPELINES: CMF now support the ability to create and run pipelines of tasks automatically; these pipelines can contain manual and automated tasks, allowing complete tracking of all aspects of your migration.
+### Changed
+- EXTERNAL LIBRARIES: Updated various external open source libraries to resolve potential vulnerabilities.
+- DATETIME: All time stamps have been change to be UTC with offset awareness.
+- MGN: Added new permissions to target MGN IAM role 'CMF-MGNAutomation' to support changes in EBS volume/snapshot creation.
 ## [3.3.5] - 2024-8-8
 ### Changed
 - EXTERNAL LIBRARIES: Updated various external open source libraries to resolve potential vulnerabilities.

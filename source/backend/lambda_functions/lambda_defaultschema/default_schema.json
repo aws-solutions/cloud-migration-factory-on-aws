@@ -42,13 +42,13 @@
               "S": "string"
             },
             "validation_regex": {
-              "S": "^(?!\\s*$).+"
+              "S": "^(?!\\s*$).{1,150}$"
             },
             "group_order": {
               "S": "-1000"
             },
             "validation_regex_msg": {
-              "S": "Wave name must be specified."
+              "S": "Wave name must be specified, and be a maximum of 150 characters."
             },
             "required": {
               "BOOL": true
@@ -201,10 +201,10 @@
               "S": "string"
             },
             "validation_regex": {
-              "S": "^(?!\\s*$).+"
+              "S": "^(?!\\s*$).{1,255}$"
             },
             "validation_regex_msg": {
-              "S": "Application name must be specified."
+              "S": "Application name must be specified, and be a maximum of 255 characters."
             },
             "group_order": {
               "S": "-1000"
@@ -1324,6 +1324,12 @@
             },
             "system": {
               "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).{1,255}$"
+            },
+            "validation_regex_msg": {
+              "S": "Database name must be specified, and be a maximum of 255 characters."
             }
           }
         },
@@ -1373,6 +1379,529 @@
               "BOOL": true
             },
             "system": {
+              "BOOL": true
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "schema_name": {
+      "S": "pipeline_template"
+    },
+    "schema_type": {
+      "S": "user"
+    },
+    "attributes": {
+      "L": [
+        {
+          "M": {
+            "description": {
+              "S": "Pipeline Template Id"
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "pipeline_template_id"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Pipeline Version"
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "version"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Pipeline Template Name"
+            },
+            "name": {
+              "S": "pipeline_template_name"
+            },
+            "type": {
+              "S": "string"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Pipeline Template Description"
+            },
+            "name": {
+              "S": "pipeline_template_description"
+            },
+            "type": {
+              "S": "string"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "2"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Deletion Protection"
+            },
+            "name": {
+              "S": "deletion_protection"
+            },
+            "type": {
+              "S": "checkbox"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "hidden": {
+              "BOOL": true
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "schema_name": {
+      "S": "pipeline_template_task"
+    },
+    "key_type": {
+      "S": "uuid"
+    },
+    "allow_duplicates": {
+      "BOOL": true
+    },
+    "attributes": {
+      "L": [
+        {
+          "M": {
+            "description": {
+              "S": "Pipeline Template Task ID"
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "pipeline_template_task_id"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Pipeline Template ID"
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "pipeline_template_id"
+            },
+            "rel_display_attribute": {
+              "S": "pipeline_template_name"
+            },
+            "rel_entity": {
+              "S": "pipeline_template"
+            },
+            "rel_key": {
+              "S": "pipeline_template_id"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "relationship"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Script"
+            },
+            "group_order": {
+              "S": "2"
+            },
+            "name": {
+              "S": "task_id"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "script_description"
+                },
+                {
+                  "S": "script_group"
+                },
+                {
+                  "S": "type"
+                }
+              ]
+            },
+            "rel_display_attribute": {
+              "S": "script_name"
+            },
+            "rel_entity": {
+              "S": "script"
+            },
+            "rel_key": {
+              "S": "package_uuid"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "relationship"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Script Version"
+            },
+            "group_order": {
+              "S": "3"
+            },
+            "name": {
+              "S": "task_version"
+            },
+            "validation_regex": {
+              "S": "^[0-9]+$"
+            },
+            "validation_regex_msg": {
+              "S": "Version must be a number"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Template Task Name"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "name": {
+              "S": "pipeline_template_task_name"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Task Successors"
+            },
+            "group_order": {
+              "S": "4"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "task_successors"
+            },
+            "rel_display_attribute": {
+              "S": "pipeline_template_task_name"
+            },
+            "rel_entity": {
+              "S": "pipeline_template_task"
+            },
+            "rel_filter_attribute_name": {
+              "S": "pipeline_template_id"
+            },
+            "rel_key": {
+              "S": "pipeline_template_task_id"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "source_filter_attribute_name": {
+              "S": "pipeline_template_id"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "relationship"
+            }
+          }
+        }
+      ]
+    },
+    "schema_type": {
+      "S": "system"
+    }
+  },
+  {
+    "schema_name": {
+      "S": "pipeline"
+    },
+    "schema_type": {
+      "S": "user"
+    },
+    "attributes": {
+      "L": [
+        {
+          "M": {
+            "description": {
+              "S": "Pipeline Id"
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "pipeline_id"
+            },
+            "type": {
+              "S": "string"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Pipeline Name"
+            },
+            "name": {
+              "S": "pipeline_name"
+            },
+            "type": {
+              "S": "string"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Pipeline Description"
+            },
+            "name": {
+              "S": "pipeline_description"
+            },
+            "type": {
+              "S": "string"
+            },
+            "group_order": {
+              "S": "2"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Pipeline Status"
+            },
+            "name": {
+              "S": "pipeline_status"
+            },
+            "type": {
+              "S": "status"
+            },
+            "group_order": {
+              "S": "3"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "hiddenCreate": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Pipeline Template"
+            },
+            "name": {
+              "S": "pipeline_template_id"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "rel_display_attribute": {
+              "S": "pipeline_template_name"
+            },
+            "rel_entity": {
+              "S": "pipeline_template"
+            },
+            "rel_key": {
+              "S": "pipeline_template_id"
+            },
+            "group_order": {
+              "S": "4"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "lookup": {
+              "S": "task.package_uuid"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "rel_attribute": {
+              "S": "script_arguments"
+            },
+            "rel_key": {
+              "S": "package_uuid"
+            },
+            "name": {
+              "S": "task_arguments"
+            },
+            "description": {
+              "S": "Task Arguments"
+            },
+            "rel_entity": {
+              "S": "script"
+            },
+            "type": {
+              "S": "embedded_entity"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "long_desc": {
+              "S": "Template Task Arguments"
+            },
+            "group_order": {
+              "S": "5"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Current Task ID"
+            },
+            "name": {
+              "S": "current_task_id"
+            },
+            "type": {
+              "S": "string"
+            },
+            "group_order": {
+              "S": "6"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "hiddenCreate": {
               "BOOL": true
             }
           }
@@ -1953,6 +2482,315 @@
               "S": "Group or category the script is linked to."
             }
           }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Type"
+            },
+            "name": {
+              "S": "type"
+            },
+            "type": {
+              "S": "list"
+            },
+            "listvalue": {
+              "S": "Manual,Automated"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "required": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "lambda_function_name_suffix"
+            },
+            "description": {
+              "S": "Lambda Function Name Suffix"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            },
+            "long_desc": {
+              "S": "Lambda Function name suffix that should be specified if task_type is Automated. Final Lambda function call will be formatted {application}-{environment}-{lambda_function_name_suffix}."
+            },
+            "hidden": {
+              "BOOL": true
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "schema_name": {
+      "S": "task_execution"
+    },
+    "schema_type": {
+      "S": "system"
+    },
+    "attributes": {
+      "L": [
+        {
+          "M": {
+            "description": {
+              "S": "Task Execution ID"
+            },
+            "name": {
+              "S": "task_execution_id"
+            },
+            "type": {
+              "S": "string"
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Task Execution Name"
+            },
+            "name": {
+              "S": "task_execution_name"
+            },
+            "type": {
+              "S": "string"
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Task Successors"
+            },
+            "group_order": {
+              "S": "4"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "task_successors"
+            },
+            "rel_display_attribute": {
+              "S": "task_execution_name"
+            },
+            "rel_entity": {
+              "S": "task_execution"
+            },
+            "rel_filter_attribute_name": {
+              "S": "task_execution_id"
+            },
+            "rel_key": {
+              "S": "task_execution_id"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "source_filter_attribute_name": {
+              "S": "pipeline_id"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "relationship"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "pipeline_id"
+            },
+            "description": {
+              "S": "Pipeline Name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "rel_display_attribute": {
+              "S": "pipeline_name"
+            },
+            "rel_entity": {
+              "S": "pipeline"
+            },
+            "rel_key": {
+              "S": "pipeline_id"
+            },
+            "hidden": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Task Name"
+            },
+            "group_order": {
+              "S": "2"
+            },
+            "long_desc": {
+              "S": "Pipeline Task Name"
+            },
+            "name": {
+              "S": "task_id"
+            },
+            "rel_display_attribute": {
+              "S": "pipeline_template_task_name"
+            },
+            "rel_entity": {
+              "S": "pipeline_template_task"
+            },
+            "rel_key": {
+              "S": "task_id"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "relationship"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Task Version"
+            },
+            "group_order": {
+              "S": "2"
+            },
+            "long_desc": {
+              "S": "Pipeline Task version"
+            },
+            "name": {
+              "S": "task_version"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "task_execution_status"
+            },
+            "description": {
+              "S": "Task Execution Status"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "required": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "status"
+            },
+            "group_order": {
+              "S": "5"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "outputLastMessage"
+            },
+            "description": {
+              "S": "Last Message"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "long_desc": {
+              "S": "Last Message."
+            },
+            "group_order": {
+              "S": "6"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "output"
+            },
+            "description": {
+              "S": "Log Output"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "json"
+            },
+            "hidden": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Task Execution Inputs"
+            },
+            "name": {
+              "S": "task_execution_inputs"
+            },
+            "type": {
+              "S": "json"
+            },
+            "hidden": {
+              "BOOL": true
+            }
+          }
         }
       ]
     }
@@ -2344,40 +3182,6 @@
     },
     "attributes": {
       "L": [
-        {
-          "M": {
-            "system": {
-              "BOOL": true
-            },
-            "name": {
-              "S": "mi_id"
-            },
-            "description": {
-              "S": "Automation Server"
-            },
-            "group_order": {
-              "S": "3"
-            },
-            "type": {
-              "S": "list"
-            },
-            "listValueAPI": {
-              "S": "/ssm"
-            },
-            "valueKey": {
-              "S": "mi_id"
-            },
-            "labelKey": {
-              "S": "mi_name"
-            },
-            "required": {
-              "BOOL": true
-            },
-            "long_desc": {
-              "S": "SSM Instance IDs. Only showing those with a tag defined of role=mf_automation"
-            }
-          }
-        },
         {
           "M": {
             "system": {

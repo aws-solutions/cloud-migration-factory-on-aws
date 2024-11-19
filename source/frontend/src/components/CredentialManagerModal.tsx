@@ -15,7 +15,7 @@ import {
   SpaceBetween,
   Spinner,
   Textarea,
-} from "@awsui/components-react";
+} from "@cloudscape-design/components";
 
 type CredentialManagerModalProps = {
   title: string;

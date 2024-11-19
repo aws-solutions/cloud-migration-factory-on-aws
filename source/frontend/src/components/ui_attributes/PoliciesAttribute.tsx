@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { FormField, Multiselect, SpaceBetween, Spinner } from "@awsui/components-react";
+import { FormField, Multiselect, SpaceBetween, Spinner } from "@cloudscape-design/components";
 
 const PoliciesAttribute = ({
   attribute,

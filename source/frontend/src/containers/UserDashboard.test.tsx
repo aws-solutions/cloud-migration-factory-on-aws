@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render, screen, waitForElementToBeRemoved } from "@testing-library/react";
+import {render, screen, waitForElementToBeRemoved} from "@testing-library/react";
 import React from "react";
-import "@testing-library/jest-dom";
+
 import UserDashboard from "./UserDashboard";
-import { server } from "../setupTests";
-import { rest } from "msw";
+import {server} from "../setupTests";
+import {rest} from "msw";
 import {
   generateTestApps,
   generateTestDatabases,

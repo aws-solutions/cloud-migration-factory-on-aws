@@ -6,7 +6,7 @@ import json
 import os
 
 import cmf_boto
-from cmf_logger import logger
+from cmf_logger import logger, log_event_received
 from cmf_utils import cors
 
 default_http_headers = {
@@ -16,8 +16,9 @@ default_http_headers = {
 }
 
 
-def lambda_handler(event, context):
-    logger.debug(f'event: {event}, context: {context}')
+def lambda_handler(event, _):
+    log_event_received(event)
+
     client = cmf_boto.client('cognito-idp')
     response = client.list_groups(
         UserPoolId=os.environ['userpool_id']

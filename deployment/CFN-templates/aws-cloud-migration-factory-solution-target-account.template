@@ -239,6 +239,13 @@ Resources:
                   'Null':
                     'aws:RequestTag/AWSApplicationMigrationServiceManaged': 'false'
               - Effect: Allow
+                Action:
+                  - 'ec2:CreateVolume'
+                Resource: 'arn:aws:ec2:*:*:snapshot/*'
+                Condition:
+                  'Null':
+                    'aws:ResourceTag/AWSApplicationMigrationServiceManaged': 'false'
+              - Effect: Allow
                 Action: 'ec2:CreateSecurityGroup'
                 Resource: 'arn:aws:ec2:*:*:vpc/*'
               - Effect: Allow

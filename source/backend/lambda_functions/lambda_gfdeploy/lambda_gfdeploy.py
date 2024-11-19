@@ -9,6 +9,7 @@ from policy import MFAuth
 
 import cmf_boto
 from cmf_utils import cors, default_http_headers
+from cmf_logger import logger, log_event_received
 
 application = os.environ['application']
 environment = os.environ['environment']
@@ -132,6 +133,7 @@ def process_servers(servers):
 
 
 def lambda_handler(event, context):
+    log_event_received(event)
 
     # Verify user has access to run ec2 replatform functions.
     auth = MFAuth()

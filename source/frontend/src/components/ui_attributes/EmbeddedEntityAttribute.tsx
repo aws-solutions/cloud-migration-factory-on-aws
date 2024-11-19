@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { SpaceBetween } from "@awsui/components-react";
+import { SpaceBetween, Container, Header } from "@cloudscape-design/components";
 import AllAttributes from "./AllAttributes";
 
 const EmbeddedEntityAttribute = ({
@@ -42,7 +42,7 @@ const EmbeddedEntityAttribute = ({
           //Store original name of item.
           item.__orig_name = item.name;
           item.name = appendedName;
-          item.group = attribute.description;
+          // item.group = item.group ? item.group : attribute.description;
           return item;
         }
       });
@@ -54,16 +54,18 @@ const EmbeddedEntityAttribute = ({
 
   return (
     <SpaceBetween size="xxxs" key={attribute.name}>
-      <AllAttributes
-        schema={localEmbeddedEntitySchema ? localEmbeddedEntitySchema : undefined}
-        schemaName={parentSchemaName}
-        userAccess={parentUserAccess}
-        schemas={localSchemas}
-        hideAudit={true}
-        item={embeddedItem}
-        handleUserInput={handleUpdate}
-        handleUpdateValidationErrors={handleUpdateValidationErrors}
-      />
+      <Container key={attribute.name} header={<Header variant="h2">{attribute.description}</Header>}>
+        <AllAttributes
+          schema={localEmbeddedEntitySchema ? localEmbeddedEntitySchema : undefined}
+          schemaName={parentSchemaName}
+          userAccess={parentUserAccess}
+          schemas={localSchemas}
+          hideAudit={true}
+          item={embeddedItem}
+          handleUserInput={handleUpdate}
+          handleUpdateValidationErrors={handleUpdateValidationErrors}
+        />
+      </Container>
     </SpaceBetween>
   );
 };

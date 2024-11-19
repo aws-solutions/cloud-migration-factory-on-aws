@@ -4,10 +4,11 @@
 
 import os
 import simplejson as json
-import datetime
+from datetime import datetime, timezone
 
 import cmf_boto
 from cmf_utils import cors, default_http_headers
+from cmf_logger import logger, log_event_received
 
 application = os.environ['application']
 environment = os.environ['environment']
@@ -20,6 +21,8 @@ CONST_ATTR_LIST_VALUE_VALIDATION_MSG = "Attribute Name: 'List Value' can not be 
 CONST_ATTR_NAME_VALIDATION_MSG = "Attribute Name: name is required"
 
 def lambda_handler(event, _):
+    log_event_received(event)
+
     if event['pathParameters'] is None or 'schema_name' not in event['pathParameters']:
         if event['httpMethod'] != 'GET':
             return {'headers': {**default_http_headers},
@@ -87,7 +90,7 @@ def handle_delete(schema_name: str):
             'schema_name': schema_name,
             'schema_type': 'deleted-user',
             'schema_deleted': True,
-            'lastModifiedTimestamp': datetime.datetime.utcnow().isoformat()
+            'lastModifiedTimestamp': datetime.now(timezone.utc).isoformat()
         }
     )
     if 'Item' in resp:
@@ -125,7 +128,7 @@ def handle_post(event: dict):
             'schema_name': body['schema_name'],
             'schema_type': 'user',
             'attributes': body['attributes'],
-            'lastModifiedTimestamp': datetime.datetime.utcnow().isoformat()
+            'lastModifiedTimestamp': datetime.now(timezone.utc).isoformat()
         }
 
     )
@@ -174,7 +177,7 @@ def handle_put(event: dict, schema_name: str):
             'schema_name': schema_name,
             'schema_type': 'user',
             'attributes': attributes,
-            'lastModifiedTimestamp': datetime.datetime.utcnow().isoformat()
+            'lastModifiedTimestamp': datetime.now(timezone.utc).isoformat()
         }
     )
     return {'headers': {**default_http_headers},
@@ -238,7 +241,7 @@ def process_put_update_schema(body: dict, schema_name: str):
 
 def get_updates_for_put_update_schema(body: dict):
     updates = False
-    update_expression_values = {':dt': datetime.datetime.utcnow().isoformat()}
+    update_expression_values = {':dt': datetime.now(timezone.utc).isoformat()}
     update_expresssion_set = 'SET lastModifiedTimestamp =:dt'
     update_expresssion_remove = ''
 

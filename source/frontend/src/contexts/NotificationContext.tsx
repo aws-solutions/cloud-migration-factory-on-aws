@@ -3,7 +3,7 @@
 
 import React, { createContext, ReactNode, useMemo, useState } from "react";
 import { CmfAddNotification } from "../models/AppChildProps";
-import { Button, FlashbarProps } from "@awsui/components-react";
+import { Button, FlashbarProps } from "@cloudscape-design/components";
 import { v4 } from "uuid";
 import { useNavigate } from "react-router-dom";
 
@@ -65,7 +65,13 @@ export const NotificationContextProvider = ({ children }: { children: ReactNode 
   };
 
   const context: NotificationContextType = useMemo<NotificationContextType>(() => {
-    return { notifications, setNotifications, addNotification, deleteNotification, clearNotifications };
+    return {
+      notifications,
+      setNotifications,
+      addNotification,
+      deleteNotification,
+      clearNotifications,
+    };
   }, [notifications]);
 
   return (

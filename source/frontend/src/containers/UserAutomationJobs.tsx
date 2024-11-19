@@ -6,7 +6,7 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { ButtonDropdownProps, SpaceBetween, StatusIndicator } from "@awsui/components-react";
+import { ButtonDropdownProps, SpaceBetween, StatusIndicator } from "@cloudscape-design/components";
 
 import AutomationJobView from "../components/AutomationJobView";
 import { useAutomationJobs } from "../actions/AutomationJobsHook";

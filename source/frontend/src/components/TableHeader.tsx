@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Button, ButtonDropdown, Header, SpaceBetween } from "@awsui/components-react";
+import { Button, ButtonDropdown, Header, SpaceBetween } from "@cloudscape-design/components";
 import React from "react";
 
 // Table header content, shows how many items are selected and contains the action stripe
@@ -17,6 +17,7 @@ const TableHeader = ({
   handleDeleteClick,
   handleEditClick,
   handleAddClick,
+  handleDuplicateClick,
   handleActionSelection,
   actionItems,
   handleDownload,
@@ -47,15 +48,11 @@ const TableHeader = ({
           {handleRefreshClick ? (
             <Button onClick={handleRefreshClick} iconAlign="right" iconName="refresh" ariaLabel={"Refresh"} />
           ) : null}
-          {handleActionSelection ? (
-            <ButtonDropdown
-              items={actionItems}
-              onItemClick={handleActionSelection}
-              disabled={disableActionsButton}
-              expandableGroups
-            >
-              Actions
-            </ButtonDropdown>
+          {handleDuplicateClick ? (
+            <Button onClick={handleDuplicateClick} disabled={!isOnlyOneSelected || isButtonDisabled("duplicate")}>
+              {" "}
+              Duplicate
+            </Button>
           ) : null}
           {handleEditClick ? (
             <Button onClick={handleEditClick} disabled={!isOnlyOneSelected || isButtonDisabled("edit")}>
@@ -74,6 +71,16 @@ const TableHeader = ({
               {" "}
               Add
             </Button>
+          ) : null}
+          {handleActionSelection ? (
+            <ButtonDropdown
+              items={actionItems}
+              onItemClick={handleActionSelection}
+              disabled={disableActionsButton}
+              expandableGroups
+            >
+              Actions
+            </ButtonDropdown>
           ) : null}
           {handleDownload ? (
             <Button onClick={handleDownload} iconName="download" variant="icon" ariaLabel={"Download"} />

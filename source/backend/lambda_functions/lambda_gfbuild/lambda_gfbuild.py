@@ -14,6 +14,7 @@ import tempfile
 
 import cmf_boto
 from cmf_utils import cors, default_http_headers
+from cmf_logger import logger, log_event_received
 
 headers = {'Content-Type': 'application/json'}
 
@@ -91,6 +92,7 @@ def process_app(app, body, context, wave_name, generated_template_uris):
 
 
 def lambda_handler(event, context):
+    log_event_received(event)
     # Verify user has access to run ec2 replatform functions.
     auth = MFAuth()
     auth_response = auth.get_user_resource_creation_policy(event, 'EC2')

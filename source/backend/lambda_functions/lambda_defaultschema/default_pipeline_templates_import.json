@@ -1,0 +1,277 @@
+[
+  {
+    "pipeline_template_description": "Imports Application Discovery Service (ADS) inventory data and EC2 recommendations",
+    "pipeline_template_name": "Migration Hub Import",
+    "deletion_protection": true,
+    "pipeline_template_tasks": [
+      {
+        "pipeline_template_task_name": "Create Migration Hub home region",
+        "task_successors": [
+          "feb5192e-1efa-42bb-9294-20f17170497f"
+        ],
+        "task_name": "Create Home Region",
+        "task_version": "1",
+        "pipeline_template_task_id": "ea98f704-a2f8-4dc7-ac77-bb132cd31a12"
+      },
+      {
+        "pipeline_template_task_name": "Discover on-premise data",
+        "task_successors": [
+          "d3f04901-6067-4edb-8d84-e22057af8c27"
+        ],
+        "task_name": "Manual",
+        "task_version": "1",
+        "pipeline_template_task_id": "feb5192e-1efa-42bb-9294-20f17170497f"
+      },
+      {
+        "pipeline_template_task_name": "Group inventory into applications",
+        "task_successors": [
+          "234e14df-30b8-4c13-871c-d49f7ff6c7d9"
+        ],
+        "task_name": "Manual",
+        "task_version": "1",
+        "pipeline_template_task_id": "d3f04901-6067-4edb-8d84-e22057af8c27"
+      },
+      {
+        "pipeline_template_task_name": "Import ADS inventory into CMF",
+        "task_successors": [
+          "d72c39b1-3d4d-4fd3-8a4a-fa4ccbd10f47"
+        ],
+        "task_id": "2c585097-0e13-4e42-994d-8f1269f7c97d",
+        "task_version": "1",
+        "pipeline_template_task_id": "234e14df-30b8-4c13-871c-d49f7ff6c7d9"
+      },
+      {
+        "pipeline_template_task_name": "Import EC2 recommendations into CMF",
+        "task_version": "1",
+        "pipeline_template_task_id": "d72c39b1-3d4d-4fd3-8a4a-fa4ccbd10f47",
+        "task_id": "22f4df1d-4b0e-43fa-bf4e-0b335375eeff"
+      }
+    ]
+  },
+  {
+    "pipeline_template_description": "Facilitates server replications via Application Migration Service (MGN) for the selected wave",
+    "pipeline_template_name": "Rehost with Application Migration Service (MGN)",
+    "deletion_protection": true,
+    "pipeline_template_tasks": [
+      {
+        "pipeline_template_task_name": "Check MGN Prerequisites",
+        "task_successors": [
+          "b4a1a2c5-6b22-45ec-9f97-f9b4e2a21427"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "70c36fba-8991-4708-b410-485688ee5710",
+        "pipeline_template_id": "2",
+        "task_name": "0-Check MGN Prerequisites"
+      },
+      {
+        "pipeline_template_task_name": "Confirm Ready To Copy Post Launch Scripts To Source Servers",
+        "task_successors": [
+          "d95159ab-665a-4e29-9e6f-9ac44ffb42ab"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "b1a219e8-64bc-47bc-b10b-def39dae9622",
+        "pipeline_template_id": "2",
+        "task_name": "Manual"
+      },
+      {
+        "pipeline_template_task_name": "Copy MGN Post Launch Scripts To Source Servers",
+        "task_successors": [
+          "cb2a2eb2-6639-4348-9f9d-073e2ff95e0c"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "d95159ab-665a-4e29-9e6f-9ac44ffb42ab",
+        "pipeline_template_id": "2",
+        "task_name": "1-Copy Post Launch Scripts"
+      },
+      {
+        "pipeline_template_task_name": "Finalize Cutover In MGN",
+        "task_version": "1",
+        "pipeline_template_task_id": "4359587d-9b67-4d09-9027-7150795fcb11",
+        "pipeline_template_id": "2",
+        "task_name": "Finalize Cutover"
+      },
+      {
+        "pipeline_template_task_name": "Initialize MGN in AWS account",
+        "task_successors": [
+          "70c36fba-8991-4708-b410-485688ee5710"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "b67d5739-e8b3-4ff3-aa61-0a07a2e554e6",
+        "pipeline_template_id": "2",
+        "task_name": "Manual"
+      },
+      {
+        "pipeline_template_task_name": "Install MGN Agents",
+        "task_successors": [
+          "d71d9708-9f50-4a9b-bcc3-173392a375f3",
+          "b1a219e8-64bc-47bc-b10b-def39dae9622",
+          "dc1ddb5d-4dae-4e28-bc93-894853240803"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "b4a1a2c5-6b22-45ec-9f97-f9b4e2a21427",
+        "pipeline_template_id": "2",
+        "task_name": "1-Install MGN Agents"
+      },
+      {
+        "pipeline_template_task_name": "Launch Cutover Instances",
+        "task_successors": [
+          "6be289c4-6e39-4491-bce9-4a6ec7f5dd04"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "bb48901b-c739-4803-828b-709150180a17",
+        "pipeline_template_id": "2",
+        "task_name": "Launch Cutover Instances"
+      },
+      {
+        "pipeline_template_task_name": "Launch Test Instances",
+        "task_successors": [
+          "38788692-440e-4919-9b05-b67978fa4f6f"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "e29e344f-9c88-4bfb-9a08-41026039a5a7",
+        "pipeline_template_id": "2",
+        "task_name": "Launch Test Instances"
+      },
+      {
+        "pipeline_template_task_name": "Mark as Ready for Cutover",
+        "task_successors": [
+          "3480a5eb-d17e-4bff-9c18-a98edefe9022"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "d6ef2d98-a8eb-4124-bf62-e3b20e081a31",
+        "pipeline_template_id": "2",
+        "task_name": "Mark as Ready for Cutover"
+      },
+      {
+        "pipeline_template_task_name": "Post Cutover Validation",
+        "task_successors": [
+          "bc98b860-ea87-4739-9c58-6479c67280ed"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "c1af8aa9-d007-4956-a6c7-7af898d165d1",
+        "pipeline_template_id": "2",
+        "task_name": "5-Post Cutover Validation"
+      },
+      {
+        "pipeline_template_task_name": "Ready to Verify Target Server Connection",
+        "task_successors": [
+          "05454384-58e2-4209-b793-58af3b7dd435"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "e9bb00a6-bcd6-4f66-afb6-a9300d79b19e",
+        "pipeline_template_id": "2",
+        "task_name": "Manual"
+      },
+      {
+        "pipeline_template_task_name": "Shutdown All Servers",
+        "task_successors": [
+          "bb48901b-c739-4803-828b-709150180a17"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "5b279067-730e-41bd-babf-22cabe93c93d",
+        "pipeline_template_id": "2",
+        "task_name": "3-Shutdown All Servers"
+      },
+      {
+        "pipeline_template_task_name": "Validate Launch Template",
+        "task_successors": [
+          "cb2a2eb2-6639-4348-9f9d-073e2ff95e0c"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "d71d9708-9f50-4a9b-bcc3-173392a375f3",
+        "pipeline_template_id": "2",
+        "task_name": "Validate Launch Template"
+      },
+      {
+        "pipeline_template_task_name": "Verify Live Cutover Instance Status",
+        "task_successors": [
+          "e9bb00a6-bcd6-4f66-afb6-a9300d79b19e"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "6be289c4-6e39-4491-bce9-4a6ec7f5dd04",
+        "pipeline_template_id": "2",
+        "task_name": "3-Verify Instance Status"
+      },
+      {
+        "pipeline_template_task_name": "Verify MGN Replication Status Pre Cutover",
+        "task_successors": [
+          "5b279067-730e-41bd-babf-22cabe93c93d"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "5288a603-5c16-4c64-96f4-7dae2c2b5dd9",
+        "pipeline_template_id": "2",
+        "task_name": "2-Verify Replication Status"
+      },
+      {
+        "pipeline_template_task_name": "Verify MGN Replication Status Test Cutover",
+        "task_successors": [
+          "cb2a2eb2-6639-4348-9f9d-073e2ff95e0c"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "dc1ddb5d-4dae-4e28-bc93-894853240803",
+        "pipeline_template_id": "2",
+        "task_name": "2-Verify Replication Status"
+      },
+      {
+        "pipeline_template_task_name": "Verify Ready To Finalize Cutover",
+        "task_successors": [
+          "4359587d-9b67-4d09-9027-7150795fcb11"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "bc98b860-ea87-4739-9c58-6479c67280ed",
+        "pipeline_template_id": "2",
+        "task_name": "Manual"
+      },
+      {
+        "pipeline_template_task_name": "Verify Ready for Cutover",
+        "task_successors": [
+          "d6ef2d98-a8eb-4124-bf62-e3b20e081a31"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "e3b3a809-6e7d-4759-86fa-12d29d75546b",
+        "pipeline_template_id": "2",
+        "task_name": "Manual"
+      },
+      {
+        "pipeline_template_task_name": "Verify Ready to Launch Test Instances",
+        "task_successors": [
+          "e29e344f-9c88-4bfb-9a08-41026039a5a7"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "cb2a2eb2-6639-4348-9f9d-073e2ff95e0c",
+        "pipeline_template_id": "2",
+        "task_name": "Manual"
+      },
+      {
+        "pipeline_template_task_name": "Verify Ready to Shut Down In-Scope Source Servers",
+        "task_successors": [
+          "5288a603-5c16-4c64-96f4-7dae2c2b5dd9"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "3480a5eb-d17e-4bff-9c18-a98edefe9022",
+        "pipeline_template_id": "2",
+        "task_name": "Manual"
+      },
+      {
+        "pipeline_template_task_name": "Verify Target Server Connectivity",
+        "task_successors": [
+          "c1af8aa9-d007-4956-a6c7-7af898d165d1"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "05454384-58e2-4209-b793-58af3b7dd435",
+        "pipeline_template_id": "2",
+        "task_name": "4-Verify Target Server Connection"
+      },
+      {
+        "pipeline_template_task_name": "Verify Test Cutover Instance Status",
+        "task_successors": [
+          "e3b3a809-6e7d-4759-86fa-12d29d75546b"
+        ],
+        "task_version": "1",
+        "pipeline_template_task_id": "38788692-440e-4919-9b05-b67978fa4f6f",
+        "pipeline_template_id": "2",
+        "task_name": "3-Verify Instance Status"
+      }
+    ]
+  }
+]

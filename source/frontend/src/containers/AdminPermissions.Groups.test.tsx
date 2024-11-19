@@ -3,18 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {render, screen, waitFor, within} from "@testing-library/react";
 import React from "react";
-import "@testing-library/jest-dom";
+
 import AdminPermissions from "./AdminPermissions";
 import userEvent from "@testing-library/user-event";
-import { defaultTestProps, mockNotificationContext } from "../__tests__/TestUtils";
-import { server } from "../setupTests";
-import { rest } from "msw";
+import {defaultTestProps, mockNotificationContext} from "../__tests__/TestUtils";
+import {server} from "../setupTests";
+import {rest} from "msw";
 
 import groups from "../../test_data/default_groups.json";
-import { NotificationContext } from "../contexts/NotificationContext";
-import { generateTestPolicies } from "../__tests__/mocks/admin_api";
+import {NotificationContext} from "../contexts/NotificationContext";
+import {generateTestPolicies} from "../__tests__/mocks/admin_api";
 
 const renderAdminPermissionsComponent = () => {
   return {
@@ -77,7 +77,7 @@ test('submitting the "Add group" form saves a new group to API', async () => {
   expect(await within(dialog).findByRole("heading", { name: "Add group" })).toBeInTheDocument();
 
   // AND WHEN we populate all fields
-  await userEvent.type(within(dialog).getByRole("textbox", { name: "Group Name" }), "my-test-group");
+  await userEvent.type(within(dialog).getByRole("textbox", { name: "group_name" }), "my-test-group");
 
   await userEvent.click(within(dialog).getByRole("button", { name: /Add/i }));
 

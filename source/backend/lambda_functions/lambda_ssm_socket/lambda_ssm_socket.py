@@ -10,7 +10,7 @@ import jwt
 from jwt import PyJWKClient
 
 import cmf_boto
-from cmf_logger import logger
+from cmf_logger import logger, log_event_received
 
 region = os.environ['region']
 userpool_id = os.environ['userpool_id']
@@ -73,6 +73,8 @@ def verify_token(token):
 
 
 def process_connect(event):
+    log_event_received(event)
+
     if "connectionId" in event["requestContext"]:
         logger.info('CONNECT: %s', event["requestContext"].get("connectionId"))
     return _get_response(200, "Connection successful, authentication required.")
@@ -126,7 +128,8 @@ def process_unexpected():
 
 
 def lambda_handler(event, _):
-    logger.debug(event)
+    log_event_received(event)
+
     if event["requestContext"]["eventType"] == "CONNECT":
         return process_connect(event)
     elif event["requestContext"]["eventType"] == "DISCONNECT":

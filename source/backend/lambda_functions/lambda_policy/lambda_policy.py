@@ -7,7 +7,7 @@ import json
 from typing import Any
 
 import cmf_boto
-from cmf_logger import logger
+from cmf_logger import logger, log_event_received
 from cmf_utils import cors, default_http_headers
 
 application = os.environ['application']
@@ -21,12 +21,14 @@ schema_table = cmf_boto.resource('dynamodb').Table(schema_table_name)
 
 
 def lambda_handler(event, _):
+    log_event_received(event)
+
     logger.info(event['httpMethod'])
     message_prefix = f'Invocation {event["httpMethod"]}'
     if event['httpMethod'] == 'GET':
-        resp = policy_table.scan()
-        item = resp['Items']
-        new_item = sorted(item, key=lambda i: i['policy_id'])
+        all_policies = get_all_table_items(policy_table)
+
+        new_item = sorted(all_policies, key=lambda i: i['policy_id'])
         logger.info(f'{message_prefix} - SUCCESSFUL')
         return {
             'headers': {**default_http_headers},
@@ -57,8 +59,8 @@ def lambda_handler(event, _):
             }
 
         item_list = policy_table.scan()['Items']
-        for item in item_list:
-            if body['policy_name'] in item['policy_name']:
+        for all_policies in item_list:
+            if body['policy_name'] in all_policies['policy_name']:
                 logger.error(f'{message_prefix} - policy_name: {body["policy_name"]} already exist.')
                 return {
                     'headers': {**default_http_headers},
@@ -69,6 +71,17 @@ def lambda_handler(event, _):
         result = update_policy(item_list, body, entity_access)
         if result is not None:
             return result
+
+
+def get_all_table_items(ddb_table):
+    response = ddb_table.scan()
+    items = response['Items']
+
+    while 'LastEvaluatedKey' in response:
+        response = ddb_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'], ConsistentRead=True)
+        items.extend(response['Items'])
+
+    return items
 
 
 def update_policy(item_list: list, body: dict, entity_access: list[dict[str, Any]]):

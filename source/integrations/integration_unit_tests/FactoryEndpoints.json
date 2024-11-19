@@ -1,1 +1,2 @@
-{"LoginApiUrl": "https://xxxxxx.execute-api.us-east-1.example.com", "UserApiUrl": "https://xxxxxx.execute-api.us-east-1.example.com", "Region": "us-east-1", "UserPoolId": "xxxxxx"}
+{
+  "LoginApi": "xxxxxx", "UserApi": "xxxxxx", "Region": "us-east-1", "UserPoolId": "xxxxxx"}

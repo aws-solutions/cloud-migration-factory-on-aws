@@ -22,7 +22,19 @@ export type EntitySchema = {
   help_content?: HelpContent;
 };
 
-export type EntityName = "secret" | "script" | "database" | "server" | "application" | "wave" | "policy";
+export type EntityName =
+  | "secret"
+  | "script"
+  | "database"
+  | "server"
+  | "application"
+  | "wave"
+  | "policy"
+  | "pipeline"
+  | "pipeline_template"
+  | "pipeline_template_task"
+  | "task"
+  | "task_execution";
 
 export type Attribute = {
   sample_data_intake?: any;
@@ -33,6 +45,7 @@ export type Attribute = {
   group_order?: string;
   help_content?: HelpContent;
   hidden?: boolean;
+  hiddenCreate?: boolean;
   labelKey?: string;
   listMultiSelect?: any;
   listValueAPI?: string;
@@ -65,6 +78,7 @@ export type DataLoadingState<T> = {
 };
 
 export type BaseData = {
+  [key: string]: DataLoadingState<any> | undefined;
   secret?: DataLoadingState<any>;
   script?: DataLoadingState<any>;
   database?: DataLoadingState<Database>;
@@ -72,4 +86,8 @@ export type BaseData = {
   application?: DataLoadingState<Application>;
   wave?: DataLoadingState<Wave>;
   policy?: DataLoadingState<any>;
+  pipeline?: DataLoadingState<any>;
+  pipeline_template?: DataLoadingState<any>;
+  pipeline_template_task?: DataLoadingState<any>;
+  task?: DataLoadingState<any>;
 };

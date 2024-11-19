@@ -1,732 +1,1690 @@
 [
-    {
-        "policy_id": {
-            "S": "1"
-        },
-        "entity_access": {
-            "L": [
-                {
-                    "M": {
-                        "create": {
-                            "BOOL": true
-                        },
-                        "update": {
-                            "BOOL": true
-                        },
-                        "attributes": {
-                            "L": [
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "application"
-                                        },
-                                        "attr_name": {
-                                            "S": "app_id"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "application"
-                                        },
-                                        "attr_name": {
-                                            "S": "app_name"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "application"
-                                        },
-                                        "attr_name": {
-                                            "S": "wave_id"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "application"
-                                        },
-                                        "attr_name": {
-                                            "S": "aws_accountid"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "application"
-                                        },
-                                        "attr_name": {
-                                            "S": "aws_region"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "schema_name": {
-                            "S": "application"
-                        },
-                        "read": {
-                            "BOOL": true
-                        },
-                        "delete": {
-                            "BOOL": true
-                        }
-                    }
-                },
-                {
-                    "M": {
-                        "create": {
-                            "BOOL": true
-                        },
-                        "update": {
-                            "BOOL": true
-                        },
-                        "attributes": {
-                            "L": [
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "wave"
-                                        },
-                                        "attr_name": {
-                                            "S": "wave_id"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "wave"
-                                        },
-                                        "attr_name": {
-                                            "S": "wave_name"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "wave"
-                                        },
-                                        "attr_name": {
-                                            "S": "wave_status"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "wave"
-                                        },
-                                        "attr_name": {
-                                            "S": "wave_start_time"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "wave"
-                                        },
-                                        "attr_name": {
-                                            "S": "wave_end_time"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "wave"
-                                        },
-                                        "attr_name": {
-                                            "S": "wave_servers_baseline"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "wave"
-                                        },
-                                        "attr_name": {
-                                            "S": "wave_servers_forecast"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "wave"
-                                        },
-                                        "attr_name": {
-                                            "S": "wave_apps_baseline"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "wave"
-                                        },
-                                        "attr_name": {
-                                            "S": "wave_apps_forecast"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "schema_name": {
-                            "S": "wave"
-                        },
-                        "read": {
-                            "BOOL": true
-                        },
-                        "delete": {
-                            "BOOL": true
-                        }
-                    }
-                },
-                {
-                    "M": {
-                        "create": {
-                            "BOOL": true
-                        },
-                        "update": {
-                            "BOOL": true
-                        },
-                        "attributes": {
-                            "L": [
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "server_id"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "app_id"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "server_name"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "server_os_family"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "server_os_version"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "server_fqdn"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "server_tier"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "server_environment"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "subnet_IDs"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "securitygroup_IDs"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "subnet_IDs_test"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "securitygroup_IDs_test"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "instanceType"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "iamRole"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "private_ip"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "tags"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "tenancy"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "migration_status"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "replication_status"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "r_type"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "network_interface_id"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "network_interface_id_test"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "dedicated_host_id"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "secondary_private_ip"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "server_mgn_post_launch"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "server"
-                                        },
-                                        "attr_name": {
-                                            "S": "secret_name"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "schema_name": {
-                            "S": "server"
-                        },
-                        "read": {
-                            "BOOL": true
-                        },
-                        "delete": {
-                            "BOOL": true
-                        }
-                    }
-                },
-                {
-                    "M": {
-                        "create": {
-                            "BOOL": true
-                        },
-                        "update": {
-                            "BOOL": true
-                        },
-                        "attributes": {
-                            "L": [
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "database"
-                                        },
-                                        "attr_name": {
-                                            "S": "database_id"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "database"
-                                        },
-                                        "attr_name": {
-                                            "S": "app_id"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "database"
-                                        },
-                                        "attr_name": {
-                                            "S": "database_name"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "database"
-                                        },
-                                        "attr_name": {
-                                            "S": "database_type"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "database"
-                                        },
-                                        "attr_name": {
-                                            "S": "r_type"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "schema_name": {
-                            "S": "database"
-                        },
-                        "read": {
-                            "BOOL": true
-                        },
-                        "delete": {
-                            "BOOL": true
-                        }
-                    }
-                },
-                {
-                    "M": {
-                        "create": {
-                            "BOOL": true
-                        },
-                        "schema_name": {
-                            "S": "mgn"
-                        }
-                    }
-                },
-                {
-                    "M": {
-                        "create": {
-                            "BOOL": true
-                        },
-                        "schema_name": {
-                            "S": "ssm_job"
-                        }
-                    }
-                },
-                {
-                    "M": {
-                        "create": {
-                          "BOOL": true
-                        },
-                        "update": {
-                          "BOOL": true
-                        },
-                        "attributes": {
-                            "L": [
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "script"
-                                        },
-                                        "attr_name": {
-                                            "S": "script_name"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "script"
-                                        },
-                                        "attr_name": {
-                                            "S": "script_description"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "script"
-                                        },
-                                        "attr_name": {
-                                            "S": "fileName"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "script"
-                                        },
-                                        "attr_name": {
-                                            "S": "path"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "script"
-                                        },
-                                        "attr_name": {
-                                            "S": "script_masterfile"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "script"
-                                        },
-                                        "attr_name": {
-                                            "S": "default"
-                                        }
-                                    }
-                                },
-                                {
-                                    "M": {
-                                        "attr_type": {
-                                            "S": "script"
-                                        },
-                                        "attr_name": {
-                                            "S": "latest"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "schema_name": {
-                          "S": "script"
-                        }
-                    }
-                }
-            ]
-        },
-        "policy_name": {
-            "S": "Administrator"
-        }
+  {
+    "policy_id": {
+      "S": "1"
     },
-    {
-        "policy_id": {
-            "S": "2"
-        },
-        "policy_name": {
-            "S": "ReadOnly"
-        },
-        "entity_access": {
-            "L": [
+    "entity_access": {
+      "L": [
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
                 {
-                    "M": {
-                        "schema_name": {
-                            "S": "application"
-                        },
-                        "create": {
-                            "BOOL": false
-                        },
-                        "read": {
-                            "BOOL": true
-                        },
-                        "update": {
-                            "BOOL": false
-                        },
-                        "delete": {
-                            "BOOL": false
-                        }
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "app_id"
                     }
+                  }
                 },
                 {
-                    "M": {
-                        "schema_name": {
-                            "S": "wave"
-                        },
-                        "create": {
-                            "BOOL": false
-                        },
-                        "read": {
-                            "BOOL": true
-                        },
-                        "update": {
-                            "BOOL": false
-                        },
-                        "delete": {
-                            "BOOL": false
-                        }
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "app_name"
                     }
+                  }
                 },
                 {
-                    "M": {
-                        "schema_name": {
-                            "S": "server"
-                        },
-                        "create": {
-                            "BOOL": false
-                        },
-                        "read": {
-                            "BOOL": true
-                        },
-                        "update": {
-                            "BOOL": false
-                        },
-                        "delete": {
-                            "BOOL": false
-                        }
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "wave_id"
                     }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "aws_accountid"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "aws_region"
+                    }
+                  }
                 }
-            ]
+              ]
+            },
+            "schema_name": {
+              "S": "application"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_status"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_start_time"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_end_time"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_servers_baseline"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_servers_forecast"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_apps_baseline"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_apps_forecast"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "wave"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "app_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_os_family"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_os_version"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_fqdn"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_tier"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_environment"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "subnet_IDs"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "securitygroup_IDs"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "subnet_IDs_test"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "securitygroup_IDs_test"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "instanceType"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "iamRole"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "private_ip"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "tags"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "tenancy"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "migration_status"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "replication_status"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "r_type"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "network_interface_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "network_interface_id_test"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "dedicated_host_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "secondary_private_ip"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_mgn_post_launch"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "secret_name"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "server"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "database_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "app_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "database_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "database_type"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "r_type"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "database"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "schema_name": {
+              "S": "mgn"
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            },
+            "read": {
+              "BOOL": true
+            },
+            "schema_name": {
+              "S": "pipeline"
+            }
+          }
+        },
+        {
+          "M": {
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_name": {
+                      "S": "pipeline_template_id"
+                    },
+                    "attr_type": {
+                      "S": "pipeline_template"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_name": {
+                      "S": "version"
+                    },
+                    "attr_type": {
+                      "S": "pipeline_template"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_name": {
+                      "S": "pipeline_template_name"
+                    },
+                    "attr_type": {
+                      "S": "pipeline_template"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_name": {
+                      "S": "pipeline_template_description"
+                    },
+                    "attr_type": {
+                      "S": "pipeline_template"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_name": {
+                      "S": "deletion_protection"
+                    },
+                    "attr_type": {
+                      "S": "pipeline_template"
+                    }
+                  }
+                }
+              ]
+            },
+            "create": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            },
+            "read": {
+              "BOOL": true
+            },
+            "schema_name": {
+              "S": "pipeline_template"
+            },
+            "update": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_name": {
+                      "S": "pipeline_template_task_id"
+                    },
+                    "attr_type": {
+                      "S": "pipeline_template_task"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_name": {
+                      "S": "pipeline_template_id"
+                    },
+                    "attr_type": {
+                      "S": "pipeline_template_task"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_name": {
+                      "S": "task_id"
+                    },
+                    "attr_type": {
+                      "S": "pipeline_template_task"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_name": {
+                      "S": "task_version"
+                    },
+                    "attr_type": {
+                      "S": "pipeline_template_task"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_name": {
+                      "S": "pipeline_template_task_name"
+                    },
+                    "attr_type": {
+                      "S": "pipeline_template_task"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_name": {
+                      "S": "task_successors"
+                    },
+                    "attr_type": {
+                      "S": "pipeline_template_task"
+                    }
+                  }
+                }
+              ]
+            },
+            "create": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            },
+            "read": {
+              "BOOL": true
+            },
+            "schema_name": {
+              "S": "pipeline_template_task"
+            },
+            "update": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "task_execution"
+                    },
+                    "attr_name": {
+                      "S": "task_execution_status"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "task_execution"
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "schema_name": {
+              "S": "ssm_job"
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "script_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "script_description"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "fileName"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "path"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "script_masterfile"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "default"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "latest"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "script"
+            }
+          }
         }
+      ]
+    },
+    "policy_name": {
+      "S": "Administrator"
     }
+  },
+  {
+    "policy_id": {
+      "S": "2"
+    },
+    "policy_name": {
+      "S": "ReadOnly"
+    },
+    "entity_access": {
+      "L": [
+        {
+          "M": {
+            "schema_name": {
+              "S": "application"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "schema_name": {
+              "S": "wave"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "schema_name": {
+              "S": "server"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "schema_name": {
+              "S": "pipeline"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "schema_name": {
+              "S": "pipeline_template"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "schema_name": {
+              "S": "pipeline_template_task"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "schema_name": {
+              "S": "task_execution"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "schema_name": {
+              "S": "task"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "policy_id": {
+      "S": "3"
+    },
+    "entity_access": {
+      "L": [
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "app_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "app_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "wave_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "aws_accountid"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "aws_region"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "application"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_status"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_start_time"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wave_end_time"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "wave"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "app_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_os_family"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_os_version"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_fqdn"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_tier"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "server_environment"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "subnet_IDs"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "securitygroup_IDs"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "subnet_IDs_test"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "securitygroup_IDs_test"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "instanceType"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "iamRole"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "private_ip"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "tags"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "tenancy"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "migration_status"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "replication_status"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "r_type"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "network_interface_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "network_interface_id_test"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "dedicated_host_id"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "server"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "database_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "app_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "database_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "database_type"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "r_type"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "database"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "schema_name": {
+              "S": "mgn"
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            },
+            "read": {
+              "BOOL": true
+            },
+            "schema_name": {
+              "S": "pipeline"
+            }
+          }
+        },
+        {
+          "M": {
+            "read": {
+              "BOOL": true
+            },
+            "schema_name": {
+              "S": "pipeline_template"
+            }
+          }
+        },
+        {
+          "M": {
+            "read": {
+              "BOOL": true
+            },
+            "schema_name": {
+              "S": "pipeline_template_task"
+            }
+          }
+        },
+        {
+          "M": {
+            "read": {
+              "BOOL": true
+            },
+            "schema_name": {
+              "S": "task"
+            }
+          }
+        },
+        {
+          "M": {
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "task_execution"
+                    },
+                    "attr_name": {
+                      "S": "task_execution_status"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "task_execution"
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "schema_name": {
+              "S": "ssm_job"
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "script_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "script_description"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "fileName"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "path"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "script_masterfile"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "default"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "script"
+                    },
+                    "attr_name": {
+                      "S": "latest"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "script"
+            }
+          }
+        }
+      ]
+    },
+    "policy_name": {
+      "S": "AutomationTaskOrchestrator"
+    }
+  }
 ]

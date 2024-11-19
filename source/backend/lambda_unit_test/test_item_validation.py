@@ -987,3 +987,49 @@ class ItemValidationTestCase(TestCase):
         print("Response: ", response)
         expected_response = {}
         self.assertEqual(response, expected_response)
+
+    def test_is_valid_id_number(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: is_valid_id number")
+        schema = {
+            "schema_type": "user",
+            "schema_name": "server"
+        }
+        response = item_validation.is_valid_id(schema, "1")
+        print("Response: ", response)
+        self.assertTrue(response)
+
+    def test_is_valid_id_uuid(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: is_valid_id uuid")
+        schema = {
+            "schema_type": "user",
+            "schema_name": "server",
+            "key_type": "uuid"
+        }
+        response = item_validation.is_valid_id(schema, '4a120d34-e09e-4e75-bbed-2bab3ad897c1')
+        print("Response: ", response)
+        self.assertTrue(response)
+
+    def test_is_invalid_id_number(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: is_valid_id invalid number")
+        schema = {
+            "schema_type": "user",
+            "schema_name": "server"
+        }
+        response = item_validation.is_valid_id(schema, "notanumber")
+        print("Response: ", response)
+        self.assertFalse(response)
+
+    def test_is_invalid_id_uuid(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: is_valid_id invalid uuid")
+        schema = {
+            "schema_type": "user",
+            "schema_name": "server",
+            "key_type": "uuid"
+        }
+        response = item_validation.is_valid_id(schema, 'notauuid')
+        print("Response: ", response)
+        self.assertFalse(response)

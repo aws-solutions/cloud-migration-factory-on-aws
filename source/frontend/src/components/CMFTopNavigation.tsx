@@ -1,6 +1,5 @@
 import React from "react";
-import { TopNavigation } from "@awsui/components-react";
-import { TopNavigationProps } from "@awsui/components-react/top-navigation/interfaces";
+import {TopNavigation, TopNavigationProps} from "@cloudscape-design/components";
 
 const CustomTopNavigation = TopNavigation as any; // casting to `any` to allow to pass id and style properties
 

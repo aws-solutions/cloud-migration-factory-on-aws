@@ -1,7 +1,7 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-import datetime
+from datetime import datetime, timezone
 import json
 import base64
 import zipfile
@@ -15,7 +15,7 @@ from boto3.dynamodb.conditions import Key
 from decimal import Decimal
 
 import cmf_boto
-from cmf_logger import logger
+from cmf_logger import logger, log_event_received
 from cmf_utils import cors
 
 default_http_headers = {
@@ -59,6 +59,22 @@ packages_table = cmf_boto.resource('dynamodb').Table(os.environ['scripts_table']
 ZIP_MAX_SIZE = 500000000
 
 CONST_INVOCATION_AUTH_ERROR = 'Invocation: %s, Authorisation failed: '
+
+CONST_DEFAULT_SSM_SCRIPT_ATTRIBUTES = [
+    {
+        "description": "Automation Server",
+        "group": "General Automation Arguments",
+        "group_order": "3",
+        "labelKey": "mi_name",
+        "listValueAPI": "/ssm",
+        "long_desc": "SSM Instance IDs. Only showing those with a tag defined of role=mf_automation",
+        "name": "mi_id",
+        "required": True,
+        "system": True,
+        "type": "list",
+        "valueKey": "mi_id"
+    },
+]
 
 
 def get_lambda_schema_payload(update_exists_attribute, new_attr):
@@ -235,7 +251,7 @@ def change_default_script_version(event, package_uuid, default_version):
                 'statusCode': 400, 'body': error_msg}
 
     last_modified_by = auth_response['user']
-    last_modified_timestamp = datetime.datetime.utcnow().isoformat()
+    last_modified_timestamp = datetime.now(timezone.utc).isoformat()
 
     default_item = db_response["Item"]
 
@@ -502,7 +518,7 @@ def authenticate_and_extract_user(event, logging_context):
             'statusCode': 401,
             'body': auth_response['cause']
         })
-    created_timestamp = datetime.datetime.utcnow().isoformat()
+    created_timestamp = datetime.now(timezone.utc).isoformat()
     if 'user' in auth_response:
         created_by = auth_response['user']
     else:
@@ -569,6 +585,8 @@ def load_script_package(event, package_uuid, body, decoded_data_as_byte, new_ver
             "version": 0,
             "latest": 1,
             "default": 1,
+            "lambda_function_name_suffix": "ssm",
+            "type": "Automated",
             "version_id": s3_response["VersionId"],
             "script_masterfile": parsed_yaml_file.get("MasterFileName"),
             "script_description": parsed_yaml_file.get("Description"),
@@ -590,6 +608,8 @@ def load_script_package(event, package_uuid, body, decoded_data_as_byte, new_ver
         "package_uuid": package_uuid,
         "version": script_package_version,
         "version_id": s3_response["VersionId"],
+        "lambda_function_name_suffix": "ssm",
+        "type": "Automated",
         "script_masterfile": parsed_yaml_file.get("MasterFileName"),
         "script_description": parsed_yaml_file.get("Description"),
         "script_update_url": parsed_yaml_file.get('UpdateUrl'),
@@ -664,7 +684,7 @@ def increment_script_package_version(package_uuid, user_auth):
     else:
         last_modified_by = user_auth
 
-    last_modified_timestamp = datetime.datetime.utcnow().isoformat()
+    last_modified_timestamp = datetime.now(timezone.utc).isoformat()
     db_response = packages_table.update_item(
         Key={
             'package_uuid': package_uuid,
@@ -748,6 +768,8 @@ def process_get(event, logging_context: str):
 
         response = sorted(db_response["Items"], key=lambda d: d['script_name'])
 
+        add_system_default_attributes(response)
+
     elif get_intent == 'get_single_version_with_action':
         db_response = get_script_version(event['pathParameters']['scriptid'],
                                          int(event['pathParameters']['version']))
@@ -762,6 +784,8 @@ def process_get(event, logging_context: str):
             response = proces_get_download(event, logging_context, db_response['Item'])
         else:
             response.append(db_response["Item"])
+
+            add_system_default_attributes(response)
 
     # GET single version
     elif get_intent == 'get_single_version':
@@ -778,6 +802,8 @@ def process_get(event, logging_context: str):
 
         response.append(db_response["Item"])
 
+        add_system_default_attributes(response)
+
     # GET all versions
     elif get_intent == 'get_all_versions':
         logger.info('Invocation: %s, processing request for all versions.',
@@ -790,6 +816,8 @@ def process_get(event, logging_context: str):
             }
 
         response = db_response["Items"]
+
+        add_system_default_attributes(response)
 
     return {
         'headers': {**default_http_headers},
@@ -886,9 +914,19 @@ def process_delete(event, logging_context: str):
     return delete_script_package(event, package_uuid)
 
 
+def add_system_default_attributes(scripts):
+    for script in scripts:
+        if script.get('lambda_function_name_suffix', None) == 'ssm':
+            if 'script_arguments' not in script:
+                script['script_arguments'] = CONST_DEFAULT_SSM_SCRIPT_ATTRIBUTES
+            else:
+                script['script_arguments'].extend(CONST_DEFAULT_SSM_SCRIPT_ATTRIBUTES)
+
+
 def lambda_handler(event, _):
+    log_event_received(event)
+
     logging_context = event['httpMethod']
-    print(f"Event received: {json.dumps(event)}")
     logger.info('Invocation: %s', logging_context)
     if event['httpMethod'] == 'GET':
         return process_get(event, logging_context)

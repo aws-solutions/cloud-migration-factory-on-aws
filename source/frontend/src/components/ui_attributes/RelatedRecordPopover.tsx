@@ -5,7 +5,7 @@
  */
 
 import React from "react";
-import { Popover, SpaceBetween } from "@awsui/components-react";
+import { Popover, SpaceBetween } from "@cloudscape-design/components";
 import AllViewerAttributes from "./AllViewerAttributes";
 import Audit from "./Audit";
 

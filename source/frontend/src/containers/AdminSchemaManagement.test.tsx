@@ -3,15 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {render, screen, waitFor, within} from "@testing-library/react";
 import React from "react";
-import "@testing-library/jest-dom";
-import { defaultTestProps, mockNotificationContext } from "../__tests__/TestUtils";
+
+import {defaultTestProps, mockNotificationContext} from "../__tests__/TestUtils";
 import AdminSchemaMgmt from "./AdminSchemaMgmt";
-import { NotificationContext } from "../contexts/NotificationContext";
+import {NotificationContext} from "../contexts/NotificationContext";
 import userEvent from "@testing-library/user-event";
-import { server } from "../setupTests";
-import { rest } from "msw";
+import {server} from "../setupTests";
+import {rest} from "msw";
 
 const renderAdminSchemaManagementComponent = () => {
   return {

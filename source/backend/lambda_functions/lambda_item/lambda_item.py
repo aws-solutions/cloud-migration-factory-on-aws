@@ -4,13 +4,15 @@
 
 import os
 import json
-import datetime
+from datetime import datetime, timezone
 from boto3.dynamodb.conditions import Key, Attr
+from botocore.exceptions import ClientError
 from policy import MFAuth
 import item_validation
 from typing import Any
+from decimal import Decimal
 
-from cmf_logger import logger
+from cmf_logger import logger, log_event_received
 import cmf_boto
 from cmf_utils import cors, default_http_headers
 
@@ -27,6 +29,7 @@ SUFFIX_DOESNT_EXIST = 'does not exist'
 
 def lambda_handler(event: Any, _):
     logging_context = 'unknown'
+    log_event_received(event)
 
     if 'schema' in event['pathParameters']:
         schema_name = event['pathParameters']['schema']
@@ -76,7 +79,7 @@ def process_get(event: Any, data_table: Any, schema_name: str, logging_context: 
         resp = data_table.get_item(Key={schema_name + '_id': event['pathParameters']['id']})
         if 'Item' in resp:
             return {'headers': {**default_http_headers},
-                    'body': json.dumps(resp['Item'])}
+                    'body': json.dumps(resp['Item'], cls = JsonEncoder)}
         else:
             msg = f'{schema_name} Id {str(event["pathParameters"]["id"])} {SUFFIX_DOESNT_EXIST}'
             logger.error(f'{PREFIX_INVOCATION} {logging_context}, {msg}')
@@ -130,7 +133,7 @@ def process_put_validated(event: Any, data_table: Any, schema_name: str, schema:
     new_audit = {}
     if 'user' in auth_response:
         new_audit['lastModifiedBy'] = auth_response['user']
-        new_audit['lastModifiedTimestamp'] = datetime.datetime.utcnow().isoformat()
+        new_audit['lastModifiedTimestamp'] = datetime.now(timezone.utc).isoformat()
 
     if '_history' in new_item['Item']:
         old_audit = new_item['Item']['_history']
@@ -186,22 +189,38 @@ def cleanup_keys(body: Any, existing_item: Any):
     return new_item
 
 
+def get_delete_response(logging_context, respdel):
+    if respdel['ResponseMetadata']['HTTPStatusCode'] == 200:
+        logger.info(f'{PREFIX_INVOCATION} {logging_context}, All items successfully deleted.')
+        return {'headers': {**default_http_headers},
+                'statusCode': 200, 'body': "Item was successfully deleted."}
+    else:
+        logger.error(f'{PREFIX_INVOCATION}: {logging_context}, {json.dumps(respdel)}')
+        return {'headers': {**default_http_headers},
+                'statusCode': respdel['ResponseMetadata']['HTTPStatusCode'],
+                'body': json.dumps({'errors': [respdel]})}
+
+
 def process_delete(event: Any, data_table: Any, schema_name: str, logging_context: str):
     auth = MFAuth()
     auth_response = auth.get_user_resource_creation_policy(event, schema_name)
     if auth_response['action'] == 'allow':
         resp = data_table.get_item(Key={schema_name + '_id': event['pathParameters']['id']})
         if 'Item' in resp:
-            respdel = data_table.delete_item(Key={schema_name + '_id': event['pathParameters']['id']})
-            if respdel['ResponseMetadata']['HTTPStatusCode'] == 200:
-                logger.info(f'{PREFIX_INVOCATION} {logging_context}, All items successfully deleted.')
-                return {'headers': {**default_http_headers},
-                        'statusCode': 200, 'body': "Item was successfully deleted."}
-            else:
-                logger.error(f'{PREFIX_INVOCATION}: {logging_context}, {json.dumps(respdel)}')
-                return {'headers': {**default_http_headers},
-                        'statusCode': respdel['ResponseMetadata']['HTTPStatusCode'],
-                        'body': json.dumps({'errors': [respdel]})}
+            try:
+                respdel = data_table.delete_item(
+                    Key={schema_name + '_id': event['pathParameters']['id']},
+                    ConditionExpression=Attr('deletion_protection').ne(True),
+                )
+            except ClientError as e:
+                logger.error(f'{PREFIX_INVOCATION} {logging_context}, {e}')
+                if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+                    msg = 'Record has deletion protection flag enabled, and cannot be deleted.'
+                    return {'headers': {**default_http_headers},
+                            'statusCode': 400, 'body': json.dumps({'errors': [msg]})}
+
+            return get_delete_response(logging_context, respdel)
+
         else:
             msg = f'{schema_name} Id: {str(event["pathParameters"]["id"])} {SUFFIX_DOESNT_EXIST}'
             logger.error(f'{PREFIX_INVOCATION} {logging_context}, {msg}')
@@ -212,3 +231,11 @@ def process_delete(event: Any, data_table: Any, schema_name: str, logging_contex
         return {'headers': {**default_http_headers},
                 'statusCode': 401,
                 'body': json.dumps({'errors': [auth_response]})}
+
+class JsonEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return str(obj)
+        elif isinstance(obj, bytes):
+            return str(obj, encoding='utf-8')
+        return json.JSONEncoder.default(self, obj)

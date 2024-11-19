@@ -9,6 +9,7 @@ import datetime
 
 import cmf_boto
 from cmf_utils import cors, default_http_headers
+from cmf_logger import logger, log_event_received
 
 
 # subclass JSONEncoder
@@ -35,8 +36,9 @@ def get_user_groups(client, username):
     return groups
 
 
-def lambda_handler(event, context):
-    print(f'lambda_handler with {event}, {context}')
+def lambda_handler(event, _):
+    log_event_received(event)
+
     client = cmf_boto.client('cognito-idp')
     response = client.list_users(
         UserPoolId=os.environ['userpool_id']

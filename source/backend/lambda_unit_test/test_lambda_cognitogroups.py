@@ -5,12 +5,14 @@
 import json
 import os
 import unittest
+from unittest import mock
+
 from moto import mock_aws
 import boto3
 
 import test_common_utils
 
-
+@mock.patch.dict('os.environ', test_common_utils.default_mock_os_environ)
 class LambdaCognitoGroupsTest(unittest.TestCase):
 
     @mock_aws

@@ -6,13 +6,15 @@ import os
 import json
 from time import sleep
 from boto3.dynamodb.types import TypeSerializer
-import datetime
+from datetime import datetime, timezone
+import uuid
 from policy import MFAuth
 import item_validation
 from typing import Any
+from decimal import Decimal
 
 import cmf_boto
-from cmf_logger import logger
+from cmf_logger import logger, log_event_received
 from cmf_utils import cors, default_http_headers
 
 application = os.environ['application']
@@ -26,6 +28,7 @@ PREFIX_INVOCATION = 'Invocation:'
 
 def lambda_handler(event, _):
     logging_context = ''
+    log_event_received(event)
 
     if 'schema' in event['pathParameters']:
         schema_name = event['pathParameters']['schema']
@@ -54,7 +57,7 @@ def lambda_handler(event, _):
     data_table = cmf_boto.resource('dynamodb').Table(data_table_name)
 
     if event['httpMethod'] == 'GET':
-        return process_get(data_table, schema_name)
+        return process_get(data_table, schema_name, logging_context)
     elif event['httpMethod'] == 'POST':
         return process_post(event, data_table, data_table_name, schema, schema_name, logging_context)
 
@@ -87,11 +90,14 @@ def get_vacant_id(existing_items_list: list, schema_name: str):
     return item_id
 
 
-def process_get(data_table: Any, schema_name: str):
+def process_get(data_table: Any, schema_name: str, logging_context: str):
     item = item_validation.scan_dynamodb_data_table(data_table)
     new_item = sorted(item, key=lambda i: i[schema_name + '_name'])
+    body = json.dumps(new_item, cls = JsonEncoder)
+    logger.info(f'{PREFIX_INVOCATION} {logging_context} Received event is: GET')
+    logger.info(f'{PREFIX_INVOCATION} {logging_context} {"Retrieved items are: {}".format(body)}')
     return {'headers': {**default_http_headers},
-            'body': json.dumps(new_item)}
+            'body': body}
 
 
 def process_post(event: dict, data_table: Any, data_table_name: str, schema, schema_name: str, logging_context: str):
@@ -142,7 +148,7 @@ def process_authorized_post(body: dict, data_table: Any, data_table_name: str, s
     new_audit = {}
     if 'user' in auth_response:
         new_audit['createdBy'] = auth_response['user']
-        new_audit['createdTimestamp'] = datetime.datetime.utcnow().isoformat()
+        new_audit['createdTimestamp'] = datetime.now(timezone.utc).isoformat()
 
     # multiple items processing
     # get related data for validation
@@ -162,12 +168,9 @@ def process_authorized_post(body: dict, data_table: Any, data_table_name: str, s
             )
         }
 
-    # Get vacant {schema}_id
-    item_id = get_vacant_id(existing_items_list, schema_name)
-
     # Validate records before putRequest.
     _, item_name_duplicates, item_name_exists, items_validation_errors, items_validated = \
-        get_validated_items(body, schema_name, schema, related_data, existing_items_list, item_id, new_audit)
+        get_validated_items(body, schema_name, schema, related_data, existing_items_list, new_audit)
 
     responses = []
     logger.debug(f'{PREFIX_INVOCATION} {logging_context}, Validated items to process: '
@@ -264,43 +267,90 @@ def validate_records_in_payload(body, schema_name, logging_context):
                                                "_id, this is managed by the system"}
 
 
-def get_validated_items(body, schema_name, schema, related_data, existing_item_list, item_id, new_audit) -> \
+def get_new_item_id_number(existing_item_list, schema, schema_name):
+    if schema.get('key_type', 'number') == 'number':
+        # Get vacant {schema}_id based on incremental numbering.
+        return get_vacant_id(existing_item_list, schema_name)
+    else:
+        return None
+
+
+def validate_item(schema, schema_name, item, existing_item_list, related_data, item_name_exists_errors, items_validation_errors, item_name_duplicates_errors, item_name_list):
+    is_valid = True
+    # Check if the record already exists based on _name if schema does not allow duplicate _names.
+    if not schema.get('allow_duplicates', False) and item_validation.does_item_exist(schema_name + '_name',
+                                                                                     item[schema_name + '_name'],
+                                                                                     existing_item_list):
+        item_name_exists_errors.append(item[schema_name + '_name'])
+        is_valid = False
+
+    # Validate record
+    item_validation_result = item_validation.check_valid_item_create(item, schema, related_data)
+    if item_validation_result is not None:
+        items_validation_errors.append({item[schema_name + '_name']: item_validation_result})
+        is_valid = False
+
+    # Check if _name is duplicated in the list passed.
+    if item[schema_name + '_name'] not in item_name_list:
+        item_name_list.append(item[schema_name + '_name'])
+    else:
+        item_name_duplicates_errors.append(item[schema_name + '_name'])
+        is_valid = False
+
+    return is_valid
+
+
+def get_validated_items(body, schema_name, schema, related_data, existing_item_list, new_audit) -> \
         (dict, dict, dict, dict):
     item_name_list = []
     item_name_duplicates = []
     item_name_exists = []
     items_validation_errors = []
     items_validated = []
+
+    next_vacant_item_id_number = get_new_item_id_number(existing_item_list, schema, schema_name)
+
     for item in body:
-        is_valid = True
-        # Check if the record already exists.
-        if item_validation.does_item_exist(schema_name + '_name', item[schema_name + '_name'],
-                                           existing_item_list):
-            item_name_exists.append(item[schema_name + '_name'])
-            is_valid = False
-
-        # Validate record
-        item_validation_result = item_validation.check_valid_item_create(item, schema, related_data)
-        if item_validation_result is not None:
-            items_validation_errors.append({item[schema_name + '_name']: item_validation_result})
-            is_valid = False
-
-        # Check if _name is duplicated in the list passed.
-        if item[schema_name + '_name'] not in item_name_list:
-            item_name_list.append(item[schema_name + '_name'])
-        else:
-            item_name_duplicates.append(item[schema_name + '_name'])
-            is_valid = False
+        is_valid = validate_item(
+            schema, schema_name, item, existing_item_list, related_data, item_name_exists, items_validation_errors, item_name_duplicates, item_name_list
+        )
 
         if is_valid:
-            item[schema_name + '_id'] = str(item_id)
-            item_id += 1
-            # Add audit data to new item.
-            item['_history'] = new_audit
+            try:
+                set_new_item_system_attributes(
+                    item, schema_name, schema, items_validation_errors, next_vacant_item_id_number, new_audit
+                )
+                # if next_item_id_number specified then increment.
+                if next_vacant_item_id_number:
+                    next_vacant_item_id_number += 1
+            except ValueError:
+                return item_name_list, item_name_duplicates, item_name_exists, items_validation_errors, items_validated
+
             # Add item to be processed.
             items_validated.append(item)
 
     return item_name_list, item_name_duplicates, item_name_exists, items_validation_errors, items_validated
+
+
+def set_new_item_system_attributes(item, schema_name, schema, items_validation_errors, next_item_id_number, new_audit):
+    if item.get(f'__{schema_name}_id', None):
+        if not item_validation.is_valid_id(schema, item.get(f'__{schema_name}_id', None)):
+            items_validation_errors.append(
+                {item[schema_name + '_name']: [f"Invalid Id format: {item.get(f'__{schema_name}_id', None)}"]})
+            raise ValueError
+        # Use provided ID.
+        item[f'{schema_name}_id'] = item[f'__{schema_name}_id']
+        # remove temporary requested ID.
+        item.pop(f'__{schema_name}_id', None)
+    else:
+        # assign a new id based on schema key_type.
+        if schema.get('key_type', 'number') == 'number':
+            item[schema_name + '_id'] = str(next_item_id_number)
+            next_item_id_number += 1
+        else:
+            item[schema_name + '_id'] = str(uuid.uuid4())
+    # Add audit data to new item.
+    item['_history'] = new_audit
 
 
 def check_for_errors(items_validation_errors: list, item_name_duplicates: list, item_name_exists: list, responses: list,
@@ -345,3 +395,12 @@ def check_for_errors(items_validation_errors: list, item_name_duplicates: list, 
         return_messages['unprocessed_items'] = unprocessed_items
 
     return has_errors, return_messages
+
+
+class JsonEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return str(obj)
+        elif isinstance(obj, bytes):
+            return str(obj, encoding='utf-8')
+        return json.JSONEncoder.default(self, obj)

@@ -228,7 +228,7 @@ class LambdaGFCommonTest(unittest.TestCase):
     def assert_lambda_handler_mfAuth_deny(self, test_module, mock_MFAuth):
         auth_response = {'action': 'deny'}
         mock_MFAuth.return_value = auth_response
-        response = test_module.lambda_handler(None, None)
+        response = test_module.lambda_handler({}, None)
         self.assertEqual(401, response['statusCode'])
         self.assertEqual(auth_response, json.loads(response['body']))
 

@@ -4,7 +4,7 @@
     "S": "server"
    },
    "lastModifiedTimestamp": {
-     "S": "2023-04-28T15:27:12.991773"
+     "S": "2023-04-28T15:27:12.991773+00:00"
    },
    "schema_type": {
     "S": "user"
@@ -15,7 +15,7 @@
      "S": "wave"
    },
    "lastModifiedTimestamp": {
-     "S": "2023-04-28T15:27:12.991773"
+     "S": "2023-04-28T15:27:12.991773+00:00"
    },
    "schema_type": {
      "S": "user"
@@ -26,7 +26,7 @@
      "S": "app"
    },
    "lastModifiedTimestamp": {
-     "S": "2023-04-25T18:53:25.915746"
+     "S": "2023-04-25T18:53:25.915746+00:00"
    },
    "schema_type": {
      "S": "user"

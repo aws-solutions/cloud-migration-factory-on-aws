@@ -20,7 +20,7 @@ import {
   Select,
   SpaceBetween,
   Tabs,
-} from "@awsui/components-react";
+} from "@cloudscape-design/components";
 import { getNestedValuePath, setNestedValuePath } from "../resources/main";
 import ToolHelpEdit from "./ToolHelpEdit";
 import ToolHelp from "./ToolHelp";

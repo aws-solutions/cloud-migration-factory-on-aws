@@ -3,18 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {render, screen, waitFor, within} from "@testing-library/react";
 import React from "react";
-import "@testing-library/jest-dom";
+
 import AdminPermissions from "./AdminPermissions";
 import userEvent from "@testing-library/user-event";
-import { defaultTestProps, mockNotificationContext } from "../__tests__/TestUtils";
-import { server } from "../setupTests";
-import { rest } from "msw";
+import {defaultTestProps, mockNotificationContext} from "../__tests__/TestUtils";
+import {server} from "../setupTests";
+import {rest} from "msw";
 
 import roles from "../../test_data/default_roles.json";
-import { NotificationContext } from "../contexts/NotificationContext";
-import { generateTestPolicies } from "../__tests__/mocks/admin_api";
+import {NotificationContext} from "../contexts/NotificationContext";
+import {generateTestPolicies} from "../__tests__/mocks/admin_api";
 
 const renderAdminPermissionsComponent = () => {
   return {
@@ -76,7 +76,7 @@ test('submitting the "Add role" form saves a new role to API', async () => {
   expect(await screen.findByRole("heading", { name: "Add role" })).toBeInTheDocument();
 
   // AND WHEN we populate all fields
-  await userEvent.type(screen.getByRole("textbox", { name: "Role Name" }), "my-test-role");
+  await userEvent.type(screen.getByRole("textbox", { name: "role_name" }), "my-test-role");
 
   await userEvent.click(screen.getByLabelText("Attached Policies"));
   await userEvent.click(await screen.findByText("ReadOnly-1"));
@@ -166,7 +166,7 @@ test('submitting the "Edit role" form saves the updated role to API', async () =
   expect(await screen.findByRole("heading", { name: "Edit role" })).toBeInTheDocument();
 
   // AND WHEN we populate all fields
-  await userEvent.type(screen.getByRole("textbox", { name: "Role Name" }), "updated-role");
+  await userEvent.type(screen.getByRole("textbox", { name: "role_name" }), "updated-role");
 
   await userEvent.click(screen.getByRole("button", { name: /Save/i }));
 

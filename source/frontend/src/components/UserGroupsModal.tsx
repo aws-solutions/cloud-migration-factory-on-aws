@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from "react";
-import { Box, Button, FormField, Modal, Multiselect, SpaceBetween } from "@awsui/components-react";
+import { Box, Button, FormField, Modal, Multiselect, SpaceBetween } from "@cloudscape-design/components";
 import { setNestedValuePath } from "../resources/main";
 
 type UserGroupsModalProps = {

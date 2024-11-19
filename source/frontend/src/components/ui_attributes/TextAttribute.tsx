@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { Box, Spinner } from "@awsui/components-react";
+import { Box, Spinner } from "@cloudscape-design/components";
 
 interface TestAttributeParams {
   label: string;

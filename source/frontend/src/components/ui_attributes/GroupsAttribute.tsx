@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { FormField, Multiselect, SpaceBetween } from "@awsui/components-react";
+import { FormField, Multiselect, SpaceBetween } from "@cloudscape-design/components";
 import { useValueLists } from "../../actions/ValueListsHook";
 
 const GroupsAttribute = ({ attribute, value, isReadonly, errorText, handleUserInput, displayHelpInfoLink }) => {

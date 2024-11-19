@@ -5,7 +5,15 @@
 
 import { useState } from "react";
 
-import { Box, Button, CollectionPreferences, Pagination, Table, TableProps, TextFilter } from "@awsui/components-react";
+import {
+  Box,
+  Button,
+  CollectionPreferences,
+  Pagination,
+  Table,
+  TableProps,
+  TextFilter,
+} from "@cloudscape-design/components";
 
 import {
   DEFAULT_PREFERENCES,
@@ -14,7 +22,7 @@ import {
   PAGE_SELECTOR_OPTIONS,
 } from "../resources/credential-table-config";
 
-import { useCollection } from "@awsui/collection-hooks";
+import { useCollection } from "@cloudscape-design/collection-hooks";
 
 import TableHeader from "./TableHeader";
 import { filterCounter, headerCounter } from "../utils/table-utils";
@@ -74,6 +82,7 @@ const CredentialManagerTable = (props: {
       handleDeleteClick={props.handleDeleteItem ? props.handleDeleteItem : undefined}
       handleEditClick={props.handleEditItem ? props.handleEditItem : undefined}
       handleAddClick={props.handleAddItem ? props.handleAddItem : undefined}
+      handleDuplicateClick={undefined}
       handleRefreshClick={props.handleRefresh ? props.handleRefresh : undefined}
       description={undefined}
       handleActionSelection={undefined}

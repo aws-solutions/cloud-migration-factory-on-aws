@@ -2,10 +2,11 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 from policy import MFAuth
-from cmf_logger import logger
+from cmf_logger import logger, log_event_received
 
 
 def lambda_handler(event, _):
+    log_event_received(event)
     if 'methodArn' in event:
         logger.info('Authenticating API Gateway request' + event['methodArn'])
     else:

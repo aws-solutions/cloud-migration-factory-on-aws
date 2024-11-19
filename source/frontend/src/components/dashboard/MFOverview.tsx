@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { Box, ColumnLayout, Container, Header, Link, Spinner } from "@awsui/components-react";
+import { Box, ColumnLayout, Container, Header, Link, Spinner } from "@cloudscape-design/components";
 
 export type CompletedItemIds = {
   waveIds: string[];

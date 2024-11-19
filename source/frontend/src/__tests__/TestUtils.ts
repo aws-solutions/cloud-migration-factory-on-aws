@@ -241,6 +241,113 @@ const TEST_USER_ACCESS = {
       },
     ],
   },
+  pipeline: {
+    create: true,
+    update: false,
+    schema_name: "pipeline",
+    read: true,
+    delete: true,
+  },
+  pipeline_template: {
+    create: true,
+    update: true,
+    attributes: [
+      {
+        attr_type: "pipeline_template",
+        attr_name: "pipeline_template_id",
+      },
+      {
+        attr_type: "pipeline_template",
+        attr_name: "pipeline_template_name",
+      },
+      {
+        attr_type: "pipeline_template",
+        attr_name: "pipeline_template_description",
+      },
+    ],
+    schema_name: "pipeline_template",
+    read: true,
+    delete: true,
+  },
+  pipeline_template_task: {
+    create: true,
+    update: true,
+    attributes: [
+      {
+        attr_type: "pipeline_template_task",
+        attr_name: "pipeline_template_id",
+      },
+      {
+        attr_type: "pipeline_template_task",
+        attr_name: "task_id",
+      },
+      {
+        attr_type: "pipeline_template_task",
+        attr_name: "task_successors",
+      },
+      {
+        attr_type: "pipeline_template_task",
+        attr_name: "pipeline_template_task_name",
+      },
+    ],
+    schema_name: "pipeline_template_task",
+    read: true,
+    delete: true,
+  },
+  task: {
+    create: true,
+    update: true,
+    attributes: [
+      {
+        attr_type: "task",
+        attr_name: "task_id",
+      },
+      {
+        attr_type: "task",
+        attr_name: "task_name",
+      },
+      {
+        attr_type: "task",
+        attr_name: "task_description",
+      },
+      {
+        attr_type: "task",
+        attr_name: "task_type",
+      },
+      {
+        attr_type: "task",
+        attr_name: "lambda_function_name_suffix",
+      },
+      {
+        attr_type: "task",
+        attr_name: "ssm_script_name",
+      },
+      {
+        attr_type: "task",
+        attr_name: "ssm_script_version",
+      },
+      {
+        attr_type: "task",
+        attr_name: "task_arguments",
+      },
+    ],
+    schema_name: "task",
+    read: true,
+    delete: true,
+  },
+  task_execution: {
+    create: false,
+    update: true,
+    attributes: [
+      {
+        attr_type: "task_execution",
+        attr_name: "task_execution_status",
+      },
+    ],
+    schema_name: "task_execution",
+    read: true,
+    delete: false,
+  },
 };
 
 export const mockNotificationContext: NotificationContextType = {
@@ -305,6 +412,14 @@ export const defaultTestProps: AppChildProps = {
     },
     {
       schema_name: "server",
+      schema_type: "user",
+    },
+    {
+      schema_name: "pipeline_template",
+      schema_type: "user",
+    },
+    {
+      schema_name: "pipeline_template_task",
       schema_type: "user",
     },
     {
@@ -378,6 +493,14 @@ export const TEST_SCHEMAS = [
   },
   {
     schema_name: "server",
+    schema_type: "user",
+  },
+  {
+    schema_name: "pipeline_template",
+    schema_type: "user",
+  },
+  {
+    schema_name: "pipeline_template_task",
     schema_type: "user",
   },
   {

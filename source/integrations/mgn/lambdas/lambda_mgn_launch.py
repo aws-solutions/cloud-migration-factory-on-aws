@@ -3,26 +3,20 @@
 
 
 from __future__ import print_function
-import requests
-import datetime
-import json
 import os
 import boto3
 import logging
 import multiprocessing
 import lambda_mgn_utils
+from cmf_utils import send_anonymous_usage_data
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 application = os.environ['application']
 environment = os.environ['environment']
-AnonymousUsageData = os.environ['AnonymousUsageData']
 servers_table_name = '{}-{}-servers'.format(application, environment)
 servers_table = boto3.resource('dynamodb').Table(servers_table_name)
-s_uuid = os.environ['solutionUUID']
-region = os.environ['region']
-url = 'https://metrics.awssolutionsbuilder.com/generic'
 
 REQUESTS_DEFAULT_TIMEOUT = 60
 
@@ -115,24 +109,8 @@ def multiprocessing_usage(server, launch_type):
     existing_attr['Item']['migration_status'] = launch_type + " instance launched"
     servers_table.put_item(Item=existing_attr['Item'])
     log.info("Pid: " + str(os.getpid()) + " - This is " + launch_type + " Launch, migration_status updated")
-    if AnonymousUsageData == "Yes":
-        usage_data = {"Solution": "SO0097",
-                      "UUID": s_uuid,
-                      "Status": "Migrated",
-                      "TimeStamp": str(datetime.datetime.now()),
-                      "Region": region
-                      }
-        requests.post(url,
-                      data=json.dumps(usage_data),
-                      headers={'content-type': 'application/json'},
-                      timeout=REQUESTS_DEFAULT_TIMEOUT)
-        url_ce = "https://s20a21yvzd.execute-api.us-east-1.amazonaws.com/prod/launch"
-        mgn_data = {"UUID": s_uuid,
-                    "version": "MGN-v3"
-                    }
-        requests.post(url_ce,
-                      data=json.dumps(mgn_data),
-                      timeout=REQUESTS_DEFAULT_TIMEOUT)
+
+    send_anonymous_usage_data("Migrated")
 
 
 # This function will terminate all launched instances

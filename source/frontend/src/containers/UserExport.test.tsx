@@ -35,7 +35,6 @@ function renderUserExportComponent(props = defaultTestProps) {
 
 test("the download button downloads an xlsx file", async () => {
   // GIVEN
-  jest.spyOn(XLSX, "writeFile").mockImplementation(() => {});
   jest.spyOn(XLSX.utils, "json_to_sheet");
 
   const { helpPanelMockContext } = renderUserExportComponent();

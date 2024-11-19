@@ -4,8 +4,8 @@
  */
 
 import React, { useEffect, useState } from "react";
-import SideNavigation from "@awsui/components-react/side-navigation";
-import { capitalize } from "../resources/main";
+import SideNavigation from "@cloudscape-design/components/side-navigation";
+import { capitalize, capitalizeAndPluralize } from "../resources/main";
 import { To, useLocation, useNavigate } from "react-router-dom";
 
 interface ServiceNavigationProps {
@@ -26,8 +26,20 @@ function ServiceNavigation(props: ServiceNavigationProps) {
     }
   }
 
-  const populateNavSubItems = (navItems: any[]) => {
+  useEffect(() => {
+    let navItems = [];
+
+    if (props.userGroups?.includes("admin")) {
+      navItems = itemsAdmin;
+    } else {
+      navItems = itemsUser;
+    }
+
     let navSchemaItems = [];
+    let automationItems = [
+      { type: "link", text: "Jobs", href: "/automation/jobs" },
+      { type: "link", text: "Scripts", href: "/automation/scripts" },
+    ];
     if (props.schemaMetadata) {
       if (props.schemaMetadata.length > 0) {
         //Add user schemas to the navigation.
@@ -35,29 +47,30 @@ function ServiceNavigation(props: ServiceNavigationProps) {
         for (const schema of props.schemaMetadata) {
           if (schema["schema_type"] === "user") {
             //Only add user schemas to navigation.
-            navSchemaItems.push({
-              type: "link",
-              text: schema["friendly_name"] ? schema["friendly_name"] : capitalize(schema["schema_name"]),
-              href: "/" + schema["schema_name"] + "s",
-            });
+            if (["pipeline", "pipeline_template"].includes(schema["schema_name"])) {
+              automationItems.push({
+                type: "link",
+                text: schema["friendly_name"] ? schema["friendly_name"] : capitalizeAndPluralize(schema["schema_name"]),
+                href: "/" + schema["schema_name"] + "s",
+              });
+            } else {
+              navSchemaItems.push({
+                type: "link",
+                text: schema["friendly_name"] ? schema["friendly_name"] : capitalize(schema["schema_name"]),
+                href: "/" + schema["schema_name"] + "s",
+              });
+            }
           }
         }
+        // navSchemaItems.push({type: "link", text: "Pipeline", href: "/pipeline"});
         navSchemaItems.push({ type: "link", text: "Import", href: "/import" });
         navSchemaItems.push({ type: "link", text: "Export", href: "/export" });
 
         navItems[1].items = navSchemaItems;
+        navItems[2].items = automationItems;
       }
     }
-  };
 
-  useEffect(() => {
-    let navItems = [];
-    if (props.userGroups?.includes("admin")) {
-      navItems = itemsAdmin;
-    } else {
-      navItems = itemsUser;
-    }
-    populateNavSubItems(navItems);
     setItems(navItems);
   }, [props.userGroups, props.schemaMetadata]);
 
@@ -86,10 +99,7 @@ const itemsUser = [
   {
     type: "section",
     text: "Automation",
-    items: [
-      { type: "link", text: "Jobs", href: "/automation/jobs" },
-      { type: "link", text: "Scripts", href: "/automation/scripts" },
-    ],
+    items: [],
   },
   { type: "divider" },
   {
@@ -112,10 +122,7 @@ const itemsAdmin = [
   {
     type: "section",
     text: "Automation",
-    items: [
-      { type: "link", text: "Jobs", href: "/automation/jobs" },
-      { type: "link", text: "Scripts", href: "/automation/scripts" },
-    ],
+    items: [],
   },
   {
     type: "section",

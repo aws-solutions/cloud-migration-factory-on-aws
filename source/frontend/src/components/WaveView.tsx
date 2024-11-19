@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from "react";
-import { ColumnLayout, Container, Header, SpaceBetween, Tabs } from "@awsui/components-react";
+import { ColumnLayout, Container, Header, SpaceBetween, Tabs } from "@cloudscape-design/components";
 
 import TextAttribute from "../components/ui_attributes/TextAttribute";
 import AllViewerAttributes from "../components/ui_attributes/AllViewerAttributes";

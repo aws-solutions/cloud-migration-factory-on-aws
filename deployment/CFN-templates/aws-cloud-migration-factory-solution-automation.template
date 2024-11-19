@@ -65,6 +65,9 @@ Parameters:
   LambdaLayerMFPolicyLib:
     Type: String
 
+  LambdaLayerMFItemsLib:
+    Type: String
+
   LambdaLayerMFUtilsLib:
     Type: String
 
@@ -80,6 +83,21 @@ Parameters:
     Description: Is this a private deployment?
     Default: false
     AllowedValues: [ true, false ]
+
+  PipelineTaskExecutionOutputLambdaARN:
+    Type: String
+
+  UserAPIRequestValidatorId:
+    Type: String
+    Description: 'The ID of the User API Request Validator'
+
+  ToolsApiRequestValidatorId:
+    Type: String
+    Description: 'The ID of the Tools API Request Validator'
+
+  LoginApiRequestValidatorId:
+    Type: String
+    Description: 'The ID of the Login API Request Validator'
 
 Mappings:
   Solution:
@@ -113,20 +131,6 @@ Resources:
             - ServerSideEncryptionByDefault:
                 SSEAlgorithm: aws:kms
 
-#  SSMBucketPolicy:
-#    Type: AWS::S3::BucketPolicy
-#    Properties:
-#      Bucket: !Ref SSMBucket
-#      PolicyDocument:
-#        Statement:
-#          -
-#            Action:
-#                - "s3:GetObject"
-#            Effect: "Allow"
-#            Resource: !Sub ${SSMBucket.Arn}/*
-#            Principal:
-#              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudfrontOriginAccessIdentity}'
-
   #S3 Bucket to store post cutover validation reports
   PostMigrationReportsBucket:
     Type: AWS::S3::Bucket
@@ -153,20 +157,6 @@ Resources:
         LogFilePrefix: reports
       VersioningConfiguration:
         Status: 'Enabled'
-
-#  PostMigrationReportsBucketPolicy:
-#    Type: AWS::S3::BucketPolicy
-#    Properties:
-#      Bucket: !Ref PostMigrationReportsBucket
-#      PolicyDocument:
-#        Statement:
-#          -
-#            Action:
-#              - "s3:GetObject"
-#            Effect: "Allow"
-#            Resource: !Sub "${PostMigrationReportsBucket.Arn}/*"
-#            Principal:
-#              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudfrontOriginAccessIdentity}'
 
   # DynamoDB - connectionIds
   SSMConnectionIdDynamoDBTable:
@@ -268,6 +258,152 @@ Resources:
           Value: !Ref Environment
         - Key: Name
           Value: !Sub ${Application}-${Environment}-ssm-scripts
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  # DynamoDB - Pipeline Template Tasks
+  PipelineTemplateTasksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "pipeline_template_task_id"
+          AttributeType: "S"
+        - AttributeName: "pipeline_template_id"
+          AttributeType: "S"
+        - AttributeName: "task_id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "pipeline_template_task_id"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-pipeline_template_tasks
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-pipeline_template_tasks
+      GlobalSecondaryIndexes:
+        - IndexName: "pipeline_template_id-index"
+          KeySchema:
+            - AttributeName: "pipeline_template_id"
+              KeyType: "HASH"
+            - AttributeName: "task_id"
+              KeyType: "RANGE"
+          Projection:
+            ProjectionType: ALL
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  # DynamoDB - Pipeline Templates
+  PipelineTemplatesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "pipeline_template_id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "pipeline_template_id"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-pipeline_templates
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-pipeline_templates
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  # DynamoDB - Pipelines
+  PipelinesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      AttributeDefinitions:
+        - AttributeName: "pipeline_id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "pipeline_id"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-pipelines
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-pipelines
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  # DynamoDB - Task Executions
+  TaskExecutionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      AttributeDefinitions:
+        - AttributeName: "task_execution_id"
+          AttributeType: "S"
+        - AttributeName: "pipeline_id"
+          AttributeType: "S"
+        - AttributeName: "task_id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "task_execution_id"
+          KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        - IndexName: "pipeline_id-index"
+          KeySchema:
+            - AttributeName: "pipeline_id"
+              KeyType: "HASH"
+            - AttributeName: "task_id"
+              KeyType: "RANGE"
+          Projection:
+            ProjectionType: ALL
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-task_executions
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-task_executions
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -403,6 +539,7 @@ Resources:
       RouteResponseKey: $default
 
   SSMLambdaRole:
+    DependsOn: SSMLogGroup
     Type: 'AWS::IAM::Role'
     Properties:
       RoleName: !Sub ${Application}-${Environment}-ssm-lambda-role
@@ -557,6 +694,15 @@ Resources:
                 Action:
                   - 'lambda:InvokeFunction'
                 Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaFunctionSSMScripts}"
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Join ['', [!GetAtt SSMScriptsTable.Arn, '*']]
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -628,6 +774,194 @@ Resources:
           - id: W28
             reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
 
+  PipelineTemplateTasksLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-pipeline-template-tasks-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:BatchWriteItem'
+                Resource:
+                  - !Join ['', [!GetAtt PipelineTemplateTasksTable.Arn, '*']]
+                  - !Join ['', [!Ref RoleDynamoDBTableArn, '*']]
+                  - !Join ['', [!Ref PolicyDynamoDBTableArn, '*']]
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  PipelineTemplatesLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-pipeline-templates-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:BatchWriteItem'
+                Resource:
+                  - !Join ['', [!GetAtt PipelineTemplatesTable.Arn, '*']]
+                  - !Join ['', [!Ref RoleDynamoDBTableArn, '*']]
+                  - !Join ['', [!Ref PolicyDynamoDBTableArn, '*']]
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  PipelinesLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-pipelines-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:BatchWriteItem'
+                Resource:
+                  - !Join ['', [!GetAtt PipelinesTable.Arn, '*']]
+                  - !Join ['', [!Ref RoleDynamoDBTableArn, '*']]
+                  - !Join ['', [!Ref PolicyDynamoDBTableArn, '*']]
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  TaskExecutionsLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-task-executions-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:BatchWriteItem'
+                Resource:
+                  - !Join ['', [!GetAtt TaskExecutionsTable.Arn, '*']]
+                  - !Join ['', [!Ref RoleDynamoDBTableArn, '*']]
+                  - !Join ['', [!Ref PolicyDynamoDBTableArn, '*']]
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
   SSMOutputLambdaRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -670,6 +1004,7 @@ Resources:
                 Resource:
                   - !Join ['', [!GetAtt SSMConnectionIdDynamoDBTable.Arn, '*']]
                   - !Join ['', [!GetAtt SSMJobsTable.Arn, '*']]
+                  - !Join ['', [!GetAtt TaskExecutionsTable.Arn, '*']]
               -
                 Effect: Allow
                 Action:
@@ -677,7 +1012,6 @@ Resources:
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
-
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -743,6 +1077,8 @@ Resources:
         S3Bucket: !Ref CodeBucket
         S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_ssm.zip"]]
       Role: !GetAtt SSMLambdaRole.Arn
+      LoggingConfig:
+        LogGroup: !Ref SSMLogGroup
       Environment:
         Variables:
           application: !Ref Application
@@ -803,6 +1139,8 @@ Resources:
         S3Bucket: !Ref CodeBucket
         S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_ssm_jobs.zip"]]
       Role: !GetAtt SSMJobsLambdaRole.Arn
+      LoggingConfig:
+        LogGroup: !Ref SSMJobsLogGroup
       Environment:
         Variables:
           application: !Ref Application
@@ -876,6 +1214,7 @@ Resources:
       Layers:
         - !Ref LambdaLayerStdPythonLibs
         - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFItemsLib
         - !Ref LambdaLayerMFUtilsLib
     Metadata:
       cfn_nag:
@@ -1007,6 +1346,7 @@ Resources:
         Variables:
           application: !Ref Application
           environment: !Ref Environment
+          ScriptsDynamoDBTable: !Ref SSMScriptsTable
           code_bucket_name: !Ref CodeBucket
           key_prefix: !Ref KeyPrefix
           SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
@@ -1038,7 +1378,7 @@ Resources:
     DependsOn: LambdaFunctionSSMScripts
     Properties:
       ServiceToken: !GetAtt 'LambdaFunctionSSMLoadScripts.Arn'
-      Test: '%%VERSION%%'
+      Version: '%%VERSION%%'
 
   # RunCMFAutomationPackageSSMDocuments Log Group
   RunCMFAutomationPackageSSMDocumentLogGroup:
@@ -1271,12 +1611,12 @@ Resources:
                     Selector: $.Payload.mf_endpoints.UserApi
                     Type: String
 
-                  - Name: mf_endpoints_ToolsApi
-                    Selector: $.Payload.mf_endpoints.ToolsApi
-                    Type: String
-
                   - Name: mf_endpoints_LoginApi
                     Selector: $.Payload.mf_endpoints.LoginApi
+                    Type: String
+
+                  - Name: mf_endpoints_ToolsApi
+                    Selector: $.Payload.mf_endpoints.ToolsApi
                     Type: String
 
                   - Name: mf_endpoints_UserPoolId
@@ -1505,6 +1845,16 @@ Resources:
             Effect: "Deny"
             Resource: !GetAtt SSMBucket.Arn
             Principal: "*"
+          - 
+            Action: s3:*
+            Effect: Deny
+            Principal: '*'
+            Resource:
+              - !Sub "${SSMBucket.Arn}/*"
+              - !GetAtt SSMBucket.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
 
   ScriptsOutputBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -1518,8 +1868,188 @@ Resources:
             Effect: "Deny"
             Resource: !GetAtt PostMigrationReportsBucket.Arn
             Principal: "*"
+          - 
+            Action: s3:*
+            Effect: Deny
+            Principal: '*'
+            Resource:
+              - !Sub "${PostMigrationReportsBucket.Arn}/*"
+              - !GetAtt PostMigrationReportsBucket.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  SSMLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Application}-${Environment}-SSM
+      RetentionInDays: 180
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: "SSE is currently not supported, CMK is not ideal for this solution"
+
+  SSMPermissionPipelineTaskExecutionOutput:
+    DependsOn: SSMLogGroup
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref PipelineTaskExecutionOutputLambdaARN
+      Action: 'lambda:InvokeFunction'
+      Principal: !Sub 'logs.${AWS::Region}.amazonaws.com'
+      SourceArn: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${SSMLogGroup}:*"
+
+  SSMSubscriptionFilter:
+    DependsOn: SSMPermissionPipelineTaskExecutionOutput
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      LogGroupName: !Ref SSMLogGroup
+      FilterPattern: ""
+      DestinationArn: !Ref PipelineTaskExecutionOutputLambdaARN
+
+  SSMJobsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Application}-${Environment}-SSM-Jobs
+      RetentionInDays: 180
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: "SSE is currently not supported, CMK is not ideal for this solution"
+
+  SSMJobsPermissionPipelineTaskExecutionOutput:
+    DependsOn: SSMJobsLogGroup
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref PipelineTaskExecutionOutputLambdaARN
+      Action: 'lambda:InvokeFunction'
+      Principal: !Sub 'logs.${AWS::Region}.amazonaws.com'
+      SourceArn: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${SSMJobsLogGroup}:*"
+
+  SSMJobsSubscriptionFilter:
+    DependsOn: SSMJobsPermissionPipelineTaskExecutionOutput
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      LogGroupName: !Ref SSMJobsLogGroup
+      FilterPattern: ""
+      DestinationArn: !Ref PipelineTaskExecutionOutputLambdaARN
+
+  TemplateExportImportLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Application}-${Environment}-TemplateExportImport
+      RetentionInDays: 180
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: "SSE is currently not supported, CMK is not ideal for this solution"
+
+  TemplateExportImportLambdaRole:
+    DependsOn: TemplateExportImportLogGroup
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-templateexportimport-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:PutItem'
+                Resource:
+                  - !Join [ '', [ !GetAtt PipelineTemplatesTable.Arn, '*' ] ]
+                  - !Join [ '', [ !GetAtt PipelineTemplateTasksTable.Arn, '*' ] ]
+              - Effect: Allow
+                Action:
+                  - 'lambda:InvokeFunction'
+                Resource:
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${Application}-${Environment}-items"
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${Application}-${Environment}-item"
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${Application}-${Environment}-ssm-scripts"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  LambdaFunctionTemplateExportImport:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_import_export_pipeline_templates.lambda_handler
+      Runtime: !Ref LambdaRuntimePython
+      FunctionName: !Sub ${Application}-${Environment}-import_export_pipeline
+      Timeout: '300'
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join [ "/", [ !Ref KeyPrefix, "lambda_import_export_pipeline_templates.zip" ] ]
+      Role: !GetAtt TemplateExportImportLambdaRole.Arn
+      LoggingConfig:
+        LogGroup: !Ref TemplateExportImportLogGroup
+      Environment:
+        Variables:
+          application: !Ref Application
+          environment: !Ref Environment
+          region: !Ref AWS::Region
+          userpool: !Ref CognitoUserPoolId
+          clientid: !Ref CognitoAppClientId
+          cors: !Ref CORS
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-import_export_pipeline
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
+        - !Ref LambdaLayerMFItemsLib
+
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionTemplateExportImport:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionTemplateExportImport.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*'
 
 Outputs:
+  LambdaFunctionTemplateExportImportArn:
+    Value: !GetAtt LambdaFunctionTemplateExportImport.Arn
+
   LambdaFunctionSSMArn:
     Value: !GetAtt LambdaFunctionSSM.Arn
 
@@ -1543,3 +2073,39 @@ Outputs:
   AutomationServerInstanceProfile:
     Description: 'Migration Automation Server Instance Profile'
     Value: !Ref AutomationServerInsProfile
+
+  PipelineTemplatesTable:
+    Value: !Ref PipelineTemplatesTable
+
+  PipelineTemplatesTableArn:
+    Value: !GetAtt PipelineTemplatesTable.Arn
+
+  PipelineTemplateTasksTable:
+    Value: !Ref PipelineTemplateTasksTable
+
+  PipelineTemplateTasksTableArn:
+    Value: !GetAtt PipelineTemplateTasksTable.Arn
+
+  PipelinesTable:
+    Value: !Ref PipelinesTable
+
+  PipelinesTableArn:
+    Value: !GetAtt PipelinesTable.Arn
+
+  PipelinesTableStreamArn:
+    Value: !GetAtt PipelinesTable.StreamArn
+
+  TaskExecutionsTable:
+    Value: !Ref TaskExecutionsTable
+
+  TaskExecutionsTableArn:
+    Value: !GetAtt TaskExecutionsTable.Arn
+
+  TaskExecutionsTableStreamArn:
+    Value: !GetAtt TaskExecutionsTable.StreamArn
+
+  ScriptsTable:
+      Value: !Ref SSMScriptsTable
+
+  ScriptsTableArn:
+    Value: !GetAtt SSMScriptsTable.Arn

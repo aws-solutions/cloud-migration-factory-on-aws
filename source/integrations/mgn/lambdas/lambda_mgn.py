@@ -26,6 +26,9 @@ import lambda_mgn_template
 import lambda_mgn_launch
 import lambda_mgn_utils
 from policy import MFAuth
+import cmf_logger
+import cmf_pipeline
+import threading
 import cmf_boto
 
 MGN_ACTIONS = [
@@ -41,7 +44,21 @@ MGN_ACTIONS = [
     '- Mark as archived'
 ]
 
-log = logging.getLogger()
+
+def logging_filter(record):
+    try:
+        record.task_execution_id = logging_context.task_execution_id
+        record.status = logging_context.status
+    except AttributeError:
+        record.task_execution_id = ""
+        record.status = ""
+        print('task_execution_id not set')
+    return True
+
+
+logging_context = threading.local()
+log = cmf_logger.init_task_execution_logger(logging_filter)
+
 log.setLevel(logging.INFO)
 
 if 'cors' in os.environ:
@@ -99,7 +116,6 @@ def get_mgn_source_servers(mgn_client_base):
             source_server_data.extend(page['items'])
         try:
             token = page['NextToken']
-            print(token)
         except KeyError:
             return source_server_data
 
@@ -160,6 +176,18 @@ def get_target_aws_accounts(wave_id, apps, account_id, app_ids):
         return [], errors
 
     return aws_accounts, errors
+
+
+def filter_applications(applications, app_ids):
+    filtered_apps = []
+    if len(app_ids) > 0:
+        for app in applications:
+            if app['app_id'] in app_ids:
+                filtered_apps.append(app)
+    else:
+        filtered_apps = applications
+
+    return filtered_apps
 
 
 def add_servers_to_target_account_matching_app(servers, account, app_id):
@@ -300,8 +328,10 @@ def is_cmf_server_match_for_mgn_ip_address(interface, cmf_server):
 def is_cmf_server_match_for_mgn_hostname(mgn_source_server, cmf_server):
     cmf_server_name = clean_value(cmf_server['server_name'])
     cmf_server_fqdn = clean_value(cmf_server['server_fqdn'])
-    mgn_server_hostname = clean_value(mgn_source_server['sourceProperties']['identificationHints']['hostname'])
-    mgn_server_fqdn = clean_value(mgn_source_server['sourceProperties']['identificationHints']['fqdn'])
+    mgn_server_hostname = clean_value(mgn_source_server['sourceProperties']['identificationHints']
+                                      .get('hostname', '{notset}'))
+    mgn_server_fqdn = clean_value(mgn_source_server['sourceProperties']['identificationHints']
+                                  .get('fqdn','{notset}'))
 
     if cmf_server_name == mgn_server_hostname or cmf_server_name == mgn_server_fqdn \
             or cmf_server_fqdn == mgn_server_hostname or cmf_server_fqdn == mgn_server_fqdn:
@@ -385,7 +415,8 @@ def verify_server(mgn_sourceservers, factoryserver,
                     args=(target_account_creds,
                           account['aws_region'],
                           factoryserver,
-                          mgn_source_server_launch_template_ids)
+                          mgn_source_server_launch_template_ids,
+                          logging_context.task_execution_id)
                 )
                 processes.append(p)
                 p.start()
@@ -472,7 +503,10 @@ def verify_target_account_servers(serverlist):
         return verified_servers, errors
 
 
-def get_mgn_launch_template_id(creds, region, factoryserver, mgn_source_server_launch_template_ids):
+def get_mgn_launch_template_id(creds, region, factoryserver, mgn_source_server_launch_template_ids, task_execution_id=""):
+    logging_context = threading.local()
+    logging_context.task_execution_id = task_execution_id
+
     msg_process_id = f"PID: {str(os.getpid())}"
     session = lambda_mgn_utils.get_session(creds, region)
     mgn_client = cmf_boto.session_client(session, "mgn", region_name=region)
@@ -592,6 +626,7 @@ def update_ec2_launch_template(verified_servers, body):
     status_response = {}
     update_ec2_template = lambda_mgn_template.update_launch_template(
         verified_servers, body['action'])
+    log.debug(f"update_launch_template response: {update_ec2_template}")
     if update_ec2_template is not None and 'ERROR' in update_ec2_template:
         log.error(str(update_ec2_template))
         status_response = get_status_response(
@@ -625,7 +660,7 @@ def manage_mgn_actions(verified_servers, body):
     return status_response
 
 
-def lambda_handler(event, _):
+def process_event(event):
     try:
         auth = MFAuth()
         auth_response = auth.get_user_resource_creation_policy(event, 'mgn')
@@ -635,6 +670,9 @@ def lambda_handler(event, _):
             return status_response
 
         body = json.loads(event['body'])
+        # This Lambda assumes lowercase key names, which is inconsistent with other automation tasks.
+        body = {k.lower(): v for k, v in body.items()}
+        logging_context.task_execution_id = body.get("task_execution_id", "")
 
         # Check input parameters
         validation_result = validate_input_parameters(body)
@@ -653,19 +691,42 @@ def lambda_handler(event, _):
 
         # Update EC2 Launch template
         status_response = update_ec2_launch_template(verified_servers, body)
+        log.debug(f"update_ec2_launch_template response: {status_response}")
         if status_response != {}:
             return status_response
 
         # Manage MGN Actions
         status_response = manage_mgn_actions(verified_servers, body)
+        log.debug(f"manage_mgn_actions response: {status_response}")
         if status_response != {}:
             return status_response
+
+        status_response = get_status_response(
+            400, 'No Event processed', {**default_http_headers})
+        log.error("No event processed response")
+        return status_response
 
     except Exception as e:
         log.error(str(e))
         status_response = get_status_response(
             400, str(e), {**default_http_headers})
         return status_response
+
+
+def lambda_handler(event, _):
+    cmf_logger.log_event_received(event)
+    logging_context.status = cmf_pipeline.TaskExecutionStatus.IN_PROGRESS.value
+    logging_context.task_execution_id = ""
+
+    status_response = process_event(event)
+    if status_response:
+        if status_response.get('statusCode', 200) != 200:
+            logging_context.status = cmf_pipeline.TaskExecutionStatus.FAILED.value
+        else:
+            logging_context.status = cmf_pipeline.TaskExecutionStatus.COMPLETE.value
+
+        log.info(f"Processing complete with body: {status_response.get('body', '')}")
+    return status_response
 
 
 def filter_items(items, key, item_ids=None):

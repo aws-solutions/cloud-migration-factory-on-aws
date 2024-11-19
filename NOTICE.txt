@@ -36,6 +36,7 @@ cfn-flip under the Apache License 2.0
 click under the BSD License
 coverage under the Apache License 2.0
 cryptography under the Apache License 2.0
+dagre under the Massachusetts Institute of Technology (MIT) license
 docker under the Apache License 2.0
 ecdsa under the Massachusetts Institute of Technology (MIT) license
 freezegun under the Apache License 2.0
@@ -50,10 +51,7 @@ jquery-csv under the Massachusetts Institute of Technology (MIT) license
 jsdoc under the Apache License 2.0
 MarkupSafe under the BSD-3-Clause license
 moto under the Apache License 2.0
-msw under the Massachusetts Institute of Technology (MIT) license
 paramiko under the GNU Lesser General Public License v2.1
-eslint-plugin-prettier under the Massachusetts Institute of Technology (MIT) license
-eslint-config-prettier under the Massachusetts Institute of Technology (MIT) license
 pyasn1 under the BSD-2-Clause License
 pycparser under the BSD License
 PyJWT under the Massachusetts Institute of Technology (MIT) license
@@ -62,6 +60,7 @@ python-dateutil under the Apache License 2.0 and BSD License
 python-jose under the Massachusetts Institute of Technology (MIT) license
 react under the Massachusetts Institute of Technology (MIT) license
 react-dom under the Massachusetts Institute of Technology (MIT) license
+reactflow under the Massachusetts Institute of Technology (MIT) license
 react-router-dom under the Massachusetts Institute of Technology (MIT) license
 react-scripts under the Massachusetts Institute of Technology (MIT) license
 react-test-renderer under the Massachusetts Institute of Technology (MIT) license

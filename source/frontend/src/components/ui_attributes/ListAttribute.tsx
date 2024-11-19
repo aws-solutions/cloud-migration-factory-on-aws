@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Button, FormField, Grid, Multiselect, Select, SpaceBetween } from "@awsui/components-react";
+import { Button, FormField, Grid, Multiselect, Select, SpaceBetween } from "@cloudscape-design/components";
 import { useValueLists } from "../../actions/ValueListsHook";
 
 const ListAttribute = ({ attribute, value, isReadonly, errorText, handleUserInput, displayHelpInfoLink }) => {

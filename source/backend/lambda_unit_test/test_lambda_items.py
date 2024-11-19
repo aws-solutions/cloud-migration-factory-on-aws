@@ -138,6 +138,34 @@ class LambdaItemsTest(LambdaItemCommonTest):
             })
         }
 
+        self.event_post_app_id_provided_valid = {
+            'httpMethod': 'POST',
+            'pathParameters': {
+                'schema': 'app'
+            },
+            'body': json.dumps({
+                '__app_id': "3",
+                'app_name': 'App Number 3',
+                'new_attr': 'new test attribute',
+                'description': '',
+                'tags': ['']
+            })
+        }
+
+        self.event_post_app_id_provided_invalid = {
+            'httpMethod': 'POST',
+            'pathParameters': {
+                'schema': 'app'
+            },
+            'body': json.dumps({
+                '__app_id': "notanumber",
+                'app_name': 'App Number 3',
+                'new_attr': 'new test attribute',
+                'description': '',
+                'tags': ['']
+            })
+        }
+
     def assert_put_success(self, lambda_items, event, len_history=2):
         response = lambda_items.lambda_handler(event, None)
         self.assertEqual(lambda_items.default_http_headers, response['headers'])
@@ -430,3 +458,32 @@ class LambdaItemsTest(LambdaItemCommonTest):
         self.assertEqual({'errors': ['Unhandled API Exception: check logs for detailed error message.']},
                          json.loads(response['body']))
         self.assert_no_new_items_added()
+
+    @mock.patch('lambda_items.item_validation.check_valid_item_create',
+                new=mock_item_check_valid_item_create_valid)
+    @mock.patch('lambda_item.item_validation.get_relationship_data',
+                new=mock_get_relationship_data)
+    @mock.patch('lambda_item.item_validation.scan_dynamodb_data_table',
+                new=mock_scan_dynamodb_data_table)
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow)
+    def test_lambda_handler_put_success_id_provided(self):
+        import lambda_items
+        self.assert_put_success(lambda_items, self.event_post_app_id_provided_valid, 2)
+
+    @mock.patch('lambda_items.item_validation.check_valid_item_create',
+                new=mock_item_check_valid_item_create_valid)
+    @mock.patch('lambda_item.item_validation.get_relationship_data',
+                new=mock_get_relationship_data)
+    @mock.patch('lambda_item.item_validation.scan_dynamodb_data_table',
+                new=mock_scan_dynamodb_data_table)
+    @mock.patch('lambda_items.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_mf_auth_policy_allow)
+    def test_lambda_handler_put_invalid_id_provided(self):
+        import lambda_items
+        response = lambda_items.lambda_handler(self.event_post_app_id_provided_invalid, None)
+
+        response_errors = json.loads(response['body'])['errors']
+
+        self.assertEqual({"validation_errors": [{"App Number 3": ["Invalid Id format: notanumber"]}]},
+                         response_errors)

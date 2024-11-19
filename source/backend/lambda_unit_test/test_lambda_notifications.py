@@ -34,24 +34,24 @@ class LambdaNotificationsTest(unittest.TestCase):
     def test_lambda_handler_uknown_event(self):
         import lambda_notifications
         response = lambda_notifications.lambda_handler(self.event_unknown, None)
-        self.assertEqual(None, response)
+        self.assertIsNone(response)
 
     def test_lambda_handler_success(self):
         import lambda_notifications
         test_common_utils.create_and_populate_schemas(self.ddb_client, self.schema_table_name)
         response = lambda_notifications.lambda_handler(self.event_get, None)
         body = json.loads(response['body'])
-        expected_body = {'lastChangeDate': '2020-01-01T00:00:00',
+        expected_body = {'lastChangeDate': '2020-01-01T00:00:00+00:00',
                          'notifications': [
                              {'type': 'schema',
                               'versions': [
                                   {'schema': 'server',
-                                   'lastModifiedTimestamp': '2020-01-01T00:00:00'
+                                   'lastModifiedTimestamp': '2020-01-01T00:00:00+00:00'
                                    },
                                   {'schema': 'app',
-                                   'lastModifiedTimestamp': '2020-01-01T00:00:00'
+                                   'lastModifiedTimestamp': '2020-01-01T00:00:00+00:00'
                                    },
-                                  {'schema': 'wave', 'lastModifiedTimestamp': '2020-01-01T00:00:00'
+                                  {'schema': 'wave', 'lastModifiedTimestamp': '2020-01-01T00:00:00+00:00'
                                    }
                               ]
                               }
@@ -68,18 +68,18 @@ class LambdaNotificationsTest(unittest.TestCase):
         response = lambda_notifications.lambda_handler(self.event_get, None)
         body = json.loads(response['body'])
         print(body)
-        expected_body = {'lastChangeDate': '2023-04-28T15:27:12.991773',
+        expected_body = {'lastChangeDate': '2023-04-28T15:27:12.991773+00:00',
                          'notifications': [
                              {'type': 'schema',
                               'versions': [
                                   {'schema': 'server',
-                                   'lastModifiedTimestamp': '2023-04-28T15:27:12.991773'
+                                   'lastModifiedTimestamp': '2023-04-28T15:27:12.991773+00:00'
                                    },
                                   {'schema': 'app',
-                                   'lastModifiedTimestamp': '2023-04-25T18:53:25.915746'
+                                   'lastModifiedTimestamp': '2023-04-25T18:53:25.915746+00:00'
                                    },
                                   {'schema': 'wave',
-                                   'lastModifiedTimestamp': '2023-04-28T15:27:12.991773'
+                                   'lastModifiedTimestamp': '2023-04-28T15:27:12.991773+00:00'
                                    }
                               ]
                               }
@@ -92,14 +92,14 @@ class LambdaNotificationsTest(unittest.TestCase):
         test_common_utils.create_and_populate_schemas(self.ddb_client, self.schema_table_name, 'schemas_no_server.json')
         response = lambda_notifications.lambda_handler(self.event_get, None)
         body = json.loads(response['body'])
-        expected_body = {'lastChangeDate': '2020-01-01T00:00:00',
+        expected_body = {'lastChangeDate': '2020-01-01T00:00:00+00:00',
                          'notifications': [
                              {'type': 'schema',
                               'versions': [
                                   {'schema': 'app',
-                                   'lastModifiedTimestamp': '2020-01-01T00:00:00'
+                                   'lastModifiedTimestamp': '2020-01-01T00:00:00+00:00'
                                    },
-                                  {'schema': 'wave', 'lastModifiedTimestamp': '2020-01-01T00:00:00'
+                                  {'schema': 'wave', 'lastModifiedTimestamp': '2020-01-01T00:00:00+00:00'
                                    }
                               ]
                               }
@@ -112,14 +112,14 @@ class LambdaNotificationsTest(unittest.TestCase):
         test_common_utils.create_and_populate_schemas(self.ddb_client, self.schema_table_name, 'schemas_no_app.json')
         response = lambda_notifications.lambda_handler(self.event_get, None)
         body = json.loads(response['body'])
-        expected_body = {'lastChangeDate': '2020-01-01T00:00:00',
+        expected_body = {'lastChangeDate': '2020-01-01T00:00:00+00:00',
                          'notifications': [
                              {'type': 'schema',
                               'versions': [
                                   {'schema': 'server',
-                                   'lastModifiedTimestamp': '2020-01-01T00:00:00'
+                                   'lastModifiedTimestamp': '2020-01-01T00:00:00+00:00'
                                    },
-                                  {'schema': 'wave', 'lastModifiedTimestamp': '2020-01-01T00:00:00'
+                                  {'schema': 'wave', 'lastModifiedTimestamp': '2020-01-01T00:00:00+00:00'
                                    }
                               ]
                               }
@@ -132,15 +132,15 @@ class LambdaNotificationsTest(unittest.TestCase):
         test_common_utils.create_and_populate_schemas(self.ddb_client, self.schema_table_name, 'schemas_no_wave.json')
         response = lambda_notifications.lambda_handler(self.event_get, None)
         body = json.loads(response['body'])
-        expected_body = {'lastChangeDate': '2020-01-01T00:00:00',
+        expected_body = {'lastChangeDate': '2020-01-01T00:00:00+00:00',
                          'notifications': [
                              {'type': 'schema',
                               'versions': [
                                   {'schema': 'server',
-                                   'lastModifiedTimestamp': '2020-01-01T00:00:00'
+                                   'lastModifiedTimestamp': '2020-01-01T00:00:00+00:00'
                                    },
                                   {'schema': 'app',
-                                   'lastModifiedTimestamp': '2020-01-01T00:00:00'
+                                   'lastModifiedTimestamp': '2020-01-01T00:00:00+00:00'
                                    }
                               ]
                               }

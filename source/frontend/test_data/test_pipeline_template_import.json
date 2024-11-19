@@ -1,0 +1,18 @@
+[
+  {
+    "template_name": "Rehost with Application Migration Service (MGN)",
+    "pipeline_template_description": "Facilitates server replications via Application Migration Service (MGN) for the selected wave",
+    "tasks": [
+      {
+        "task_sequence_number": "1",
+        "pipeline_template_task_name": "2-verify_mgn_prerequisites",
+        "task_name": "verify_mgn_prerequisites"
+      },
+      {
+        "task_sequence_number": "2",
+        "pipeline_template_task_name": "2-install_mgn_agents",
+        "task_name": "install_mgn_agents"
+      }
+    ]
+  }
+]

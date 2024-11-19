@@ -58,5 +58,35 @@
     "role_name": {
       "S": "FactoryReadOnly"
     }
+  },
+  {
+    "role_id": {
+      "S": "3"
+    },
+    "groups": {
+      "L": [
+        {
+          "M": {
+            "group_name": {
+              "S": "orchestrator"
+            }
+          }
+        }
+      ]
+    },
+    "policies": {
+      "L": [
+        {
+          "M": {
+            "policy_id": {
+              "S": "3"
+            }
+          }
+        }
+      ]
+    },
+    "role_name": {
+      "S": "FactoryAutomationTaskOrchestrator"
+    }
   }
 ]

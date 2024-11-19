@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Button, Form, Header, SpaceBetween } from "@awsui/components-react";
+import { Button, Form, Header, SpaceBetween } from "@cloudscape-design/components";
 
 import AllAttributes from "./ui_attributes/AllAttributes";
 import { capitalize, setNestedValuePath } from "../resources/main";
@@ -31,8 +31,11 @@ const ItemAmend = (props: ItemAmendParams) => {
   const [validForm, setFormValidation] = useState(false);
   const [formErrors, setFormErrors] = useState<any[]>([]); //List of error messages on this form, these are displayed in the bottom of the form.
   const [isSaving, setIsSaving] = useState(false);
-
   const [isUnsavedConfirmationModalVisible, setUnsavedConfirmationModalVisible] = useState(false);
+
+  useEffect(() => {
+    setLocalItem(props.item);
+  }, [props.item]);
 
   async function handleUserInput(value: any[]) {
     let valueArray = [];
@@ -111,8 +114,22 @@ const ItemAmend = (props: ItemAmendParams) => {
     if (dataChanged) {
       setUnsavedConfirmationModalVisible(true);
     } else {
+      setUnsavedConfirmationModalVisible(false);
       props.handleCancel();
     }
+  };
+
+  const handleCancelAfterConfirmLoseChanges: any = (e: ClickEvent) => {
+    e.preventDefault();
+
+    setUnsavedConfirmationModalVisible(false);
+    props.handleCancel();
+  };
+
+  const handleContinueEditing: any = (e: ClickEvent) => {
+    e.preventDefault();
+
+    setUnsavedConfirmationModalVisible(false);
   };
 
   function handleUpdateFormErrors(newErrors: any[]) {
@@ -128,15 +145,10 @@ const ItemAmend = (props: ItemAmendParams) => {
   }, [formErrors]);
 
   function headerText() {
-    let text = props.action ? capitalize(props.action + " " + props.schemaName) : capitalize(props.schemaName);
-
-    if (props.schemas[props.schemaName].friendly_name) {
-      text = props.action
-        ? capitalize(props.action + " " + props.schemas[props.schemaName].friendly_name)
-        : props.schemas[props.schemaName].friendly_name!;
-    }
-
-    return text;
+    const schema = props.schemas[props.schemaName];
+    if (schema.friendly_name) {
+      return props.action ? capitalize(props.action + " " + schema.friendly_name) : schema.friendly_name!;
+    } else return props.action ? capitalize(props.action + " " + props.schemaName) : capitalize(props.schemaName);
   }
 
   return (
@@ -176,8 +188,8 @@ const ItemAmend = (props: ItemAmendParams) => {
       </Form>
 
       <CMFModal
-        onDismiss={() => setUnsavedConfirmationModalVisible(false)}
-        onConfirmation={props.handleCancel}
+        onDismiss={handleContinueEditing}
+        onConfirmation={handleCancelAfterConfirmLoseChanges}
         visible={isUnsavedConfirmationModalVisible}
         header={"Unsaved changes"}
       >
