@@ -124,22 +124,6 @@ Parameters:
     Default: false
     AllowedValues: [ true, false ]
 
-  UserAPIRequestValidatorId:
-    Type: String
-    Description: 'The ID of the User API Request Validator'
-
-  ToolsApiRequestValidatorId:
-    Type: String
-    Description: 'The ID of the Tools API Request Validator'
-
-  LoginApiRequestValidatorId:
-    Type: String
-    Description: 'The ID of the Login API Request Validator'
-
-  AdminAPIRequestValidatorId:
-    Type: String
-    Description: 'The ID of the Admin API Request Validator'
-
 Mappings:
   Send:
     AnonymousUsage:
@@ -187,7 +171,7 @@ Resources:
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
-              SSEAlgorithm: aws:kms
+              SSEAlgorithm: AES256
       Tags:
         -
           Key: application
@@ -1353,6 +1337,7 @@ Resources:
       - APIMethodSSMScriptsIdVersionActionGet
       - APIMethodSSMJobsOPTIONS
       - APIMethodSSMJobsGet
+      - APIMethodSSMJobsPOST
       - APIMethodSSMJobsIdOPTIONS
       - APIMethodSSMJobsIdDelete
     Properties:
@@ -2427,12 +2412,18 @@ Resources:
       - APIMethodPolicyPolicyIdDelete
       - APIMethodPolicyOPTIONS
       - APIMethodRoleOPTIONS
+      - APIMethodRoleRoleIdOPTIONS
+      - APIMethodRoleRoleIdGet
+      - APIMethodRoleRoleIdPut
+      - APIMethodRoleRoleIdDelete
       - APIMethodPolicyPolicyIdOPTIONS
       - APIMethodAdminUsersOPTIONS
       - APIMethodAdminUsersGET
       - APIMethodADMINUsersPut
+      - APIMethodAdminGroupsOPTIONS
       - APIMethodAdminGroupsPOST
       - APIMethodAdminGroupsDELETE
+      - APIMethodAdminGroupsGroupNameOPTIONS
     Properties:
       RestApiId: !Ref AdminAPI
       StageName: prod
@@ -5467,9 +5458,6 @@ Resources:
         CognitoUserPoolClientId: !Ref CognitoAppClient
         AdminAPI: !Ref AdminAPI
         PipelineTaskExecutionOutputLambdaARN: !GetAtt LambdaFunctionPipelineTaskExecutionOutput.Arn
-        AdminAPIRequestValidatorId: !Ref AdminAPIRequestValidator
-        LoginApiRequestValidatorId: !Ref LoginApiRequestValidator
-        UserAPIRequestValidatorId: !Ref UserAPIRequestValidator
 
   CredentialManager:
     Type: AWS::CloudFormation::Stack
@@ -5536,9 +5524,6 @@ Resources:
         IsDeploymentPrivate: !If [ DeploymentPrivate, true, false ]
         LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
         PipelineTaskExecutionOutputLambdaARN: !GetAtt LambdaFunctionPipelineTaskExecutionOutput.Arn
-        ToolsApiRequestValidatorId: !Ref ToolsApiRequestValidator
-        LoginApiRequestValidatorId: !Ref LoginApiRequestValidator
-        UserAPIRequestValidatorId: !Ref UserAPIRequestValidator
 
   ReplatformService:
     Type: AWS::CloudFormation::Stack

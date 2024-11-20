@@ -21,12 +21,11 @@ import { ClickEvent } from "../models/Events";
 import { ImportIntakeWizard } from "../components/import/ImportIntakeWizard";
 import {
   buildCommitExceptionNotification,
-  convertExcelToJSON,
+  convertDataFileToJSON,
   exportAllTemplate,
   getRequiredAttributesAllSchemas,
   getSummary,
   performDataValidation,
-  readCSVFile,
   readXLSXFile,
   removeCalculatedKeyValues,
   removeNullKeys,
@@ -503,14 +502,8 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
 
     if (selectedFile) {
       (async () => {
-        if (selectedFile.name.endsWith(".csv")) {
-          let data = await readCSVFile(reader, selectedFile);
-
-          let csv = require("jquery-csv");
-
-          dataJson = csv.toObjects(data);
-        } else if (selectedFile.name.endsWith(".xlsx") || selectedFile.name.endsWith(".xls")) {
-          dataJson = await convertExcelToJSON(reader, selectedFile, selectedSheet);
+        if (selectedFile.name.endsWith(".xlsx") || selectedFile.name.endsWith(".xls") || selectedFile.name.endsWith(".csv")) {
+          dataJson = await convertDataFileToJSON(reader, selectedFile, selectedSheet);
         } else {
           //unsupported format of file.
           console.error(selectedFile.name + " - Unsupported file type.");

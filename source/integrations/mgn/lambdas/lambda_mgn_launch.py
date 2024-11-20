@@ -4,6 +4,8 @@
 
 from __future__ import print_function
 import os
+import traceback
+
 import boto3
 import logging
 import multiprocessing
@@ -21,6 +23,7 @@ servers_table = boto3.resource('dynamodb').Table(servers_table_name)
 REQUESTS_DEFAULT_TIMEOUT = 60
 
 ACCOUNT_MESSAGE_PREFIX = " - in account: "
+ERROR_PREFIX_TXT = "ERROR: "
 
 # Launch test servers in application migration service
 def launch_test_servers(account, mgn_client):
@@ -36,7 +39,7 @@ def launch_test_servers(account, mgn_client):
         action_result = mgn_client.start_test(sourceServerIDs=account['source_server_ids'])
         log.info(action_result)
         if action_result['ResponseMetadata']['HTTPStatusCode'] != 202:
-            msg = f"ERROR: Launch test servers failed for account: {message_suffix}"
+            msg = f"{ERROR_PREFIX_TXT}Launch test servers failed for account: {message_suffix}"
             log.error(msg)
             return msg
         else:
@@ -59,7 +62,7 @@ def launch_test_servers(account, mgn_client):
             ACCOUNT_MESSAGE_PREFIX, account['aws_accountid'],
             account['aws_region'], "")
         error_message = lambda_mgn_utils.handle_error(
-            error, "ERROR: ", message_suffix, False)
+            error, ERROR_PREFIX_TXT, message_suffix, False)
         return error_message
 
 
@@ -77,7 +80,7 @@ def launch_cutover_servers(account, mgn_client):
         action_result = mgn_client.start_cutover(sourceServerIDs=account['source_server_ids'])
         log.info(action_result)
         if action_result['ResponseMetadata']['HTTPStatusCode'] != 202:
-            msg = f"ERROR: Launch cutover servers failed for account: {message_suffix}"
+            msg = f"{ERROR_PREFIX_TXT}Launch cutover servers failed for account: {message_suffix}"
             log.error(msg)
             return msg
         else:
@@ -100,7 +103,7 @@ def launch_cutover_servers(account, mgn_client):
             ACCOUNT_MESSAGE_PREFIX, account['aws_accountid'],
             account['aws_region'], "")
         error_message = lambda_mgn_utils.handle_error(
-            error, "ERROR: ", message_suffix, False)
+            error, ERROR_PREFIX_TXT, message_suffix, False)
         return error_message
 
 
@@ -124,7 +127,7 @@ def terminate_launched_instances(account, mgn_client):
             sourceServerIDs=account['source_server_ids'])
         log.info(action_result)
         if action_result['ResponseMetadata']['HTTPStatusCode'] != 202:
-            msg = f"ERROR: Terminate test servers failed for account: {message_suffix}"
+            msg = f"{ERROR_PREFIX_TXT}Terminate test servers failed for account: {message_suffix}"
             log.error(msg)
             return msg
         else:
@@ -139,7 +142,7 @@ def terminate_launched_instances(account, mgn_client):
             ACCOUNT_MESSAGE_PREFIX, account['aws_accountid'],
             account['aws_region'], "")
         error_message = lambda_mgn_utils.handle_error(
-            error, "ERROR: ", message_suffix, False)
+            error, ERROR_PREFIX_TXT, message_suffix, False)
         return error_message
 
 
@@ -155,50 +158,70 @@ def multiprocessing_action(
             "", aws_accountid, aws_region, "")
 
         for factoryserver in serverlist:
-            if action.strip() == 'Mark as Ready for Cutover':
-                log.info(
-                    f"*** Mark as Ready for Cutover in account: {message_suffix} ***")
-                state = {'state': 'READY_FOR_CUTOVER'}
-                action_result = mgn_client.change_server_life_cycle_state(
-                    lifeCycle=state, sourceServerID=factoryserver[
-                    'source_server_id'])
-            elif action.strip() == 'Finalize Cutover':
-                log.info(f"*** Finalize Cutover in account: {message_suffix} ***")
-                action_result = mgn_client.disconnect_from_service(
-                    sourceServerID=factoryserver['source_server_id'])
-                state = {'state': 'CUTOVER'}
-                action_result = mgn_client.change_server_life_cycle_state(
-                    lifeCycle=state, sourceServerID=factoryserver[
-                    'source_server_id'])
-            elif action.strip() == '- Revert to ready for testing':
-                log.info(
-                    f"*** Revert to ready for testing in account: {message_suffix} ***")
-                state = {'state': 'READY_FOR_TEST'}
-                action_result = mgn_client.change_server_life_cycle_state(
-                    lifeCycle=state, sourceServerID=factoryserver[
-                    'source_server_id'])
-            elif action.strip() == '- Revert to ready for cutover':
-                log.info(
-                    f"*** Revert to ready for cutover in account: {message_suffix} ***")
-                state = {'state': 'READY_FOR_CUTOVER'}
-                action_result = mgn_client.change_server_life_cycle_state(
-                    lifeCycle=state, sourceServerID=factoryserver[
-                    'source_server_id'])
-            elif action.strip() == '- Disconnect from AWS':
-                log.info(f"*** Disconnect from AWS in account: {message_suffix} ***")
-                action_result = mgn_client.disconnect_from_service(
-                    sourceServerID=factoryserver['source_server_id'])
-            elif action.strip() == '- Mark as archived':
-                log.info(f"*** Mark as archived in account: {message_suffix} ***")
-                action_result = mgn_client.mark_as_archived(
-                    sourceServerID=factoryserver['source_server_id'])
+            match action.strip():
+                case 'Mark as Ready for Cutover':
+                    log.info(
+                        f"*** Mark as Ready for Cutover in account: {message_suffix} ***")
+                    state = {'state': 'READY_FOR_CUTOVER'}
+                    action_result = mgn_client.change_server_life_cycle_state(
+                        lifeCycle=state, sourceServerID=factoryserver[
+                        'source_server_id'])
+                case 'Finalize Cutover':
+                    log.info(f"*** Finalize Cutover in account: {message_suffix} ***")
+                    action_result = mgn_client.disconnect_from_service(
+                        sourceServerID=factoryserver['source_server_id'])
+                    state = {'state': 'CUTOVER'}
+                    action_result = mgn_client.change_server_life_cycle_state(
+                        lifeCycle=state, sourceServerID=factoryserver[
+                        'source_server_id'])
+                case '- Revert to ready for testing':
+                    log.info(
+                        f"*** Revert to ready for testing in account: {message_suffix} ***")
+                    state = {'state': 'READY_FOR_TEST'}
+                    action_result = mgn_client.change_server_life_cycle_state(
+                        lifeCycle=state, sourceServerID=factoryserver[
+                        'source_server_id'])
+                case '- Revert to ready for cutover':
+                    log.info(
+                        f"*** Revert to ready for cutover in account: {message_suffix} ***")
+                    state = {'state': 'READY_FOR_CUTOVER'}
+                    action_result = mgn_client.change_server_life_cycle_state(
+                        lifeCycle=state, sourceServerID=factoryserver[
+                        'source_server_id'])
+                case '- Disconnect from AWS':
+                    log.info(f"*** Disconnect from AWS in account: {message_suffix} ***")
+                    action_result = mgn_client.disconnect_from_service(
+                        sourceServerID=factoryserver['source_server_id'])
+                case '- Mark as archived':
+                    log.info(f"*** Mark as archived in account: {message_suffix} ***")
+                    action_result = mgn_client.mark_as_archived(
+                        sourceServerID=factoryserver['source_server_id'])
+                case 'Start replication':
+                    log.info(f"*** Start replication in account: {message_suffix} ***")
+                    action_result = mgn_client.start_replication(
+                        sourceServerID=factoryserver['source_server_id'])
+                case 'Stop replication':
+                    log.info(f"*** Stop replication in account: {message_suffix} ***")
+                    action_result = mgn_client.stop_replication(
+                        sourceServerID=factoryserver['source_server_id'])
+                case 'Pause replication':
+                    log.info(f"*** Pause replication in account: {message_suffix} ***")
+                    action_result = mgn_client.pause_replication(
+                        sourceServerID=factoryserver['source_server_id'])
+                case 'Resume replication':
+                    log.info(f"*** resume replication in account: {message_suffix} ***")
+                    action_result = mgn_client.resume_replication(
+                        sourceServerID=factoryserver['source_server_id'])
+                case _:
+                    log.error(f"Action not supported - {action.strip()}")
+                    action_result = None
 
             message_suffix = lambda_mgn_utils.build_logging_message(
                 ACCOUNT_MESSAGE_PREFIX, aws_accountid, aws_region, "")
             message_suffix = f"{factoryserver['server_name']}{message_suffix}"
 
-            if action_result['ResponseMetadata']['HTTPStatusCode'] != 200:
-                msg = f"Pid: {str(os.getpid())} - ERROR: {action.strip()} failed for server: \
+            if action_result.get('ResponseMetadata',{}).get('HTTPStatusCode',None) != 200:
+                msg = f"Pid: {str(os.getpid())} - {ERROR_PREFIX_TXT}{action.strip()} failed for server: \
                       {message_suffix}"
                 log.error(msg)
                 return_dict[factoryserver['server_name']] = msg
@@ -209,6 +232,7 @@ def multiprocessing_action(
                 validated_count = validated_count + 1
         status_list.append(validated_count)
     except Exception as error:
+        traceback.print_exc()
         error_message = lambda_mgn_utils.handle_error_with_pid(error,"")
         return_dict[factoryserver['server_name']] = error_message
 
@@ -249,10 +273,10 @@ def verify_result(final_result, action):
         if result is not None and 'ERROR' in result:
             is_success = False
     if is_success == True:
-        msg = 'SUCCESS: ' + action.strip() + ' was completed for all servers in this Wave'
+        msg = 'SUCCESS: ' + action.strip() + ' was completed for all selected servers in this Wave'
         log.info(msg)
     else:
-        msg = 'ERROR: ' + action.strip() + ' failed'
+        msg = f'{ERROR_PREFIX_TXT}{action.strip()} failed'
         log.error(msg)
 
     return msg
@@ -260,15 +284,15 @@ def verify_result(final_result, action):
 
 def verify_final_status(return_dict, action, final_status, total_servers_count):
     if len(return_dict.values()) > 0:
-        log.error("ERROR: " + action.strip() + " failed")
+        log.error(f'{ERROR_PREFIX_TXT}{action.strip()} failed')
         print(return_dict.values())
         msg = str(return_dict.values()[0])
     else:
         if final_status == total_servers_count:
-            msg = "SUCCESS: " + action.strip() + " for all servers in this Wave"
+            msg = "SUCCESS: " + action.strip() + " for all selected servers in this Wave"
             log.info(msg)
         else:
-            msg = "ERROR: " + action.strip() + " failed"
+            msg = f'{ERROR_PREFIX_TXT}{action.strip()} failed'
             log.error(msg)
 
     return msg
@@ -355,5 +379,5 @@ def manage_action(factoryservers, action):
             return msg
     except Exception as error:
         error_message = lambda_mgn_utils.handle_error(
-            error, "ERROR: ", "", False)
+            error, ERROR_PREFIX_TXT, "", False)
         return error_message

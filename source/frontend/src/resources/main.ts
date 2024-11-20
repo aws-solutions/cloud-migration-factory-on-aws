@@ -11,6 +11,19 @@ import { Attribute, EntitySchema } from "../models/EntitySchema";
 import { UserAccess } from "../models/UserAccess";
 import { ButtonDropdownProps } from "@cloudscape-design/components";
 
+type tag = {
+  key: string;
+  value: string;
+};
+
+const TAGS_DEFAULT_CHAR_REGEX = /^([\p{L}\p{Z}\p{N}_.:/=+\-@]*)$/u;
+const TAGS_DEFAULT_ERROR =
+  "Invalid value. Values can only contain alphanumeric characters, spaces and any of the following: _.:/=+@-";
+
+const TAGS_SYSTEM_TAG_PREFIX = "aws:";
+const TAGS_MAX_KEY_LENGTH = 128;
+const TAGS_MAX_VALUE_LENGTH = 256;
+
 /**
  * Compares the provided newItem object to the object based in the dataArray of the matching key, returning the difference.
  * @param newItem
@@ -619,4 +632,158 @@ export function userAutomationActionsMenuItems(schemas: Record<string, EntitySch
     }
   }
   return items;
+}
+
+export function validateTags(
+  attribute: { type: any; requiredTags?: tag[]; validation_regex?: string },
+  tags: tag[] | undefined
+) {
+  let lTags = tags;
+  let validationErrors: any = [];
+
+  if (lTags === undefined) {
+    lTags = [];
+  }
+
+  let validationRequiredTagErrors = validateRequiredTags(attribute, lTags);
+  if (validationRequiredTagErrors) {
+    validationErrors = validationRequiredTagErrors;
+  }
+
+  for (const tag of lTags) {
+    // validate tag if not required, as required already validated.
+    if (
+      attribute.requiredTags &&
+      attribute.requiredTags.some((someTag) => {
+        return someTag.key === tag.key;
+      })
+    ) {
+      continue;
+    }
+    let tagValidationErrors = validateTag(attribute, tag);
+    if (tagValidationErrors) {
+      validationErrors.push(...tagValidationErrors);
+    }
+  }
+
+  if (validationErrors.length === 0) {
+    return null;
+  }
+
+  return validationErrors;
+}
+
+function validateTag(attribute: { type: any; requiredTags?: tag[]; validation_regex?: string }, tag: tag) {
+  let validationErrors = [];
+  let validation_regex: RegExp | string = TAGS_DEFAULT_CHAR_REGEX;
+  let overrideDefault = false;
+
+  if (!tag.key) {
+    validationErrors.push('No key provided for tag.');
+    return validationErrors;
+  }
+
+  if (attribute.validation_regex) {
+    overrideDefault = true;
+    validation_regex = attribute.validation_regex;
+  }
+
+  const validationMsg = validateTagRegEx(tag.key, tag.value, validation_regex);
+  if (validationMsg) {
+    if (overrideDefault) {
+      validationErrors.push(tag.key + " - " + validationMsg);
+    } else {
+      validationErrors.push(tag.key + " - " + TAGS_DEFAULT_ERROR);
+    }
+  }
+
+  if (maxValueLengthCheck(tag.value)) {
+    validationErrors.push(
+      tag.value + " - maximum Value characters is " + TAGS_MAX_VALUE_LENGTH + ", currently " + tag.value.length
+    );
+  }
+
+  if (maxKeyLengthCheck(tag.key)) {
+    validationErrors.push(
+      tag.key + " - maximum Key characters is " + TAGS_MAX_KEY_LENGTH + ", currently " + tag.key.length
+    );
+  }
+
+  if (awsPrefixCheck(tag.key)) {
+    validationErrors.push(tag.key + " - Key cannot start with " + TAGS_SYSTEM_TAG_PREFIX);
+  }
+
+  return validationErrors;
+}
+
+const maxValueLengthCheck = (value: string) => {
+  return value && value.length > TAGS_MAX_VALUE_LENGTH;
+};
+
+const maxKeyLengthCheck = (value: string) => {
+  return value && value.length > TAGS_MAX_KEY_LENGTH;
+};
+
+const awsPrefixCheck = (value: string) => {
+  return value.toLowerCase().indexOf(TAGS_SYSTEM_TAG_PREFIX) === 0;
+};
+
+
+function validateRequiredTag(lTags: tag[], attribute: { type: any; requiredTags?: tag[]; validation_regex?: string },  requiredTag: tag) {
+  let validationErrors = [];
+  const tagKeyFound = lTags.find((tag: any) => {
+    return requiredTag.key === tag.key;
+  });
+
+  if (tagKeyFound && requiredTag.value) {
+    // check if value regex has been provided with required tag and if so evaluate it.
+    const validationMsg = validateTagRegEx(requiredTag.key, tagKeyFound.value, requiredTag.value);
+    if (validationMsg) {
+      validationErrors.push(requiredTag.key + " - " + validationMsg);
+    }
+  } else if (tagKeyFound) {
+    // perform standard validation
+    let validationMsg = validateTag(attribute, tagKeyFound);
+    if (validationMsg) {
+      validationErrors.push(...validationMsg);
+    }
+  } else if (!tagKeyFound) {
+    validationErrors.push(requiredTag.key + " - tag required.");
+  }
+
+  return validationErrors;
+}
+
+export function validateRequiredTags(
+  attribute: { type: any; requiredTags?: tag[]; validation_regex?: string },
+  tags: tag[] | undefined
+) {
+  let lTags = tags;
+
+  if (lTags === undefined) {
+    lTags = [];
+  }
+
+  let validationErrors = [];
+  if (attribute.requiredTags) {
+    for (const requiredTag of attribute.requiredTags) {
+      const tagErrors = validateRequiredTag(lTags, attribute, requiredTag)
+      validationErrors.push(...tagErrors)
+    }
+  }
+
+  if (validationErrors.length === 0) {
+    return null;
+  }
+
+  return validationErrors;
+}
+
+function validateTagRegEx(key: string, value: string, regEx: RegExp | string) {
+  if (!value.match(regEx)) {
+    //Validation error
+    return "Value does not meet custom validation (RegEx : " + regEx + "), please update.";
+  } else {
+    return null;
+  }
 }

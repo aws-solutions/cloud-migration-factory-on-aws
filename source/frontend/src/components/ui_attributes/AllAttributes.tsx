@@ -129,7 +129,7 @@ const AllAttributes = (props: AllAttributesParams) => {
     return attributes_with_rel_filter;
   }
 
-  async function handleUserInput(attribute: Attribute, value: any, validationError: any) {
+  async function handleUserInput(attribute: Attribute, value: any, validationError: any, errorOnly: boolean = false) {
     let attributes_with_rel_filter = getFilterAttributes(attribute);
 
     let attributes_with_embedded_filter = props.schema.attributes.filter((attributeFilter) => {
@@ -167,7 +167,11 @@ const AllAttributes = (props: AllAttributesParams) => {
       });
     }
 
-    props.handleUserInput(values);
+    updateFormErrorsDisplayedToUser(attribute, validationError);
+
+    if (!errorOnly) {
+      props.handleUserInput(values);
+    }
   }
 
   function getFilterData(entityData: any[], attribute: Attribute, currentRecord: any) {
@@ -303,7 +307,8 @@ const AllAttributes = (props: AllAttributesParams) => {
     //Error present raise attribute as error.
     if (existingValidationError.length === 0 && errorMsg !== null) {
       let newValidationErrors = formValidationErrors;
-      newValidationErrors.push(attribute);
+      const attributeCopy = { ...attribute, __errorMsg: errorMsg };
+      newValidationErrors.push(attributeCopy);
       setFormValidationErrors(newValidationErrors);
       if (props.handleUpdateValidationErrors) {
         props.handleUpdateValidationErrors(newValidationErrors);
@@ -891,7 +896,6 @@ const AllAttributes = (props: AllAttributesParams) => {
 
   function buildAttributeUI(attributes: Attribute[]) {
     attributes = attributes.sort(compareAttributes);
-
     return attributes.map((attribute, index) => {
       if (isAttributeHidden(attribute, props.item)) {
         let validationError: any = null;
@@ -967,7 +971,7 @@ const AllAttributes = (props: AllAttributesParams) => {
                 key={displayKey}
                 attribute={attribute}
                 tags={getNestedValuePath(props.item, attribute.name)}
-                handleUserInput={props.handleUserInput}
+                handleUserInput={handleUserInput}
                 displayHelpInfoLink={displayHelpInfoLink}
               />
             );
@@ -1070,7 +1074,7 @@ const AllAttributes = (props: AllAttributesParams) => {
                     header="Could not locate the following scripts attached to the pipeline template selected."
                   >
                     {missing_scripts.map((task) => {
-                      return <p>{task.task_id}</p>;
+                      return <p key={task.task_id}>{task.task_id}</p>;
                     })}
                   </Alert>
                 );

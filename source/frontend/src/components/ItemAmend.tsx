@@ -151,6 +151,16 @@ const ItemAmend = (props: ItemAmendParams) => {
     } else return props.action ? capitalize(props.action + " " + props.schemaName) : capitalize(props.schemaName);
   }
 
+  function getCurrentAttributeError(attribute: any) {
+    if (attribute.__errorMsg) {
+      return attribute.__errorMsg;
+    } else if (attribute.validation_regex_msg) {
+      return attribute.validation_regex_msg;
+    } else {
+      return "Input error, check attribute.";
+    }
+  }
+
   return (
     <>
       <Form
@@ -170,7 +180,7 @@ const ItemAmend = (props: ItemAmendParams) => {
           formErrors.length > 0
             ? formErrors.map((error: any, index: number) => {
                 const displayKey = index;
-                let errorReason = error.validation_regex_msg ? error.validation_regex_msg : "You must specify a value.";
+                let errorReason = getCurrentAttributeError(error);
                 return <p key={displayKey}>{error.description + " - " + errorReason}</p>;
               })
             : undefined

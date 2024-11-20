@@ -347,11 +347,12 @@ def execute_cmd_via_ssh(host, username, key, cmd, using_key, multi_threaded=Fals
     try:
         ssh, error = open_ssh(host, username, key, using_key)
         if ssh:
-            _, stdout, stderr = ssh.exec_command(cmd)  # nosec B601
+            stdin, stdout, stderr = ssh.exec_command(cmd)  # nosec B601
             for line in stdout.readlines():
                 output = output + line
             for line in stderr.readlines():
                 error = error + line
+            stdin.close()
     except IOError as io_error:
         error = f"Unable to execute the command {cmd} due to {str(io_error)}"
         if not multi_threaded:

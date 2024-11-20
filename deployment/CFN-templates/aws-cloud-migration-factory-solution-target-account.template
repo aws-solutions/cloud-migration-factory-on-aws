@@ -140,6 +140,10 @@ Resources:
                   - 'mgn:UntagResource'
                   - 'mgn:Update*'
                   - 'mgn:Batch*'
+                  - 'mgn:StartReplication'
+                  - 'mgn:StopReplication'
+                  - 'mgn:PauseReplication'
+                  - 'mgn:ResumeReplication'
                 Resource: '*'
               - Effect: Allow
                 Action:

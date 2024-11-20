@@ -897,6 +897,1014 @@
   },
   {
     "package_uuid": {
+      "S": "0efd824f-3972-40ea-bc28-45f2bb549a49"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Start replication"
+    },
+    "script_description": {
+      "S": "Starts replication for MGN source servers."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "0efd824f-3972-40ea-bc28-45f2bb549a49"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Start replication"
+    },
+    "script_description": {
+      "S": "Starts replication for MGN source servers."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+    {
+    "package_uuid": {
+      "S": "0e9b9305-d042-42e9-8e11-05b4cfbbfb70"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Stop replication"
+    },
+    "script_description": {
+      "S": "Stop replication for MGN source servers."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "0e9b9305-d042-42e9-8e11-05b4cfbbfb70"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Stop replication"
+    },
+    "script_description": {
+      "S": "Stop replication for MGN source servers."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+    {
+    "package_uuid": {
+      "S": "9c516c2b-7df9-409f-8bdb-851760b8c123"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Pause replication"
+    },
+    "script_description": {
+      "S": "Pauses replication for MGN source servers."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "9c516c2b-7df9-409f-8bdb-851760b8c123"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Pause replication"
+    },
+    "script_description": {
+      "S": "Pauses replication for MGN source servers."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+    {
+    "package_uuid": {
+      "S": "9a8dc304-a327-4aa5-b32e-ca015a7bcdfc"
+    },
+    "version": {
+      "N": "0"
+    },
+    "default": {
+      "N": "1"
+    },
+    "latest": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Resume replication"
+    },
+    "script_description": {
+      "S": "Resumes replication for MGN source servers."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
+      "S": "9a8dc304-a327-4aa5-b32e-ca015a7bcdfc"
+    },
+    "version": {
+      "N": "1"
+    },
+    "script_name": {
+      "S": "Resume replication"
+    },
+    "script_description": {
+      "S": "Resumes replication for MGN source servers."
+    },
+    "type": {
+      "S": "Automated"
+    },
+    "lambda_function_name_suffix": {
+      "S": "MGN"
+    },
+    "script_arguments": {
+      "L": [
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "source_filter_attribute_name": {
+              "S": "task_arguments.Waveid"
+            },
+            "description": {
+              "S": "Applications"
+            },
+            "rel_entity": {
+              "S": "application"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "aws_accountid"
+                },
+                {
+                  "S": "aws_region"
+                }
+              ]
+            },
+            "name": {
+              "S": "appidlist"
+            },
+            "validation_regex_msg": {
+              "S": "At least one application must be provided."
+            },
+            "rel_filter_attribute_name": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        },
+        {
+          "M": {
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "name": {
+              "S": "Waveid"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "validation_regex_msg": {
+              "S": "Wave must be provided."
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "group": {
+              "S": "Resource Arguments"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "package_uuid": {
       "S": "9ece35ae-5817-42fe-ab7d-e199d9a10c46"
     },
     "version": {

@@ -9,6 +9,7 @@ import logging
 import json
 import lambda_mgn_utils
 import uuid
+import traceback
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -188,7 +189,6 @@ def verify_security_group(factoryserver, sg_attr_name, ec2_client,
 
 def validate_server_networking_settings(ec2_client, factoryserver, network_interface_attr_name, sg_attr_name,
                                         subnet_attr_name, server_type, return_dict):
-    print(factoryserver)
 
     # Identify invalid combination of ENI and security groups
     is_valid, server_has_error = verify_eni_sg_combination(
@@ -846,8 +846,8 @@ def check_eni_sg_combination(eni_used, is_live_eni_used, factoryserver,
         subnet_id_tag = "subnet_IDs"
 
     if eni_used and (
-            (factoryserver.get(sg_id_tag) and factoryserver[sg_id_tag][0] != '') or
-            (subnet_id_tag in factoryserver and factoryserver[subnet_id_tag][0] != '')):
+            (len(factoryserver.get(sg_id_tag, [])) > 0 and factoryserver[sg_id_tag][0] != '') or
+            (len(factoryserver.get(subnet_id_tag, [])) > 0 and factoryserver[subnet_id_tag][0] != '')):
         # user has specified both ENI and SGs but this is not a valid combination.
         this_status = False
         msg = (f"ERROR: Validation failed - Specifying {eni_type} ENI and also {eni_type} "
@@ -1083,6 +1083,7 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
             return msg
 
     except Exception as error:
+        traceback.print_exc()
         message_suffix = ""
         if ":" in str(error):
             message_suffix = f" full:  {str(error)})"

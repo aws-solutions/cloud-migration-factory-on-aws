@@ -20,6 +20,8 @@ PIPELINE_TEMPLATE_TABLE = os.getenv('PipelineTemplateDynamoDBTable')
 SCRIPTS_TABLE = os.getenv('ScriptsDynamoDBTable')
 PIPELINE_TEMPLATE_TASK_TABLE = os.getenv('PipelineTemplateTaskDynamoDBTable')
 
+SCHEMAS_TO_OVERWRITE_DURING_UPDATE = ['ssm_job', 'job', 'mgn', 'policy', 'group', 'user', 'role', 'secret']
+
 # Load default schema from json.
 with open('default_schema.json') as json_schema_file:
     default_schema = json.load(json_schema_file)
@@ -130,22 +132,25 @@ def update_schema(ddb_client, existing_schemas, updated_schema):
     existing_schema = next((existing_schema for existing_schema in existing_schemas if existing_schema["schema_name"]["S"] == updated_schema["schema_name"]["S"]), None)
 
     if existing_schema:
-        logger.info(f'Updating existing schema : {existing_schema["schema_name"]["S"]}')
-        # Search existing schema and append any custom attributes to the new schema.
-        for existing_attribute in existing_schema["attributes"]["L"]:
-            updated_attribute = next(
-                (updated_schema_attribute for updated_schema_attribute in updated_schema["attributes"]["L"] if updated_schema_attribute["M"]["name"]["S"] == existing_attribute["M"]["name"]["S"]), None)
+        if existing_schema["schema_name"]["S"] in SCHEMAS_TO_OVERWRITE_DURING_UPDATE:
+            logger.info(f'Overwriting existing schema : {existing_schema["schema_name"]["S"]}')
+        else:
+            logger.info(f'Updating existing schema : {existing_schema["schema_name"]["S"]}')
+            # Search existing schema and append any custom attributes to the new schema.
+            for existing_attribute in existing_schema["attributes"]["L"]:
+                updated_attribute = next(
+                    (updated_schema_attribute for updated_schema_attribute in updated_schema["attributes"]["L"] if updated_schema_attribute["M"]["name"]["S"] == existing_attribute["M"]["name"]["S"]), None)
 
-            if updated_attribute and updated_attribute["M"]['name']["S"] == "aws_accountid":
-                # If aws_accountid attribute, copy existing account Ids to updated schema.
-                logger.info(f'Preserved existing account Ids for attribute update: {existing_attribute["M"]["name"]["S"]}')
-                updated_attribute["M"]["listvalue"]["S"] = existing_attribute["M"]["listvalue"]["S"]
-            elif not updated_attribute:
-                # attribute does not existing in updated schema, will be copied.
-                logger.info(f'Preserved existing attribute not present in updated system schema: {existing_attribute["M"]["name"]["S"]}')
-                updated_schema["attributes"]["L"].append(existing_attribute)
-            else:
-                logger.info(f'Attribute overwritten with updated system schema: {existing_attribute["M"]["name"]["S"]}')
+                if updated_attribute and updated_attribute["M"]['name']["S"] == "aws_accountid":
+                    # If aws_accountid attribute, copy existing account Ids to updated schema.
+                    logger.info(f'Preserved existing account Ids for attribute update: {existing_attribute["M"]["name"]["S"]}')
+                    updated_attribute["M"]["listvalue"]["S"] = existing_attribute["M"]["listvalue"]["S"]
+                elif not updated_attribute:
+                    # attribute does not existing in updated schema, will be copied.
+                    logger.info(f'Preserved existing attribute not present in updated system schema: {existing_attribute["M"]["name"]["S"]}')
+                    updated_schema["attributes"]["L"].append(existing_attribute)
+                else:
+                    logger.info(f'Attribute overwritten with updated system schema: {existing_attribute["M"]["name"]["S"]}')
     else:
         logger.info(f'Adding new schema : {updated_schema["schema_name"]["S"]}')
 

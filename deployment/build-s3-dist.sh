@@ -103,7 +103,10 @@ for d in */ ; do
     mkdir ./.build
     cp -r ./[!.]* ./.build
     cd ./.build
-    pip install -r ./requirements.txt -t . --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
+     if [ -f "$(pwd)/pyproject.toml" ]; then
+      "$POETRY_HOME"/bin/poetry export -f requirements.txt --output requirements.txt --without-hashes
+      pip install -r ./requirements.txt -t . --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
+    fi
     d1=${d%?}
     zip -r $build_dist_dir/$d1.zip ./
     cd ..
@@ -121,7 +124,10 @@ for d in */ ; do
     mkdir ./.build
     cp -r ./[!.]* ./.build
     cd $source_dir/backend/lambda_layers/$d/.build/python
-    pip install -r ./requirements.txt -t ./lib/python3.11/site-packages/ --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
+    if [ -f "$(pwd)/pyproject.toml" ]; then
+      "$POETRY_HOME"/bin/poetry export -f requirements.txt --output requirements.txt --without-hashes
+      pip install -r ./requirements.txt -t ./lib/python3.11/site-packages/ --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
+    fi
     cd ../
     d1=${d%?}
     zip -r $build_dist_dir/$d1.zip .
@@ -141,7 +147,10 @@ for d in */ ; do
     cp -r ./[!.]* ./.build
     cp $source_dir/integrations/common/* ./.build
     cd ./.build
-    pip install -r ./requirements.txt -t . --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
+     if [ -f "$(pwd)/pyproject.toml" ]; then
+      "$POETRY_HOME"/bin/poetry export -f requirements.txt --output requirements.txt --without-hashes
+      pip install -r ./requirements.txt -t . --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
+    fi
     d1=${d%?}
     zip -r $build_dist_dir/lambda_$d1.zip .
     cd ..
