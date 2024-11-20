@@ -29,6 +29,10 @@ STATUS_TXT_PENDING_APPROVAL = 'Pending Approval'
 STATUS_OK_TO_RETRY = [STATUS_TXT_COMPLETE, STATUS_TXT_SKIPPED, STATUS_TXT_FAILED]
 TASK_PREDECESSOR_ALLOWED_UPDATE_STATUS = [STATUS_TXT_COMPLETE, STATUS_TXT_SKIPPED]
 
+DEFAULT_TAG_REGEX = '^[a-zA-Z0-9+-=._:/@ ]+$'
+
+SCHEMA_NO_DDB_TABLE_LOOKUP = ['secret']  # schema names provided here will bypass relationship data validations during record create and update operations.
+
 class UnSupportedOperationTypeException(Exception):
     pass
 
@@ -46,7 +50,7 @@ def get_required_attributes(schema, include_conditional=False):
 
     if not schema:
         return required_attributes
-    
+
     schema_system_key = schema['schema_name'] + '_id'
     if schema['schema_name'] == 'application':
         schema_system_key = 'app_id'
@@ -66,11 +70,11 @@ def get_required_attributes(schema, include_conditional=False):
 
 
 def append_conditional_attributes(attribute, required_attributes):
-    if 'outcomes' in attribute['conditions'] and 'true' in attribute['conditions']['outcomes']:                 
+    if 'outcomes' in attribute['conditions'] and 'true' in attribute['conditions']['outcomes']:
         for outcome in attribute['conditions']['outcomes']['true']:
             if outcome == 'required':
                 required_attributes.append(attribute)
-    if 'outcomes' in attribute['conditions'] and 'false' in attribute['conditions']['outcomes']: 
+    if 'outcomes' in attribute['conditions'] and 'false' in attribute['conditions']['outcomes']:
         for outcome in attribute['conditions']['outcomes']['false']:
             if outcome == 'required':
                 required_attributes.append(attribute)
@@ -99,7 +103,7 @@ def check_attribute_required_conditions(item, conditions):
             conditions = conditions['outcomes']['true']
     elif 'false' in conditions['outcomes']:
         conditions = conditions['outcomes']['false']
-        
+
     return_required, return_hidden = query_conditions.parse_outcomes(conditions)
     return {'required': return_required, 'hidden': return_hidden}
 
@@ -158,13 +162,13 @@ def is_conditional_attribute_valid(item, attribute):
     return True
 
 
-def validate_value(attribute, value):
-    std_error = "Error in validation, please check entered value.";
+def validate_value(attribute, value, regex_string):
+    std_error = "Error in validation, please check entered value."
     error = None
-    pattern = re.compile(attribute['validation_regex'])
+    pattern = re.compile(regex_string)
     if not pattern.match(value):
         # Validation error.
-        if 'validation_regex_msg' in attribute:
+        if 'validation_regex_msg' in attribute and attribute['validation_regex_msg'] != '':
             error = f"{ATTRIBUTE_MESSAGE_PREFIX}{attribute['name']}, {attribute['validation_regex_msg']}"
         else:
             error = f"{ATTRIBUTE_MESSAGE_PREFIX}{attribute['name']}, {std_error}"
@@ -179,6 +183,9 @@ def get_related_items(related_schema_names):
         # Check that item is set.
         if not related_schema_name:
             continue
+
+        if related_schema_name in SCHEMA_NO_DDB_TABLE_LOOKUP:
+            continue  # entity not saved in DDB so no check is possible also options list is provided by external source.
 
         table_name_suffix = map_schema_to_table_name_suffix(related_schema_name)
 
@@ -247,8 +254,8 @@ def get_relationship_data(items, schema):
 def validate_item_related_record(attribute, value, preloaded_related_items=None):
     if attribute['type'] != 'relationship':
         return None  # Not a relationship attribute, return success.
-    if attribute.get('rel_entity') == 'secret':
-        return None # Secrets are not saved in DDB so no check is possible also options list is provided by secrets manager.
+    if attribute.get('rel_entity') in SCHEMA_NO_DDB_TABLE_LOOKUP:
+        return None # entity not saved in DDB so no check is possible also options list is provided by external source.
 
     if 'rel_entity' not in attribute or 'rel_key' not in attribute:
         # invalid relationship attribute.
@@ -267,7 +274,7 @@ def validate_item_related_record(attribute, value, preloaded_related_items=None)
             message = validate_non_list_multi_select(attribute, related_items, value)
 
         return message
-    
+
 
 def load_items_from_ddb(attribute):
     # No preloaded item provided, load from DDB table.
@@ -278,7 +285,7 @@ def load_items_from_ddb(attribute):
 
     related_table = cmf_boto.resource('dynamodb').Table(related_table_name)
     related_items = scan_dynamodb_data_table(related_table)  # get all items from related table.
-    
+
     return related_items
 
 
@@ -314,7 +321,27 @@ def validate_non_list_multi_select(attribute, related_items, value):
         return [message]
     else:
         return None
-    
+
+
+def validate_tag_value(attribute, tag, errors):
+    if 'validation_regex' in attribute and attribute['validation_regex'] != '':
+        value_validation_result = validate_value(attribute, tag['value'], attribute['validation_regex'])
+        if value_validation_result != None:
+            errors.append(value_validation_result)
+    else:
+        # use default regex for tag value validation
+        value_validation_result = validate_value(attribute, tag['value'], DEFAULT_TAG_REGEX)
+        if value_validation_result != None:
+            errors.append(value_validation_result)
+
+
+def validate_tag_type_attribute(item, attribute, key, errors):
+
+    for tag in item[key]:
+        validate_tag_value(attribute, tag, errors)
+
+    return errors
+
 
 def validate_list_type_attribute(item, attribute, key, errors):
     listvalue = attribute['listvalue'].lower().split(',')
@@ -355,7 +382,7 @@ def validate_other_type_attribute(item, attribute, key, errors):
         if attribute['type'] == 'multivalue-string':
             errors = validate_multivalue_string_type_attribute(item, attribute, key, errors)
         else:
-            value_validation_result = validate_value(attribute, item[key])
+            value_validation_result = validate_value(attribute, item[key], attribute['validation_regex'])
             if value_validation_result != None:
                 errors.append(value_validation_result)
 
@@ -365,7 +392,7 @@ def validate_other_type_attribute(item, attribute, key, errors):
 def validate_multivalue_string_type_attribute(item, attribute, key, errors):
     valid_regex = True
     for value in item[key]:
-        value_validation_result = validate_value(attribute, value)
+        value_validation_result = validate_value(attribute, value, attribute['validation_regex'])
         if value_validation_result != None:
             valid_regex = False
     if not valid_regex:
@@ -378,7 +405,20 @@ def append_error_message(check, key, errors):
     if check == False:
         message = f"{ATTRIBUTE_MESSAGE_PREFIX}{key} is not defined in the schema."
         errors.append(message)
-    
+
+    return errors
+
+
+def validate_attribute(attribute, item, key, errors, related_items):
+    if attribute['type'] == 'list' and 'listvalue' in attribute:
+        errors = validate_list_type_attribute(item, attribute, key, errors)
+    elif attribute['type'] == 'relationship':
+        errors = validate_relationship_type_attribute(related_items, item, attribute, key, errors)
+    elif attribute['type'] == 'tag':
+        errors = validate_tag_type_attribute(item, attribute, key, errors)
+    else:
+        errors = validate_other_type_attribute(item, attribute, key, errors)
+
     return errors
 
 
@@ -393,12 +433,7 @@ def validate_item_keys_and_values(item, attributes, related_items=None):
         for attribute in attributes:
             if key == attribute['name']:
                 check = True
-                if attribute['type'] == 'list' and 'listvalue' in attribute:
-                    errors = validate_list_type_attribute(item, attribute, key, errors)
-                elif attribute['type'] == 'relationship':
-                    errors = validate_relationship_type_attribute(related_items, item, attribute, key, errors)
-                else:
-                    errors = validate_other_type_attribute(item, attribute, key, errors)
+                errors = validate_attribute(attribute, item, key, errors, related_items)
                 break  # Exit loop as key matched to attribute no need to check other attributes.
 
         errors = append_error_message(check, key, errors)

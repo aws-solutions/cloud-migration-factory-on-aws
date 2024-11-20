@@ -92,3 +92,65 @@ test("deepEquals for different scenrios", () => {
   expect(main.deepEqual({}, null)).toEqual(false);
   expect(main.deepEqual({}, undefined)).toEqual(false);
 });
+
+test("validateTags function for correct required tag keys", () => {
+  let attribute = {
+    type: 'tag,',
+    requiredTags: [
+      { key: "key", value: "" }
+    ]
+  }
+
+  expect(main.validateTags(attribute, [{ key: "key", value: "value"}, { key: "key1", value: "value1"}])).toBeNull();
+});
+
+test("validateTags function for missing required tag key", () => {
+  let attribute = {
+    type: 'tag,',
+    requiredTags: [
+      { key: "key", value: "value" },
+      { key: "key2", value: "value2" }
+    ]
+  }
+
+  expect(main.validateTags(attribute, [{ key: "key", value: "value"}])).toEqual(["key2 - tag required."]);
+});
+
+test("validateTags function for required tag invalid value", () => {
+  let attribute = {
+    type: 'tag,',
+    requiredTags: [
+      { key: "key", value: "^no$" }
+    ]
+  }
+
+  expect(main.validateTags(attribute, [{ key: "key", value: "value"}])).toEqual(["key - Value does not meet custom validation (RegEx : ^no$), please update."]);
+});
+
+test("validateTags function for required tag invalid key/value based on default regex", () => {
+  let attribute = {
+    type: 'tag,',
+    requiredTags: [
+      { key: "key", value: "" }
+    ],
+    validation_regex: "^yes$"
+  }
+
+  expect(main.validateTags(attribute, [{ key: "key", value: "value"}])).toEqual(["key - Value does not meet custom validation (RegEx : ^yes$), please update."]);
+});
+
+test("validateTags function for tag key too long", () => {
+  let attribute = {
+    type: 'tag,',
+  }
+
+  expect(main.validateTags(attribute, [{ key: "a".repeat(129), value: "value"}])).toEqual(["a".repeat(129) + " - maximum Key characters is 128, currently 129"]);
+});
+
+test("validateTags function for tag value too long", () => {
+  let attribute = {
+    type: 'tag,',
+  }
+
+  expect(main.validateTags(attribute, [{ key: "a", value: "a".repeat(257)}])).toEqual(["a".repeat(257) + " - maximum Value characters is 256, currently 257"]);
+});

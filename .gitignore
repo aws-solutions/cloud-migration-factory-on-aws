@@ -36,5 +36,8 @@ ehthumbs.db
 # Testing environment
 testing-venv
 
+**/**/.coverage
+**/**/coverage/
+
 # Python
 __pycache__

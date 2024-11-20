@@ -87,18 +87,6 @@ Parameters:
   PipelineTaskExecutionOutputLambdaARN:
     Type: String
 
-  UserAPIRequestValidatorId:
-    Type: String
-    Description: 'The ID of the User API Request Validator'
-
-  ToolsApiRequestValidatorId:
-    Type: String
-    Description: 'The ID of the Tools API Request Validator'
-
-  LoginApiRequestValidatorId:
-    Type: String
-    Description: 'The ID of the Login API Request Validator'
-
 Mappings:
   Solution:
     Data:

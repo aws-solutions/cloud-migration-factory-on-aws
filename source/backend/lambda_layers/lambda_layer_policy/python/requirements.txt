@@ -1,6 +1,0 @@
-# Removed from package as will use Lambda provided boto client last tested version was : boto3==1.17.96
-urllib3>=2.2.2
-requests==2.32.3
-PyJWT==2.8.0
-PyJWT[crypto]==2.8.0
-simplejson==3.19.2

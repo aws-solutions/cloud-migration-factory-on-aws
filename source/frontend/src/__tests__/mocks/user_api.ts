@@ -312,7 +312,7 @@ export function addPipelineTemplateTasksToPipelineTemplates(
     );
     return {
       ...template,
-      tasks: tasksForTemplate,
+      pipeline_template_tasks: tasksForTemplate,
     };
   });
 }

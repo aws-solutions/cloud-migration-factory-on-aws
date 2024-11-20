@@ -41,7 +41,11 @@ MGN_ACTIONS = [
     '- Revert to ready for cutover',
     '- Terminate Launched instances',
     '- Disconnect from AWS',
-    '- Mark as archived'
+    '- Mark as archived',
+    'Start replication',
+    'Stop replication',
+    'Pause replication',
+    'Resume replication'
 ]
 
 

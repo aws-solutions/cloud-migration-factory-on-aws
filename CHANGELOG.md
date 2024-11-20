@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.1] - 2024-11-20
+### Fixed
+- Deployment: Added missing dependency for ToolsAPIDeploy & AdminAPIDeploy resources in main CF template, this was causing some deployments to fail.
+- Tag validation implemented in backend API as causing issues when tags and regex provided in attribute schema.
+- Item POST methods failing when an attribute defined as secret relationship is present and set. This fix applies the same bypass present in the PUT method. This validation bypass is required as secrets are not stored in DDB and so standard CMF validation is not possible.
+- Import fails to show validation when a tag attribute column in the import has a trailing semicolon or extra semicolons. error is now provided to the user.
+- Resolved failures with importing csv files via UI import.
+- UPGRADE: Deprecated attributes are not removed from system schemas, this update provides a new feature that specifies the schemas that should be overwritten instead of merged.
+- SCRIPTS: Bug in paramiko library causing exception after ssh command is completed, added workaround described in issue https://github.com/paramiko/paramiko/issues/1617.
+- Removed unused cloudformation template parameters.
+- Resolved exception caused during MGN actions when a user configures a server with Subnets and SGs and then updates to use ENI, checks were not considering empty SG and subnet.
+- Changed access logging bucket encryption to use SSE-S3 encryption as current kms is not supported for Server Access Logging buckets, as documented (https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html).
+### Added
+- MGN: Added ability to Stop, Start, Pause, Resume replication with MGN.
+- Added support for custom validation on Tag attribute in schema, admins can now define required tags and optional validation of values of required tags with RegEx in the schema attribute editor. This commit is for the frontend validation only, a further update will be made to implement the same validation for required tags in the backend in a future release.
+### Changed
+- Changed solution to use Poetry for packaging and build.
 ## [4.0.0] - 2024-9-30
 ### Added
 - PIPELINES: CMF now support the ability to create and run pipelines of tasks automatically; these pipelines can contain manual and automated tasks, allowing complete tracking of all aspects of your migration.

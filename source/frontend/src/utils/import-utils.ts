@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { getChanges, validateValue } from "../resources/main";
+import { getChanges, validateTags, validateValue } from "../resources/main";
 import { Attribute, EntitySchema } from "../models/EntitySchema";
 import { checkAttributeRequiredConditions, getRequiredAttributes } from "../resources/recordFunctions";
 
@@ -8,6 +8,7 @@ type ImportAttribute = {
     type: any;
     validation_regex?: any;
     validation_regex_msg?: any;
+    requiredTags?: any;
   };
   lookup_attribute_name: string;
 };
@@ -24,20 +25,6 @@ export function removeNullKeys(dataJson: Record<string, any>[]) {
   return dataJson;
 }
 
-export function readCSVFile(reader: FileReader, file: Blob) {
-  return new Promise((resolve, reject) => {
-    reader.onerror = () => {
-      reader.abort();
-      reject(new DOMException("Problem parsing input file."));
-    };
-
-    reader.onload = () => {
-      resolve(reader.result);
-    };
-    reader.readAsText(file);
-  });
-}
-
 export function readXLSXFile(reader: FileReader, file: Blob) {
   return new Promise((resolve, reject) => {
     reader.onerror = () => {
@@ -52,7 +39,7 @@ export function readXLSXFile(reader: FileReader, file: Blob) {
   });
 }
 
-export async function convertExcelToJSON(reader: FileReader, selectedFile: Blob, selectedSheet?: string) {
+export async function convertDataFileToJSON(reader: FileReader, selectedFile: Blob, selectedSheet?: string) {
   let data = await readXLSXFile(reader, selectedFile);
   let workbook = XLSX.read(data);
   let sheet: any;
@@ -104,6 +91,12 @@ export function performValueValidation(attribute: ImportAttribute, value: string
       break;
     case "json":
       errorMsg = validateJson(value);
+      break;
+    case "tag":
+      const errorMsgList = validateTags(attribute.attribute, parseTagsString(value));
+      if (errorMsgList) {
+        errorMsg = errorMsgList.join(", ");
+      }
       break;
     default:
       errorMsg = validateValue(value, attribute.attribute);
@@ -698,13 +691,7 @@ export function addImportRowValuesToImportSummaryRecord(
       case "tag": {
         let formattedTags = importRow[attribute.import_raw_header];
 
-        formattedTags = formattedTags.split(";");
-        formattedTags = formattedTags.map((tag: string) => {
-          let key_value = tag.split("=");
-          return { key: key_value[0], value: key_value[1] };
-        });
-
-        importRecord[attribute.attribute.name] = formattedTags;
+        importRecord[attribute.attribute.name] = parseTagsString(formattedTags);
         break;
       }
       case "checkbox": {
@@ -720,6 +707,24 @@ export function addImportRowValuesToImportSummaryRecord(
   } else if (attribute.attribute.type === "relationship") {
     addRelationshipValueToImportSummaryRecord(attribute, schemaName, importRow, importRecord, dataAll);
   }
+}
+
+function parseTagsString(tagsDelimitedString: string) {
+
+  if (tagsDelimitedString.endsWith(';')) {
+    // Remove any trailing semicolon as may have been added by user.
+    tagsDelimitedString = tagsDelimitedString.substring(0,tagsDelimitedString.length-1);
+    // If tagsDelimitedString string is now empty no tags defined, return empty array.
+    if (tagsDelimitedString === ''){
+      return []
+    }
+  }
+
+  let formattedTags = tagsDelimitedString.split(";");
+  return formattedTags.map((tag: string) => {
+    let key_value = tag.split("=");
+    return { key: key_value[0], value: key_value[1] };
+  });
 }
 
 function addImportedRecordExistingToSummaryChangedItems(
