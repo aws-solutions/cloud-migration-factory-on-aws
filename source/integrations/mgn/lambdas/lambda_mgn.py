@@ -374,7 +374,7 @@ def verify_account_server(account, mgn_sourceservers, processes, errors,
             log.error(msg)
             return msg, account, source_server_ids
         else:
-            is_server_exist, is_mgn_server_archived, mgn_sourceservers = \
+            is_server_exist, is_mgn_server_archived = \
                 verify_server(
                     mgn_sourceservers, factoryserver,
                     source_server_ids, target_account_creds,
@@ -414,6 +414,7 @@ def verify_server(mgn_sourceservers, factoryserver,
             factoryserver['source_server_id'] = sourceserver['sourceServerID']
             source_server_ids.append(factoryserver['source_server_id'])
             if sourceserver['dataReplicationInfo']['dataReplicationState'].lower() != 'disconnected':
+                # if agent connected then get launch template, if not connected the template is not present.
                 p = multiprocessing.Process(
                     target=get_mgn_launch_template_id,
                     args=(target_account_creds,
@@ -424,9 +425,9 @@ def verify_server(mgn_sourceservers, factoryserver,
                 )
                 processes.append(p)
                 p.start()
-                break
+            break
 
-    return is_server_exist, is_mgn_server_archived, mgn_sourceservers
+    return is_server_exist, is_mgn_server_archived
 
 
 def validate_server_exist_and_archived(is_server_exist, is_mgn_server_archived,
