@@ -1537,7 +1537,7 @@ Resources:
                 maxAttempts: 3
                 action: 'aws:executeScript'
                 inputs:
-                  Runtime: python3.8
+                  Runtime: python3.11
                   Handler: script_handler
                   InputPayload:
                     bucket_name: '{{bucketName}}'
