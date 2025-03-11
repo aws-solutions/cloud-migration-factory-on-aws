@@ -80,6 +80,11 @@ Arguments:
     long_desc: "Force reinstall of MGN agent."
     type: "checkbox"
     group_order: "7"
+  - name: "NoReplication"
+    description: "Do not start MGN replication automatically"
+    long_desc: "When enabled replication will need to be manually started."
+    type: "checkbox"
+    group_order: "12"
   -
     name: "S3Endpoint"
     description: "Optional - S3 Endpoint"
@@ -105,4 +110,14 @@ Arguments:
     long_desc: "Force SSL to be used for all WinRM communication, SSL listeners need to be configure on each target server."
     type: "checkbox"
     group_order: "11"
+SchemaExtensions:
+  - name: "mgn_replication_devices"
+    description: "MGN Devices to Replicate"
+    validation_regex: "^[\/:,a-zA-Z0-9]+$"
+    validation_regex_msg: "Invalid device format. Example device names for Windows (C:,D:) and Linux (/dev/sda1,/dev/sdb1)"
+    long_desc: "Provide a comma delimited list of devices to replicate i.e. for Windows 'C:,D:', for Linux '/dev/sda1,/dev/sdb1'"
+    type: "string"
+    schema: "server"
+    group: "Migration Automation"
+    group_order: "5"
 

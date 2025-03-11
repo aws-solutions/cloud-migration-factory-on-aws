@@ -1,7 +1,7 @@
 {
   "name": "migration-factory-frontend",
   "description": "List of dependencies for Frontend ",
-  "version": "4.0.2",
+  "version": "4.0.3",
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
@@ -9,16 +9,16 @@
     "@aws-amplify/api": "^5.4.11",
     "@aws-amplify/auth": "^5.6.11",
     "@aws-amplify/core": "^5.8.11",
-    "@cloudscape-design/components": "^3.0.720",
     "@cloudscape-design/code-view": "^3.0.24",
+    "@cloudscape-design/components": "^3.0.720",
     "@cloudscape-design/global-styles": "^1.0.32",
     "@dagrejs/dagre": "^1.1.4",
+    "@xyflow/react": "^12.4.1",
     "ace-builds": "^1.32.7",
     "jquery": "^3.7.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.3",
-    "reactflow": "^11.11.4",
     "uuid": "^9.0.1",
     "xlsx": "file:vendor/xlsx-0.20.2.tgz"
   },
@@ -51,8 +51,8 @@
     "typescript": "^5.2.2",
     "vite": "^5.4.0",
     "vite-plugin-node-polyfills": "^0.22.0",
-    "vite-plugin-svgr": "^4.2.0",
-    "vite-plugin-static-copy": "^1.0.6"
+    "vite-plugin-static-copy": "^1.0.6",
+    "vite-plugin-svgr": "^4.2.0"
   },
   "overrides": {
     "@svgr/webpack": "$@svgr/webpack",

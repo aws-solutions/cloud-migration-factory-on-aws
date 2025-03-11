@@ -34,6 +34,15 @@ const TaskExecutionView = (props: TaskExecutionViewParams) => {
       onChange={({ detail }) => handleOnTabChange(detail.activeTabId)}
       tabs={[
         {
+          label: "Log",
+          id: "log",
+          content: (
+            <Container header={<Header variant="h2">Log</Header>}>
+              <Textarea value={props.taskExecution.output} rows={12} readOnly />
+            </Container>
+          ),
+        },
+        {
           label: "Inputs",
           id: "inputs",
           content: (
@@ -41,15 +50,6 @@ const TaskExecutionView = (props: TaskExecutionViewParams) => {
               <pre>
                 <code>{JSON.stringify(props.taskExecution.task_execution_inputs, null, " ")}</code>
               </pre>
-            </Container>
-          ),
-        },
-        {
-          label: "Log",
-          id: "log",
-          content: (
-            <Container header={<Header variant="h2">Log</Header>}>
-              <Textarea value={props.taskExecution.output} rows={12} readOnly />
             </Container>
           ),
         },

@@ -13,7 +13,7 @@ import { mockNotificationContext } from "../__tests__/TestUtils";
 import userEvent from "@testing-library/user-event";
 import { NotificationContext } from "../contexts/NotificationContext";
 import '@testing-library/jest-dom';
-import {Position} from "reactflow";
+import {Position} from "@xyflow/react";
 import {server} from "../setupTests.ts";
 import {rest} from "msw";
 
@@ -160,7 +160,7 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     // THEN expect the node to be in the visual editor document with the correct class and attributes
     expect(node).not.toBeNull();
     expect(node).toBeInTheDocument();
-    expect(node).toHaveClass('react-flow__node', 'react-flow__node-custom', 'nopan', 'selectable');
+    expect(node).toHaveClass('react-flow__node', 'react-flow__node-task', 'nopan', 'selectable', 'draggable');
     expect(node).toHaveAttribute('role', 'button');
     expect(node.ownerDocument).toBe(document);
     expect(document.body.contains(node)).toBe(true);
@@ -206,7 +206,7 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     // THEN expect the node to be in the visual editor document with the correct class and attributes
     expect(node).not.toBeNull();
     expect(node).toBeInTheDocument();
-    expect(node).toHaveClass('react-flow__node', 'react-flow__node-custom', 'nopan', 'selectable');
+    expect(node).toHaveClass('react-flow__node', 'react-flow__node-task', 'nopan', 'selectable', 'draggable');
     expect(node).toHaveAttribute('role', 'button');
     expect(node.ownerDocument).toBe(document);
     expect(document.body.contains(node)).toBe(true);
@@ -272,7 +272,7 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     // THEN expect the node to be in the visual editor document with the correct class and attributes
     expect(node).not.toBeNull();
     expect(node).toBeInTheDocument();
-    expect(node).toHaveClass('react-flow__node', 'react-flow__node-custom', 'nopan', 'selectable');
+    expect(node).toHaveClass('react-flow__node', 'react-flow__node-task', 'nopan', 'selectable', 'draggable');
     expect(node).toHaveAttribute('role', 'button');
 
     // WHEN the user selects the node
@@ -323,7 +323,7 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     // THEN expect the node to be in the visual editor document with the correct class and attributes
     expect(node).not.toBeNull();
     expect(node).toBeInTheDocument();
-    expect(node).toHaveClass('react-flow__node', 'react-flow__node-custom', 'nopan', 'selectable');
+    expect(node).toHaveClass('react-flow__node', 'react-flow__node-task', 'nopan', 'selectable', 'draggable');
     expect(node).toHaveAttribute('role', 'button');
     expect(node.ownerDocument).toBe(document);
     expect(document.body.contains(node)).toBe(true);

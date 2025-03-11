@@ -1,7 +1,7 @@
 ---
 id: SO0097 # Solution Id
 name: cloud-migration-factory-on-aws # trademarked name
-version: v4.0.2 # current version of the solution. Used to verify template headers
+version: v4.0.3 # current version of the solution. Used to verify template headers
 cloudformation_templates: # This list should match with AWS CloudFormation templates section of IG
   - template: aws-cloud-migration-factory-solution.template
     main_template: true

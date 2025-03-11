@@ -42,11 +42,9 @@ describe("ViewTaskExecution component", () => {
     );
 
     // THEN
-    expect(await screen.findByRole("heading", { name: "Task Execution Inputs" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Log" })).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /\{ "sizing_preference": "maximum utilization", "ec2_instance_family_exclusions": \[ "t2" ], "aws_region": "us-east-1", "home_region": "eu-central-1", "aws_accountid": "123456789012", "r_type": "retire" }/i
-      )
+      screen.getByText('Output for unittest_task_execution0')
     ).toBeInTheDocument();
   });
 

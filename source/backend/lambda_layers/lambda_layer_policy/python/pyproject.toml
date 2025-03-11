@@ -4,10 +4,10 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-urllib3 = ">2.2.2"
+urllib3 = ">=2.3.0"
 requests = "==2.32.3"
-PyJWT = {extras = ["crypto"], version = "2.8.0"}
-simplejson = "==3.19.2"
+PyJWT = {extras = ["crypto"], version = "2.10.1"}
+simplejson = "==3.20.1"
 
 [build-system]
 requires = ["poetry-core"]

@@ -10,7 +10,9 @@
    [string] $windowspwd = [System.Management.Automation.Language.NullString]::Value,
    $s3endpoint,
    $mgnendpoint,
-   [bool] $usessl = $false
+   [bool] $usessl = $false,
+   [bool] $noreplication = $false,
+   $replicationdrives = [System.Management.Automation.Language.NullString]::Value
  )
 
 # Read Server name #
@@ -129,6 +131,19 @@ function agent-install {
             $command += " --endpoint " + $mgnendpoint
             $display_command += " --endpoint " + $mgnendpoint
         }
+
+        # add drives to replicate command if set.
+        if ("$replicationdrives".Trim() -ne "") {
+            $command += " --devices '" + $replicationdrives + "'"
+            $display_command += " --devices '" + $replicationdrives + "'"
+        }
+
+        # add no-replication command if set and true.
+        if ($noreplication) {
+            $command += " --no-replication"
+            $display_command += " --no-replication"
+        }
+
         write-host "Running command $display_command."
         $scriptblock2 = $executioncontext.invokecommand.NewScriptBlock($command)
         $parameters = @{

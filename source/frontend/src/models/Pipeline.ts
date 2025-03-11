@@ -33,6 +33,7 @@ export type PipelineTemplateTask = {
   task_successors?: string[];
   pipeline_template_task_name: string;
   _history?: CMFHistoryCreated;
+  script?: any;
 };
 
 export type Task = {
@@ -48,7 +49,7 @@ export type Task = {
 };
 
 export type TaskExecution = {
-  [key: string]: any | string | [] | CMFHistoryCreated | null |  undefined;
+  [key: string]: any;
   task_execution_id: string;
   task_execution_name: string;
   pipeline_id: string;
@@ -61,4 +62,5 @@ export type TaskExecution = {
   output?: any;
   task_execution_inputs?: any;
   _history?: CMFHistoryCreated;
+  script?: any;
 };

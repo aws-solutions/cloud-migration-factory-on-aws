@@ -19,6 +19,23 @@ export const useGetTaskExecutions: DataHook = () => {
 
   async function update() {
     const myAbortController = new AbortController();
+
+    try {
+      const response = await apiUser.getTaskExecutions();
+      dispatch(requestSuccessful({ data: response }));
+    } catch (e: any) {
+      if (e.message !== "Request aborted") {
+        console.error("TaskExecutions Hook", e);
+      }
+    }
+
+    return () => {
+      myAbortController.abort();
+    };
+  }
+
+  async function init() {
+    const myAbortController = new AbortController();
     dispatch(requestStarted());
 
     try {
@@ -40,7 +57,7 @@ export const useGetTaskExecutions: DataHook = () => {
     let cancelledRequest;
 
     (async () => {
-      await update();
+      await init();
       if (cancelledRequest) return;
     })();
 

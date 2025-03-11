@@ -16,7 +16,8 @@ import {
   SpaceBetween,
   Spinner,
 } from "@cloudscape-design/components";
-import ReactFlow, {
+import {
+  ReactFlow,
   applyNodeChanges,
   Controls,
   Edge,
@@ -28,14 +29,14 @@ import ReactFlow, {
   Position,
   ReactFlowInstance,
   ReactFlowProvider,
-  useNodesInitialized,
-} from "reactflow";
+  useNodesInitialized, NodeProps,
+} from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
-import "reactflow/dist/style.css";
+import '@xyflow/react/dist/base.css';
 import UserApiClient from "../api_clients/userApiClient.ts";
 import { parsePUTResponseErrors } from "../resources/recordFunctions.ts";
 import { NotificationContext } from "../contexts/NotificationContext.tsx";
-import { Pipeline, TaskExecution } from "../models/Pipeline.ts";
+import {Pipeline, TaskExecution} from "../models/Pipeline.ts";
 import { SplitPanelContext } from "../contexts/SplitPanelContext.tsx";
 import { ViewTaskExecution } from "./PipelineView.tsx";
 import Audit from "./ui_attributes/Audit.tsx";
@@ -46,7 +47,17 @@ const iconTaskMapping: { [key: string]: any } = {
   // Add other icon components as needed
 };
 
-const PipelineTaskNode = ({ data }: any) => {
+export type TaskExecutionNode = Node<
+  {
+    task: TaskExecution;
+    layoutDirectionTB?: boolean;
+    handleSplitPanelOpen?: (open: boolean) => void;
+    handleRefreshTasks?: () => Promise<void>;
+  },
+  'task'
+>;
+
+const PipelineTaskNode = (props: NodeProps<TaskExecutionNode>) => {
   const { addNotification } = useContext(NotificationContext);
   const [isActionProcessing, setIsActionProcessing] = useState<boolean>(false);
   const apiUser = new UserApiClient();
@@ -68,11 +79,11 @@ const PipelineTaskNode = ({ data }: any) => {
         break;
     }
 
-    return <Badge color={statusBadgeName}>{status}</Badge>;
+    return <Badge key={statusBadgeName} color={statusBadgeName}>{status}</Badge>;
   };
 
   // Determine which icon component to use
-  const TaskIconName = iconTaskMapping[data?.script?.type] ? iconTaskMapping[data.script.type] : "bug";
+  const TaskIconName = iconTaskMapping[props.data?.task.script?.type] ? iconTaskMapping[props.data.task.script.type] : "bug";
 
   const allowStatusUpdateToSkip = ["Failed"];
   const allowStatusUpdateToInProgress = ["Not Started"];
@@ -82,8 +93,8 @@ const PipelineTaskNode = ({ data }: any) => {
   const handleAction = async (action: string) => {
     switch (action) {
       case "view_inputs":
-        if (data.handleSplitPanelOpen) {
-          data.handleSplitPanelOpen(true);
+        if (props.data?.handleSplitPanelOpen) {
+          props.data?.handleSplitPanelOpen(true);
         }
         break;
       case "update_status_skip":
@@ -101,7 +112,7 @@ const PipelineTaskNode = ({ data }: any) => {
     setIsActionProcessing(true);
     const schemaName = "task_execution";
     const humanReadableSchemaName = schemaName.split("_").join(" ");
-    const selectedItem = data;
+    const selectedItem = props.data.task;
 
     const statusMap = {
       update_status_skip: "Skip",
@@ -128,10 +139,10 @@ const PipelineTaskNode = ({ data }: any) => {
         schemaName
       );
 
-      data.handleRefreshTasks();
+      props.data.task.handleRefreshTasks();
 
       // Update local object with new status.
-      data.task_execution_status = statusMap[action];
+      props.data.task.task_execution_status = statusMap[action];
     } catch (e: any) {
       let errorsReturned = e.message;
       if (e.response?.data?.errors) {
@@ -154,13 +165,13 @@ const PipelineTaskNode = ({ data }: any) => {
   const show_history = () => {
     return (
       <ExpandableSection headerText="Audit" variant="footer">
-        <Audit item={data} />
+        <Audit item={props.data.task} />
       </ExpandableSection>
     );
   };
 
   return (
-    <Container key={data.task_execution_id} footer={show_history()}>
+    <Container key={props.data.task.task_execution_id} footer={show_history()}>
       <Header
         actions={
           <ButtonDropdown
@@ -177,22 +188,22 @@ const PipelineTaskNode = ({ data }: any) => {
                   {
                     id: "update_status_skip",
                     text: "Skip",
-                    disabled: !allowStatusUpdateToSkip.includes(data.task_execution_status),
+                    disabled: !allowStatusUpdateToSkip.includes(props.data.task.task_execution_status),
                   },
                   {
                     id: "update_status_retry",
                     text: "Retry",
-                    disabled: !allowStatusUpdateToRetry.includes(data.task_execution_status),
+                    disabled: !allowStatusUpdateToRetry.includes(props.data.task.task_execution_status),
                   },
                   {
                     id: "update_status_in-progress",
                     text: "In Progress",
-                    disabled: !allowStatusUpdateToInProgress.includes(data.task_execution_status),
+                    disabled: !allowStatusUpdateToInProgress.includes(props.data.task.task_execution_status),
                   },
                   {
                     id: "update_status_complete",
                     text: "Complete",
-                    disabled: !allowStatusUpdateToComplete.includes(data.task_execution_status),
+                    disabled: !allowStatusUpdateToComplete.includes(props.data.task.task_execution_status),
                   },
                 ],
               },
@@ -206,19 +217,19 @@ const PipelineTaskNode = ({ data }: any) => {
       >
         <SpaceBetween size={"xs"} direction={"horizontal"}>
           <Icon size={"large"} name={TaskIconName} />
-          {data.task_execution_name}
+          {props.data.task.task_execution_name}
         </SpaceBetween>
       </Header>
-      <Box float={"right"}>{statusBadge(data.task_execution_status)}</Box>
+      <Box float={"right"}>{statusBadge(props.data.task.task_execution_status)}</Box>
 
       <Handle
         type="target"
-        position={data.layoutDirectionTB ? Position.Top : Position.Left}
+        position={props.data.layoutDirectionTB ? Position.Top : Position.Left}
         className="w-16 !bg-teal-500"
       />
       <Handle
         type="source"
-        position={data.layoutDirectionTB ? Position.Bottom : Position.Right}
+        position={props.data.layoutDirectionTB ? Position.Bottom : Position.Right}
         className="w-16 !bg-teal-500"
       />
     </Container>
@@ -243,7 +254,6 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
   handleRefreshTasks,
 }) => {
   const { setContent, setSplitPanelOpen } = useContext(SplitPanelContext);
-  const [, setSelectedEdge] = useState<Edge>();
   const [selectedNode, setSelectedNode] = useState<Node>();
   const [directionTB, setDirectionTB] = useState(true);
   const [pipeline, setPipeline] = useState<Pipeline>();
@@ -257,12 +267,6 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
   };
 
   useEffect(() => {
-    if (reactFlowInstance && nodes?.length) {
-      reactFlowInstance.fitView();
-    }
-  }, [reactFlowInstance, nodes?.length]);
-
-  useEffect(() => {
     if (reactFlowInstance && nodes?.length) reactFlowInstance.fitView();
     // setDirectionTB(!directionTB)
   }, [nodesInitialized]);
@@ -270,7 +274,6 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
   useEffect(() => {
     if (!pipeline) {
       setSelectedNode(undefined);
-      setSelectedEdge(undefined);
       setNodes([]);
       setEdges([]);
       return;
@@ -290,16 +293,27 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
   useEffect(() => {
     if (selectedNode) {
       setContent(
-        <ViewTaskExecution schema={schemas[schemaName]} taskExecution={selectedNode.data} dataAll={undefined} />
+        <ViewTaskExecution schema={schemas[schemaName]} taskExecution={selectedNode.data.task} dataAll={undefined} />
       );
     }
   }, [selectedNode]);
 
+  const handleRefresh = async () => {
+    await handleRefreshTasks()
+    if (selectedNode) {
+      // updated selected node to reflect changes in side panel.
+      const updatedSelectedNode = getExistingNode(selectedNode.id);
+      if (updatedSelectedNode) {
+        setSelectedNode(updatedSelectedNode);
+      }
+    }
+  }
+
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-  const getDefaultWidth = (node: Node) => {
-    let width = node.data.task_execution_name.length * 20 + 100;
+  const getDefaultWidth = (node: TaskExecutionNode) => {
+    let width = node.data?.task ? node.data.task.task_execution_name.length * 20 + 100: 15;
 
     return width < 200 ? 200 : width;
   };
@@ -321,8 +335,8 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
         g.setNode(node.id, {
           ...node,
           data: newData,
-          width: node.width ?? getDefaultWidth(node),
-          height: node.height ?? 225,
+          width: node.measured?.width ?? getDefaultWidth(node as TaskExecutionNode),
+          height: node.measured?.height ?? 225,
         });
       });
     } else {
@@ -336,8 +350,8 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
         const position = g.node(node.id);
         // We are shifting the dagre node position (anchor=center center) to the top left
         // so it matches the React Flow node anchor point (top left).
-        const x = position.x - (node.width ?? 0) / 2;
-        const y = position.y - (node.height ?? 0) / 2;
+        const x = position.x - (node.measured?.width ?? 0) / 2;
+        const y = position.y - (node.measured?.height ?? 0) / 2;
 
         return { ...node, position: { x, y } };
       }),
@@ -365,29 +379,31 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
 
     try {
       pipeline.pipeline_tasks.forEach((task: TaskExecution) => {
-        const existingNode = getExistingNode(task.task_execution_id.toString());
-        let node: Node = {
+        const existingNode = getExistingNode(task.task_execution_id.toString()) as TaskExecutionNode;
+        let node: TaskExecutionNode = {
           id: task.task_execution_id.toString(), // Convert ID to string
-          type: "custom", // Change to appropriate node type if needed
-          data: {} as any, // Directly specify the type as any
+          type: "task", // Change to appropriate node type if needed
+          data: {task: {} as TaskExecution} as any, // Directly specify the type as any
           position: { x: 0, y: 0 },
         };
 
         if (existingNode) {
           // existing node found, only update the data.
           node = existingNode;
-          node.data = {} as any;
+          node.data = {task: {} as TaskExecution} as any;
         }
 
         // Iterate through keys of task object
         for (const key in task) {
           if (task.hasOwnProperty(key)) {
-            node.data[key] = task[key];
+            node.data.task[key] = task[key];
           }
         }
 
+        node.data.layoutDirectionTB = directionTB;
+
         node.data.handleSplitPanelOpen = setSplitPanelOpen;
-        node.data.handleRefreshTasks = handleRefreshTasks;
+        node.data.handleRefreshTasks = handleRefresh;
 
         // Add node to nodes array
         newNodes.push(node);
@@ -439,8 +455,8 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
   const visualActions = () => {
     let actionButtons = [];
 
-    actionButtons.push(<Button iconAlign="right" iconName="refresh" ariaLabel={"Refresh"} onClick={() => handleRefreshTasks()}/>)
-    actionButtons.push(<Button onClick={() => setDirectionTB(!directionTB)}>Toggle layout direction</Button>);
+    actionButtons.push(<Button key={"refresh"} iconAlign="right" iconName="refresh" ariaLabel={"Refresh"} onClick={() => handleRefresh()}/>)
+    actionButtons.push(<Button key={"direction"} onClick={() => setDirectionTB(!directionTB)}>Toggle layout direction</Button>);
 
     return actionButtons;
   };
@@ -487,7 +503,7 @@ const PipelineVisualManagerWrapper: React.FC<PipelineVisualManagerProps> = ({
 };
 
 const nodeTypes = {
-  custom: PipelineTaskNode,
+  task: PipelineTaskNode,
 };
 
 export { PipelineVisualManagerWrapper, nodeTypes };
