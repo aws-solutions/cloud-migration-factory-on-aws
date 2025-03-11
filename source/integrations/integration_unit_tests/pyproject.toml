@@ -4,14 +4,14 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-urllib3 = ">2.2.2"
-boto3 = "^1.35.46"
-botocore = "^1.35.46"
-moto = "^5.0.11"
-coverage = "^7.3.0"
-freezegun = "^1.2.2"
-joserfc = "^0.9.0"
-paramiko = "^3.4.0"
+urllib3 = ">=2.3.0"
+boto3 = "^1.37.6"
+botocore = "^1.37.6"
+moto = "^5.1.1"
+coverage = "^7.6.12"
+freezegun = "^1.5.1"
+joserfc = "~=1.0.4"
+paramiko = "^3.5.1"
 polling2 = "^0.5.0"
 
 [build-system]

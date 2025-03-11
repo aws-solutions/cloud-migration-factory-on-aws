@@ -17,7 +17,12 @@ class TaskExecutionStatus(Enum):
     IN_PROGRESS = "In Progress"
     FAILED = "Failed"
     PENDING_APPROVAL = "Pending Approval"
+    NOT_STARTED = "Not Started"
+    SKIPPED = "Skip"
+    RETRY = "Retry"
 
+STATUS_OK_TO_PROCEED = [TaskExecutionStatus.COMPLETE, TaskExecutionStatus.SKIPPED]
+STATUS_OK_TO_RETRY = [TaskExecutionStatus.COMPLETE, TaskExecutionStatus.SKIPPED, TaskExecutionStatus.FAILED]
 
 def update_task_execution_output(task_execution_id, last_output_message, output):
     update_expr =  'SET #outputLastMessage = :outputLastMessage, #output = :output'
@@ -30,7 +35,16 @@ def update_task_execution_output(task_execution_id, last_output_message, output)
         ':output': output
     }
     update_task_execution(task_execution_id, update_expr, update_expr_attributes, update_attribute_values)
-
+    
+def get_task_execution_status(task_execution):
+    status_str = task_execution.get('task_execution_status', '{not-set}')
+    if status_str == '{not-set}':
+        return None
+    try:
+        return TaskExecutionStatus(status_str)
+    except ValueError:
+        logger.warning(f"Invalid task execution status: {status_str}")
+        return None 
 
 def update_task_execution_status(task_execution_id, status: TaskExecutionStatus):
     update_expr = 'SET #task_execution_status = :task_execution_status'
@@ -67,6 +81,6 @@ def update_task_execution(task_execution_id, update_expr, update_expr_attributes
     except botocore.exceptions.ClientError as e:
         error_code = e.response.get("Error", {}).get("Code")
         if error_code == "ConditionalCheckFailedException":
-            logger.info("Task execution already deleted")
+            logger.info(f'Task execution no longer exists {task_execution_id}')
         else:
-            raise e
+            raise RuntimeError(f'Error updating task execution {task_execution_id}') from e

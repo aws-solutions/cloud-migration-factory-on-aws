@@ -176,7 +176,11 @@ def run_task_windows(parameters):
                "-Servername",
                parameters["server"]['server_fqdn'],
                "-usessl",
-               "$" + str(parameters["windows_use_ssl"]).lower()
+               "$" + str(parameters["windows_use_ssl"]).lower(),
+               "-noreplication",
+               "$" + str(parameters["mgn_no_replication"]).lower(),
+               "-replicationdrives",
+               f'"{parameters["mgn_replication_devices"]}"'
                ]
 
     if 'SessionToken' in parameters["agent_install_secrets"] and parameters["agent_install_secrets"][
@@ -228,19 +232,24 @@ def run_task_linux(task_params):
         sesssion_token = ""
 
     try:
-        final_output = linuxpkg.install_mgn(task_params["agent_linux_download_url"],
-                                            task_params["region"],
-                                            task_params["server"]['server_fqdn'],
-                                            task_params["linux_user_name"],
-                                            task_params['linux_pass_key'],
-                                            task_params["linux_key_exist"],
-                                            task_params["agent_install_secrets"]
-                                            ['AccessKeyId'],
-                                            task_params["agent_install_secrets"]
-                                            ['SecretAccessKey'],
-                                            sesssion_token,
-                                            task_params["s3_endpoint"],
-                                            task_params["mgn_endpoint"])
+        final_output = (
+                linuxpkg.install_mgn(
+                agent_linux_download_url=task_params["agent_linux_download_url"],
+                region=task_params["region"],
+                host= task_params["server"]['server_fqdn'],
+                username=task_params["linux_user_name"],
+                key_pwd=task_params['linux_pass_key'],
+                using_key=task_params["linux_key_exist"],
+                aws_access_key=task_params["agent_install_secrets"]['AccessKeyId'],
+                aws_secret_access_key=task_params["agent_install_secrets"]['SecretAccessKey'],
+                session_token=sesssion_token,
+                s3_endpoint=task_params["s3_endpoint"],
+                mgn_endpoint=task_params["mgn_endpoint"],
+                no_replication=task_params["mgn_no_replication"],
+                replication_devices=task_params["mgn_replication_devices"]
+            )
+        )
+
         # Add any output processing here on task completion.
         return final_output
 
@@ -272,6 +281,7 @@ def add_linux_servers_to_install_queue(account, pool, linux_secret_name, s3_endp
         server_parameters["linux_pass_key"] = linux_credentials['password']
         server_parameters["linux_key_exist"] = linux_credentials['private_key']
         server_parameters["region"] = account['aws_region']
+        server_parameters["mgn_replication_devices"] = server.get('mgn_replication_devices', None)
 
         print(MSG_QUEUED_TASK, server['server_fqdn'], flush=True)
 
@@ -325,6 +335,7 @@ def add_window_servers_to_install_queue(account, pool, windows_secret_name, s3_e
         server_parameters["windows_user_name"] = windows_credentials['username']
         server_parameters["windows_password"] = windows_credentials['password']
         server_parameters["region"] = account['aws_region']
+        server_parameters["mgn_replication_devices"] = server.get('mgn_replication_devices', '')
 
         add_windows_server_to_install_queue(pool, server_parameters)
 
@@ -358,7 +369,7 @@ def get_agent_install_secrets(use_iam_user_aws_credentials, account, mgn_iam_use
 
 def install_mgn_agents(reinstall, get_servers, linux_secret_name=None, windows_secret_name=None, no_user_prompts=False,
                        concurrency=10, use_iam_user_aws_credentials=False, s3_endpoint=None, mgn_endpoint=None,
-                       windows_use_ssl=False, mgn_iam_user_secret_name=None):
+                       windows_use_ssl=False, mgn_iam_user_secret_name=None, mgn_no_replication=False):
     # Create worker pool
     pool = multiprocessing.Pool(concurrency)
 
@@ -381,6 +392,7 @@ def install_mgn_agents(reinstall, get_servers, linux_secret_name=None, windows_s
         "reinstall": reinstall,
         "s3_endpoint": s3_endpoint,
         "mgn_endpoint": mgn_endpoint,
+        "mgn_no_replication": mgn_no_replication,
         "windows_use_ssl": windows_use_ssl
     }
 
@@ -612,6 +624,7 @@ def main(arguments):
     parser.add_argument('--MGNEndpoint', default=None)
     parser.add_argument('--UseSSL', default=False, type=mfcommon.parse_boolean)
     parser.add_argument('--MGNIAMUser', default=None)
+    parser.add_argument('--NoReplication', default=False, type=mfcommon.parse_boolean)
     args = parser.parse_args(arguments)
 
     # Get region value from FactoryEndpoint.json file if migration execution server is on prem
@@ -655,7 +668,7 @@ def main(arguments):
         install_mgn_agents(args.Force, get_servers,
                            args.SecretLinux, args.SecretWindows, args.NoPrompts, args.Concurrency,
                            args.AWSUseIAMUserCredentials, args.S3Endpoint, args.MGNEndpoint, args.UseSSL,
-                           args.MGNIAMUser)
+                           args.MGNIAMUser, args.NoReplication)
     except Exception as e:
         print(e, flush=True)
 

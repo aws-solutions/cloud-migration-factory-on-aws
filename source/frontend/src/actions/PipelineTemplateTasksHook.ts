@@ -17,7 +17,7 @@ export const useGetPipelineTemplateTasks: DataHook = () => {
 
   const apiUser = new UserApiClient();
 
-  async function update() {
+  async function init() {
     const myAbortController = new AbortController();
     dispatch(requestStarted());
 
@@ -36,11 +36,28 @@ export const useGetPipelineTemplateTasks: DataHook = () => {
     };
   }
 
+  async function update() {
+    const myAbortController = new AbortController();
+
+    try {
+      const response = await apiUser.getPipelineTemplateTasks();
+      dispatch(requestSuccessful({ data: response }));
+    } catch (e: any) {
+      if (e.message !== "Request aborted") {
+        console.error("PipelineTemplateTasks Hook", e);
+      }
+    }
+
+    return () => {
+      myAbortController.abort();
+    };
+  }
+
   useEffect(() => {
     let cancelledRequest;
 
     (async () => {
-      await update();
+      await init();
       if (cancelledRequest) return;
     })();
 

@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.3] - 2025-03-11
+### Fixed
+- PIPELINES: Resolved graphical pipeline refresh causing zoom and positions to change for the user while working with the pipelines.
+- MGN: MGN service was updated to tag network interfaces which is causing errors with CMF as the permission was not present by default, this has updated to include this permission in target stack.
+### Changed
+- Bumped all python packages to latest versions. This includes AWS-PowerTools major version change as v2 has been deprecated.
+### Added
+- MGN: Added ability to control replication devices that are configured during installation. Added no replication option to installer to allow agent install without automatically starting the replication.
 ## [4.0.2] - 2024-12-09
 ### Fixed
 - MGN: Resolved server does not exist error when archiving server that is disconnected.

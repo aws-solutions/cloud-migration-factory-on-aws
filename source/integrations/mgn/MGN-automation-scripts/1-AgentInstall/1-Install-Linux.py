@@ -174,9 +174,35 @@ def get_installation_command(python_executable, session_token, region, aws_acces
     return command, display_command
 
 
+def add_additional_parameters(s3_endpoint=None, mgn_endpoint=None, no_replication=False, replication_devices=None):
+    command = ''
+    display_command = ''
+    # Add s3 endpoint if specified in parameters.
+    if s3_endpoint:
+        command += " --s3-endpoint " + s3_endpoint
+        display_command += " --s3-endpoint " + s3_endpoint
+
+    # Add mgn endpoint if specified in parameters.
+    if mgn_endpoint:
+        command += " --endpoint " + mgn_endpoint
+        display_command += " --endpoint " + mgn_endpoint
+
+    # If replication devices specified in parameters use these
+    if replication_devices:
+        command += f' --devices="{replication_devices}"'
+        display_command += f' --devices="{replication_devices}"'
+
+    # if no replication is set then set.
+    if no_replication:
+        command += ' --no-replication'
+        display_command += ' --no-replication'
+
+    return command, display_command
+
+
 def install_mgn(agent_linux_download_url, region, host, username, key_pwd, using_key,
                 aws_access_key, aws_secret_access_key, session_token=None, s3_endpoint=None, mgn_endpoint=None,
-                download_attempts=3, wget_timeout=10):
+                download_attempts=3, wget_timeout=10, no_replication=False, replication_devices=None):
     final_output = {'messages': []}
     pid = multiprocessing.current_process()
     final_output['pid'] = str(pid)
@@ -235,15 +261,14 @@ def install_mgn(agent_linux_download_url, region, host, username, key_pwd, using
                               f" {ACCESS_KEY_ARG}  {aws_access_key}" + \
                               f" {ACCESS_SECRET_KEY_ARG} *****" + \
                               f" {NO_PROMPT_ARG}"
-        # Add s3 endpoint if specified in parameters.
-        if s3_endpoint:
-            command += " --s3-endpoint " + s3_endpoint
-            display_command += " --s3-endpoint " + s3_endpoint
 
-        # Add mgn endpoint if specified in parameters.
-        if mgn_endpoint:
-            command += " --endpoint " + mgn_endpoint
-            display_command += " --endpoint " + mgn_endpoint
+
+        additional_params_command, additional_params_command_display = add_additional_parameters(
+            s3_endpoint,mgn_endpoint,no_replication, replication_devices
+        )
+
+        command += additional_params_command
+        display_command += additional_params_command_display
 
         final_output['messages'].append("Executing " + display_command)
 

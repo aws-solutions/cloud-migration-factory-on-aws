@@ -24,7 +24,7 @@ export const ViewTaskExecution = (props: {
   taskExecution: any;
   dataAll: any;
 }) => {
-  const [viewerCurrentTab, setViewerCurrentTab] = useState("inputs");
+  const [viewerCurrentTab, setViewerCurrentTab] = useState("log");
 
   return (
     <SplitPanel header={props.taskExecution.task_execution_name} hidePreferencesButton>

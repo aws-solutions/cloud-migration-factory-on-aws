@@ -5,7 +5,8 @@
 
 import React, { useCallback, useContext, useEffect, useState } from "react";
 import { Button, Container, Header, Icon, RadioGroup, SpaceBetween, Spinner } from "@cloudscape-design/components";
-import ReactFlow, {
+import {
+  ReactFlow,
   addEdge,
   applyEdgeChanges,
   applyNodeChanges,
@@ -20,17 +21,18 @@ import ReactFlow, {
   Position,
   ReactFlowInstance,
   ReactFlowProvider,
-  useNodesInitialized,
-} from "reactflow";
+  Viewport,
+  NodeProps
+} from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
-import "reactflow/dist/style.css";
+import '@xyflow/react/dist/base.css';
 import ItemAmendModal from "./ItemAmendModal.tsx";
 import UserApiClient from "../api_clients/userApiClient.ts";
 import { getChanges } from "../resources/main.ts";
 import { apiActionErrorHandler, parsePUTResponseErrors } from "../resources/recordFunctions.ts";
 import { NotificationContext } from "../contexts/NotificationContext.tsx";
 import { CMFModal } from "./Modal.tsx";
-import { PipelineTemplate, PipelineTemplateTask } from "../models/Pipeline.ts";
+import {PipelineTemplate, PipelineTemplateTask} from "../models/Pipeline.ts";
 
 type EditorAction = "Add" | "Edit";
 
@@ -40,9 +42,17 @@ const iconTaskMapping: { [key: string]: any } = {
   // Add other icon components as needed
 };
 
-const PipelineTemplateTaskNode = ({ data }: any) => {
+export type TaskNode = Node<
+  {
+    task: PipelineTemplateTask;
+    layoutDirectionTB?: boolean;
+  },
+  'task'
+>;
+
+const PipelineTemplateTaskNode = (props: NodeProps<TaskNode>) => {
   // Determine which icon component to use
-  const TaskIconName = iconTaskMapping[data?.script?.type] ? iconTaskMapping[data.script.type] : "bug";
+  const TaskIconName = iconTaskMapping[props.data?.task?.script?.type] ? iconTaskMapping[props.data.task.script.type] : "bug";
 
   return (
     <Container
@@ -50,22 +60,22 @@ const PipelineTemplateTaskNode = ({ data }: any) => {
         <SpaceBetween size={"xs"} direction={"horizontal"}>
           <RadioGroup
             onChange={({ detail }) => {}}
-            value={data?.selected ? "selected" : null}
+            value={props?.selected ? "selected" : null}
             items={[{ value: "selected", label: "" }]}
           />
           <Icon size={"medium"} name={TaskIconName} />
-          {data.pipeline_template_task_name}
+          {props.data.task.pipeline_template_task_name}
         </SpaceBetween>
       }
     >
       <Handle
         type="target"
-        position={data.layoutDirectionTB ? Position.Top : Position.Left}
+        position={props.data.layoutDirectionTB ? Position.Top : Position.Left}
         className="w-16 !bg-teal-500"
       />
       <Handle
         type="source"
-        position={data.layoutDirectionTB ? Position.Bottom : Position.Right}
+        position={props.data.layoutDirectionTB ? Position.Bottom : Position.Right}
         className="w-16 !bg-teal-500"
       />
     </Container>
@@ -93,30 +103,31 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
 }) => {
   const { addNotification } = useContext(NotificationContext);
   const [isAddTaskModalVisible, setIsAddTaskModalVisible] = useState(false);
-  const [selectedEdge, setSelectedEdge] = useState<Edge>();
   const [selectedNode, setSelectedNode] = useState<Node>();
   const [taskAdd, setTaskAdd] = useState<PipelineTemplateTask | undefined>(undefined);
   const [directionTB, setDirectionTB] = useState(true);
   const [nodes, setNodes] = useState<Node[]>();
   const [edges, setEdges] = useState<Edge[]>();
+  const [viewPort, setViewPort] = useState<Viewport>()
   const [action, setAction] = useState<EditorAction>("Add");
-  const nodesInitialized = useNodesInitialized(options);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance>();
   const [isDeleteConfirmationModalVisible, setIsDeleteConfirmationModalVisible] = useState(false);
 
-  const onInit = (rf: ReactFlowInstance) => {
-    setReactFlowInstance(rf);
-  };
-
   useEffect(() => {
     if (reactFlowInstance && nodes?.length) {
+      let beforeViewPort = undefined;
+      if(viewPort){
+        beforeViewPort = viewPort;
+      }
       reactFlowInstance.fitView();
+      if(beforeViewPort) {
+        setViewPort(beforeViewPort);
+      }
     }
   }, [reactFlowInstance, nodes?.length]);
 
   useEffect(() => {
     setSelectedNode(undefined);
-    setSelectedEdge(undefined);
 
     if (!pipelineTemplate) {
       console.debug("Clearing Nodes and Edges as no pipeline template.");
@@ -151,8 +162,8 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-  const getDefaultWidth = (node: Node) => {
-    let width = node.data.pipeline_template_task_name.length * 15;
+  const getDefaultWidth = (node: TaskNode) => {
+    let width = node.data?.task ? node.data?.task.pipeline_template_task_name.length * 15 : 15;
 
     return width < 100 ? 100 : width;
   };
@@ -175,8 +186,8 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
         g.setNode(node.id, {
           ...node,
           data: newData,
-          width: node.width ?? getDefaultWidth(node),
-          height: node.height ?? 100,
+          width: node.measured?.width ?? getDefaultWidth(node as TaskNode),
+          height: node.measured?.height ?? 100,
         });
       });
     } else {
@@ -190,8 +201,8 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
         const position = g.node(node.id);
         // We are shifting the dagre node position (anchor=center center) to the top left
         // so it matches the React Flow node anchor point (top left).
-        const x = position.x - (node.width ?? 0) / 2;
-        const y = position.y - (node.height ?? 0) / 2;
+        const x = position.x - (node.measured?.width ?? 0) / 2;
+        const y = position.y - (node.measured?.height ?? 0) / 2;
 
         return { ...node, position: { x, y } };
       }),
@@ -229,23 +240,23 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
     console.debug("starting transformDataForReactFlow");
     if (!pipelineTemplate?.pipeline_template_tasks) return { nodes: [], edges: [] };
 
-    const newNodes: Node[] = [];
+    const newNodes: TaskNode[] = [];
     const newEdges: Edge[] = [];
 
     try {
       pipelineTemplate.pipeline_template_tasks.forEach((task: PipelineTemplateTask) => {
-        const existingNode = getExistingNode(task.pipeline_template_task_id.toString());
-        let node: Node = {
+        const existingNode = getExistingNode(task.pipeline_template_task_id.toString()) as TaskNode;
+        let node: TaskNode = {
           id: task.pipeline_template_task_id.toString(), // Convert ID to string
-          type: "custom", // Change to appropriate node type if needed
-          data: {} as any, // Directly specify the type as any
+          type: "task", // Change to appropriate node type if needed
+          data: {task: {} as PipelineTemplateTask} as any, // Directly specify the type as any
           position: { x: 0, y: 0 },
         };
 
         if (existingNode) {
           // existing node found, only update the data.
           node = existingNode;
-          node.data = {} as any;
+          node.data.task = {} as PipelineTemplateTask;
         }
 
         node.data.layoutDirectionTB = directionTB;
@@ -253,7 +264,7 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
         // Iterate through keys of task object and add to node.data
         for (const key in task) {
           if (task.hasOwnProperty(key)) {
-            node.data[key] = task[key];
+            node.data.task[key] = task[key];
           }
         }
 
@@ -300,10 +311,8 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
   async function processNodesChange(changes: NodeChange[]) {
     console.debug("starting processNodesChange");
     for (const change of changes) {
-      switch (change.type) {
-        case "remove":
-          setIsDeleteConfirmationModalVisible(true);
-          break;
+      if (change.type === "remove") {
+        setIsDeleteConfirmationModalVisible(true);
       }
     }
     console.debug("Setting Nodes after Node change event.");
@@ -337,7 +346,7 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
       const updatedNode = {
         task_successors: newTaskSuccessors,
       };
-      const result = await apiUser.putItem(params.source, updatedNode, "pipeline_template_task");
+      await apiUser.putItem(params.source, updatedNode, "pipeline_template_task");
       setEdges((eds: any) => addEdge(params, eds));
 
       await handleRefresh();
@@ -350,12 +359,8 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
     setSelectedNode(clickedNode);
     if (nodes) {
       const updatedNodes = nodes.map((node) => {
-        let newData = node.data;
-        newData.selected = clickedNode.id === node.id;
-        return {
-          ...node,
-          data: newData,
-        };
+        node.selected = clickedNode.id === node.id;
+        return node;
       });
       setNodes(updatedNodes);
     }
@@ -393,7 +398,6 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
   }
 
   async function doubleclickEdge(event: React.MouseEvent, edge: Edge) {
-    setSelectedEdge(edge);
     showAddNode(edge);
   }
 
@@ -406,7 +410,7 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
     setTaskAdd(undefined);
   };
 
-  async function saveNewTask(amendedItem: PipelineTemplateTask | any, action: string) {
+  async function saveNewTask(amendedItem: any, action: string) {
     setIsAddTaskModalVisible(false);
     let amendedItemCopy: Record<string, any> = { ...amendedItem };
     let result;
@@ -509,19 +513,20 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
             {/* Render React Flow component */}
             <div style={{ width: "100%", height: "85vh" }}>
               <ReactFlow
-                onInit={onInit}
+                onInit={(instance) => setReactFlowInstance(instance)}
                 nodes={nodes}
                 edges={edges}
                 nodeTypes={nodeTypes} // Pass custom node types
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
-                onEdgeClick={(event: React.MouseEvent, edge: Edge) => setSelectedEdge(edge)}
                 onNodeClick={(event: React.MouseEvent, node: Node) => nodeClick(node)}
                 onEdgeDoubleClick={(event: React.MouseEvent, edge: Edge) => doubleclickEdge(event, edge)}
                 onNodeDoubleClick={(event: React.MouseEvent, node: Node) => doubleclickNode(event, node)}
                 onConnect={onConnect}
                 panOnScroll={true}
                 fitView={true}
+                viewport={viewPort}
+                onViewportChange={(viewport: Viewport) => setViewPort(viewport)}
               >
                 <Controls />
                 <MiniMap zoomable pannable />
@@ -551,7 +556,7 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
           onConfirmation={() => deleteNode(selectedNode?.id)}
           header={"Delete template task"}
         >
-          <p>Are you sure you wish to delete the task '{selectedNode?.data.pipeline_template_task_name}'?</p>
+          <p>Are you sure you wish to delete the task '{(selectedNode as TaskNode).data.task.pipeline_template_task_name}'?</p>
         </CMFModal>
       ) : null}
     </>
@@ -573,7 +578,7 @@ const PipelineTemplateVisualEditorWrapper: React.FC<PipelineTemplateVisualEditor
 };
 
 const nodeTypes = {
-  custom: PipelineTemplateTaskNode,
+  task: PipelineTemplateTaskNode,
 };
 
 export { PipelineTemplateVisualEditorWrapper, nodeTypes };
