@@ -40,6 +40,6 @@ aws s3 cp global-s3-assets/  s3://$TEMPLATE_BUCKET_NAME/$SOLUTION_NAME/$VERSION/
 aws s3 cp regional-s3-assets/  s3://$ASSET_BUCKET_NAME/$SOLUTION_NAME/$VERSION/ --recursive --acl bucket-owner-full-control
 
 # Update stack
-aws cloudformation update-stack \
-    --stack-name cmf-solution-stack-TEST \
-    --template-url https://cmf-deployment-537124965680-reference.s3.eu-central-1.amazonaws.com/cloud-migration-factory-on-aws/custom001/aws-cloud-migration-factory-solution.template
+#aws cloudformation update-stack \
+#    --stack-name cmf-solution-stack-TEST \
+#    --template-url https://cmf-deployment-537124965680-reference.s3.eu-central-1.amazonaws.com/cloud-migration-factory-on-aws/custom001/aws-cloud-migration-factory-solution.template
