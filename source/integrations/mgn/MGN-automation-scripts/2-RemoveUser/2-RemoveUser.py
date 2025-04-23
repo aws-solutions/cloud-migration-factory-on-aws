@@ -21,10 +21,7 @@
 from __future__ import print_function
 import sys
 import argparse
-import requests
-import json
 import subprocess
-import getpass
 
 if not sys.warnoptions:
     import warnings

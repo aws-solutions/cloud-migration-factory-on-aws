@@ -2,7 +2,8 @@
 #  SPDX-License-Identifier: Apache-2.0
 from datetime import datetime, timezone
 import os
-import requests
+from botocore.vendored import requests
+#import requests
 import json
 
 # System-wide data format for logging and notifications.

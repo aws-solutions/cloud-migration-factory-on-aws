@@ -4,8 +4,8 @@ import traceback
 from datetime import datetime, timezone
 import json
 import os
-
-import requests
+from botocore.vendored import requests
+#import requests
 
 import cmf_boto
 from cmf_logger import logger

@@ -6,7 +6,8 @@ import os
 import json
 import boto3
 import sys
-import requests
+from botocore.vendored import requests
+#import requests
 import paramiko
 from pathlib import Path
 from moto import mock_aws

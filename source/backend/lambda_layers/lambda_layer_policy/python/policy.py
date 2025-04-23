@@ -4,7 +4,6 @@ import base64
 import os
 import boto3
 import re
-import requests
 import simplejson as json
 import jwt
 from jwt import PyJWKClient

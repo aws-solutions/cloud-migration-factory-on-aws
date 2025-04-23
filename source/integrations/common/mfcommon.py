@@ -2,7 +2,8 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import sys
-import requests
+from botocore.vendored import requests
+#import requests
 import json
 import getpass
 import boto3

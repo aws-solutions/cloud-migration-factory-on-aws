@@ -5,7 +5,8 @@ import json
 import os
 
 import cmf_boto
-import requests
+from botocore.vendored import requests
+#import requests
 from cmf_logger import logger
 
 import factory

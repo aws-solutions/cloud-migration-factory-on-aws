@@ -5,7 +5,8 @@ import os
 import uuid
 
 from polling2 import TimeoutException, poll
-import requests
+from botocore.vendored import requests
+#import requests
 import threading
 import zipfile
 import tempfile

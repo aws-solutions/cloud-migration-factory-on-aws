@@ -5,8 +5,8 @@
 import json
 import os
 import time
-import requests
-
+#import requests
+from botocore.vendored import requests
 import cmf_boto
 from cmf_logger import logger
 
