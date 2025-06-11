@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 function mergeArrayAttributes(result: any, entity: any) {
   if (Array.isArray(result[entity.schema_name].attributes)) {
     if (result[entity.schema_name].attributes.length === 0) {

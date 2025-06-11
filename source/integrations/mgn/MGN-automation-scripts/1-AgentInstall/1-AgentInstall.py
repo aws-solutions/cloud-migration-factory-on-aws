@@ -1,20 +1,5 @@
-#########################################################################################
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.                    #
-# SPDX-License-Identifier: MIT-0                                                        #
-#                                                                                       #
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this  #
-# software and associated documentation files (the "Software"), to deal in the Software #
-# without restriction, including without limitation the rights to use, copy, modify,    #
-# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to    #
-# permit persons to whom the Software is furnished to do so.                            #
-#                                                                                       #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,   #
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A         #
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT    #
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION     #
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE        #
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
-#########################################################################################
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
 
 # Version: 1SEP2023.00
 
@@ -226,11 +211,6 @@ def run_task_linux(task_params):
     final_output['host'] = task_params["server"]['server_fqdn']
     final_output['messages'].append("Installing MGN Agent on :  " + task_params["server"]['server_fqdn'])
 
-    if 'SessionToken' in task_params["agent_install_secrets"]:
-        sesssion_token = task_params["agent_install_secrets"]['SessionToken']
-    else:
-        sesssion_token = ""
-
     try:
         final_output = (
                 linuxpkg.install_mgn(
@@ -240,9 +220,7 @@ def run_task_linux(task_params):
                 username=task_params["linux_user_name"],
                 key_pwd=task_params['linux_pass_key'],
                 using_key=task_params["linux_key_exist"],
-                aws_access_key=task_params["agent_install_secrets"]['AccessKeyId'],
-                aws_secret_access_key=task_params["agent_install_secrets"]['SecretAccessKey'],
-                session_token=sesssion_token,
+                aws_agent_secret=task_params["agent_install_secrets"],
                 s3_endpoint=task_params["s3_endpoint"],
                 mgn_endpoint=task_params["mgn_endpoint"],
                 no_replication=task_params["mgn_no_replication"],

@@ -100,7 +100,7 @@ class StatusCodeUpdate:
         self.status_code = status_code
 
 
-def mock_factory_login():
+def mock_factory_login(silent=False, mf_config_override=None):
     return "valid_token"
 
 
@@ -108,6 +108,6 @@ def mock_sleep(ms):
     logger.debug(f'mock_sleep({ms})')
 
 
-def mock_get_factory_servers(arg1, arg2, arg3, arg4):
-    logger.debug(f'mock_get_factory_servers({arg1}, {arg2}, {arg3}, {arg4})')
+def mock_get_factory_servers(*args):
+    logger.debug(f'mock_get_factory_servers({args})')
     return copy.deepcopy(servers_list)

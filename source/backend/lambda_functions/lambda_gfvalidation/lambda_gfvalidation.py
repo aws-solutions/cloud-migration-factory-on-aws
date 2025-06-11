@@ -86,8 +86,8 @@ def init_server_params(server):
         server['root_vol_name'] = ''
     if "root_vol_type" not in server:
         server['root_vol_type'] = ''
-    if "ebs_kmskey_id" not in server:
-        server['ebs_kmskey_id'] = ''
+    if "ebs_kms_key_id" not in server:
+        server['ebs_kms_key_id'] = ''
     if "add_vols_size" not in server:
         server['add_vols_size'] = ''
     if "iamRole" not in server:

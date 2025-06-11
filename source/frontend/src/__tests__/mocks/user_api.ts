@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { rest } from "msw";
 import { v4 } from "uuid";
 import { Server } from "../../models/Server";

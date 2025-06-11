@@ -12,7 +12,7 @@ import factory
 
 SCHEMA_TABLE = os.getenv('SchemaDynamoDBTable')
 
-CONST_REPLATFORM_ATTRIBUTE_NAMES = ["root_vol_size", "ami_id", "availabilityzone", "root_vol_type", "add_vols_size", "add_vols_type", "ebs_optimized", "ebs_kmskey_id", "detailed_monitoring", "root_vol_name", "add_vols_name"]
+CONST_REPLATFORM_ATTRIBUTE_NAMES = ["root_vol_size", "ami_id", "availabilityzone", "root_vol_type", "add_vols_size", "add_vols_type", "ebs_optimized", "ebs_kms_key_id", "detailed_monitoring", "root_vol_name", "add_vols_name"]
 CONST_TARGET_STORAGE = 'Target - Storage'
 CONST_TARGET_INSTANCE = 'Target - Instance'
 
@@ -142,7 +142,7 @@ def read_attributes(attr: dict, server_schema: ServerSchema):
     if attr['name'] == 'ebs_optimized':
         server_schema.ebsoptexists = 1
 
-    if attr['name'] == 'ebs_kmskey_id':
+    if attr['name'] == 'ebs_kms_key_id':
         server_schema.ebskmsexists = 1
 
     if attr['name'] == 'detailed_monitoring':
@@ -381,30 +381,12 @@ def set_default_attributes(server_schema, attributes):
 
             {
                 "description": "EBS KMS Key Id or ARN for Volume Encryption",
-                "name": "ebs_kmskey_id",
+                "name": "ebs_kms_key_id",
                 "system": True,
                 "type": "string",
                 "group": CONST_TARGET_STORAGE,
-                "validation_regex": "^(arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key/){0,1}[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
-                "validation_regex_msg": "Provide a valid KMS Key or ARN.",
-                "conditions": {
-                    "queries": [
-                        {
-                            "comparator": "!=",
-                            "value": "Replatform",
-                            "attribute": "r_type"
-                        },
-                        {
-                            "comparator": "empty",
-                            "attribute": "ebs_kmskey_id"
-                        }
-                    ],
-                    "outcomes": {
-                        "true": [
-                            "hidden"
-                        ]
-                    }
-                }
+                "validation_regex": "^(arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key/){0,1}([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|mrk-[a-f0-9]{32})$",
+                "validation_regex_msg": "Provide a valid KMS Key or ARN."
             })
 
     if server_schema.detailexists == 0:

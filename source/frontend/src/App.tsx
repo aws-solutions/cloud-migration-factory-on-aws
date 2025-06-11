@@ -138,7 +138,7 @@ const App = () => {
   function processSocketMessage(msg: any) {
     let wsData: any = null;
     try {
-      wsData = JSON.parse(msg);
+      wsData = JSON.parse(msg.data);
     } catch {
       wsData = msg.data;
     }

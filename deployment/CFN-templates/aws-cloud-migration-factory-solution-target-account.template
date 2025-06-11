@@ -446,10 +446,8 @@ Resources:
                 Action:
                   - 's3:GetObject'
                 Resource: 
-                  - 'arn:aws:s3:::migration-factory-*-*-gfbuild-cftemplates'
-                  - 'arn:aws:s3:::migration-factory-*-*-gfbuild-cftemplates/*'
-
-
+                  - !Sub 'arn:aws:s3:::*-*-${FactoryAWSAccountId}-gfbuild-cftemplates'
+                  - !Sub 'arn:aws:s3:::*-*-${FactoryAWSAccountId}-gfbuild-cftemplates/*'
               - Effect: Allow
                 Action:
                   - 'kms:ListAliases'

@@ -182,8 +182,8 @@ def process_server(server, applist, appnamelist, appnumb, template, templates_ge
         server['root_vol_name'] = ''
     if "root_vol_type" not in server:
         server['root_vol_type'] = ''
-    if "ebs_kmskey_id" not in server:
-        server['ebs_kmskey_id'] = ''
+    if "ebs_kms_key_id" not in server:
+        server['ebs_kms_key_id'] = ''
     if "iamRole" not in server:
         server['iamRole'] = ''
 
@@ -294,11 +294,11 @@ def get_server_list(waveid):
         return templates_generated
 
 
-def add_volumes(addvolcount, ebs_kmskey_id, template, server_name_alpha, param_az, param_ebskmskey, tags, ec2_instance):
+def add_volumes(addvolcount, ebs_kms_key_id, template, server_name_alpha, param_az, param_ebs_kms_key, tags, ec2_instance):
     volume_id = 1
     while volume_id <= addvolcount:
         volume_id_str = str(volume_id)
-        if len(str(ebs_kmskey_id)) == 0:
+        if len(str(ebs_kms_key_id)) == 0:
             volume = template.add_resource(
                 ec2.Volume(
                     server_name_alpha + "Volume" + volume_id_str,
@@ -313,7 +313,7 @@ def add_volumes(addvolcount, ebs_kmskey_id, template, server_name_alpha, param_a
                     server_name_alpha + "Volume" + volume_id_str,
                     Encrypted='true',
                     AvailabilityZone=Ref(param_az),
-                    KmsKeyId=Ref(param_ebskmskey),
+                    KmsKeyId=Ref(param_ebs_kms_key),
                     Size=Ref(server_name_alpha + 'volume' + volume_id_str + 'size'),
                     VolumeType=Ref(server_name_alpha + 'volume' + volume_id_str + 'type')))
             volume.Tags = tags
@@ -410,7 +410,7 @@ def generate_cft(app_id, app_name, template, addvolcount, server_name, server, t
         root_vol_size = server['root_vol_size']
         root_vol_name = server['root_vol_name']
         root_vol_type = server['root_vol_type']
-        ebs_kmskey_id = server['ebs_kmskey_id']
+        ebs_kms_key_id = server['ebs_kms_key_id']
         availabilityzone = server['availabilityzone']
         ami_id = server['ami_id']
         ebs_optimized = server['ebs_optimized']
@@ -506,7 +506,7 @@ def generate_cft(app_id, app_name, template, addvolcount, server_name, server, t
                 Description="ID or ARN of the KMS master key to be used to encrypt EBS Volumes",
                 Type="String",
                 AllowedPattern="^(arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key/){0,1}[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$|^$",
-                Default=ebs_kmskey_id
+                Default=ebs_kms_key_id
 
             )
         )
@@ -595,7 +595,7 @@ def generate_cft(app_id, app_name, template, addvolcount, server_name, server, t
         ec2_instance.Tags = get_updated_tags(tags, server_name)
 
         # Adding Additional Volume and Volume Attachment Resource into template
-        add_volumes(addvolcount, ebs_kmskey_id, template, server_name_alpha, param_az, param_ebskmskey, tags,
+        add_volumes(addvolcount, ebs_kms_key_id, template, server_name_alpha, param_az, param_ebskmskey, tags,
                     ec2_instance)
 
         # Adding Output Parameters into template

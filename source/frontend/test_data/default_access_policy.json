@@ -183,7 +183,7 @@
       },
       {
         "attr_type": "server",
-        "attr_name": "ebs_kmskey_id"
+        "attr_name": "ebs_kms_key_id"
       },
       {
         "attr_type": "server",

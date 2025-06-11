@@ -1,8 +1,9 @@
-// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
+
+// @ts-nocheck
 
 const REQUEST_STARTED = "REQUEST_STARTED";
 const REQUEST_SUCCESSFUL = "REQUEST_SUCCESSFUL";

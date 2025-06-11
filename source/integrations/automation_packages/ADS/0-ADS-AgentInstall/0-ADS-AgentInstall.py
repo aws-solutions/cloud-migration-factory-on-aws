@@ -28,9 +28,6 @@ def add_window_servers_to_install_queue(account, windows_secret_name, agent_inst
                                                                   server,
                                                                   windows_secret_name,
                                                                   no_user_prompts)
-
-            print(windows_credentials)
-            print(windows_secret_name)
             if windows_credentials['username'] != "":
                 if "\\" not in windows_credentials['username'] and "@" not in windows_credentials[
                     'username']:

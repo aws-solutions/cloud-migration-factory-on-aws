@@ -1,3 +1,6 @@
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
 import traceback
 import cmf_boto
 from boto3.dynamodb.conditions import Key, Attr

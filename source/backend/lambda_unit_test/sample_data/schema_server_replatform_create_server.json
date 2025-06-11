@@ -213,30 +213,12 @@
     },
     {
       "description": "EBS KMS Key Id or ARN for Volume Encryption",
-      "name": "ebs_kmskey_id",
+      "name": "ebs_kms_key_id",
       "system": true,
       "type": "string",
       "group": "Target - Storage",
-      "validation_regex": "^(arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key/){0,1}[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
-      "validation_regex_msg": "Provide a valid KMS Key or ARN.",
-      "conditions": {
-        "queries": [
-          {
-            "comparator": "!=",
-            "value": "Replatform",
-            "attribute": "r_type"
-          },
-          {
-            "comparator": "empty",
-            "attribute": "ebs_kmskey_id"
-          }
-        ],
-        "outcomes": {
-          "true": [
-            "hidden"
-          ]
-        }
-      }
+      "validation_regex": "^(arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key/){0,1}([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|mrk-[a-f0-9]{32})$",
+      "validation_regex_msg": "Provide a valid KMS Key or ARN."
     },
     {
       "description": "Enable Detailed Monitoring",

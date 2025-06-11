@@ -147,7 +147,7 @@
               "S": "EBS KMS Key Id for Volume Encryption"
             },
             "name": {
-              "S": "ebs_kmskey_id"
+              "S": "ebs_kms_key_id"
             },
             "group": {
               "S": "Target - Storage"

@@ -106,6 +106,11 @@ for d in */ ; do
      if [ -f "$(pwd)/pyproject.toml" ]; then
       "$POETRY_HOME"/bin/poetry export -f requirements.txt --output requirements.txt --without-hashes
       pip install -r ./requirements.txt -t . --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
+      if [ $? -ne 0 ]
+        then
+          echo "  ---- FAILURE: Build lambda function packages."
+          exit 1
+      fi
     fi
     d1=${d%?}
     zip -r $build_dist_dir/$d1.zip ./
@@ -127,6 +132,11 @@ for d in */ ; do
     if [ -f "$(pwd)/pyproject.toml" ]; then
       "$POETRY_HOME"/bin/poetry export -f requirements.txt --output requirements.txt --without-hashes
       pip install -r ./requirements.txt -t ./lib/python3.11/site-packages/ --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
+      if [ $? -ne 0 ]
+        then
+          echo "  ---- FAILURE: Build lambda layer packages."
+          exit 1
+      fi
     fi
     cd ../
     d1=${d%?}
@@ -150,6 +160,11 @@ for d in */ ; do
      if [ -f "$(pwd)/pyproject.toml" ]; then
       "$POETRY_HOME"/bin/poetry export -f requirements.txt --output requirements.txt --without-hashes
       pip install -r ./requirements.txt -t . --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
+      if [ $? -ne 0 ]
+        then
+          echo "  ---- FAILURE: Build Integrations lambda packages."
+          exit 1
+      fi
     fi
     d1=${d%?}
     zip -r $build_dist_dir/lambda_$d1.zip .

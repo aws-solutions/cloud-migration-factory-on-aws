@@ -15,6 +15,8 @@ from datetime import datetime, UTC
 
 TIME_OUT = 60 * 60
 
+SERVER_INSTANCE_ID_ATTR_NAME = 'target_instance_id'
+
 
 def unix_time_millis(dt):
     epoch = datetime.fromtimestamp(0, UTC)
@@ -60,7 +62,7 @@ def get_mgn_source_servers(mgn_client_base):
             return source_server_data
 
 
-def get_instance_id(server_list):
+def get_instance_id(server_list, cmf_access_token):
     for account in server_list:
         target_account_session = assume_role(str(account['aws_accountid']), account['aws_region'])
         print("")
@@ -75,25 +77,25 @@ def get_instance_id(server_list):
                 sourceserver = mfcommon.get_mgn_source_server(
                     factoryserver, mgn_sourceservers)
                 if sourceserver is not None:
-                    update_target_instance_id(sourceserver, factoryserver, account)
+                    update_target_instance_id(sourceserver, factoryserver, account, cmf_access_token)
     return server_list
 
 
-def update_target_instance_id(sourceserver, factoryserver, account):
+def update_target_instance_id(sourceserver, factoryserver, account, cmf_access_token):
     # Get target instance Id for the source server in Application Migration Service
     # at this point sourceserver['isArchived'] should be False, but double check
     if sourceserver['isArchived'] == False:
         if 'launchedInstance' in sourceserver:
             if 'ec2InstanceID' in sourceserver['launchedInstance']:
-                factoryserver['target_ec2InstanceID'] = sourceserver['launchedInstance'][
-                    'ec2InstanceID']
-                print(factoryserver['server_name'] + " : " + factoryserver['target_ec2InstanceID'])
+                update_server_instance_id_in_cmf(cmf_access_token, factoryserver, sourceserver['launchedInstance'][
+                    'ec2InstanceID'])
+                print(factoryserver['server_name'] + " : " + factoryserver[SERVER_INSTANCE_ID_ATTR_NAME])
             else:
-                factoryserver['target_ec2InstanceID'] = ''
+                update_server_instance_id_in_cmf(cmf_access_token, factoryserver, '')
                 print("ERROR: target instance Id does not exist for server: " + factoryserver[
                     'server_name'] + ", please wait for a few minutes")
         else:
-            factoryserver['target_ec2InstanceID'] = ''
+            update_server_instance_id_in_cmf(cmf_access_token, factoryserver, '')
             print("ERROR: target instance does not exist for server: " + factoryserver[
                 'server_name'] + ", please wait for a few minutes")
     else:
@@ -104,16 +106,18 @@ def update_target_instance_id(sourceserver, factoryserver, account):
         sys.exit()
 
 
-def verify_instance_status(get_servers, token):
+def verify_instance_status(get_servers):
     instance_not_ready = 1
     failure_status = 0
     current_time = datetime.now(UTC)
     while instance_not_ready > 0:  # NOSONAR: this is not a bug instance_not_ready is updated in the loop
+        # refresh token
+        cmf_access_token = mfcommon.factory_login(True)
         print("******************************")
         print("* Getting Target Instance Id *")
         print("******************************")
-        server_list = get_instance_id(get_servers)
-        failure_status, instance_not_ready = verify_server_list(server_list, token)
+        server_list = get_instance_id(get_servers, cmf_access_token)
+        failure_status, instance_not_ready = verify_server_list(server_list, cmf_access_token)
 
         if instance_not_ready > 0:
             print("")
@@ -162,9 +166,9 @@ def verify_account_in_server_list(account, failure_status, instance_not_ready, t
     instance_ids = []
     ec2_descriptions = None
     for server in account['servers']:
-        if 'target_ec2InstanceID' in server:
-            if server['target_ec2InstanceID'] != '':
-                instance_ids.append(server['target_ec2InstanceID'])
+        if SERVER_INSTANCE_ID_ATTR_NAME in server:
+            if server[SERVER_INSTANCE_ID_ATTR_NAME] != '':
+                instance_ids.append(server[SERVER_INSTANCE_ID_ATTR_NAME])
     try:
         ec2_descriptions = ec2_client.describe_instance_status(InstanceIds=instance_ids, IncludeAllInstances=True)
     except botocore.exceptions.ClientError as e:
@@ -181,6 +185,24 @@ def verify_account_in_server_list(account, failure_status, instance_not_ready, t
     update_mgn_status(account, token)
 
     return failure_status, instance_not_ready
+
+
+def update_server_instance_id_in_cmf(cmf_access_token, server, instance_id):
+    """
+        Updates CMF server record with new instance Id.
+    """
+
+    if instance_id == server.get(SERVER_INSTANCE_ID_ATTR_NAME, None):
+        # No changes found.
+        return
+
+    instance_id_update_payload = {
+        SERVER_INSTANCE_ID_ATTR_NAME: instance_id
+    }
+
+    mfcommon.put_data_to_api(cmf_access_token, mfcommon.get_mf_config_user_api_id(), f"{mfcommon.serverendpoint}/{server['server_id']}", instance_id_update_payload)
+
+    server[SERVER_INSTANCE_ID_ATTR_NAME] = instance_id
 
 
 def update_mgn_status(account, token):
@@ -271,8 +293,8 @@ def determine_servers_statuses(account, failure_status):
 
 def update_instance_statuses(account, ec2_descriptions):
     for instance in account['servers']:
-        if 'target_ec2InstanceID' in instance:
-            if instance['target_ec2InstanceID'] != '' and ec2_descriptions and 'InstanceStatuses' in ec2_descriptions:
+        if SERVER_INSTANCE_ID_ATTR_NAME in instance:
+            if instance[SERVER_INSTANCE_ID_ATTR_NAME] != '' and ec2_descriptions and 'InstanceStatuses' in ec2_descriptions:
                 update_instance_statuses_for_target_instance_id(instance, ec2_descriptions)
             else:
                 instance['Status'] = "target_not_exist"
@@ -283,7 +305,7 @@ def update_instance_statuses(account, ec2_descriptions):
 def update_instance_statuses_for_target_instance_id(instance, ec2_descriptions):
     for status in ec2_descriptions['InstanceStatuses']:
         if status['InstanceState']['Name'] == "running":
-            if instance['target_ec2InstanceID'] == status['InstanceId']:
+            if instance[SERVER_INSTANCE_ID_ATTR_NAME] == status['InstanceId']:
                 if status['InstanceStatus']['Status'].lower() == "ok" and \
                         status['SystemStatus']['Status'].lower() == "ok":
                     instance['Status'] = "ok"
@@ -326,7 +348,7 @@ def main(arguments):
     print("** Verify instance status **")
     print("*****************************", flush=True)
 
-    failure_count = verify_instance_status(get_servers, token)
+    failure_count = verify_instance_status(get_servers)
 
     if failure_count > 0:
         print(str(failure_count) + " servers have status as failed or impaired or not found . Check log for details.")

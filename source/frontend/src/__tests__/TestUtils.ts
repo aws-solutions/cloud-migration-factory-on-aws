@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { SessionState } from "../contexts/SessionContext";
 import { v4 } from "uuid";
 import { AppChildProps } from "../models/AppChildProps";

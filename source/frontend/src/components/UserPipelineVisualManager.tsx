@@ -86,7 +86,7 @@ const PipelineTaskNode = (props: NodeProps<TaskExecutionNode>) => {
   const TaskIconName = iconTaskMapping[props.data?.task.script?.type] ? iconTaskMapping[props.data.task.script.type] : "bug";
 
   const allowStatusUpdateToSkip = ["Failed"];
-  const allowStatusUpdateToInProgress = ["Not Started"];
+  const allowStatusUpdateToInProgress:string[] = [];
   const allowStatusUpdateToRetry = ["Failed", "Complete", "Skip"];
   const allowStatusUpdateToComplete = ["Pending Approval"];
 
@@ -139,7 +139,10 @@ const PipelineTaskNode = (props: NodeProps<TaskExecutionNode>) => {
         schemaName
       );
 
-      props.data.task.handleRefreshTasks();
+      if (props?.data.handleRefreshTasks)
+      {
+        props.data.handleRefreshTasks();
+      }
 
       // Update local object with new status.
       props.data.task.task_execution_status = statusMap[action];

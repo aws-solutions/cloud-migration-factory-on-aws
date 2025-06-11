@@ -41,3 +41,12 @@ Arguments:
     rel_filter_attribute_name: "app_id"
     required: false
     group_order: "3"
+SchemaExtensions:
+  - name: "target_instance_id"
+    description: "Target EC2 Instance Id"
+    type: "string"
+    schema: "server"
+    group: "Target - Instance"
+    group_order: "5"
+    validation_regex: "^(i-([a-z0-9]{8}|[a-z0-9]{17})$)"
+    validation_regex_msg: "EC2 Instance ID must start with i- followed by 8 or 17 alphanumeric characters."

@@ -69,7 +69,7 @@ const PipelineView = (props: PipelineViewParams) => {
   const [selectedTaskExecutions, setSelectedTaskExecutions] = useState<Array<any>>([]);
 
   const allowStatusUpdateToSkip = ["Failed"];
-  const allowStatusUpdateToInProgress = ["Not Started"];
+  const allowStatusUpdateToInProgress:string[] = [];
   const allowStatusUpdateToRetry = ["Failed", "Complete", "Skip"];
   const allowStatusUpdateToComplete = ["Pending Approval"]
 
@@ -301,7 +301,7 @@ const PipelineView = (props: PipelineViewParams) => {
                     {
                       id: "update_status_in-progress",
                       text: "In Progress",
-                      disabled: shouldDisableTaskExecutionStatusChange('pdate_status_in-progress'),
+                      disabled: shouldDisableTaskExecutionStatusChange('update_status_in-progress'),
                     },
                   ],
                 },

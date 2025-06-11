@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { rest } from "msw";
 import { testGroups, testPolicies } from "../TestUtils";
 
@@ -1162,7 +1167,7 @@ export const mock_admin_api = [
             system: true,
             validation_regex:
               "^(arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key/){0,1}[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
-            name: "ebs_kmskey_id",
+            name: "ebs_kms_key_id",
             description: "EBS KMS Key Id or ARN for Volume Encryption",
             validation_regex_msg: "Provide a valid KMS Key or ARN.",
             type: "string",
@@ -1175,7 +1180,7 @@ export const mock_admin_api = [
                 },
                 {
                   comparator: "empty",
-                  attribute: "ebs_kmskey_id",
+                  attribute: "ebs_kms_key_id",
                 },
               ],
               outcomes: {

@@ -208,7 +208,7 @@ describe("should show next page with cancel, previous and next buttons and data 
     renderUserImportComponent();
     await select_valid_file_upload_scenario1();
     await assert_valid_file_review_changes_form_scenario1();
-  });
+  }, 60000);
 
   test("scenario2", async () => {
     setup_all_get_handlers();

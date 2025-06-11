@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import * as XLSX from "xlsx";
 import { getChanges, validateTags, validateValue } from "../resources/main";
 import { Attribute, EntitySchema } from "../models/EntitySchema";
