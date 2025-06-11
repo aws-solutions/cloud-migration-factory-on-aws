@@ -10,6 +10,8 @@ import json
 import lambda_mgn_utils
 import uuid
 import traceback
+import time
+from botocore.exceptions import ClientError
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -575,7 +577,7 @@ def verify_dedicated_host(ec2_client, dedicated_host_id, requested_instance_type
         return error_message
 
 
-def update_disk_type(factoryserver, new_launch_template):
+def update_disk_type(factoryserver, new_launch_template, mgn_client):
     ebs_volume_type = "gp3"
     if 'ebs_volume_type' in factoryserver:
         ebs_volume_type = factoryserver['ebs_volume_type']
@@ -591,10 +593,12 @@ def update_disk_type(factoryserver, new_launch_template):
     ebs_encrypted = False
     if 'ebs_encrypted' in factoryserver:
         ebs_encrypted = factoryserver['ebs_encrypted']
-        if 'ebs_kms_key_id' in factoryserver:
+        if 'ebs_kms_key_id' in factoryserver and ebs_encrypted:
             ebs_kms_key_id = factoryserver['ebs_kms_key_id']
         else:
             ebs_kms_key_id = ""  # replace with default key id if required.
+        # Update
+        update_mgn_replication_template_ebs_encryption(factoryserver, mgn_client, ebs_kms_key_id)
 
     for blockdevice in new_launch_template['BlockDeviceMappings']:
         blockdevice['Ebs']['VolumeType'] = ebs_volume_type
@@ -1002,7 +1006,7 @@ def create_launch_template(factoryserver, action, new_launch_template, launch_te
         # host_resource_group_arn as string
 
         # Update disk type
-        new_launch_template = update_disk_type(factoryserver, new_launch_template)
+        new_launch_template = update_disk_type(factoryserver, new_launch_template, mgn_client)
 
         # Read any metadata options.
         metadata_options = {}
@@ -1323,22 +1327,49 @@ def get_mgn_action_parameters(action_id, action, source_server_id, parameter_suf
     return mgn_actions
 
 
+def add_mgn_action_ssm_parameter(ssm_client, source_server_id, action_id, parameter_key, parameter_value, parameter_suffix):
+    response = ssm_client.put_parameter(
+        Name=f"ManagedByAWSApplicationMigrationService-"
+             f"{action_id}-"
+             f"{parameter_key}-"
+             f"{source_server_id}"
+             f"{parameter_suffix}",
+        Value=parse_mgn_action_ssm_parameter_value(parameter_value),
+        Type='String',
+        Overwrite=True,
+        Tier='Standard',
+        DataType='text'
+    )
+    log.debug(response)
+
+
 def add_mgn_action_ssm_parameters(ssm_client, source_server_id, action_id, action, parameter_suffix):
     # Create Parameter Store values
     for parameter_key in action['parameters']:
-        response = ssm_client.put_parameter(
-            Name=f"ManagedByAWSApplicationMigrationService-"
-                 f"{action_id}-"
-                 f"{parameter_key}-"
-                 f"{source_server_id}"
-                 f"{parameter_suffix}",
-            Value=parse_mgn_action_ssm_parameter_value(action['parameters'][parameter_key]),
-            Type='String',
-            Overwrite=True,
-            Tier='Standard',
-            DataType='text'
-        )
-        log.debug(response)
+        try:
+            add_mgn_action_ssm_parameter(
+                ssm_client,
+                source_server_id,
+                action_id,
+                parameter_key,
+                action['parameters'][parameter_key],
+                parameter_suffix
+            )
+        except ClientError as err:
+            if "Rate exceeded" in err.args[0]:
+                log.warning("SSM put_parameter - Rate exceeded, waiting")
+                time.sleep(1)
+                # retry
+                add_mgn_action_ssm_parameter(
+                    ssm_client,
+                    source_server_id,
+                    action_id,
+                    parameter_key,
+                    action['parameters'][parameter_key],
+                    parameter_suffix
+                )
+            else:
+                raise
 
 
 def parse_mgn_action_ssm_parameter_value(value):
@@ -1370,3 +1401,20 @@ def remove_exiting_actions(mgn_client, source_server_id, action_ids):
             sourceServerID=source_server_id
         )
         log.debug(response)
+
+
+def update_mgn_replication_template_ebs_encryption(factoryserver, mgn_client, ebs_kms_key_id):
+
+        if ebs_kms_key_id != "":
+            log.info("Updating EBS encryption key to CUSTOM")
+            mgn_client.update_replication_configuration(
+                ebsEncryption='CUSTOM',
+                ebsEncryptionKeyArn=ebs_kms_key_id,
+                sourceServerID=factoryserver['source_server_id']
+            )
+        else:
+            log.info("Updating EBS encryption key to DEFAULT")
+            mgn_client.update_replication_configuration(
+                ebsEncryption='DEFAULT',
+                sourceServerID=factoryserver['source_server_id']
+            )

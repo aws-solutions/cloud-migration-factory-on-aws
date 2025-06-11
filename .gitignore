@@ -28,7 +28,11 @@ ehthumbs.db
 # Local build output
 /deployment/global-s3-assets/*
 /deployment/regional-s3-assets/*
+/deployment/open-source
 /source/backend/lambda_layers/lambda_layer_py_pkgs/.build
+.temp_redpencil
+open-source
+bom.json
 
 #SonarQube
 /.scannerwork/*

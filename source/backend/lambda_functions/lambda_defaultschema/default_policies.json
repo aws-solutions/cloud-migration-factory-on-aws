@@ -460,6 +460,36 @@
                       "S": "secret_name"
                     }
                   }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "target_instance_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "ebs_kms_key_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "ebs_encrypted"
+                    }
+                  }
                 }
               ]
             },
@@ -1000,25 +1030,6 @@
               "BOOL": false
             }
           }
-        },
-        {
-          "M": {
-            "schema_name": {
-              "S": "task"
-            },
-            "create": {
-              "BOOL": false
-            },
-            "read": {
-              "BOOL": true
-            },
-            "update": {
-              "BOOL": false
-            },
-            "delete": {
-              "BOOL": false
-            }
-          }
         }
       ]
     }
@@ -1544,16 +1555,6 @@
             },
             "schema_name": {
               "S": "pipeline_template_task"
-            }
-          }
-        },
-        {
-          "M": {
-            "read": {
-              "BOOL": true
-            },
-            "schema_name": {
-              "S": "task"
             }
           }
         },

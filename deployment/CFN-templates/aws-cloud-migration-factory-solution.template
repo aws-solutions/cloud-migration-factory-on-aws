@@ -345,6 +345,7 @@ Resources:
             reason: "It is already TLSv1.2_2018"
 
   CloudFrontFunction:
+    Condition: DeployCloudFront
     Type: AWS::CloudFront::Function
     Properties:
       Name: !Sub ${Application}-${Environment}-HTTPHeaders

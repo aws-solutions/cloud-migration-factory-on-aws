@@ -29,7 +29,7 @@ class VerifyInstanceStatusTestCase(unittest.TestCase):
         verify_instance.TIME_OUT = 0
         test_mgn_common.MGN_TEST_SCENARIO = 'mgn_no_matching_server'
         mock_update_server_migration_status.return_value = StatusCodeUpdate(200)
-        verify_instance.verify_instance_status(copy.deepcopy(servers_list), VALID_TOKEN)
+        verify_instance.verify_instance_status(copy.deepcopy(servers_list))
         mock_update_server_migration_status.assert_called_with(VALID_TOKEN, '1', '2/2 status checks : Server not in MGN')
 
     @patch('builtins.open', new=mock_file_open)
@@ -39,7 +39,7 @@ class VerifyInstanceStatusTestCase(unittest.TestCase):
         test_mgn_common.MGN_TEST_SCENARIO = 'mgn_no_matching_server'
         mock_update_server_migration_status.return_value = StatusCodeUpdate(200)
         with self.assertRaises(SystemExit):
-            verify_instance.verify_instance_status(copy.deepcopy(servers_list_no_fdqn), VALID_TOKEN)
+            verify_instance.verify_instance_status(copy.deepcopy(servers_list_no_fdqn))
         self.assertEqual(0, mock_update_server_migration_status.call_count)
 
     @patch('builtins.open', new=mock_file_open)
@@ -48,7 +48,7 @@ class VerifyInstanceStatusTestCase(unittest.TestCase):
         test_mgn_common.MGN_TEST_SCENARIO = 'mgn_no_instance_id'
         verify_instance.TIME_OUT = 0
         mock_update_server_migration_status.return_value = StatusCodeUpdate(200)
-        verify_instance.verify_instance_status(copy.deepcopy(servers_list), VALID_TOKEN)
+        verify_instance.verify_instance_status(copy.deepcopy(servers_list))
         mock_update_server_migration_status.assert_called_with(
             VALID_TOKEN, '1', '2/2 status checks : Target instance not exist')
 
@@ -58,7 +58,7 @@ class VerifyInstanceStatusTestCase(unittest.TestCase):
         test_mgn_common.MGN_TEST_SCENARIO = 'mgn_with_not_existing_instance_id'
         verify_instance.TIME_OUT = 0
         mock_update_server_migration_status.return_value = StatusCodeUpdate(200)
-        verify_instance.verify_instance_status(copy.deepcopy(servers_list), VALID_TOKEN)
+        verify_instance.verify_instance_status(copy.deepcopy(servers_list))
         self.assertEqual(1, mock_update_server_migration_status.call_count)
 
     @patch('builtins.open', new=mock_file_open)
@@ -67,7 +67,7 @@ class VerifyInstanceStatusTestCase(unittest.TestCase):
         test_mgn_common.MGN_TEST_SCENARIO = 'mgn_with_running_ok'
         verify_instance.TIME_OUT = 0
         mock_update_server_migration_status.return_value = StatusCodeUpdate(200)
-        verify_instance.verify_instance_status(copy.deepcopy(servers_list), VALID_TOKEN)
+        verify_instance.verify_instance_status(copy.deepcopy(servers_list))
         mock_update_server_migration_status.assert_called_with(
             VALID_TOKEN, '1', '2/2 status checks : Passed')
 
@@ -77,7 +77,7 @@ class VerifyInstanceStatusTestCase(unittest.TestCase):
         verify_instance.TIME_OUT = 0
         mock_update_server_migration_status.return_value = StatusCodeUpdate(status_code)
         with self.assertRaises(SystemExit):
-            verify_instance.verify_instance_status(copy.deepcopy(servers_list), VALID_TOKEN)
+            verify_instance.verify_instance_status(copy.deepcopy(servers_list))
         mock_update_server_migration_status.assert_called_with(
             VALID_TOKEN, '1', '2/2 status checks : Passed')
 
@@ -95,7 +95,7 @@ class VerifyInstanceStatusTestCase(unittest.TestCase):
         test_mgn_common.MGN_TEST_SCENARIO = 'mgn_with_stopped_ok'
         verify_instance.TIME_OUT = 0
         mock_update_server_migration_status.return_value = StatusCodeUpdate(200)
-        verify_instance.verify_instance_status(copy.deepcopy(servers_list), VALID_TOKEN)
+        verify_instance.verify_instance_status(copy.deepcopy(servers_list))
         mock_update_server_migration_status.assert_called_with(
             VALID_TOKEN, '1', '2/2 status checks : Failed')
 
@@ -105,7 +105,7 @@ class VerifyInstanceStatusTestCase(unittest.TestCase):
         test_mgn_common.MGN_TEST_SCENARIO = 'mgn_with_running_impaired'
         verify_instance.TIME_OUT = 0
         mock_update_server_migration_status.return_value = StatusCodeUpdate(200)
-        verify_instance.verify_instance_status(copy.deepcopy(servers_list), VALID_TOKEN)
+        verify_instance.verify_instance_status(copy.deepcopy(servers_list))
         mock_update_server_migration_status.assert_called_with(
             VALID_TOKEN, '1', '2/2 status checks : Failed')
 
@@ -115,7 +115,7 @@ class VerifyInstanceStatusTestCase(unittest.TestCase):
         test_mgn_common.MGN_TEST_SCENARIO = 'mgn_with_running_failed'
         verify_instance.TIME_OUT = 0
         mock_update_server_migration_status.return_value = StatusCodeUpdate(200)
-        verify_instance.verify_instance_status(copy.deepcopy(servers_list), VALID_TOKEN)
+        verify_instance.verify_instance_status(copy.deepcopy(servers_list))
         mock_update_server_migration_status.assert_called_with(
             VALID_TOKEN, '1', '2/2 status checks : Failed')
 
@@ -125,7 +125,7 @@ class VerifyInstanceStatusTestCase(unittest.TestCase):
         test_mgn_common.MGN_TEST_SCENARIO = 'mgn_instance_id_not_matching'
         verify_instance.TIME_OUT = 0
         mock_update_server_migration_status.return_value = StatusCodeUpdate(200)
-        verify_instance.verify_instance_status(copy.deepcopy(servers_list), VALID_TOKEN)
+        verify_instance.verify_instance_status(copy.deepcopy(servers_list))
         mock_update_server_migration_status.assert_called_with(
             VALID_TOKEN, '1', '2/2 status checks : Target instance not exist')
 

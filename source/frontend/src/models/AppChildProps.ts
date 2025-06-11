@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import {FlashbarProps} from "@cloudscape-design/components";
 import {EntitySchema, SchemaMetaData} from "./EntitySchema";
 import {ReactNode} from "react";

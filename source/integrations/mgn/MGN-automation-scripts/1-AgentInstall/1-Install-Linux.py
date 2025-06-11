@@ -201,7 +201,7 @@ def add_additional_parameters(s3_endpoint=None, mgn_endpoint=None, no_replicatio
 
 
 def install_mgn(agent_linux_download_url, region, host, username, key_pwd, using_key,
-                aws_access_key, aws_secret_access_key, session_token=None, s3_endpoint=None, mgn_endpoint=None,
+                aws_agent_secret, s3_endpoint=None, mgn_endpoint=None,
                 download_attempts=3, wget_timeout=10, no_replication=False, replication_devices=None):
     final_output = {'messages': []}
     pid = multiprocessing.current_process()
@@ -241,24 +241,24 @@ def install_mgn(agent_linux_download_url, region, host, username, key_pwd, using
             return final_output
 
         # Step 2 - execute linux installer
-        if session_token:
+        if aws_agent_secret.get('SessionToken'):
             command = f"sudo {python_executable} {INSTALL_SCRIPT_PATH} --region {region}" + \
-                      f" {ACCESS_KEY_ARG}  {aws_access_key}" + \
-                      f" {ACCESS_SECRET_KEY_ARG} {aws_secret_access_key}" + \
-                      f" {ACCESS_SESSION_TOKEN_ARG} {session_token}" + \
+                      f" {ACCESS_KEY_ARG}  {aws_agent_secret.get('AccessKeyId')}" + \
+                      f" {ACCESS_SECRET_KEY_ARG} {aws_agent_secret.get('SecretAccessKey')}" + \
+                      f" {ACCESS_SESSION_TOKEN_ARG} {aws_agent_secret.get('SessionToken')}" + \
                       f" {NO_PROMPT_ARG}"
             display_command = f"sudo {python_executable} {INSTALL_SCRIPT_PATH} --region {region}" + \
-                              f" {ACCESS_KEY_ARG}  {aws_access_key}" + \
+                              f" {ACCESS_KEY_ARG}  {aws_agent_secret.get('AccessKeyId')}" + \
                               f" {ACCESS_SECRET_KEY_ARG} *****" + \
                               f" {ACCESS_SESSION_TOKEN_ARG} *****" + \
                               f" {NO_PROMPT_ARG}"
         else:
             command = f"sudo {python_executable} {INSTALL_SCRIPT_PATH} --region {region}" + \
-                      f" {ACCESS_KEY_ARG}  {aws_access_key}" + \
-                      f" {ACCESS_SECRET_KEY_ARG} {aws_secret_access_key}" + \
+                      f" {ACCESS_KEY_ARG}  {aws_agent_secret.get('AccessKeyId')}" + \
+                      f" {ACCESS_SECRET_KEY_ARG} {aws_agent_secret.get('SecretAccessKey')}" + \
                       f" {NO_PROMPT_ARG}"
             display_command = f"sudo {python_executable} {INSTALL_SCRIPT_PATH} --region {region}" + \
-                              f" {ACCESS_KEY_ARG}  {aws_access_key}" + \
+                              f" {ACCESS_KEY_ARG}  {aws_agent_secret.get('AccessKeyId')}" + \
                               f" {ACCESS_SECRET_KEY_ARG} *****" + \
                               f" {NO_PROMPT_ARG}"
 

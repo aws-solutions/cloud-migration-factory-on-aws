@@ -487,6 +487,8 @@ def mock_boto_api_call(obj, operation_name, kwarg):
         return mock_mgn_list_source_server_actions()
     elif operation_name == 'RemoveSourceServerAction':
         return mock_mgn_remove_source_server_action()
+    elif operation_name == 'UpdateReplicationConfiguration':
+        return None
     else:
         print(f"NOT FOUND: {operation_name}")
         return orig_boto_api_call(obj, operation_name, kwarg)

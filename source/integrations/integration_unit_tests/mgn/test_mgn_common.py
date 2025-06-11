@@ -594,7 +594,8 @@ class StatusCodeUpdate:
         self.status_code = status_code
 
 
-def mock_factory_login():
+def mock_factory_login(silent=False, mf_config_override=None):
+    logger.debug(f'mock_get_factory_servers({silent},{mf_config_override})')
     return "valid_token"
 
 

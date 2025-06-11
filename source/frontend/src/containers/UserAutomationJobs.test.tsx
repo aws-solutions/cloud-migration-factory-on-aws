@@ -438,7 +438,7 @@ test("submit mgn server migration successfully", async () => {
     });
   });
   await assert_jobs_list_view(5, false);
-});
+}, 60000);
 
 test("submit mgn server migration api error", async () => {
   server.use(

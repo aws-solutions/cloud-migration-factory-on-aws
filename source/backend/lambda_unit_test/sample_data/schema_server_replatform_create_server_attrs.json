@@ -53,7 +53,7 @@
     },
     {
       "description": "EBS KMS Key Id for Volume Encryption",
-      "name": "ebs_kmskey_id",
+      "name": "ebs_kms_key_id",
       "group": "Target - Storage",
       "system": true,
       "type": "string"

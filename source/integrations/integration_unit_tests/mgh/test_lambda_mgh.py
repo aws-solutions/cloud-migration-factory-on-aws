@@ -1,3 +1,6 @@
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
 from unittest import TestCase, mock
 import mgh.test_lambda_mgh_common_util
 from mgh.test_lambda_mgh_common_util import mock_os_environ, \

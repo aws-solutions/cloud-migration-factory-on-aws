@@ -25,7 +25,7 @@ job_timeout_seconds = 60 * 720  # 12 hours
 ddb_retry_max = 2
 
 socket_url = os.environ["socket_url"]
-if 'wss://' not in socket_url:
+if 'https://' not in socket_url:
     gatewayapi = None
 else:
     gatewayapi = cmf_boto.client("apigatewaymanagementapi", endpoint_url=socket_url)

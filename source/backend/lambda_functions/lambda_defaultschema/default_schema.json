@@ -425,7 +425,7 @@
               "S": "^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]*[A-Za-z0-9])$"
             },
             "validation_regex_msg": {
-              "S": "Server names must contain only aplhanumeric, hyphen or period characters."
+              "S": "Server names must contain only alphanumeric, hyphen or period characters."
             },
             "group_order": {
               "S": "-1000"
@@ -714,6 +714,31 @@
             },
             "group": {
               "S": "Target - Networking"
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Target EC2 Instance Id"
+            },
+            "name": {
+              "S": "target_instance_id"
+            },
+            "type": {
+              "S": "string"
+            },
+            "validation_regex": {
+              "S": "^(i-([a-z0-9]{8}|[a-z0-9]{17})$)"
+            },
+            "validation_regex_msg": {
+              "S": "EC2 Instance ID must start with i- followed by 8 or 17 alphanumeric characters."
+            },
+            "group": {
+              "S": "Target - Instance"
             },
             "system": {
               "BOOL": true
@@ -1237,6 +1262,62 @@
                   "S": "To define the MGN Post Launch actions you should follow the 'Request Syntax' provided in the <a href=\"https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/put_source_server_action.html\"> AWS MGN API boto3 guidance</a>, with the following changes:\n<ul>\n    <li>The top level should be a JSON array of actions. starting with a opening square bracket and the last character being a closing square bracket. </il>\n    <li>There is no need to include actionID, this will create automatically.</li>\n    <li>For parameters, you should use the format:\n        <code>\n        \"parameters\": {\n            \"para1\": false,\n            \"para2\": 30,\n            \"para3\": \"m5.4xlarge\",\n        }\n        </code>\n    </li>\n</ul>\nExample of a single action definition:\n<code>\n    [\n        {\n            \"actionName\": \"MyAction\",\n            \"active\": true,\n            \"category\": \"OTHER\",\n            \"description\": \"Description of the action.\",\n            \"documentIdentifier\": \"Document-Name\",\n            \"documentVersion\": \"$DEFAULT\",\n            \"externalParameters\": {\n            \"InstanceId\": {\n                \"dynamicPath\": \"ec2.InstanceId\"\n            }\n            },\n            \"mustSucceedForCutover\": false,\n            \"order\": 1005,\n            \"parameters\": {\n                \"para1\": false,\n                \"para2\": 30,\n                \"para3\": \"m5.4xlarge\"\n            }\n        }\n    ]\n</code>"
                 }
               }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Encrypt EBS volumes"
+            },
+            "long_desc": {
+              "S": "WARNING: Changing this setting after MGN replication has been started will result in a complete resync of data from the source server."
+            },
+            "name": {
+              "S": "ebs_encrypted"
+            },
+            "type": {
+              "S": "checkbox"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "group": {
+              "S": "Target - Storage"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "EBS KMS Key Id or ARN for Volume Encryption"
+            },
+            "long_desc": {
+              "S": "WARNING: Changing this setting after MGN replication has been started will result in a complete resync of data from the source server."
+            },
+            "name": {
+              "S": "ebs_kms_key_id"
+            },
+            "type": {
+              "S": "string"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "group": {
+              "S": "Target - Storage"
+            },
+            "validation_regex": {
+              "S": "^(arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key/){0,1}([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|mrk-[a-f0-9]{32})$"
+            },
+            "validation_regex_msg": {
+              "S": "Provide a valid KMS Key or ARN."
             }
           }
         }
