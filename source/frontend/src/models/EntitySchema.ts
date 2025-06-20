@@ -39,7 +39,8 @@ export type EntityName =
   | "pipeline_template"
   | "pipeline_template_task"
   | "task"
-  | "task_execution";
+  | "task_execution"
+  | "user";
 
 export type Attribute = {
   sample_data_intake?: any;

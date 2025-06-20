@@ -11,6 +11,9 @@ import { Application } from "../../models/Application";
 import { Wave } from "../../models/Wave";
 import { Pipeline, PipelineTemplate, PipelineTemplateTask, Task, TaskExecution } from "../../models/Pipeline.ts";
 
+type TaskExecutionStatus = "Not Started" | "In Progress" | "Complete" | "Failed" | "Abandoned" | "Skip" | "Pending Approval";
+
+
 export const mock_user_api = [
   rest.get("/user/server", (request, response, context) => {
     return response(context.status(200), context.json([]));
@@ -204,6 +207,8 @@ export function generateTestPipelines(
   return numbers.map((number) => ({
     pipeline_id: `${number}`,
     pipeline_name: `unittest_pipeline${number}`,
+    pipeline_enable_email_notifications: true,
+    pipeline_default_email_recipients: ["foo@example.com"],
     pipeline_status: data?.status ?? "Created",
     pipeline_template_id: pipelineTemplate?.pipeline_template_id ?? v4(),
     task_arguments: tasks ? tasks.map((task) => ({ ...task })) : [],
@@ -217,7 +222,7 @@ export function generateTestPipelines(
   }));
 }
 
-export function generateTestTaskExecutions(pipeline: Pipeline, tasks: Array<Task>): Array<TaskExecution> {
+export function generateTestTaskExecutions(pipeline: Pipeline, tasks: Array<Task>, statusOverrides?: TaskExecutionStatus[] | undefined): Array<TaskExecution> {
   return tasks.map((task, index) => ({
     task_execution_id: v4(),
     task_execution_name: `unittest_task_execution${index}`,
@@ -226,7 +231,9 @@ export function generateTestTaskExecutions(pipeline: Pipeline, tasks: Array<Task
     task_id: task.task_id,
     task_type: task.task_type,
     task_description: task.task_description,
-    task_execution_status: index === 0 ? "In Progress" : "Not Started",
+    task_execution_status: statusOverrides 
+      ? statusOverrides[index] || "Not Started"
+      : index === 0 ? "In Progress" : "Not Started",
     outputLastMessage: `Last message for unittest_task_execution${index}`,
     output: `Output for unittest_task_execution${index}`,
     task_execution_inputs: {

@@ -1033,3 +1033,57 @@ class ItemValidationTestCase(TestCase):
         response = item_validation.is_valid_id(schema, 'notauuid')
         print("Response: ", response)
         self.assertFalse(response)
+        
+    def test_validate_task_predecessors_status_no_predecessors(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        # Arrange
+        item = {'task_execution_id': 'task-1'}
+        task_executions = []
+        
+        # Act
+        errors = item_validation.validate_task_predecessors_status(item, task_executions)
+        
+        # Assert
+        self.assertEqual(errors, [])
+        
+    def test_validate_task_predecessors_status_valid_predecessors(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        # Arrange
+        item = {'task_execution_id': 'task-1'}
+        task_executions = [
+            {
+                'task_execution_id': 'task-1',
+                'task_successors': 'predecessor-1',
+                'task_execution_status': 'ABANDONED',
+                'next_tasks': ['task-2']
+            }
+        ]
+        
+        # Act
+        errors = item_validation.validate_task_predecessors_status(item, task_executions)
+        
+        # Assert
+        self.assertEqual(errors, [])
+
+    def test_validate_task_predecessors_status_invalid_predecessors(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        # Arrange
+        item = {'task_execution_id': 'task-1'}
+        task_executions = [
+            {
+                'task_execution_id': 'task-1',
+                'task_successors': 'task-1',
+                'task_execution_status': 'IN_PROGRESS',
+                'next_tasks': ['task-3'],
+                'task_execution_name': 'task-1'
+            }
+        ]
+        
+        # Act
+        errors = item_validation.validate_task_predecessors_status(item, task_executions)
+        
+        # Assert
+        expected_errors = ["Can not update execution status for task as predecessor 'task-1' as it is not in a valid state (IN_PROGRESS)"]
+        
+        self.assertEqual(errors, expected_errors)
+        

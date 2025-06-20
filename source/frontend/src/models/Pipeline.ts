@@ -6,6 +6,8 @@
 export type Pipeline = {
   pipeline_id: string;
   pipeline_name: string;
+  pipeline_enable_email_notifications: boolean;
+  pipeline_default_email_recipients: string[];
   pipeline_status?: string;
   pipeline_description?: string;
   pipeline_template_id: string;

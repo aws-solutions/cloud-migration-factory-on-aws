@@ -22,6 +22,34 @@ describe("ViewTaskExecution component", () => {
   const taskExecutions = generateTestTaskExecutions(pipelines[0], tasks);
   const taskExecutionUnderTest = taskExecutions[0];
 
+  // Mock pipeline metadata with email settings
+  const mockPipelineMetadata = {
+    pipeline_default_email_recipients: [
+      { email: "default1@example.com" },
+      { email: "default2@example.com" }
+    ],
+    pipeline_default_email_groups: [
+      { group_name: "group1" },
+      { group_name: "group2" }
+    ],
+    task_level_email_settings: [
+      {
+        task_name: taskExecutionUnderTest.task_execution_name,
+        enabled: true,
+        override_defaults: true,
+        email_users: [
+          { email: "task1@example.com" },
+          { email: "task2@example.com" }
+        ],
+        email_groups: [
+          { group_name: "taskgroup1" },
+          { group_name: "taskgroup2" }
+        ],
+        email_body: "Custom email body"
+      }
+    ]
+  };
+
   it("should render the task execution inputs", async () => {
     // GIVEN
 
@@ -36,6 +64,7 @@ describe("ViewTaskExecution component", () => {
             schema={defaultSchemas}
             taskExecution={taskExecutionUnderTest}
             dataAll={{}}
+            pipelineMetadata={mockPipelineMetadata}
           />
         }
       ></AppLayout>
@@ -60,6 +89,7 @@ describe("ViewTaskExecution component", () => {
             schema={defaultSchemas}
             taskExecution={taskExecutionUnderTest}
             dataAll={{}}
+            pipelineMetadata={mockPipelineMetadata}
           />
         }
       ></AppLayout>

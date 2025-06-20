@@ -8,30 +8,42 @@ import botocore
 import os
 import time
 from datetime import datetime, timezone
+from typing import Optional
 
 import cmf_boto
 from cmf_logger import logger
 import cmf_pipeline
-from cmf_utils import CONST_DT_FORMAT, get_date_from_string
+from cmf_utils import get_date_from_string, publish_event
+from cmf_types import NotificationDetailType, NotificationType
 
 application = os.environ["application"]
 environment = os.environ["environment"]
+eventBusName = os.environ["EVENT_BUS_NAME"]
 dynamodb = cmf_boto.resource("dynamodb")
-connectionIds_table_name = '{}-{}-ssm-connectionIds'.format(application, environment)
-connectionIds_table = dynamodb.Table(connectionIds_table_name)
 ssm_jobs_table_name = '{}-{}-ssm-jobs'.format(application, environment)
 ssm_jobs_table = dynamodb.Table(ssm_jobs_table_name)
 job_timeout_seconds = 60 * 720  # 12 hours
 ddb_retry_max = 2
 
-socket_url = os.environ["socket_url"]
-if 'https://' not in socket_url:
-    gatewayapi = None
-else:
-    gatewayapi = cmf_boto.client("apigatewaymanagementapi", endpoint_url=socket_url)
+eventsClient = cmf_boto.client('events')
+eventSource = f'{application}-{environment}-ssm-output'
 
-
-def update_log(ssm_id, output, ddb_retry_count):
+def update_log(ssm_id: str, output: str, ddb_retry_count: int) -> NotificationType:
+    """
+    Updates SSM job log with new output and computes updated status.
+    
+    Args:
+        ssm_id: Unique identifier for the SSM job
+        output: New output content to append to job log
+        ddb_retry_count: Current retry attempt count for DynamoDB operations
+        
+    Returns:
+        Notification object containing job status update details
+        
+    Raises:
+        ClientError: If DynamoDB operations fail
+    """
+    
     resp = ssm_jobs_table.get_item(TableName=ssm_jobs_table_name, Key={'SSMId': ssm_id})
     ssm_data = resp["Item"]
 
@@ -50,12 +62,12 @@ def update_log(ssm_id, output, ddb_retry_count):
     ssm_data["_history"]["timeElapsed"] = str(time_seconds_elapsed)
     logger.debug("time elapsed: " + str(time_seconds_elapsed))
 
-    notification = {
+    notification: NotificationType = {
         'type': '',
         'dismissible': True,
         'header': 'Job Update',
         'content': '',
-        'timeStamp': ''
+        'timeStamp': datetime.now(timezone.utc).isoformat(sep='T')
     }
 
     compute_job_status(output, ssm_data, notification, outcome_timestamp_str, time_seconds_elapsed, resp)
@@ -94,32 +106,66 @@ def update_log(ssm_id, output, ddb_retry_count):
     return notification
 
 
-def compute_job_status(output, ssm_data, notification, outcome_timestamp_str, time_seconds_elapsed, resp):
+def compute_job_status(output: str, ssm_data: dict, notification: NotificationType, 
+                      outcome_timestamp_str: str, time_seconds_elapsed: float, resp: dict) -> None:
+    """
+    Determines job status based on output content and updates relevant data structures.
+    
+    Args:
+        output: Job output content to analyze
+        ssm_data: SSM job data dictionary to be updated
+        notification: Notification object to be updated
+        outcome_timestamp_str: ISO formatted timestamp string
+        time_seconds_elapsed: Total seconds elapsed since job start
+        resp: Original DynamoDB response containing job data
+        
+    Returns:
+        None
+    """
+    
     if "JOB_COMPLETE" in output:
         logger.info('Job Completed.')
         ssm_data["status"] = "COMPLETE"
         ssm_data["_history"]["completedTimestamp"] = outcome_timestamp_str
         notification['timeStamp'] = outcome_timestamp_str
-        notification['type'] = 'success'
+        notification['type'] = NotificationDetailType.TASK_SUCCESS.value
     elif "JOB_FAILED" in output:
         logger.info('Job Failed.')
         ssm_data["status"] = "FAILED"
         ssm_data["_history"]["completedTimestamp"] = outcome_timestamp_str
         notification['timeStamp'] = outcome_timestamp_str
-        notification['type'] = 'error'
+        notification['type'] = NotificationDetailType.TASK_FAILED.value
     elif int(time_seconds_elapsed) > job_timeout_seconds and resp["Item"]["SSMData"]["status"] == "RUNNING":
         logger.info('Job Timed out.')
         ssm_data["status"] = "TIMED-OUT"
         ssm_data["_history"]["completedTimestamp"] = outcome_timestamp_str
         notification['timeStamp'] = outcome_timestamp_str
-        notification['type'] = 'error'
+        notification['type'] = NotificationDetailType.TASK_TIMED_OUT.value
     else:
         logger.info('Job still running.')
         notification['timeStamp'] = outcome_timestamp_str
-        notification['type'] = 'pending'
+        notification['type'] = NotificationDetailType.TASK_PENDING.value
 
 
-def update_ssm_job_status_in_db(original_record_time, ddb_retry_count, ssm_data, ssm_id, output):
+def update_ssm_job_status_in_db(original_record_time: str, ddb_retry_count: int, 
+                               ssm_data: dict, ssm_id: str, output: str) -> Optional[NotificationType]:
+    """
+    Updates SSM job status in DynamoDB.
+    
+    Args:
+        original_record_time: Original timestamp for optimistic locking
+        ddb_retry_count: Current retry attempt count for DynamoDB operations
+        ssm_data: SSM job data to be updated
+        ssm_id: Unique identifier for the SSM job
+        output: Job output content
+        
+    Returns:
+        Error notification if update fails, None otherwise
+        
+    Raises:
+        ClientError: If DynamoDB operations fail
+    """
+    
     if original_record_time == "":
         response = process_new_log_item(ssm_data, ddb_retry_count, ssm_id, output)
         if response is not None:
@@ -130,7 +176,24 @@ def update_ssm_job_status_in_db(original_record_time, ddb_retry_count, ssm_data,
             return response
 
 
-def process_new_log_item(ssm_data, ddb_retry_count, ssm_id, output):
+def process_new_log_item(ssm_data: dict, ddb_retry_count: int, 
+                        ssm_id: str, output: str) -> Optional[NotificationType]:
+    """
+    Creates new SSM job log item in DynamoDB.
+    
+    Args:
+        ssm_data: SSM job data to be stored
+        ddb_retry_count: Current retry attempt count for DynamoDB operations
+        ssm_id: Unique identifier for the SSM job
+        output: Job output content
+        
+    Returns:
+        Error notification if creation fails, None otherwise
+        
+    Raises:
+        ClientError: If DynamoDB operations fail
+    """
+    
     try:
         # As no original record time set then this record is assumed to be a new log so check if outcome is present.
         ssm_jobs_table.put_item(
@@ -158,7 +221,25 @@ def process_new_log_item(ssm_data, ddb_retry_count, ssm_id, output):
             raise
 
 
-def process_existing_log_item(ssm_data, original_record_time, ddb_retry_count, ssm_id, output):
+def process_existing_log_item(ssm_data: dict, original_record_time: str, 
+                            ddb_retry_count: int, ssm_id: str, output: str) -> Optional[NotificationType]:
+    """
+    Updates existing SSM job log item in DynamoDB.
+    
+    Args:
+        ssm_data: Updated SSM job data
+        original_record_time: Original timestamp for optimistic locking
+        ddb_retry_count: Current retry attempt count for DynamoDB operations
+        ssm_id: Unique identifier for the SSM job
+        output: Job output content
+        
+    Returns:
+        Error notification if update fails, None otherwise
+        
+    Raises:
+        ClientError: If DynamoDB operations fail
+    """
+    
     try:
         # Job record has outcomeDate, use this to ensure no changes made to record while processing this request.
         ssm_jobs_table.put_item(
@@ -188,8 +269,21 @@ def process_existing_log_item(ssm_data, original_record_time, ddb_retry_count, s
         else:
             raise
 
-
 def lambda_handler(event, _):
+    """
+    Processes CloudWatch Log events and updates SSM job status.
+    
+    Args:
+        event: AWS Lambda event containing CloudWatch Log data
+        
+    Returns:
+        None
+        
+    Raises:
+        ClientError: If DynamoDB operations fail
+        ValueError: If log data cannot be decoded or decompressed
+    """
+
     # parse Cloudwatch Log
     cw_data = event['awslogs']['data']
     compressed_payload = base64.b64decode(cw_data)
@@ -207,6 +301,10 @@ def lambda_handler(event, _):
     ssm_id = message.split("[", 1)[-1]
     ssm_id = ssm_id.split("]", 1)[0]
 
+    if not ssm_id:
+        logger.error('No SSMId or empty SSMId in Cloudwatch event.')
+        return None
+
     logger.info('Job ID. %s', ssm_id)
 
     # remove remaining SSMIds
@@ -214,13 +312,6 @@ def lambda_handler(event, _):
     output = output.replace("[" + ssm_id + "]", "")
     output = "[" + time.strftime("%H:%M:%S") + "] " + "\n" + output + "\n" + "\n"
 
-    notification = update_log(ssm_id, output, ddb_retry_count)
+    notification: NotificationType = update_log(ssm_id, output, ddb_retry_count)
 
-    if gatewayapi:  # If socket is set then send notifications to users.
-        # Send to all connections
-        resp = connectionIds_table.scan()
-        for item in resp["Items"]:
-            try:
-                gatewayapi.post_to_connection(ConnectionId=item["connectionId"], Data=json.dumps(notification))
-            except botocore.exceptions.ClientError as e:
-                logger.debug(f'Error posting to wss connection {e}')
+    publish_event(notification, eventsClient, eventSource, eventBusName)

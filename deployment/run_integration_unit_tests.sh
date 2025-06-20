@@ -6,6 +6,13 @@
 
 # This script must be executed from the package root directory
 
+# Install poetry if not already installed
+if ! command -v poetry &> /dev/null; then
+    echo "Installing Poetry..."
+    curl -sSL https://install.python-poetry.org | POETRY_HOME=$HOME/.poetry python3 -
+    PATH="$HOME/.poetry/bin:$PATH"
+fi
+
 set -e
 
 if [ ! -d "testing-venv" ]; then
@@ -24,7 +31,7 @@ echo "  ---- Installing dependency"
 source_code="$PWD"
 echo "  ---- Changing working directory to the test directory"
 cd source/integrations/integration_unit_tests/
-"$POETRY_HOME"/bin/poetry install
+poetry install
 echo "Updating source path $source_code"
 replace="s#%%SOURCE_PATH%%#$source_code#g"
 tox_path="$PWD/tox.ini"

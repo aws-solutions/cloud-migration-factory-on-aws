@@ -198,7 +198,7 @@ test("click on refresh button refreshes the table", async () => {
 //   await screen.findByRole('heading', {name: 'Pipelines (2)'});
 // });
 
-test('"Tasks" tab shows task status and task level logs', async () => {
+test('"Tasks" tab shows task status and task level logs and action status for In Progress tasks', async () => {
   // GIVEN
   const pipelineTemplates = generateTestPipelineTemplates(2);
   const tasks = generateTestTasks(3);
@@ -283,8 +283,456 @@ test('"Tasks" tab shows task status and task level logs', async () => {
     })
   );
 
-  // AND WHEN
+  // WHEN
+
+  const actionsButton = within(detailsView).getByRole("button", { name: "Actions" });
+  await userEvent.click(actionsButton);
+  const menu = screen.getByRole("menu");
+  // Check main menu items
+  expect(within(menu).getByRole("menuitem", { name: "Update Status" })).toBeInTheDocument();
+  // Check Update Status submenu items
+  const updateStatusMenuItem = within(menu).getByRole("menuitem", { name: "Update Status" });
+  await userEvent.click(updateStatusMenuItem);
+  const submenu = screen.getByRole("menu", { name: "Update Status" });
+  
+  // THEN 
+  // Get all menu items and check their existence and disabled states
+  const skipMenuItem = within(submenu).getByRole("menuitem", { name: "Skip" });
+  const retryMenuItem = within(submenu).getByRole("menuitem", { name: "Retry" });
+  const completeMenuItem = within(submenu).getByRole("menuitem", { name: "Complete" });
+  const abandonedMenuItem = within(submenu).getByRole("menuitem", { name: "Abandoned" });
+
+  // Verify all items exist
+  expect(skipMenuItem).toBeInTheDocument();
+  expect(retryMenuItem).toBeInTheDocument();
+  expect(completeMenuItem).toBeInTheDocument();
+  expect(abandonedMenuItem).toBeInTheDocument();
+
+  // Check disabled states for all items
+  expect(skipMenuItem).toHaveAttribute("aria-disabled", "true");
+  expect(retryMenuItem).toHaveAttribute("aria-disabled", "true");
+  expect(completeMenuItem).toHaveAttribute("aria-disabled", "true");
+  expect(abandonedMenuItem).toHaveAttribute("aria-disabled", "true");
 });
+
+test("Tasks tab shows task status and action status for Not Started task", async () => {
+  // GIVEN
+  const pipelineTemplates = generateTestPipelineTemplates(2);
+  const tasks = generateTestTasks(3);
+  const pipelineTemplateTasks = generateTestPipelineTemplateTasks(pipelineTemplates, tasks);
+  const pipelines = generateTestPipelines(1, { status: "In Progress" }, pipelineTemplates[0], tasks);
+  const taskExecutions = generateTestTaskExecutions(pipelines[0], tasks);
+
+  server.use(
+    rest.get("/user/pipeline_template", (request, response, context) => {
+      return response(context.status(200), context.json(pipelineTemplates));
+    }),
+    rest.get("/user/task", (request, response, context) => {
+      return response(context.status(200), context.json(tasks));
+    }),
+    rest.get("/user/pipeline_template_task", (request, response, context) => {
+      return response(context.status(200), context.json(pipelineTemplateTasks));
+    }),
+    rest.get("/user/pipeline", (request, response, context) => {
+      return response(context.status(200), context.json(pipelines));
+    }),
+    rest.get("/user/task_execution", (request, response, context) => {
+      return response(context.status(200), context.json(taskExecutions));
+    })
+  );
+
+  const { setSplitPanelOpen, setContent, setContentFromSchema } = renderUserPipelinesTable();
+  const pipelineRowCheckbox = screen.getByRole("checkbox");
+
+  // WHEN
+  await userEvent.click(pipelineRowCheckbox);
+
+  // THEN
+  expect(screen.getByRole("heading", { name: "Details" })).toBeInTheDocument();
+  // AND WHEN
+  await userEvent.click(screen.getByRole("tab", { name: "Tasks" }));
+
+  // THEN
+  const detailsView = screen.getByTestId("pipeline-details-view");
+  expect(await within(detailsView).findByRole("heading", { name: "Task Executions (3)" })).toBeInTheDocument();
+
+  const table = within(detailsView).getByRole("table");
+  const rows = within(table).getAllByRole("rowgroup")[1];
+  console.log(rows)
+  expect(within(rows).getAllByText("In Progress")).toHaveLength(1);
+  expect(within(rows).getAllByText("Not Started")).toHaveLength(2);
+
+  // AND WHEN
+  await userEvent.click(within(rows).getAllByRole("radio")[1]);
+  await userEvent.click(within(detailsView).getByRole("button", { name: "Actions" }));
+  await userEvent.click(within(detailsView).getByRole("menuitem", { name: "View Inputs & Logs" }));
+
+  screen.logTestingPlaygroundURL(detailsView);
+  // THEN
+  expect(setSplitPanelOpen).toHaveBeenCalledTimes(1);
+
+  
+  // WHEN
+
+  const actionsButton = within(detailsView).getByRole("button", { name: "Actions" });
+  await userEvent.click(actionsButton);
+  const menu = screen.getByRole("menu");
+  // Check main menu items
+  expect(within(menu).getByRole("menuitem", { name: "Update Status" })).toBeInTheDocument();
+  // Check Update Status submenu items
+  const updateStatusMenuItem = within(menu).getByRole("menuitem", { name: "Update Status" });
+  await userEvent.click(updateStatusMenuItem);
+  const submenu = screen.getByRole("menu", { name: "Update Status" });
+  
+  // THEN 
+  // Get all menu items and check their existence and disabled states
+  const skipMenuItem = within(submenu).getByRole("menuitem", { name: "Skip" });
+  const retryMenuItem = within(submenu).getByRole("menuitem", { name: "Retry" });
+  const completeMenuItem = within(submenu).getByRole("menuitem", { name: "Complete" });
+  const abandonedMenuItem = within(submenu).getByRole("menuitem", { name: "Abandoned" });
+
+  // Verify all items exist
+  expect(skipMenuItem).toBeInTheDocument();
+  expect(retryMenuItem).toBeInTheDocument();
+  expect(completeMenuItem).toBeInTheDocument();
+  expect(abandonedMenuItem).toBeInTheDocument();
+
+  // Check disabled states for all items
+  expect(skipMenuItem).toHaveAttribute("aria-disabled", "true"); 
+  expect(retryMenuItem).toHaveAttribute("aria-disabled", "true");
+  expect(completeMenuItem).toHaveAttribute("aria-disabled", "true");
+  expect(abandonedMenuItem).not.toHaveAttribute("aria-disabled", "true");
+});
+
+test("Tasks tab shows task status and validate action item status for Pending Approval task", async () => {
+  // GIVEN
+  const pipelineTemplates = generateTestPipelineTemplates(2);
+  const tasks = generateTestTasks(3);
+  const pipelineTemplateTasks = generateTestPipelineTemplateTasks(pipelineTemplates, tasks);
+  const pipelines = generateTestPipelines(1, { status: "In Progress" }, pipelineTemplates[0], tasks);
+  const taskExecutions = generateTestTaskExecutions(pipelines[0], tasks, ["Pending Approval"]);
+
+  server.use(
+    rest.get("/user/pipeline_template", (request, response, context) => {
+      return response(context.status(200), context.json(pipelineTemplates));
+    }),
+    rest.get("/user/task", (request, response, context) => {
+      return response(context.status(200), context.json(tasks));
+    }),
+    rest.get("/user/pipeline_template_task", (request, response, context) => {
+      return response(context.status(200), context.json(pipelineTemplateTasks));
+    }),
+    rest.get("/user/pipeline", (request, response, context) => {
+      return response(context.status(200), context.json(pipelines));
+    }),
+    rest.get("/user/task_execution", (request, response, context) => {
+      return response(context.status(200), context.json(taskExecutions));
+    })
+  );
+
+  const { setSplitPanelOpen, setContent, setContentFromSchema } = renderUserPipelinesTable();
+  const pipelineRowCheckbox = screen.getByRole("checkbox");
+
+  // WHEN
+  await userEvent.click(pipelineRowCheckbox);
+
+  // THEN
+  expect(screen.getByRole("heading", { name: "Details" })).toBeInTheDocument();
+  // AND WHEN
+  await userEvent.click(screen.getByRole("tab", { name: "Tasks" }));
+
+  // THEN
+  const detailsView = screen.getByTestId("pipeline-details-view");
+  expect(await within(detailsView).findByRole("heading", { name: "Task Executions (3)" })).toBeInTheDocument();
+
+  const table = within(detailsView).getByRole("table");
+  const rows = within(table).getAllByRole("rowgroup")[1];
+  console.log(rows)
+  expect(within(rows).getAllByText("Pending Approval")).toHaveLength(1);
+
+  // AND WHEN
+  await userEvent.click(within(rows).getAllByRole("radio")[0]);
+  await userEvent.click(within(detailsView).getByRole("button", { name: "Actions" }));
+  await userEvent.click(within(detailsView).getByRole("menuitem", { name: "View Inputs & Logs" }));
+
+  screen.logTestingPlaygroundURL(detailsView);
+  
+  const actionsButton = within(detailsView).getByRole("button", { name: "Actions" });
+  await userEvent.click(actionsButton);
+  const menu = screen.getByRole("menu");
+  // Check main menu items
+  expect(within(menu).getByRole("menuitem", { name: "Update Status" })).toBeInTheDocument();
+  // Check Update Status submenu items
+  const updateStatusMenuItem = within(menu).getByRole("menuitem", { name: "Update Status" });
+  await userEvent.click(updateStatusMenuItem);
+  const submenu = screen.getByRole("menu", { name: "Update Status" });
+  
+  // THEN 
+  // Get all menu items and check their existence and disabled states
+  const skipMenuItem = within(submenu).getByRole("menuitem", { name: "Skip" });
+  const retryMenuItem = within(submenu).getByRole("menuitem", { name: "Retry" });
+  const completeMenuItem = within(submenu).getByRole("menuitem", { name: "Complete" });
+  const abandonedMenuItem = within(submenu).getByRole("menuitem", { name: "Abandoned" });
+
+  // Verify all items exist
+  expect(skipMenuItem).toBeInTheDocument();
+  expect(retryMenuItem).toBeInTheDocument();
+  expect(completeMenuItem).toBeInTheDocument();
+  expect(abandonedMenuItem).toBeInTheDocument();
+
+  // Check disabled states for all items
+  expect(skipMenuItem).toHaveAttribute("aria-disabled", "true"); 
+  expect(retryMenuItem).toHaveAttribute("aria-disabled", "true");
+  expect(completeMenuItem).not.toHaveAttribute("aria-disabled", "true");
+  expect(abandonedMenuItem).not.toHaveAttribute("aria-disabled", "true");
+});
+
+test("Tasks tab shows task status and validate action item status for Abandoned task", async () => {
+  // GIVEN
+  const pipelineTemplates = generateTestPipelineTemplates(2);
+  const tasks = generateTestTasks(3);
+  const pipelineTemplateTasks = generateTestPipelineTemplateTasks(pipelineTemplates, tasks);
+  const pipelines = generateTestPipelines(1, { status: "In Progress" }, pipelineTemplates[0], tasks);
+  const taskExecutions = generateTestTaskExecutions(pipelines[0], tasks, ["Abandoned"]);
+
+  server.use(
+    rest.get("/user/pipeline_template", (request, response, context) => {
+      return response(context.status(200), context.json(pipelineTemplates));
+    }),
+    rest.get("/user/task", (request, response, context) => {
+      return response(context.status(200), context.json(tasks));
+    }),
+    rest.get("/user/pipeline_template_task", (request, response, context) => {
+      return response(context.status(200), context.json(pipelineTemplateTasks));
+    }),
+    rest.get("/user/pipeline", (request, response, context) => {
+      return response(context.status(200), context.json(pipelines));
+    }),
+    rest.get("/user/task_execution", (request, response, context) => {
+      return response(context.status(200), context.json(taskExecutions));
+    })
+  );
+
+  const { setSplitPanelOpen, setContent, setContentFromSchema } = renderUserPipelinesTable();
+  const pipelineRowCheckbox = screen.getByRole("checkbox");
+
+  // WHEN
+  await userEvent.click(pipelineRowCheckbox);
+
+  // THEN
+  expect(screen.getByRole("heading", { name: "Details" })).toBeInTheDocument();
+  // AND WHEN
+  await userEvent.click(screen.getByRole("tab", { name: "Tasks" }));
+
+  // THEN
+  const detailsView = screen.getByTestId("pipeline-details-view");
+  expect(await within(detailsView).findByRole("heading", { name: "Task Executions (3)" })).toBeInTheDocument();
+
+  const table = within(detailsView).getByRole("table");
+  const rows = within(table).getAllByRole("rowgroup")[1];
+  expect(within(rows).getAllByText("Abandoned")).toHaveLength(1);
+
+  // AND WHEN
+  await userEvent.click(within(rows).getAllByRole("radio")[0]);
+  await userEvent.click(within(detailsView).getByRole("button", { name: "Actions" }));
+  await userEvent.click(within(detailsView).getByRole("menuitem", { name: "View Inputs & Logs" }));
+
+  screen.logTestingPlaygroundURL(detailsView);
+  
+  const actionsButton = within(detailsView).getByRole("button", { name: "Actions" });
+  await userEvent.click(actionsButton);
+  const menu = screen.getByRole("menu");
+  // Check main menu items
+  expect(within(menu).getByRole("menuitem", { name: "Update Status" })).toBeInTheDocument();
+  // Check Update Status submenu items
+  const updateStatusMenuItem = within(menu).getByRole("menuitem", { name: "Update Status" });
+  await userEvent.click(updateStatusMenuItem);
+  const submenu = screen.getByRole("menu", { name: "Update Status" });
+  
+  // THEN 
+  // Get all menu items and check their existence and disabled states
+  const skipMenuItem = within(submenu).getByRole("menuitem", { name: "Skip" });
+  const retryMenuItem = within(submenu).getByRole("menuitem", { name: "Retry" });
+  const completeMenuItem = within(submenu).getByRole("menuitem", { name: "Complete" });
+  const abandonedMenuItem = within(submenu).getByRole("menuitem", { name: "Abandoned" });
+
+  // Verify all items exist
+  expect(skipMenuItem).toBeInTheDocument();
+  expect(retryMenuItem).toBeInTheDocument();
+  expect(completeMenuItem).toBeInTheDocument();
+  expect(abandonedMenuItem).toBeInTheDocument();
+
+  // Check disabled states for all items
+  expect(skipMenuItem).toHaveAttribute("aria-disabled", "true"); 
+  expect(retryMenuItem).not.toHaveAttribute("aria-disabled", "true");
+  expect(completeMenuItem).toHaveAttribute("aria-disabled", "true");
+  expect(abandonedMenuItem).toHaveAttribute("aria-disabled", "true");
+});
+
+test("Tasks tab shows task status and validate action item status for Skip task", async () => {
+  // GIVEN
+  const pipelineTemplates = generateTestPipelineTemplates(2);
+  const tasks = generateTestTasks(3);
+  const pipelineTemplateTasks = generateTestPipelineTemplateTasks(pipelineTemplates, tasks);
+  const pipelines = generateTestPipelines(1, { status: "In Progress" }, pipelineTemplates[0], tasks);
+  const taskExecutions = generateTestTaskExecutions(pipelines[0], tasks, ["Skip"]);
+
+  server.use(
+    rest.get("/user/pipeline_template", (request, response, context) => {
+      return response(context.status(200), context.json(pipelineTemplates));
+    }),
+    rest.get("/user/task", (request, response, context) => {
+      return response(context.status(200), context.json(tasks));
+    }),
+    rest.get("/user/pipeline_template_task", (request, response, context) => {
+      return response(context.status(200), context.json(pipelineTemplateTasks));
+    }),
+    rest.get("/user/pipeline", (request, response, context) => {
+      return response(context.status(200), context.json(pipelines));
+    }),
+    rest.get("/user/task_execution", (request, response, context) => {
+      return response(context.status(200), context.json(taskExecutions));
+    })
+  );
+
+  const { setSplitPanelOpen, setContent, setContentFromSchema } = renderUserPipelinesTable();
+  const pipelineRowCheckbox = screen.getByRole("checkbox");
+
+  // WHEN
+  await userEvent.click(pipelineRowCheckbox);
+
+  // THEN
+  expect(screen.getByRole("heading", { name: "Details" })).toBeInTheDocument();
+  // AND WHEN
+  await userEvent.click(screen.getByRole("tab", { name: "Tasks" }));
+
+  // THEN
+  const detailsView = screen.getByTestId("pipeline-details-view");
+  expect(await within(detailsView).findByRole("heading", { name: "Task Executions (3)" })).toBeInTheDocument();
+
+  const table = within(detailsView).getByRole("table");
+  const rows = within(table).getAllByRole("rowgroup")[1];
+  expect(within(rows).getAllByText("Skip")).toHaveLength(1);
+
+  // AND WHEN
+  await userEvent.click(within(rows).getAllByRole("radio")[0]);
+  await userEvent.click(within(detailsView).getByRole("button", { name: "Actions" }));
+  await userEvent.click(within(detailsView).getByRole("menuitem", { name: "View Inputs & Logs" }));
+
+  screen.logTestingPlaygroundURL(detailsView);
+  
+  const actionsButton = within(detailsView).getByRole("button", { name: "Actions" });
+  await userEvent.click(actionsButton);
+  const menu = screen.getByRole("menu");
+  // Check main menu items
+  expect(within(menu).getByRole("menuitem", { name: "Update Status" })).toBeInTheDocument();
+  // Check Update Status submenu items
+  const updateStatusMenuItem = within(menu).getByRole("menuitem", { name: "Update Status" });
+  await userEvent.click(updateStatusMenuItem);
+  const submenu = screen.getByRole("menu", { name: "Update Status" });
+  
+  // THEN 
+  // Get all menu items and check their existence and disabled states
+  const skipMenuItem = within(submenu).getByRole("menuitem", { name: "Skip" });
+  const retryMenuItem = within(submenu).getByRole("menuitem", { name: "Retry" });
+  const completeMenuItem = within(submenu).getByRole("menuitem", { name: "Complete" });
+  const abandonedMenuItem = within(submenu).getByRole("menuitem", { name: "Abandoned" });
+
+  // Verify all items exist
+  expect(skipMenuItem).toBeInTheDocument();
+  expect(retryMenuItem).toBeInTheDocument();
+  expect(completeMenuItem).toBeInTheDocument();
+  expect(abandonedMenuItem).toBeInTheDocument();
+
+  // Check disabled states for all items
+  expect(skipMenuItem).toHaveAttribute("aria-disabled", "true"); 
+  expect(retryMenuItem).not.toHaveAttribute("aria-disabled", "true");
+  expect(completeMenuItem).toHaveAttribute("aria-disabled", "true");
+  expect(abandonedMenuItem).toHaveAttribute("aria-disabled", "true");
+});
+
+test("Tasks tab shows task status and validate action item status for Failed task", async () => {
+  // GIVEN
+  const pipelineTemplates = generateTestPipelineTemplates(2);
+  const tasks = generateTestTasks(3);
+  const pipelineTemplateTasks = generateTestPipelineTemplateTasks(pipelineTemplates, tasks);
+  const pipelines = generateTestPipelines(1, { status: "In Progress" }, pipelineTemplates[0], tasks);
+  const taskExecutions = generateTestTaskExecutions(pipelines[0], tasks, ["Failed"]);
+
+  server.use(
+    rest.get("/user/pipeline_template", (request, response, context) => {
+      return response(context.status(200), context.json(pipelineTemplates));
+    }),
+    rest.get("/user/task", (request, response, context) => {
+      return response(context.status(200), context.json(tasks));
+    }),
+    rest.get("/user/pipeline_template_task", (request, response, context) => {
+      return response(context.status(200), context.json(pipelineTemplateTasks));
+    }),
+    rest.get("/user/pipeline", (request, response, context) => {
+      return response(context.status(200), context.json(pipelines));
+    }),
+    rest.get("/user/task_execution", (request, response, context) => {
+      return response(context.status(200), context.json(taskExecutions));
+    })
+  );
+
+  const { setSplitPanelOpen, setContent, setContentFromSchema } = renderUserPipelinesTable();
+  const pipelineRowCheckbox = screen.getByRole("checkbox");
+
+  // WHEN
+  await userEvent.click(pipelineRowCheckbox);
+
+  // THEN
+  expect(screen.getByRole("heading", { name: "Details" })).toBeInTheDocument();
+  // AND WHEN
+  await userEvent.click(screen.getByRole("tab", { name: "Tasks" }));
+
+  // THEN
+  const detailsView = screen.getByTestId("pipeline-details-view");
+  expect(await within(detailsView).findByRole("heading", { name: "Task Executions (3)" })).toBeInTheDocument();
+
+  const table = within(detailsView).getByRole("table");
+  const rows = within(table).getAllByRole("rowgroup")[1];
+  expect(within(rows).getAllByText("Failed")).toHaveLength(1);
+
+  // AND WHEN
+  await userEvent.click(within(rows).getAllByRole("radio")[0]);
+  await userEvent.click(within(detailsView).getByRole("button", { name: "Actions" }));
+  await userEvent.click(within(detailsView).getByRole("menuitem", { name: "View Inputs & Logs" }));
+
+  screen.logTestingPlaygroundURL(detailsView);
+  
+  const actionsButton = within(detailsView).getByRole("button", { name: "Actions" });
+  await userEvent.click(actionsButton);
+  const menu = screen.getByRole("menu");
+  // Check main menu items
+  expect(within(menu).getByRole("menuitem", { name: "Update Status" })).toBeInTheDocument();
+  // Check Update Status submenu items
+  const updateStatusMenuItem = within(menu).getByRole("menuitem", { name: "Update Status" });
+  await userEvent.click(updateStatusMenuItem);
+  const submenu = screen.getByRole("menu", { name: "Update Status" });
+  
+  // THEN 
+  // Get all menu items and check their existence and disabled states
+  const skipMenuItem = within(submenu).getByRole("menuitem", { name: "Skip" });
+  const retryMenuItem = within(submenu).getByRole("menuitem", { name: "Retry" });
+  const completeMenuItem = within(submenu).getByRole("menuitem", { name: "Complete" });
+  const abandonedMenuItem = within(submenu).getByRole("menuitem", { name: "Abandoned" });
+
+  // Verify all items exist
+  expect(skipMenuItem).toBeInTheDocument();
+  expect(retryMenuItem).toBeInTheDocument();
+  expect(completeMenuItem).toBeInTheDocument();
+  expect(abandonedMenuItem).toBeInTheDocument();
+
+  // Check disabled states for all items
+  expect(skipMenuItem).not.toHaveAttribute("aria-disabled", "true"); 
+  expect(retryMenuItem).not.toHaveAttribute("aria-disabled", "true");
+  expect(completeMenuItem).toHaveAttribute("aria-disabled", "true");
+  expect(abandonedMenuItem).toHaveAttribute("aria-disabled", "true");
+});
+
 
 test('click on row enables "Delete" button, shows "Delete" modal', async () => {
   // GIVEN

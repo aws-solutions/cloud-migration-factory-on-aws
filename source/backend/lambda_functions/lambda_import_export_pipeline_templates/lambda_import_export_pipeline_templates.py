@@ -18,6 +18,8 @@ import item_validation
 from cmf_logger import logger, log_event_received
 from cmf_utils import default_http_headers
 from models import PipelineTemplate, PipelineTemplateTask, ClientException
+from drawio_parser import DrawIOParser
+from lucid_parser import LucidCSVParser
 
 application = os.environ['application']
 environment = os.environ['environment']
@@ -26,7 +28,10 @@ pipeline_template_tasks_table_name = '{}-{}-'.format(application, environment) +
 PIPELINE_TEMPLATE_SCHEMA = 'pipeline_template'
 
 lambda_client = cmf_boto.client('lambda')
-
+SUPPORTED_PARSERS = {
+    'drawio': DrawIOParser,
+    'lucid-csv': LucidCSVParser,
+}
 
 def lambda_handler(e, _=None):
     log_event_received(e)
@@ -128,7 +133,7 @@ def get_all_pipeline_template_tasks() -> Iterable[PipelineTemplateTask]:
 
 def with_tasks(pipeline_template: PipelineTemplate, all_tasks: Iterable[PipelineTemplateTask], all_scripts=None) -> dict:
     tasks_for_this_template = [task for task in all_tasks if
-                               task['pipeline_template_id'] == pipeline_template['pipeline_template_id']]
+                    task['pipeline_template_id'] == pipeline_template['pipeline_template_id']]
 
     if all_scripts:
         #     Resolve task_ids to names
@@ -144,7 +149,19 @@ def with_tasks(pipeline_template: PipelineTemplate, all_tasks: Iterable[Pipeline
 
 
 def process_post(event: APIGatewayProxyEvent, request_context):
-    pipeline_templates = json.loads(event.body)
+    body = json.loads(event.body)
+    if 'fileFormat' in body and body['fileFormat'] in SUPPORTED_PARSERS:
+        parser = SUPPORTED_PARSERS[body['fileFormat']]()
+        pipeline_templates = parser.parse(body['content'])
+    elif 'fileFormat' not in body or body['fileFormat'] == 'cmf-json':
+        pipeline_templates = json.loads(body['content']) if 'content' in body else body
+    else:
+        raise ClientException(
+                error="UnsupportedFormat",
+                message=f"Unsupported file format, Supported file formats are cmf-json, lucid-csv and drawio",
+                status_code=400
+            )
+        
     if not isinstance(pipeline_templates, list):
         raise ClientException('ValidationError', 'Invalid request body')
 

@@ -100,6 +100,8 @@ export function generateTestPipelines(
     pipeline_id: `${number}`,
     pipeline_name: `unittest_pipeline${number}`,
     pipeline_status: data?.status ?? "Created",
+    pipeline_enable_email_notifications: true,
+    pipeline_default_email_recipients: ["foo@example.com"],
     pipeline_template_id: pipelineTemplate?.pipeline_template_id ?? v4(),
     task_arguments: tasks ? tasks.map((task) => ({ ...task })) : [],
     _history: {

@@ -19,6 +19,7 @@ aws-lambda-powertools = {extras = ["aws-sdk"], version = ">=3.7.0"}
 PyJWT = {extras = ["crypto"], version = "2.10.1"}
 joserfc = "~=1.0.4"
 mypy-boto3-dynamodb = ">=1.37.0"
+defusedxml = "^0.7.1"
 
 [tool.poetry.group.dev.dependencies]
 

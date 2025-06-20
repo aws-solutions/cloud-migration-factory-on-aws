@@ -1850,6 +1850,296 @@
         {
           "M": {
             "description": {
+              "S": "Enable Email Notifications"
+            },
+            "name": {
+              "S": "pipeline_enable_email_notifications"
+            },
+            "type": {
+              "S": "checkbox"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "default": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "task_level_email_settings"
+            },
+            "description": {
+              "S": "Task Level Email Notification Settings"
+            },
+            "type": {
+              "S": "embedded_entity"
+            },
+            "group": {
+              "S": "Email Notifications"
+            },
+            "group_order": {
+              "S": "5"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "long_desc": {
+              "S": "Configure email recipients for each task in the pipeline"
+            },
+            "lookup": {
+              "S": "concat(pipeline_id, ':', task.task_id)"
+            },
+            "rel_display_attribute": {
+              "S": "task.task_name"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "embedded_schema": {
+              "M": {
+                "attributes": {
+                  "L": [
+                    {
+                      "M": {
+                        "name": {
+                          "S": "task_id"
+                        },
+                        "description": {
+                          "S": "Task ID"
+                        },
+                        "type": {
+                          "S": "relationship"
+                        },
+                        "rel_entity": {
+                          "S": "pipeline_template"
+                        },
+                        "rel_key": {
+                          "S": "pipeline_template_id"
+                        },
+                        "lookup": {
+                          "S": "concat(pipeline_id, ':', task.task_id)"
+                        },
+                        "rel_display_attribute": {
+                          "S": "task.task_name"
+                        },
+                        "required": {
+                          "BOOL": true
+                        }
+                      }
+                    },
+                    {
+                      "M": {
+                        "name": {
+                          "S": "email_users"
+                        },
+                        "description": {
+                          "S": "Email Users"
+                        },
+                        "type": {
+                          "S": "users"
+                        },
+                        "listMultiSelect": {
+                          "BOOL": true
+                        },
+                        "listValueAPI": {
+                          "S": "/admin/users"
+                        },
+                        "required": {
+                          "BOOL": false
+                        },
+                        "long_desc": {
+                          "S": "List of Cognito Users"
+                        }
+                      }
+                    },
+                    {
+                      "M": {
+                        "name": {
+                          "S": "email_groups"
+                        },
+                        "description": {
+                          "S": "Email Groups"
+                        },
+                        "type": {
+                          "S": "groups"
+                        },
+                        "listMultiSelect": {
+                          "BOOL": true
+                        },
+                        "listValueAPI": {
+                          "S": "/admin/groups"
+                        },
+                        "required": {
+                          "BOOL": false
+                        },
+                        "long_desc": {
+                          "S": "List of Cognito groups"
+                        }
+                      }
+                    },
+                    {
+                      "M": {
+                        "name": {
+                          "S": "email_body"
+                        },
+                        "description": {
+                          "S": "Email Body"
+                        },
+                        "type": {
+                          "S": "string"
+                        },
+                        "validation_regex": {
+                          "S": "^.{0,140}$"
+                        },
+                        "validation_regex_msg": {
+                          "S": "Email body must not exceed 140 characters"
+                        },
+                        "long_desc": {
+                          "S": "Email body text, maximum 140 characters"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }, 
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "conditions": {
+              "M": {
+                "queries": {
+                  "L": [
+                    {
+                      "M": {
+                        "comparator": {
+                          "S": "="
+                        },
+                        "value": {
+                          "BOOL": true
+                        },
+                        "attribute": {
+                          "S": "pipeline_enable_email_notifications"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "outcomes": {
+                  "M": {
+                    "false": {
+                      "L": [
+                        {
+                          "S": "hidden"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "system": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "name": {
+              "S": "pipeline_default_email_recipients"
+            },
+            "description": {
+              "S": "Default Email Recipients"
+            },
+            "type": {
+              "S": "users"
+            },
+            "listValueAPI": {
+              "S": "/admin/users"
+            },
+            "long_desc": {
+              "S": "List of Cognito Users"
+            }
+          }
+        },
+        {
+          "M": {
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "conditions": {
+              "M": {
+                "queries": {
+                  "L": [
+                    {
+                      "M": {
+                        "comparator": {
+                          "S": "="
+                        },
+                        "value": {
+                          "BOOL": true
+                        },
+                        "attribute": {
+                          "S": "pipeline_enable_email_notifications"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "outcomes": {
+                  "M": {
+                    "false": {
+                      "L": [
+                        {
+                          "S": "hidden"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "system": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "pipeline_default_email_groups"
+            },
+            "description": {
+              "S": "Default Email Groups"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "type": {
+              "S": "groups"
+            },
+            "listValueAPI": {
+              "S": "/admin/groups"
+            },
+            "long_desc": {
+              "S": "List of Cognito user groups"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
               "S": "Pipeline Description"
             },
             "name": {
@@ -2583,6 +2873,25 @@
             },
             "required": {
               "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "compute_platform"
+            },
+            "description": {
+              "S": "Compute Platform"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            },
+            "long_desc": {
+              "S": "Compute Platform for use for the script."
             }
           }
         },

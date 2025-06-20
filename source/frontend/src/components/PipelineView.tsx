@@ -23,6 +23,7 @@ export const ViewTaskExecution = (props: {
   schema: Record<string, EntitySchema>;
   taskExecution: any;
   dataAll: any;
+  pipelineMetadata: any;
 }) => {
   const [viewerCurrentTab, setViewerCurrentTab] = useState("log");
 
@@ -34,6 +35,7 @@ export const ViewTaskExecution = (props: {
         handleTabChange={setViewerCurrentTab}
         dataAll={props.dataAll}
         selectedTab={viewerCurrentTab}
+        pipelineMetadata={props.pipelineMetadata}
       />
     </SplitPanel>
   );
@@ -69,9 +71,9 @@ const PipelineView = (props: PipelineViewParams) => {
   const [selectedTaskExecutions, setSelectedTaskExecutions] = useState<Array<any>>([]);
 
   const allowStatusUpdateToSkip = ["Failed"];
-  const allowStatusUpdateToInProgress:string[] = [];
-  const allowStatusUpdateToRetry = ["Failed", "Complete", "Skip"];
-  const allowStatusUpdateToComplete = ["Pending Approval"]
+  const allowStatusUpdateToRetry = ["Failed", "Complete", "Skip", "Abandoned"];
+  const allowStatusUpdateToComplete = ["Pending Approval"];
+  const allowStatusUpdateToAbandon = ["Pending Approval", "Not Started"];
 
   useEffect(() => {
     // Set split panel content to undefined so it doesn't show on pipeline change
@@ -110,6 +112,7 @@ const PipelineView = (props: PipelineViewParams) => {
       case 'update_status_retry':
       case 'update_status_complete':
       case 'update_status_in-progress':
+      case 'update_status_abandoned':
         await handleTaskExecutionStatusChange(event.detail.id);
         break;
     }
@@ -123,7 +126,9 @@ const PipelineView = (props: PipelineViewParams) => {
       'update_status_skip': "Skip",
       'update_status_retry': "Retry",
       'update_status_complete': "Complete",
-      'update_status_in-progress': "In Progress"
+      'update_status_in-progress': "In Progress",
+      'update_status_abandoned': "Abandoned"
+      
     }
 
     if (!statusMap[action]) {
@@ -187,6 +192,7 @@ const PipelineView = (props: PipelineViewParams) => {
           schema={props.schema}
           taskExecution={selection[0]}
           dataAll={props.dataAll}
+          pipelineMetadata={props.pipeline}
         />
       );
     }
@@ -202,10 +208,10 @@ const PipelineView = (props: PipelineViewParams) => {
         return !allowStatusUpdateToSkip.includes(selectedTaskExecutions[0].task_execution_status);
       case 'update_status_retry':
         return !allowStatusUpdateToRetry.includes(selectedTaskExecutions[0].task_execution_status);
-      case 'update_status_in-progress':
-        return !allowStatusUpdateToInProgress.includes(selectedTaskExecutions[0].task_execution_status);
       case 'update_status_complete':
         return !allowStatusUpdateToComplete.includes(selectedTaskExecutions[0].task_execution_status);
+      case 'update_status_abandoned':
+        return !allowStatusUpdateToAbandon.includes(selectedTaskExecutions[0].task_execution_status);
       default:
         return true;
     }
@@ -252,6 +258,7 @@ const PipelineView = (props: PipelineViewParams) => {
               schemaName={"pipeline"}
               templateData={pipelineVisualContent}
               handleRefreshTasks={props.taskExecutionsRefresh}
+              pipelineMetadata={props.pipeline}
             />
           ),
         },
@@ -299,9 +306,9 @@ const PipelineView = (props: PipelineViewParams) => {
                       disabled: shouldDisableTaskExecutionStatusChange('update_status_complete'),
                     },
                     {
-                      id: "update_status_in-progress",
-                      text: "In Progress",
-                      disabled: shouldDisableTaskExecutionStatusChange('update_status_in-progress'),
+                      id: "update_status_abandoned",
+                      text: "Abandoned",
+                      disabled: shouldDisableTaskExecutionStatusChange('update_status_abandoned'),
                     },
                   ],
                 },

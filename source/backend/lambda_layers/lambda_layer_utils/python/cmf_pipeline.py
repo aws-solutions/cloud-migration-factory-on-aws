@@ -23,9 +23,10 @@ class TaskExecutionStatus(Enum):
     NOT_STARTED = "Not Started"
     SKIPPED = "Skip"
     RETRY = "Retry"
+    ABANDONED = "Abandoned"
 
-STATUS_OK_TO_PROCEED = [TaskExecutionStatus.COMPLETE, TaskExecutionStatus.SKIPPED]
-STATUS_OK_TO_RETRY = [TaskExecutionStatus.COMPLETE, TaskExecutionStatus.SKIPPED, TaskExecutionStatus.FAILED]
+STATUS_OK_TO_PROCEED = [TaskExecutionStatus.COMPLETE, TaskExecutionStatus.SKIPPED, TaskExecutionStatus.ABANDONED]
+STATUS_OK_TO_RETRY = [TaskExecutionStatus.COMPLETE, TaskExecutionStatus.SKIPPED, TaskExecutionStatus.FAILED, TaskExecutionStatus.ABANDONED]
 
 def update_task_execution_output(task_execution_id, last_output_message, output):
     update_expr =  'SET #outputLastMessage = :outputLastMessage, #output = :output'

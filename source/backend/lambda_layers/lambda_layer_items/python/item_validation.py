@@ -26,8 +26,9 @@ STATUS_TXT_SKIPPED = 'Skip'
 STATUS_TXT_RETRY = 'Retry'
 STATUS_TXT_FAILED = 'Failed'
 STATUS_TXT_PENDING_APPROVAL = 'Pending Approval'
-STATUS_OK_TO_RETRY = [STATUS_TXT_COMPLETE, STATUS_TXT_SKIPPED, STATUS_TXT_FAILED]
-TASK_PREDECESSOR_ALLOWED_UPDATE_STATUS = [STATUS_TXT_COMPLETE, STATUS_TXT_SKIPPED]
+STATUS_TXT_ABANDONED = 'Abandoned'
+STATUS_OK_TO_RETRY = [STATUS_TXT_COMPLETE, STATUS_TXT_SKIPPED, STATUS_TXT_FAILED, STATUS_TXT_ABANDONED]
+TASK_PREDECESSOR_ALLOWED_UPDATE_STATUS = [STATUS_TXT_COMPLETE, STATUS_TXT_SKIPPED, STATUS_TXT_ABANDONED]
 
 DEFAULT_TAG_REGEX = '^[a-zA-Z0-9+-=._:/@ ]+$'
 
@@ -582,7 +583,6 @@ def validate_task_predecessors_status(item, task_executions):
 
     # validate that all predecessor tasks are in a valid state to allow task updates.
     predecessors = get_task_execution_predecessors(item['task_execution_id'], task_executions)
-
     for predecessor in predecessors:
         if predecessor['task_execution_status'] not in TASK_PREDECESSOR_ALLOWED_UPDATE_STATUS:
             msg = f"Can not update execution status for task as predecessor '{predecessor['task_execution_name']}' as it is not in a valid state ({predecessor['task_execution_status']})"

@@ -23,6 +23,19 @@
 
 start_time=$SECONDS
 
+# Install poetry if not already installed
+if ! command -v poetry &> /dev/null; then
+    echo "Installing Poetry..."
+    curl -sSL https://install.python-poetry.org | POETRY_HOME=$HOME/.poetry python3 -
+    PATH="$HOME/.poetry/bin:$PATH"
+fi
+
+# Check if Export Poetry Plugin exists, install if it doesn't
+if ! poetry self show plugins | grep -q "poetry-plugin-export"; then
+    echo "Installing Export Poetry Plugin..."
+    poetry self add poetry-plugin-export
+fi
+
 # Check to see if input has been provided:
 
 if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
@@ -104,7 +117,7 @@ for d in */ ; do
     cp -r ./[!.]* ./.build
     cd ./.build
      if [ -f "$(pwd)/pyproject.toml" ]; then
-      "$POETRY_HOME"/bin/poetry export -f requirements.txt --output requirements.txt --without-hashes
+      poetry export --format requirements.txt --output requirements.txt --without-hashes
       pip install -r ./requirements.txt -t . --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
       if [ $? -ne 0 ]
         then
@@ -130,7 +143,7 @@ for d in */ ; do
     cp -r ./[!.]* ./.build
     cd $source_dir/backend/lambda_layers/$d/.build/python
     if [ -f "$(pwd)/pyproject.toml" ]; then
-      "$POETRY_HOME"/bin/poetry export -f requirements.txt --output requirements.txt --without-hashes
+      poetry export --format requirements.txt --output requirements.txt --without-hashes
       pip install -r ./requirements.txt -t ./lib/python3.11/site-packages/ --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
       if [ $? -ne 0 ]
         then
@@ -158,7 +171,7 @@ for d in */ ; do
     cp $source_dir/integrations/common/* ./.build
     cd ./.build
      if [ -f "$(pwd)/pyproject.toml" ]; then
-      "$POETRY_HOME"/bin/poetry export -f requirements.txt --output requirements.txt --without-hashes
+      poetry export --format requirements.txt --output requirements.txt --without-hashes
       pip install -r ./requirements.txt -t . --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
       if [ $? -ne 0 ]
         then

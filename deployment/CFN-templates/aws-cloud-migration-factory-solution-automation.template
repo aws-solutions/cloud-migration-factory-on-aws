@@ -1000,6 +1000,11 @@ Resources:
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              -
+                Effect: Allow
+                Action:
+                  - events:PutEvents
+                Resource: !GetAtt MigrationFactoryEventBus.Arn
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -1052,6 +1057,288 @@ Resources:
           - id: W28
             reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
 
+  EmailNotificationLambdaDLQ:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Sub '${Application}-${Environment}-email-notification-dlq'
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+
+  UINotificationLambdaDLQ:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Sub '${Application}-${Environment}-ui-notification-dlq'
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+
+  # SNS Topic
+  EmailSNSTopic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      TopicName: !Sub ${Application}-${Environment}-email-sns
+      DisplayName: !Sub ${Application} ${Environment} Email Notifications
+      KmsMasterKeyId: 'alias/aws/sns'
+      FifoTopic: false
+      TracingConfig: Active
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+
+  EmailNotificationLambdaRole:
+    Type: AWS::IAM::Role
+    DependsOn: 
+      - EmailNotificationLambdaDLQ
+      - EmailSNSTopic
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: Email-SQS-DLQ-Permissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt EmailNotificationLambdaDLQ.Arn
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: !Sub 'arn:${AWS::Partition}:xray:${AWS::Region}:${AWS::AccountId}:trace/*'
+        - PolicyName: SNSPublishPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'sns:Publish'
+                  - 'sns:ListSubscriptionsByTopic'
+                  - 'sns:GetTopicAttributes'
+                Resource: !Ref EmailSNSTopic
+        - PolicyName: DynamoDBPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                Resource: 
+                  - !Join ['', [!GetAtt PipelinesTable.Arn, '*']]
+        - PolicyName: CognitoPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:ListUsersInGroup
+                Resource: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
+
+  UINotificationLambdaRole:
+    Type: AWS::IAM::Role
+    DependsOn: UINotificationLambdaDLQ
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: UI-SQS-DLQ-Permissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt UINotificationLambdaDLQ.Arn
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: !Sub 'arn:${AWS::Partition}:xray:${AWS::Region}:${AWS::AccountId}:trace/*'
+
+  EmailNotificationLambdaFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: 
+      - EmailNotificationLambdaRole
+      - EmailNotificationLambdaDLQ
+      - EmailSNSTopic
+    Properties:
+      Environment:
+        Variables:
+          application: !Sub ${Application}
+          environment: !Sub ${Environment}
+          region: !Ref "AWS::Region"
+          user_pool_id: !Ref CognitoUserPoolId
+          sns_topic_arn: !Ref EmailSNSTopic
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_email_notification.zip"]]
+      Description: Lambda function for sending email notifications from EventBridge events
+      Handler: "lambda_email_notification.lambda_handler"
+      FunctionName: !Sub ${Application}-${Environment}-email-notification
+      Role: !GetAtt EmailNotificationLambdaRole.Arn
+      Runtime: !Ref LambdaRuntimePython
+      MemorySize: 512
+      Timeout: 900
+      TracingConfig:
+        Mode: Active
+      DeadLetterConfig:
+        TargetArn: !GetAtt EmailNotificationLambdaDLQ.Arn
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  UINotificationLambdaFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: 
+      - UINotificationLambdaRole
+      - UINotificationLambdaDLQ
+    Properties:
+      Environment:
+        Variables:
+          application: !Sub ${Application}
+          environment: !Sub ${Environment}
+          region: !Ref "AWS::Region"
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          socket_url: !If [ DeploymentPublic, !Sub "https://${SSMSocketAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/", !Sub "PrivateNotDeployed"]
+          cors: !Ref CORS
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_ui_notification.zip"]]
+      Description: Lambda function for handling UI notifications from EventBridge events
+      Handler: "lambda_ui_notification.lambda_handler"
+      FunctionName: !Sub ${Application}-${Environment}-ui-notification
+      Role: !GetAtt UINotificationLambdaRole.Arn
+      Runtime: !Ref LambdaRuntimePython
+      MemorySize: 512
+      Timeout: 900
+      TracingConfig:
+        Mode: Active
+      DeadLetterConfig:
+        TargetArn: !GetAtt UINotificationLambdaDLQ.Arn
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  MigrationFactoryEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub ${Application}-${Environment}-event-bus
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+
+  EmailNotificationEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "EventBridge rule to trigger email notification lambda"
+      EventBusName: !Ref MigrationFactoryEventBus
+      EventPattern:
+        source:
+          - !Sub ${Application}-${Environment}-task-orchestrator
+        detail-type:
+          - "EmailAutomationTaskType"
+          - "TaskManualApprovalNeeded"
+          - "TaskFailed"
+      State: "ENABLED"
+      Targets:
+        - Arn: !GetAtt EmailNotificationLambdaFunction.Arn
+          Id: "EmailNotificationTarget"
+          RetryPolicy:
+            MaximumEventAgeInSeconds: 86400  # 24 hours
+            MaximumRetryAttempts: 3
+          DeadLetterConfig:
+            Arn: !GetAtt EmailNotificationLambdaDLQ.Arn
+
+  EmailNotificationLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref EmailNotificationLambdaFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EmailNotificationEventRule.Arn
+
+  UINotificationEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "EventBridge rule to trigger UI notification lambda"
+      EventBusName: !Ref MigrationFactoryEventBus
+      EventPattern:
+        source:
+          - !Sub ${Application}-${Environment}-ssm-output
+        detail-type:
+          - "TaskFailed"
+          - "TaskSuccess"
+          - "TaskTimedOut"
+          - "TaskPending"
+      State: "ENABLED"
+      Targets:
+        - Arn: !GetAtt UINotificationLambdaFunction.Arn
+          Id: "UINotificationTarget"
+          RetryPolicy:
+            MaximumEventAgeInSeconds: 86400  # 24 hours
+            MaximumRetryAttempts: 3
+          DeadLetterConfig:
+            Arn: !GetAtt UINotificationLambdaDLQ.Arn
+
+  UINotificationLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref UINotificationLambdaFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt UINotificationEventRule.Arn
+
 
   # lambda_ssm.py
   LambdaFunctionSSM:
@@ -1073,6 +1360,7 @@ Resources:
           environment: !Ref Environment
           ssm_bucket: !Ref SSMBucket
           ssm_automation_document: !Ref RunCMFAutomationPackageSSMDocument
+          direct_ssm_execution_document: !Ref AdditionalAutomationTargetSSMDocument
           mf_userapi: !Ref UserAPI
           mf_toolsapi: !Ref ToolsAPI
           mf_loginapi: !Ref LoginAPI
@@ -1283,7 +1571,7 @@ Resources:
       Role: !GetAtt SSMOutputLambdaRole.Arn
       Environment:
         Variables:
-          socket_url: !If [ DeploymentPublic, !Sub "https://${SSMSocketAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/", !Sub "PrivateNotDeployed"]
+          EVENT_BUS_NAME: !Ref MigrationFactoryEventBus
           application: !Ref Application
           environment: !Ref Environment
           cors: !Ref CORS
@@ -2034,7 +2322,308 @@ Resources:
       Principal: 'apigateway.amazonaws.com'
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*'
 
+  AdditionalAutomationTargetSSMDocument:
+    Type: AWS::SSM::Document
+    Properties:
+        DocumentFormat: YAML
+        DocumentType: Automation
+        Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        Content:
+            description: Runs python scripts in its own environment
+            schemaVersion: '0.3'
+            assumeRole: !GetAtt SSMAdditionalAutomationRole.Arn
+            parameters:
+              bucketName:
+                type: String
+                description: "(Required) The name of the S3 bucket where the python automation package zip file resides."
+              payload:
+                type: String
+                description: "(Required) The payload to pass to the python script."
+            mainSteps:
+              - name: ExecutePythonScript
+                timeoutSeconds: 43200
+                action: aws:executeScript
+                inputs:
+                  Runtime: python3.11
+                  Handler: script_handler
+                  InputPayload:
+                    bucket_name: '{{bucketName}}'
+                    body: '{{payload}}'
+                    log_group_name: !Ref RunCMFAutomationPackageSSMDocumentLogGroup
+                  Script: |
+                    import os.path
+                    import boto3
+                    import os
+                    import json
+                    import zipfile
+                    import subprocess
+                    import sys
+                    from pathlib import Path
+                    from datetime import datetime
+                    from botocore.exceptions import ClientError
+                    import time
+                    import uuid
+
+                    def write_to_cloudwatch(message, log_group_name, log_stream_name, ssm_id):
+                        """
+                        Writes a message to CloudWatch Logs
+                        
+                        Args:
+                            message (str): The message to write to CloudWatch
+                            log_group_name (str): Name of the CloudWatch log group
+                            log_stream_name (str): Name of the log stream within the log group
+                            ssm_id (str): SSM Execution Id
+                        
+                        Returns:
+                            bool: True if successful, False otherwise
+                        """
+                        try:
+                            # Create CloudWatch Logs client
+                            logs_client = boto3.client('logs')
+                            
+                            # Create log stream if it doesn't exist
+                            try:
+                                logs_client.create_log_stream(
+                                    logGroupName=log_group_name,
+                                    logStreamName=log_stream_name
+                                )
+                            except ClientError as e:
+                                if e.response['Error']['Code'] != 'ResourceAlreadyExistsException':
+                                    raise
+                            
+                            appended_message = f'[{ssm_id}] {message}'
+                            # Prepare the log event
+                            log_event = {
+                                'logGroupName': log_group_name,
+                                'logStreamName': log_stream_name,
+                                'logEvents': [
+                                    {
+                                        'timestamp': int(datetime.utcnow().timestamp() * 1000),
+                                        'message': appended_message
+                                    }
+                                ]
+                            }
+                            
+                            # Get the sequence token if the stream exists and has data
+                            try:
+                                response = logs_client.describe_log_streams(
+                                    logGroupName=log_group_name,
+                                    logStreamNamePrefix=log_stream_name
+                                )
+                                if 'logStreams' in response and response['logStreams']:
+                                    stream = response['logStreams'][0]
+                                    if 'uploadSequenceToken' in stream:
+                                        log_event['sequenceToken'] = stream['uploadSequenceToken']
+                            except ClientError as e:
+                                print(f"Error getting sequence token: {str(e)}")
+                                return False
+
+                            # Put the log event
+                            logs_client.put_log_events(**log_event)
+                            return True
+
+                        except ClientError as e:
+                            print(f"Error writing to CloudWatch Logs: {str(e)}")
+                            return False
+
+                    def validate_python_file(file_path):
+                        """Validate if the file is a Python file"""
+                        if not file_path.endswith('.py'):
+                            raise ValueError("Master file must be a Python file (.py extension)")
+                        
+                        # Basic syntax check of the Python file
+                        try:
+                            with open(file_path, 'r') as f:
+                                compile(f.read(), file_path, 'exec')
+                        except SyntaxError as e:
+                            raise ValueError(f"Invalid Python file. Syntax error: {str(e)}")
+                        
+                    def script_handler(events, context):
+                        # Initialize S3 client
+                        s3 = boto3.client('s3')
+
+                        payload = events.get('body')
+                        body = json.loads(payload)
+
+                        script = body.get('script')
+                        bucket_name = events.get('bucket_name')
+                        script_key = script.get('package_uuid')
+                        script_version = script.get('version_id')
+                        script_name = script.get('script_name')
+                        ssm_id = body.get('SSMId')
+                        
+                        # S3 details - these should come from event or environment variables
+                        
+                        # Lambda can only write to /tmp directory
+                        local_zip = f'/tmp/{script_name}.zip'
+                        extract_path = f'/tmp/{script_name}'
+                        payload_file = '/tmp/payload.json'
+
+                        log_group_name = events.get('log_group_name')
+                        log_stream_name = datetime.now().strftime("%Y/%m/%d/%H-%M-%S")
+                        
+                        try:
+                            # Download zip file from S3
+                            s3.download_file(
+                                Bucket=bucket_name,
+                                Key= f'scripts/{script_key}.zip',
+                                Filename=local_zip,
+                                ExtraArgs={
+                                    'VersionId': script_version
+                                }
+                            )
+
+                            write_to_cloudwatch(f'Successfully downloaded script to: {local_zip}', log_group_name, log_stream_name, ssm_id)
+                            
+                            # Create extraction directory if it doesn't exist
+                            Path(extract_path).mkdir(parents=True, exist_ok=True)
+                            
+                            # Extract the zip file
+                            with zipfile.ZipFile(local_zip, 'r') as zip_ref:
+                                zip_ref.extractall(extract_path)
+                            
+                            # Verify PackageStructure.yml exists
+                            package_structure = os.path.join(extract_path, 'Package-Structure.yml')
+                            if not os.path.exists(package_structure):
+                                raise FileNotFoundError("Package-Structure.yml not found in zip file")
+                            
+                            # Read the third line and verify it starts with MasterFileName
+                            with open(package_structure, 'r') as f:
+                                lines = f.readlines()
+                                if len(lines) < 3:
+                                    raise ValueError("Invalid Package-Structure.yml format: Third line must start with 'MasterFileName:'")
+                                
+                                third_line = lines[2].strip()
+                                if not third_line.startswith('MasterFileName:'):
+                                    raise ValueError("Invalid Package-Structure.yml format: Third line must start with 'MasterFileName:'")
+                                
+                                # Extract the master filename
+                                master_file = third_line.split(':', 1)[1].strip().strip("'").strip('"')
+                                
+                                # Verify master file exists
+                                master_file_path = os.path.join(extract_path, master_file)
+                                if not os.path.exists(master_file_path):
+                                    raise FileNotFoundError(f"Master file {master_file} not found in extracted directory")
+                                
+                                # Validate that it's a proper Python file
+                                validate_python_file(master_file_path)
+
+                                write_to_cloudwatch('Successfully verified script package content', log_group_name, log_stream_name, ssm_id)
+                                
+                                # Prepare the Python command
+                                python_cmd = [sys.executable, master_file_path]
+                                
+                                # Add script arguments
+                                for name, value in script['script_arguments'].items():
+                                    python_cmd.extend([f'--{name}', str(value)])
+                                
+                                write_to_cloudwatch(f'Python command generated: {python_cmd}', log_group_name, log_stream_name, ssm_id)
+
+                                # Execute the Python script as a subprocess
+                                process = subprocess.run(
+                                    python_cmd,
+                                    cwd=extract_path,
+                                    capture_output=True,
+                                    text=True,
+                                    check=True,
+                                    env={
+                                        **os.environ,
+                                        'PYTHONPATH': extract_path  # Add extract path to PYTHONPATH
+                                    }
+                                )
+                                
+                                write_to_cloudwatch(process.stdout, log_group_name, log_stream_name, ssm_id)
+                                write_to_cloudwatch('JOB_COMPLETE', log_group_name, log_stream_name, ssm_id)
+                                return {
+                                    'statusCode': 200,
+                                    'body': {
+                                        'message': 'Python script executed successfully',
+                                        'output': output,
+                                        'stderr': process.stderr if process.stderr else None
+                                    }
+                                }
+                                
+                        except subprocess.CalledProcessError as e:
+                            raise Exception(f"Script execution failed: stdout={e.stdout}, stderr={e.stderr}")
+                        except Exception as e:
+                            write_to_cloudwatch(f'Error: {str(e)}', log_group_name, log_stream_name, ssm_id)
+                            write_to_cloudwatch('JOB_FAILED', log_group_name, log_stream_name, ssm_id)
+                            raise
+                        finally:
+                            # Cleanup
+                            if os.path.exists(local_zip):
+                                os.remove(local_zip)
+                            if os.path.exists(payload_file):
+                                os.remove(payload_file)
+                            if os.path.exists(extract_path):
+                                import shutil
+                                shutil.rmtree(extract_path)
+
+  SSMAdditionalAutomationRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-ssm-additional-automation-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - ssm.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: SSMDirectAutomationRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'ssm:DescribeInstanceInformation'
+                  - 'ssm:ListCommandInvocations'
+                  - 'ssm:ListCommands'
+                Resource: '*'
+              -
+                Effect: Allow
+                Action:
+                  - 'ssm:SendCommand'
+                Resource:
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/*'
+              - 
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                  - 'logs:DescribeLogStreams'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${RunCMFAutomationPackageSSMDocumentLogGroup}:*"
+
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is depends on user input"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+
 Outputs:
+  EventBusArn:
+    Value: !GetAtt MigrationFactoryEventBus.Arn
+
+  EventBusName:
+    Value: !Ref MigrationFactoryEventBus
+
   LambdaFunctionTemplateExportImportArn:
     Value: !GetAtt LambdaFunctionTemplateExportImport.Arn
 
@@ -2097,3 +2686,6 @@ Outputs:
 
   ScriptsTableArn:
     Value: !GetAtt SSMScriptsTable.Arn
+
+  AdditionalAutomationTargetSSMDocument:
+    Value: !Ref AdditionalAutomationTargetSSMDocument

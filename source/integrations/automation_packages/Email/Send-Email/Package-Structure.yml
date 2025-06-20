@@ -1,0 +1,4 @@
+Name: "Send Email"
+Description: "Sends email notifications"
+MasterFileName: "send_email.py"
+Arguments:

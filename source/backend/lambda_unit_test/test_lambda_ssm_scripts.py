@@ -124,9 +124,11 @@ class LambdaSSMScriptsTest(unittest.TestCase):
         for current_zip in ["package_valid",
                             "package_invalid_yaml",
                             "package_no_yaml",
+                            "package_incorrect_compute_yaml_contents",
                             "package_incorrect_yaml_contents",
                             "package_no_master_file",
                             "package_valid_with_dependencies",
+                            "package_valid_with_compute_platform",
                             "package_missing_dependencies",
                             "package_invalid_attributes",
                             "package_schema_extensions"]:
@@ -257,6 +259,14 @@ class LambdaSSMScriptsTest(unittest.TestCase):
                 'script_name': 'test_script_uploaded'
             })
         }
+        test_incorrect_compute_yaml_script_base64 = self.zip_and_encode('package_incorrect_compute_yaml_contents')
+        self.event_post_incorrect_compute_yaml = {
+            'httpMethod': 'POST',
+            'body': json.dumps({
+                'script_file': test_incorrect_compute_yaml_script_base64,
+                'script_name': 'test_script_uploaded'
+            })
+        }
         test_no_master_file_script_base64 = self.zip_and_encode('package_no_master_file')
         self.event_post_no_master_file = {
             'httpMethod': 'POST',
@@ -270,6 +280,14 @@ class LambdaSSMScriptsTest(unittest.TestCase):
             'httpMethod': 'POST',
             'body': json.dumps({
                 'script_file': test_valid_with_dependencies_script_base64,
+                'script_name': 'test_script_uploaded'
+            })
+        }
+        test_valid_with_compute_platform_script_base64 = self.zip_and_encode('package_valid_with_compute_platform')
+        self.event_post_valid_with_compute_platform = {
+            'httpMethod': 'POST',
+            'body': json.dumps({
+                'script_file': test_valid_with_compute_platform_script_base64,
                 'script_name': 'test_script_uploaded'
             })
         }
@@ -644,7 +662,7 @@ class LambdaSSMScriptsTest(unittest.TestCase):
         response = lambda_ssm_scripts.lambda_handler(self.event_get_default, None)
         self.assertEqual(lambda_ssm_scripts.default_http_headers, response['headers'])
         body = sorted(json.loads(response['body']), key=lambda entry: entry['package_uuid'])
-        self.assertEqual(2, len(body))
+        self.assertEqual(5, len(body))
         self.assertEqual(self.package_uuid_1, body[0]['package_uuid'])
         self.assertEqual(str(self.package_version_1), body[0]['version'])
         self.assertEqual(self.package_uuid_2, body[1]['package_uuid'])
@@ -655,19 +673,18 @@ class LambdaSSMScriptsTest(unittest.TestCase):
                 new=mock_get_user_resource_creation_policy_default_deny)
     def test_lambda_handler_get_default_zero_count_success(self):
         import lambda_ssm_scripts
+        
         # delete all the default entries
-        self.scripts_table.delete_item(
-            Key={
-                'package_uuid': self.package_uuid_1,
-                'version': self.package_version_1
-            }
-        )
-        self.scripts_table.delete_item(
-            Key={
-                'package_uuid': self.package_uuid_2,
-                'version': self.package_version_2
-            }
-        )
+        scan = self.scripts_table.scan()
+        with self.scripts_table.batch_writer() as batch:
+            for each in scan['Items']:
+                batch.delete_item(
+                    Key={
+                        'package_uuid': each['package_uuid'],
+                        'version': each['version']
+                    }
+            )
+
         response = lambda_ssm_scripts.lambda_handler(self.event_get_default, None)
         self.assertEqual(lambda_ssm_scripts.default_http_headers, response['headers'])
         body = json.loads(response['body'])
@@ -866,6 +883,17 @@ class LambdaSSMScriptsTest(unittest.TestCase):
                          "provided and is required,Attribute 'Description' not provided and is required,Attribute "
                          "'MasterFileName' not provided and is required",
                          response['body'])
+    @mock.patch('lambda_ssm_scripts.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_user_resource_creation_policy_default_deny)
+    def test_lambda_handler_event_post_incorrect_compute_yaml(self):
+        import lambda_ssm_scripts
+        response = lambda_ssm_scripts.lambda_handler(self.event_post_incorrect_compute_yaml, None)
+        self.assertEqual(lambda_ssm_scripts.default_http_headers, response['headers'])
+        self.assertEqual(400, response['statusCode'])
+        print(response['body'])
+        self.assertEqual("Invalid compute platform. "
+                         "ComputePlatform must be 'SSM Automation Document' or empty.",
+                         response['body'])
 
     @mock.patch('lambda_ssm_scripts.MFAuth.get_user_resource_creation_policy',
                 new=mock_get_user_resource_creation_policy_default_deny)
@@ -884,6 +912,38 @@ class LambdaSSMScriptsTest(unittest.TestCase):
     def test_lambda_handler_event_post_valid_with_dependencies(self):
         import lambda_ssm_scripts
         self.assert_post_success(lambda_ssm_scripts, self.event_post_valid_with_dependencies)
+    
+    def test_lambda_handler_event_post_valid_with_compute_platform(self):
+        import lambda_ssm_scripts
+        response = lambda_ssm_scripts.lambda_handler(self.event_post_valid_with_compute_platform, None)
+        self.assertEqual(lambda_ssm_scripts.default_http_headers, response['headers'])
+        self.assertEqual(200, response['statusCode'])
+        package_uuid = self.parse_out_package_uuid(response['body'])
+        self.assertTrue(f'package successfully uploaded with uuid: {package_uuid}' in response['body'])
+
+        self.assert_uploaded_to_s3(f'scripts/{package_uuid}.zip')
+        self.assert_not_uploaded_to_s3(f'scripts/{self.package_uuid_1}.zip')
+
+        response = self.scripts_table.query(
+            KeyConditionExpression=Key('package_uuid').eq(package_uuid)
+        )
+        items = response['Items']
+        item1 = items[0]
+        item2 = items[1]
+
+        self.assertEqual(package_uuid, item1['package_uuid'])
+        self.assertEqual(0, item1['version'])
+        self.assertEqual(1, item1['default'])
+        self.assertEqual(1, item1['latest'])
+        self.assertEqual(CONST_SCRIPT_FILE_NAME, item1['script_masterfile'])
+        self.assertEqual('SSM Automation Document', item1['compute_platform'])
+
+        self.assertEqual(package_uuid, item2['package_uuid'])
+        self.assertEqual(1, item2['version'])
+        self.assertEqual(CONST_SCRIPT_FILE_NAME, item2['script_masterfile'])
+        self.assertTrue('default' not in item2)
+        self.assertTrue('latest' not in item2)
+        self.assertEqual('SSM Automation Document', item1['compute_platform'])
 
     @mock.patch('lambda_ssm_scripts.MFAuth.get_user_resource_creation_policy',
                 new=mock_get_user_resource_creation_policy_default_deny)

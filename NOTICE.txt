@@ -494,9 +494,8 @@ cli-cursor under the MIT license.
 cli-spinners under the MIT license.
 cli-width under the ISC license.
 click under the 0BSD license.
-click under the BSD License
-cliui under ISC License.
 cliui under the ISC license.
+cliui under the ISC License.
 clone under the MIT license.
 clone-deep under the MIT license.
 clsx under the MIT license.
@@ -580,8 +579,8 @@ duplexer under the MIT license.
 ecdsa under the MIT license.
 ee-first under the MIT license.
 ejs under the Apache-2.0 license.
-electron-to-chromium under ISC License.
 electron-to-chromium under the ISC license.
+electron-to-chromium under the ISC License.
 elliptic under the MIT license.
 emittery under the MIT license.
 emoji-regex under the MIT license.
@@ -628,8 +627,8 @@ fast-json-stable-stringify under the MIT license.
 fast-levenshtein under the MIT license.
 fast-xml-parser under the MIT license.
 fastparse under the MIT license.
-fastq under ISC License.
 fastq under the ISC license.
+fastq under the ISC License.
 fb-watchman under the Apache-2.0 license.
 fdir under the MIT license.
 figures under the MIT license.
@@ -653,17 +652,14 @@ fs.realpath under the ISC license.
 fsevents under the MIT license.
 function-bind under the MIT license.
 gensync under the MIT license.
-get-caller-file under ISC license.
 get-caller-file under the ISC license.
 get-intrinsic under the MIT license.
 get-package-type under the MIT license.
 get-stream under the MIT license.
 glob under the ISC license.
-glob-parent under ISC license.
 glob-parent under the ISC license.
 globals under the MIT license.
 gopd under the MIT license.
-graceful-fs under ISC license.
 graceful-fs under the ISC license.
 graphql under the MIT license.
 gzip-size under the MIT license.
@@ -698,7 +694,6 @@ import-local under the MIT license.
 imurmurhash under the MIT license.
 indent-string under the MIT license.
 inflight under the ISC license.
-inherits under ISC license.
 inherits under the ISC license.
 inquirer under the MIT license.
 intl-messageformat under the BSD-3-Clause license.
@@ -727,7 +722,6 @@ is-typed-array under the MIT license.
 is-unicode-supported under the MIT license.
 is-wsl under the MIT license.
 isarray under the MIT license.
-isexe under ISC license.
 isexe under the ISC license.
 isobject under the MIT license.
 isomorphic-timers-promises under the MIT license.
@@ -808,7 +802,6 @@ log-symbols under the MIT license.
 logkitty under the MIT license.
 loose-envify under the MIT license.
 lower-case under the MIT license.
-lru-cache under ISC license.
 lru-cache under the ISC license.
 lz-string under the MIT license.
 magic-string under the MIT license.
@@ -906,7 +899,6 @@ path-parse under the MIT license.
 path-to-regexp under the MIT license.
 path-type under the MIT license.
 pbkdf2 under the MIT license.
-picocolors under ISC license.
 picocolors under the ISC license.
 picomatch under the MIT license.
 pify under the MIT license.
@@ -978,7 +970,6 @@ regjsgen under the MIT license.
 regjsparser under the BSD-2-Clause license.
 requests under the Apache-2.0 license.
 require-directory under the MIT license.
-require-main-filename under ISC license.
 require-main-filename under the ISC license.
 requires-port under the MIT license.
 resolve under the MIT license.
@@ -1001,17 +992,14 @@ safer-buffer under the MIT license.
 saxes under the ISC license.
 scheduler under the MIT license.
 selfsigned under the MIT license.
-semver under ISC license.
 semver under the ISC license.
 send under the MIT license.
 serialize-error under the MIT license.
 serve-static under the MIT license.
-set-blocking under ISC license.
 set-blocking under the ISC license.
 set-cookie-parser under the MIT license.
 set-function-length under the MIT license.
 setimmediate under the MIT license.
-setprototypeof under ISC license.
 setprototypeof under the ISC license.
 sha.js under the (MIT AND BSD-3-Clause) licenses.
 shallow-clone under the MIT license.
@@ -1118,9 +1106,7 @@ whatwg-fetch under the MIT license.
 whatwg-mimetype under the MIT license.
 whatwg-url under the MIT license.
 whatwg-url-without-unicode under the MIT license.
-which under ISC license.
 which under the ISC license.
-which-module under ISC license.
 which-module under the ISC license.
 which-typed-array under the MIT license.
 word-wrap under the MIT license.
@@ -1133,14 +1119,11 @@ xml-name-validator under the Apache-2.0 license.
 xmlchars under the MIT license.
 xmltodict under the MIT license.
 xtend under the MIT license.
-y18n under ISC license.
 y18n under the ISC license.
 yallist under BlueOak-1.0.0 license.
 yallist under the ISC license.
-yaml under ISC license.
 yaml under the ISC license.
 yargs under the MIT license.
-yargs-parser under ISC license.
 yargs-parser under the ISC license.
 yocto-queue under the MIT license.
 zen-observable under the MIT license.

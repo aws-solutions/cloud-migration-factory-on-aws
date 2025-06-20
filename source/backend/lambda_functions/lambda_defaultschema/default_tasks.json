@@ -3307,4 +3307,16 @@
       ]
     }
   }
+  ,
+  {
+    "package_uuid": {"S": "b7d8f25a-e9a0-4e6c-8e3d-123456789abc"},
+    "version": {"N": "0"},
+    "default": {"N": "1"},
+    "latest": {"N": "1"},
+    "script_name": {"S": "Send Email"},
+    "script_description": {"S": "Sends email notifications to specified recipients"},
+    "type": {"S": "Automated"},
+    "lambda_function_name_suffix": {"S": "ssm"},
+    "script_arguments": {"L": []}
+  }
 ]

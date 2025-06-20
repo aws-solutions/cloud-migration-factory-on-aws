@@ -255,50 +255,60 @@ def change_default_script_version(event, package_uuid, default_version):
 
     default_item = db_response["Item"]
 
+    
+    Key = {
+        'package_uuid': package_uuid,
+        'version': 0
+    }
+    # Atomic counter is used to increment the latest version
+    UpdateExpression = 'SET #default = :default, ' \
+                        '#version_id = :version_id, ' \
+                        '#_history.#lastModifiedTimestamp = :lastModifiedTimestamp, ' \
+                        '#_history.#lastModifiedBy = :lastModifiedBy, ' \
+                        '#script_masterfile = :script_masterfile, ' \
+                        '#script_description = :script_description, ' \
+                        '#script_update_url = :script_update_url, ' \
+                        '#script_group = :script_group, ' \
+                        '#script_name = :script_name, ' \
+                        '#script_dependencies = :script_dependencies, ' \
+                        '#script_arguments = :script_arguments'
+    ExpressionAttributeNames = {
+        '#default': 'default',
+        '#version_id': 'version_id',
+        '#_history': '_history',
+        '#lastModifiedTimestamp': 'lastModifiedTimestamp',
+        '#lastModifiedBy': 'lastModifiedBy',
+        '#script_masterfile': 'script_masterfile',
+        '#script_description': 'script_description',
+        '#script_update_url': 'script_update_url',
+        '#script_group': 'script_group',
+        '#script_name': 'script_name',
+        '#script_dependencies': 'script_dependencies',
+        '#script_arguments': 'script_arguments'
+    }
+    ExpressionAttributeValues = {
+        ':default': default_version,
+        ':version_id': default_item['version_id'],
+        ':lastModifiedBy': last_modified_by,
+        ':lastModifiedTimestamp': last_modified_timestamp,
+        ':script_masterfile': default_item['script_masterfile'],
+        ':script_description': default_item['script_description'],
+        ':script_update_url': default_item['script_update_url'],
+        ':script_group': default_item['script_group'],
+        ':script_name': default_item['script_name'],
+        ':script_dependencies': default_item['script_dependencies'],
+        ':script_arguments': default_item['script_arguments'],
+        ':compute_platform': default_item.get('compute_platform')
+    }
+    if 'compute_platform' in default_item:
+        UpdateExpression += ', #compute_platform = :compute_platform'
+        ExpressionAttributeNames['#compute_platform'] = 'compute_platform'
+        ExpressionAttributeValues[':compute_platform'] = default_item.get('compute_platform')
     packages_table.update_item(
-        Key={
-            'package_uuid': package_uuid,
-            'version': 0
-        },
-        # Atomic counter is used to increment the latest version
-        UpdateExpression='SET #default = :default, ' \
-                         '#version_id = :version_id, ' \
-                         '#_history.#lastModifiedTimestamp = :lastModifiedTimestamp, ' \
-                         '#_history.#lastModifiedBy = :lastModifiedBy, ' \
-                         '#script_masterfile = :script_masterfile, ' \
-                         '#script_description = :script_description, ' \
-                         '#script_update_url = :script_update_url, ' \
-                         '#script_group = :script_group, ' \
-                         '#script_name = :script_name, ' \
-                         '#script_dependencies = :script_dependencies, ' \
-                         '#script_arguments = :script_arguments ',
-        ExpressionAttributeNames={
-            '#default': 'default',
-            '#version_id': 'version_id',
-            '#_history': '_history',
-            '#lastModifiedTimestamp': 'lastModifiedTimestamp',
-            '#lastModifiedBy': 'lastModifiedBy',
-            '#script_masterfile': 'script_masterfile',
-            '#script_description': 'script_description',
-            '#script_update_url': 'script_update_url',
-            '#script_group': 'script_group',
-            '#script_name': 'script_name',
-            '#script_dependencies': 'script_dependencies',
-            '#script_arguments': 'script_arguments'
-        },
-        ExpressionAttributeValues={
-            ':default': default_version,
-            ':version_id': default_item['version_id'],
-            ':lastModifiedBy': last_modified_by,
-            ':lastModifiedTimestamp': last_modified_timestamp,
-            ':script_masterfile': default_item['script_masterfile'],
-            ':script_description': default_item['script_description'],
-            ':script_update_url': default_item['script_update_url'],
-            ':script_group': default_item['script_group'],
-            ':script_name': default_item['script_name'],
-            ':script_dependencies': default_item['script_dependencies'],
-            ':script_arguments': default_item['script_arguments']
-        },
+        Key=Key,
+        UpdateExpression=UpdateExpression,
+        ExpressionAttributeNames=ExpressionAttributeNames,
+        ExpressionAttributeValues=ExpressionAttributeValues
     )
 
     return {
@@ -412,6 +422,13 @@ def validate_script_package_yaml(parsed_yaml_file):
 
     return validation_errors
 
+def validate_compute_platform(compute_platform):
+    if compute_platform is None:
+        return True
+    if compute_platform not in ['SSM Automation Document', '']:
+        return False
+    return True
+
 
 def validate_extracted_script_package_contents(script_package_path, config_file_path, validation_failures):
     try:
@@ -440,6 +457,10 @@ def validate_extracted_script_package_contents(script_package_path, config_file_
                 validation_failures.append(f"{parsed_yaml_file.get('MasterFileName')} "
                                            f"not found in root of package, "
                                            f"and is referenced as the MasterFileName.")
+            valid_compute_platform = validate_compute_platform(parsed_yaml_file.get("ComputePlatform"))
+            if not valid_compute_platform:
+                validation_failures.append("Invalid compute platform. "
+                                           "ComputePlatform must be 'SSM Automation Document' or empty.")
             try:
                 check_script_package_dependencies_exist(script_package_path, parsed_yaml_file.get("Dependencies"))
             except MissingDependencyException as missing_dependency_error:
@@ -599,6 +620,9 @@ def load_script_package(event, package_uuid, body, decoded_data_as_byte, new_ver
                          "createdTimestamp": created_timestamp}
         }
 
+        if 'ComputePlatform' in parsed_yaml_file:
+            package_data["compute_platform"] = parsed_yaml_file.get("ComputePlatform")
+
         packages_table.put_item(
             Item=package_data,
         )
@@ -620,6 +644,9 @@ def load_script_package(event, package_uuid, body, decoded_data_as_byte, new_ver
         "_history": {"createdBy": created_by,
                      "createdTimestamp": created_timestamp}
     }
+
+    if 'ComputePlatform' in parsed_yaml_file:
+        script_data["compute_platform"] = parsed_yaml_file.get("ComputePlatform")
 
     packages_table.put_item(Item=script_data)
 
@@ -916,7 +943,8 @@ def process_delete(event, logging_context: str):
 
 def add_system_default_attributes(scripts):
     for script in scripts:
-        if script.get('lambda_function_name_suffix', None) == 'ssm':
+        # Only add default attributes if the script is a system script.
+        if script.get('lambda_function_name_suffix', None) == 'ssm' and script.get('compute_platform', None) != 'SSM Automation Document':
             if 'script_arguments' not in script:
                 script['script_arguments'] = CONST_DEFAULT_SSM_SCRIPT_ATTRIBUTES
             else:
