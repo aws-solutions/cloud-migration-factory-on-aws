@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.0] - 2025-06-23
+
+### Added
+
+- Email Notifications: Added task-level email notification settings to allow configuration of email recipients per task in a pipeline.
+- Pipeline Templates: Added support for importing pipeline templates from DrawIO and Lucid diagrams.
+- Automation: Added new "Send Email" automation script package to support email notifications.
+- SSM Automation: Added support for direct SSM Automation Document execution as a new compute platform option for automation scripts.
+- Event Bus: Implemented EventBridge event bus for improved communication between components, replacing direct WebSocket connections.
+- User Subscriptions: Added ability for users to subscribe to email notifications through SNS.
+
+### Changed
+
+- Pipeline Templates Import: Simplified the import UI by replacing the wizard with a single-page form for better user experience.
+- Unit Tests: Enhanced test coverage for pipeline task status actions and email notification settings.
+- Auto Script Table: Updated default visible columns to include compute_platform.
+- SSM Scripts: Improved validation and handling of compute platform settings in automation scripts.
+- Notifications: Refactored notification system to use EventBridge for more reliable delivery.
+
+### Fixed
+
+- Pipeline Task Status: Fixed validation of task status update actions based on current task status.
+- Unit Tests: Updated assertEquals to assertEqual in integration tests to follow Python best practices.
+- UI: Fixed validation and error handling when importing empty files.
+- SSM Scripts: Fixed issue with compute_platform attribute not being preserved when changing default script version.
+
 ## [4.0.4] - 2025-06-12
 
 ### Fixed

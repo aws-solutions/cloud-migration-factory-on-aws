@@ -46,13 +46,14 @@ To build your customized distributable follow given steps.
 - Second bucket with the format '<BUCKET-NAME>-<AWS_REGION>' to deploy the assets into. The solution's CloudFormation template will expect the source code to be located in this bucket. <AWS_REGION> is where you are testing the customized solution.
 
 ```
-ACCOUNT_ID=$(aws sts get-caller-identity --output text --query Account --profile <PROFILE_NAME>)
-REGION=$(aws configure get region --profile <PROFILE_NAME>)
+AWS_PROFILE=<PROFILE_NAME>
+ACCOUNT_ID=$(aws sts get-caller-identity --output text --query Account)
+REGION=$(aws configure get region)
 BASE_BUCKET_NAME=cmf-deployment-$ACCOUNT_ID
 TEMPLATE_BUCKET_NAME=$BASE_BUCKET_NAME-reference
 ASSET_BUCKET_NAME=$BASE_BUCKET_NAME-$REGION
-aws s3 mb s3://$TEMPLATE_BUCKET_NAME/
-aws s3 mb s3://$ASSET_BUCKET_NAME/
+aws s3 mb s3://$TEMPLATE_BUCKET_NAME/ --region $REGION
+aws s3 mb s3://$ASSET_BUCKET_NAME/ --region $REGION
 
 # Default encryption:
 aws s3api put-bucket-encryption \

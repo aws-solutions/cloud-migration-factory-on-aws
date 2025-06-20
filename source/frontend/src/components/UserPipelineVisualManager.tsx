@@ -77,6 +77,9 @@ const PipelineTaskNode = (props: NodeProps<TaskExecutionNode>) => {
       case "Pending Approval":
         statusBadgeName = "blue";
         break;
+      case "Abandoned":
+        statusBadgeName = "grey";
+        break;
     }
 
     return <Badge key={statusBadgeName} color={statusBadgeName}>{status}</Badge>;
@@ -86,9 +89,9 @@ const PipelineTaskNode = (props: NodeProps<TaskExecutionNode>) => {
   const TaskIconName = iconTaskMapping[props.data?.task.script?.type] ? iconTaskMapping[props.data.task.script.type] : "bug";
 
   const allowStatusUpdateToSkip = ["Failed"];
-  const allowStatusUpdateToInProgress:string[] = [];
-  const allowStatusUpdateToRetry = ["Failed", "Complete", "Skip"];
+  const allowStatusUpdateToRetry = ["Failed", "Complete", "Skip", "Abandoned"];
   const allowStatusUpdateToComplete = ["Pending Approval"];
+  const allowStatusUpdateToAbandon = ["Pending Approval", "Not Started"];
 
   const handleAction = async (action: string) => {
     switch (action) {
@@ -100,14 +103,14 @@ const PipelineTaskNode = (props: NodeProps<TaskExecutionNode>) => {
       case "update_status_skip":
       case "update_status_retry":
       case "update_status_complete":
-      case "update_status_in-progress":
+      case 'update_status_abandoned':
         await handleTaskExecutionStatusChange(action);
         break;
     }
   };
 
   const handleTaskExecutionStatusChange = async (
-    action: "update_status_skip" | "update_status_retry" | "update_status_complete" | "update_status_in-progress"
+    action: "update_status_skip" | "update_status_retry" | "update_status_complete" | "update_status_abandoned"
   ) => {
     setIsActionProcessing(true);
     const schemaName = "task_execution";
@@ -118,7 +121,7 @@ const PipelineTaskNode = (props: NodeProps<TaskExecutionNode>) => {
       update_status_skip: "Skip",
       update_status_retry: "Retry",
       update_status_complete: "Complete",
-      "update_status_in-progress": "In Progress",
+      update_status_abandoned: "Abandoned",
     };
 
     if (!statusMap[action]) {
@@ -199,14 +202,14 @@ const PipelineTaskNode = (props: NodeProps<TaskExecutionNode>) => {
                     disabled: !allowStatusUpdateToRetry.includes(props.data.task.task_execution_status),
                   },
                   {
-                    id: "update_status_in-progress",
-                    text: "In Progress",
-                    disabled: !allowStatusUpdateToInProgress.includes(props.data.task.task_execution_status),
-                  },
-                  {
                     id: "update_status_complete",
                     text: "Complete",
                     disabled: !allowStatusUpdateToComplete.includes(props.data.task.task_execution_status),
+                  },
+                  {
+                    id: "update_status_abandoned",
+                    text: "Abandoned",
+                    disabled: !allowStatusUpdateToAbandon.includes(props.data.task.task_execution_status),
                   },
                 ],
               },
@@ -244,6 +247,7 @@ interface PipelineVisualManagerProps {
   schemas: any; // Optional
   templateData?: any;
   handleRefreshTasks?: any;
+  pipelineMetadata?: any;
 }
 
 const options = {
@@ -255,6 +259,7 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
   schemas,
   schemaName,
   handleRefreshTasks,
+  pipelineMetadata
 }) => {
   const { setContent, setSplitPanelOpen } = useContext(SplitPanelContext);
   const [selectedNode, setSelectedNode] = useState<Node>();
@@ -296,7 +301,7 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
   useEffect(() => {
     if (selectedNode) {
       setContent(
-        <ViewTaskExecution schema={schemas[schemaName]} taskExecution={selectedNode.data.task} dataAll={undefined} />
+        <ViewTaskExecution schema={schemas[schemaName]} taskExecution={selectedNode.data.task} pipelineMetadata={pipelineMetadata} dataAll={undefined} />
       );
     }
   }, [selectedNode]);
@@ -497,10 +502,11 @@ const PipelineVisualManagerWrapper: React.FC<PipelineVisualManagerProps> = ({
   schemas,
   schemaName,
   handleRefreshTasks,
+  pipelineMetadata
 }) => {
   return (
     <ReactFlowProvider>
-      <PipelineVisualManager {...{ templateData, schemas, schemaName, handleRefreshTasks }} />
+      <PipelineVisualManager {...{ templateData, schemas, schemaName, handleRefreshTasks, pipelineMetadata }} />
     </ReactFlowProvider>
   );
 };

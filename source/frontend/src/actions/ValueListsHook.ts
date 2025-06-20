@@ -8,6 +8,7 @@ import { reducer, requestStarted, requestSuccessful } from "../resources/reducer
 import { useEffect, useReducer, useState } from "react";
 import ToolsApiClient from "../api_clients/toolsApiClient";
 import LoginApiClient from "../api_clients/loginApiClient";
+import AdminApiClient from "../api_clients/adminApiClient";
 
 export const useValueLists = () => {
   const [state, dispatch] = useReducer(reducer, {
@@ -43,6 +44,21 @@ export const useValueLists = () => {
         try {
           let apiLogin = new LoginApiClient();
           const response = await apiLogin.getGroups();
+          result = {
+            values: response,
+          };
+          tempValueList[vlAPI] = result;
+        } catch (e: any) {
+          console.log(e);
+
+          return () => {
+            myAbortController.abort();
+          };
+        }
+      } else if (vlAPI === "/admin/users") {
+        try {
+          let apiAdmin = new AdminApiClient();
+          const response = await apiAdmin.getUsers();
           result = {
             values: response,
           };

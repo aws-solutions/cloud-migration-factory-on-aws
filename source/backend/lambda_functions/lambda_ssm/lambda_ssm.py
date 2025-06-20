@@ -17,6 +17,9 @@ application = os.environ['application']
 environment = os.environ['environment']
 ssm_bucket = os.environ['ssm_bucket']
 ssm_automation_document = os.environ['ssm_automation_document']
+direct_execute_ssm_document = os.environ['direct_ssm_execution_document']
+
+COMPUTE_PLATFORM_SSM_AUTOMATION_DOCUMENT = 'SSM Automation Document'
 
 mf_userapi = os.environ['mf_userapi']
 mf_loginapi = os.environ['mf_loginapi']
@@ -155,6 +158,11 @@ def filter_cmf_automation_servers(ssm_managed_instances):
 
     return mi_list
 
+def is_direct_ssm_automation(script_data):
+    return (
+        "compute_platform" in script_data and 
+        script_data['compute_platform'] == COMPUTE_PLATFORM_SSM_AUTOMATION_DOCUMENT
+    )
 
 def get_validation_errors(ssm_data):
     validation_errors = []
@@ -168,7 +176,9 @@ def get_validation_errors(ssm_data):
         if "script_arguments" not in ssm_data['script'].keys():
             validation_errors.append('script_arguments')
         else:
-            if "mi_id" not in ssm_data['script']['script_arguments'].keys():
+            has_no_mi_id = "mi_id" not in ssm_data['script']['script_arguments'].keys()
+
+            if not is_direct_ssm_automation(ssm_data['script']) and has_no_mi_id:
                 validation_errors.append('mi_id')
 
     return validation_errors
@@ -217,36 +227,6 @@ def create_automation_job(ssm_data, auth_response):
 
     ssm_data['uuid'] = job_uuid
 
-    # Perform payload validation.
-    validation_error = get_validation_errors(ssm_data)
-
-    if len(validation_error) > 0:
-        error_msg = "Request parameters missing: " + ",".join(validation_error)
-        return {'headers': {**default_http_headers},
-                'statusCode': 400, 'body': error_msg}
-
-    # Build payload for SSM request.
-
-    ssm_data["SSMId"] = ssm_data["script"]["script_arguments"]["mi_id"] + "+" + ssm_data["uuid"] + "+" + ssm_data["_history"][
-        "createdTimestamp"]
-    ssm_data['output'] = ''
-
-    if mf_vpce_id != '':
-        mf_vpce_id_with_hosted = mf_vpce_id
-    else:
-        mf_vpce_id_with_hosted = ''
-
-    # Add MF endpoint details to payload.
-    ssm_data['mf_endpoints'] = {
-        'LoginApi': mf_loginapi,
-        'UserApi': mf_userapi,
-        'ToolsApi': mf_toolsapi,
-        'VpceId': mf_vpce_id_with_hosted,
-        'UserPoolId': mf_cognitouserpoolid,
-        'UserPoolClientId': mf_cognitouserpoolclientid,
-        'Region': mf_region
-    }
-
     # Default script version to 0 which will return the default version.
     script_version = '0'
 
@@ -274,22 +254,69 @@ def create_automation_job(ssm_data, auth_response):
 
         ssm_data['script'] = script_selected
 
+        # Perform payload validation.
+        validation_error = get_validation_errors(ssm_data)
+
+        if len(validation_error) > 0:
+            error_msg = "Request parameters missing: " + ",".join(validation_error)
+            return {'headers': {**default_http_headers},
+                    'statusCode': 400, 'body': error_msg}
+
+        # Build payload for SSM request.
+
+        ssm_id_parts = []
+        # Add mi_id to ssm_id only if it is not a direct_ssm_automation as those do not have an mi_id
+        if not is_direct_ssm_automation(ssm_data['script']):
+            ssm_id_parts.append(ssm_data["script"]["script_arguments"]["mi_id"])
+        ssm_id_parts.append(ssm_data["uuid"])
+        ssm_id_parts.append(ssm_data["_history"]["createdTimestamp"])
+        ssm_data["SSMId"] = "+".join(ssm_id_parts)
+        ssm_data['output'] = ''
+
+        if mf_vpce_id != '':
+            mf_vpce_id_with_hosted = mf_vpce_id
+        else:
+            mf_vpce_id_with_hosted = ''
+
+        # Add MF endpoint details to payload.
+        ssm_data['mf_endpoints'] = {
+            'LoginApi': mf_loginapi,
+            'UserApi': mf_userapi,
+            'ToolsApi': mf_toolsapi,
+            'VpceId': mf_vpce_id_with_hosted,
+            'UserPoolId': mf_cognitouserpoolid,
+            'UserPoolClientId': mf_cognitouserpoolclientid,
+            'Region': mf_region
+        }
+
         ssm_data_copy = copy.deepcopy(ssm_data)
 
         parse_script_args(ssm_data_copy["script"]["script_arguments"])
 
-        ''' SSM API call for remote execution '''
-        response = ssm.start_automation_execution(  # API call to SSM Automation Document
-            DocumentName=ssm_automation_document,  # Name of the automation document in SSM
-            DocumentVersion='$LATEST',
-            Parameters={  # Parameters that will be passed to the script file
-                'bucketName': [ssm_bucket],
-                'cmfInstance': [application],
-                'cmfEnvironment': [environment],
-                'payload': [json.dumps(ssm_data_copy)],
-                'instanceID': [ssm_data["script"]["script_arguments"]["mi_id"]],
-            },
-        )
+        if is_direct_ssm_automation(ssm_data['script']):
+            ''' SSM API call for direct SSM execution '''
+            response = ssm.start_automation_execution(  # API call to SSM Automation Document
+                DocumentName=direct_execute_ssm_document,  # Name of the automation document in SSM
+                DocumentVersion='$LATEST',
+                Parameters={  # Parameters that will be passed to the script file
+                    'bucketName': [ssm_bucket],
+                    'payload': [json.dumps(ssm_data_copy)],
+                },
+            )
+
+        else:
+            ''' SSM API call for remote execution '''
+            response = ssm.start_automation_execution(  # API call to SSM Automation Document
+                DocumentName=ssm_automation_document,  # Name of the automation document in SSM
+                DocumentVersion='$LATEST',
+                Parameters={  # Parameters that will be passed to the script file
+                    'bucketName': [ssm_bucket],
+                    'cmfInstance': [application],
+                    'cmfEnvironment': [environment],
+                    'payload': [json.dumps(ssm_data_copy)],
+                    'instanceID': [ssm_data["script"]["script_arguments"]["mi_id"]],
+                },
+            )
 
         logger.info(f"SSM: POST: create_ssm_automation_job."
                     f" Job created, ExecutionID: {response['AutomationExecutionId']}")

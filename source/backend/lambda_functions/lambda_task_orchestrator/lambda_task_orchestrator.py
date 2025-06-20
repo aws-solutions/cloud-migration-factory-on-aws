@@ -6,16 +6,16 @@ import cmf_boto
 from boto3.dynamodb.conditions import Key, Attr
 import botocore
 from datetime import datetime, timezone
-import logging
+from cmf_logger import logger
 import os
 import json
-from cmf_utils import send_anonymous_usage_data
+from cmf_utils import send_anonymous_usage_data, publish_event
 from cmf_pipeline import TaskExecutionStatus, STATUS_OK_TO_PROCEED, STATUS_OK_TO_RETRY, update_task_execution_status, get_task_execution_status
+from cmf_types import NotificationDetailType, NotificationType
 
 lambda_client = cmf_boto.client('lambda')
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+eventsClient = cmf_boto.client('events')
+ssm_client = cmf_boto.client('ssm')
 
 task_executions_table_name = os.environ['TASK_EXECUTIONS_TABLE_NAME']
 task_executions_table = cmf_boto.resource('dynamodb').Table(task_executions_table_name)
@@ -28,7 +28,12 @@ ssm_scripts_table = cmf_boto.resource('dynamodb').Table(ssm_scripts_table_name)
 
 application = os.environ['application']
 environment = os.environ['environment']
+eventBusName = os.environ["EVENT_BUS_NAME"]
+eventSource = f'{application}-{environment}-task-orchestrator'
 
+EMAIL_SCRIPT_NAME = 'Send Email'
+
+SSM_AUTOMATION_DOCUMENT = 'SSM Automation Document'
 class ScriptNotFound(Exception):
     pass
 
@@ -141,6 +146,26 @@ def sync_invoke_lambda(lambda_func_name, payload):
         logger.error(f'Failure invoking lambda function: {lambda_func_name}: {e}')
         raise InvokeLambdaFailure(f'Failure invoking lambda function: {lambda_func_name}: {e}')
 
+def create_notification(task, task_execution, status) -> NotificationType: 
+    notification: NotificationType = NotificationType(
+        type = status,
+        pipeline_id= task_execution.get('pipeline_id'),
+        task_name=task_execution.get('task_execution_name'),
+        task_id=task_execution.get('task_id'),
+        lambda_function_name_suffix= task.get('lambda_function_name_suffix'),
+        timestamp=datetime.now(timezone.utc).isoformat(sep='T'),
+        uuid= task.get('package_uuid')
+    )
+    
+    # Only add script-related fields for Automated tasks
+    if task.get('type') == 'Automated':
+        notification.update({
+            'ssm_script_name': task.get('script_name'),
+            'ssm_script_version': str(task.get('version', '1'))
+        })
+
+    return notification
+
 
 def handle_lambda_based_task_execution(task, task_execution, auth_context):
     task_execution_id = task_execution['task_execution_id']
@@ -159,15 +184,16 @@ def handle_lambda_based_task_execution(task, task_execution, auth_context):
     }
 
     automation_lambda_func_name = f'{application}-{environment}-{task["lambda_function_name_suffix"]}'
+
     try:
         response = sync_invoke_lambda(automation_lambda_func_name, json.dumps(automation_event, cls=JsonEncoder))
 
         # 200 StatusCode only guarantees a successful invocation but not successful execution on the invoked lambda
         if response['StatusCode'] != 200:
             update_task_execution_status(task_execution_id, TaskExecutionStatus.FAILED)
+
     except InvokeLambdaFailure:
         update_task_execution_status(task_execution_id, TaskExecutionStatus.FAILED)
-
 
 
 def handle_ssm_script_based_task_execution(task, task_execution, auth_context):
@@ -175,14 +201,28 @@ def handle_ssm_script_based_task_execution(task, task_execution, auth_context):
     ssm_script_name = task['script_name']
     ssm_script_version = task['version']
     logger.info(f'task execution: {task_execution}')
-
     update_task_execution_status(task_execution_id, TaskExecutionStatus.IN_PROGRESS)
-    logger.info(f'{task_execution_id} is a ssm script based automation task. Invoking lambda_ssm..')
-
+    
     script = get_script(ssm_script_name, ssm_script_version)
     script_arg_names = [arg['name'] for arg in script['script_arguments']]
     # Extract only inputs that are required for this script.
     script_arguments = {k: v for k,v in task_execution['task_execution_inputs'].items() if k in script_arg_names}
+
+    
+    # Handle send email automations. 
+    # Publishing an event of this type will allow us to send emails with customized body.
+    if ssm_script_name == EMAIL_SCRIPT_NAME:
+        notification: NotificationType = create_notification(task, task_execution, NotificationDetailType.TASK_SEND_EMAIL.value)
+        notification['content'] = script_arguments
+        update_task_execution_status(task_execution_id, TaskExecutionStatus.COMPLETE) # Marking this task complete does not guarantee delivery of emails to users
+        publish_event(notification, eventsClient, eventSource, eventBusName)
+        return
+
+    # Direct SSM Document does not have a mi_id associated with it
+    if script.get('compute_platform', None) == SSM_AUTOMATION_DOCUMENT:
+        event_body_script_arguments = script_arguments
+    else:
+       event_body_script_arguments = {**script_arguments, 'mi_id': task_execution['task_execution_inputs']['mi_id']}
 
     automation_event = {
         'httpMethod': 'POST',
@@ -192,13 +232,14 @@ def handle_ssm_script_based_task_execution(task, task_execution, auth_context):
             'script': {
                 "package_uuid": script['package_uuid'],
                 "script_version": str(ssm_script_version),
-                "script_arguments": {**script_arguments, 'mi_id': task_execution['task_execution_inputs']['mi_id']}
+                "script_arguments": event_body_script_arguments
             }
         }, cls=JsonEncoder)
     }
 
     automation_lambda_func_name = f'{application}-{environment}-{task["lambda_function_name_suffix"]}'
     try:
+        logger.info(f'{task_execution_id} is a ssm script based automation task. Invoking lambda_ssm..')
         response = sync_invoke_lambda(automation_lambda_func_name, json.dumps(automation_event, cls=JsonEncoder))
 
         # 200 StatusCode only guarantees a successful invocation but not successful execution on the invoked lambda
@@ -209,10 +250,12 @@ def handle_ssm_script_based_task_execution(task, task_execution, auth_context):
 
 
 
-def handle_manual_task_execution(task_execution):
+def handle_manual_task_execution(task, task_execution):
     task_execution_id = task_execution['task_execution_id']
     logger.info(f'{task_execution_id} is a manual task. Moving the task execution status to Pending Approval')
     update_task_execution_status(task_execution_id, TaskExecutionStatus.PENDING_APPROVAL)
+    notification: NotificationType = create_notification(task, task_execution, NotificationDetailType.TASK_MANUAL_APPROVAL.value)
+    publish_event(notification, eventsClient, eventSource, eventBusName)
 
 
 def update_predecessors(task_executions):
@@ -239,10 +282,10 @@ def check_successors_predecessors_complete(all_task_executions, task_execution_i
     incomplete_predecessors_tasks = []
     ready_successor_tasks = []
     already_processed_successor_tasks = []
+    abandon_successor_tasks = []
 
     if len(current_task_execution) > 0:
         for successor_task_id in current_task_execution[0].get('task_successors', []):
-
             successor_task_execution = [task for task in all_task_executions if
                                         task['task_execution_id'] == successor_task_id]
 
@@ -251,24 +294,21 @@ def check_successors_predecessors_complete(all_task_executions, task_execution_i
             if successor_task_execution_status != TaskExecutionStatus.NOT_STARTED:
                 already_processed_successor_tasks.append(successor_task_execution[0]['task_execution_id'])
                 continue
-
             # check that all it's predecessors are complete
             if successor_task_execution[0].get('__task_predecessors', None):
-
                 predecessors_tasks = filter_tasks(all_task_executions, successor_task_execution[0].get('__task_predecessors', []))
-
                 successor_incomplete_predecessors_tasks = get_incomplete_predecessors(predecessors_tasks)
-
-                if len(successor_incomplete_predecessors_tasks) == 0:
+                    
+                if all(get_task_execution_status(task) == TaskExecutionStatus.ABANDONED for task in predecessors_tasks):
+                    abandon_successor_tasks.append(successor_task_execution[0]['task_execution_id'])
+                elif len(successor_incomplete_predecessors_tasks) == 0:
                     ready_successor_tasks.append(successor_task_execution[0]['task_execution_id'])
                 else:
                     incomplete_predecessors_tasks.extend(successor_incomplete_predecessors_tasks)
-
     else:
-        logger.error(f'{task_execution_id} not found in tasks in pipline.')
+        logger.error(f'{task_execution_id} not found in tasks in pipeline.')
 
-    return incomplete_predecessors_tasks, ready_successor_tasks, already_processed_successor_tasks
-
+    return incomplete_predecessors_tasks, ready_successor_tasks, already_processed_successor_tasks, abandon_successor_tasks
 
 # Check if all tasks in the pipeline are in a STATUS_OK_TO_PROCEED.
 def is_pipeline_complete(all_task_executions):
@@ -290,6 +330,23 @@ def is_pipeline_complete(all_task_executions):
     logger.debug(f'Pipeline will be complete when the tasks: {incomplete_branch_task_ids} are in one of the following status codes {STATUS_OK_TO_PROCEED}')
 
     return pipeline_complete, incomplete_branch_task_ids, completed_branch_task_ids
+
+# Check if all end tasks in the pipeline are in ABANDONED state
+def is_pipeline_abandoned(all_task_executions):
+    end_tasks = [task for task in all_task_executions if len(task.get('task_successors', [])) == 0]
+    
+    # If there are no end tasks, we can't determine if pipeline should be abandoned
+    if not end_tasks:
+        return False
+    
+    # Check if all end tasks are in ABANDONED state
+    all_abandoned = all(get_task_execution_status(task) == TaskExecutionStatus.ABANDONED for task in end_tasks)
+    
+    # Check if any end task is in COMPLETE state
+    any_complete = any(get_task_execution_status(task) == TaskExecutionStatus.COMPLETE for task in end_tasks)
+    
+    # If all end tasks are abandoned and none are complete, pipeline should be abandoned
+    return all_abandoned and not any_complete
 
 
 def get_incomplete_predecessors(predecessors_tasks):
@@ -365,7 +422,7 @@ def handle_task_execution(pipeline_id, task_execution):
         else:
             handle_lambda_based_task_execution(task, task_execution, auth_context)
     elif task['type'] == 'Manual':
-        handle_manual_task_execution(task_execution)
+        handle_manual_task_execution(task, task_execution)
 
 
 
@@ -402,6 +459,9 @@ def is_valid_update(old_task_execution_status: TaskExecutionStatus, new_task_exe
 def is_valid_retry(old_task_execution_status: TaskExecutionStatus, new_task_execution_status: TaskExecutionStatus):
     return old_task_execution_status in STATUS_OK_TO_RETRY and new_task_execution_status == TaskExecutionStatus.RETRY
 
+def is_valid_abandon(old_task_execution_status: TaskExecutionStatus, new_task_execution_status: TaskExecutionStatus):
+    return (old_task_execution_status in [TaskExecutionStatus.NOT_STARTED, TaskExecutionStatus.PENDING_APPROVAL] and new_task_execution_status == TaskExecutionStatus.ABANDONED)
+
 
 def process_task_execution_event(dynamodb_record):
     if 'OldImage' not in dynamodb_record or 'NewImage' not in dynamodb_record:
@@ -416,6 +476,14 @@ def process_task_execution_event(dynamodb_record):
 
     pipeline_id = new_dynamodb_record['pipeline_id']['S']
 
+    if new_task_execution_status == TaskExecutionStatus.FAILED:
+        task_execution = get_task_execution(task_execution_id)
+        task_id = task_execution['task_id']
+        task_version = task_execution['task_version']
+        task = ssm_scripts_table.get_item(Key={'package_uuid': task_id, 'version' : int(task_version)})['Item']
+        notification: NotificationType = create_notification(task, task_execution, NotificationDetailType.TASK_FAILED.value)
+        publish_event(notification, eventsClient, eventSource, eventBusName)
+
     if is_valid_failed_update(old_task_execution_status, new_task_execution_status):
         logger.info(f'Received failed update for {task_execution_id}')
         update_pipeline_status(pipeline_id, TaskExecutionStatus.FAILED)
@@ -426,9 +494,8 @@ def process_task_execution_event(dynamodb_record):
         all_task_executions = query_task_executions(pipeline_id)
 
         # get successor tasks based on the currently processing task id.
-        incomplete_predecessor_task_ids, ready_successor_task_ids, already_processed_successor_tasks = check_successors_predecessors_complete(all_task_executions, task_execution_id)
+        incomplete_predecessor_task_ids, ready_successor_task_ids, already_processed_successor_tasks, _ = check_successors_predecessors_complete(all_task_executions, task_execution_id)
 
-        # if successor tasks found then start them.
         if len(ready_successor_task_ids) > 0:
             logger.info(f'All predecessors complete for {", ".join(ready_successor_task_ids)} starting task.')
             task_execution_successors = get_execution_tasks(ready_successor_task_ids)
@@ -450,6 +517,28 @@ def process_task_execution_event(dynamodb_record):
         logger.info(f'Retrying previously task execution {task_execution_id}')
         task_execution = get_task_execution(task_execution_id)
         handle_task_execution(pipeline_id, task_execution)
+    elif is_valid_abandon(old_task_execution_status, new_task_execution_status):
+        # Get all pipeline tasks for evaluation.
+        all_task_executions = query_task_executions(pipeline_id)
+        abandon_successor_tasks = check_successors_predecessors_complete(all_task_executions, task_execution_id)[3]
+        if len(abandon_successor_tasks) > 0:
+            for task_id in abandon_successor_tasks:
+                logger.info(f'Abandoning task execution: {task_id}')
+                update_task_execution_status(task_id, TaskExecutionStatus.ABANDONED)
+        
+        # After abandoning tasks, check if the pipeline should be marked as complete or abandoned
+        all_task_executions = query_task_executions(pipeline_id)  # Refresh task executions after updates
+        pipeline_complete, _, _ = is_pipeline_complete(all_task_executions)
+        
+        if pipeline_complete:
+            # Check if pipeline should be marked as abandoned (all end tasks are abandoned)
+            if is_pipeline_abandoned(all_task_executions):
+                logger.info(f'Pipeline Id: {pipeline_id} is being marked as Abandoned as all end tasks are abandoned.')
+                update_pipeline_status(pipeline_id, TaskExecutionStatus.ABANDONED)
+            else:
+                logger.info(f'Pipeline Id: {pipeline_id} is complete.')
+                update_pipeline_status(pipeline_id, TaskExecutionStatus.COMPLETE)
+                send_anonymous_usage_data('PipelineComplete')
 
 
 def lambda_handler(event, _):

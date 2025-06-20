@@ -15,6 +15,7 @@ mock_os_environ = {
     **default_mock_os_environ,
     'ssm_bucket': 'test_ssm_bucket',
     'ssm_automation_document': 'test_ssm_automation_document',
+    'direct_ssm_execution_document': 'test_direct_ssm_automation_document_arn',
     'mf_userapi': 'test_mf_userapi',
     'mf_loginapi': 'test_mf_loginapi',
     'mf_toolsapi': 'test_mf_toolsapi',
@@ -172,6 +173,15 @@ class LambdaSSMTest(unittest.TestCase):
         self.event_post_invalid = {
             'httpMethod': 'POST',
             'body': json.dumps({
+                'script': {
+                    'package_uuid': 'test_uuid_1',
+                    'script_version': '0',
+                    'script_arguments': {
+                        'arg1': 'value1',
+                        'arg2': 'value2',
+                        'mi_id': 'test_mi_id'
+                    }
+                }
             })
         }
         self.event_post_package_version_doesnt_exist = {
@@ -255,15 +265,17 @@ class LambdaSSMTest(unittest.TestCase):
         mock_ssm.list_tags_for_resource.assert_not_called()
         mock_aws.describe_tags.assert_not_called()
 
+    @patch('lambda_ssm.lambda_client')
     @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
-    def test_lambda_handler_post_validation_error(self, mock_mf_auth):
+    def test_lambda_handler_post_validation_error(self, mock_mf_auth, mock_lamda):
         import lambda_ssm
         mock_mf_auth.side_effect = mock_getUserResourceCreationPolicy
+        mock_lamda.invoke.side_effect = mock_lamda_invoke
         response = lambda_ssm.lambda_handler(self.event_post_invalid, None)
         expected = {
             'headers': lambda_ssm.default_http_headers,
             'statusCode': 400,
-            'body': 'Request parameters missing: jobname,script',
+            'body': 'Request parameters missing: jobname',
         }
         self.assertEqual(expected, response)
 

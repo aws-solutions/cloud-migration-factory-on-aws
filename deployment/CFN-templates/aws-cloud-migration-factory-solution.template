@@ -952,6 +952,7 @@ Resources:
           SCRIPTS_TABLE_NAME: !GetAtt AutomationService.Outputs.ScriptsTable
           SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
           SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          EVENT_BUS_NAME: !GetAtt AutomationService.Outputs.EventBusName
           AnonymousUsageData: !FindInMap ["Send", "AnonymousUsage", "Data"]
           solutionUUID: !GetAtt CreateUniqueID.UUID
       Code:
@@ -1036,6 +1037,11 @@ Resources:
                 Effect: Allow
                 Action: lambda:InvokeFunction
                 Resource: '*'
+              -
+                Effect: Allow
+                Action:
+                  - events:PutEvents
+                Resource: !GetAtt AutomationService.Outputs.EventBusArn
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -1060,11 +1066,202 @@ Resources:
       FunctionName: !GetAtt TaskOrchestratorLambdaFunction.Arn
       StartingPosition: LATEST
 
+  UserSubscriptionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "username"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "username"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-subscriptions
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-subscriptions
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  UserSubscriptionLambdaDLQ:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Sub '${Application}-${Environment}-user-subscription-dlq'
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+
+  UserSubscriptionLambdaRole:
+    Type: AWS::IAM::Role
+    DependsOn: 
+      - UserSubscriptionLambdaDLQ
+      - UserSubscriptionsTable
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: UserSubscription-SQS-DLQ-Permissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt UserSubscriptionLambdaDLQ.Arn
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: !Sub 'arn:${AWS::Partition}:xray:${AWS::Region}:${AWS::AccountId}:trace/*'
+        - PolicyName: UserSubscriptionLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminSetUserPassword
+                  - cognito-idp:AdminAddUserToGroup
+                  - cognito-idp:AdminGetUser
+                  - cognito-idp:AdminUpdateUserAttributes
+                Resource: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
+        - PolicyName: SNSPublishPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'sns:Subscribe'
+                  - 'sns:Unsubscribe'
+                  - 'sns:ListSubscriptionsByTopic'
+                  - 'sns:GetTopicAttributes'
+                  - 'sns:SetSubscriptionAttributes' 
+                Resource: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${Application}-${Environment}-email-sns"
+        - PolicyName: CloudwatchPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+        - PolicyName: DynamoDBPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:UpdateItem
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:DescribeTable
+                Resource: !GetAtt UserSubscriptionsTable.Arn
+
+
+  UserSubscriptionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Application}-${Environment}-UserSubscription
+      RetentionInDays: 180
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: "SSE is currently not supported, CMK is not ideal for this solution"
+
+  UserSubscriptionLambdaFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: 
+      - UserSubscriptionLambdaRole
+    Properties:
+      Environment:
+        Variables:
+          application: !Sub ${Application}
+          environment: !Sub ${Environment}
+          region: !Ref "AWS::Region"
+          topicArn: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${Application}-${Environment}-email-sns"
+          subscriptionsTable: !Ref UserSubscriptionsTable
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_user_subscription.zip"]]
+      Description: Cognito Trigger Lambda function for subscribing users to Email SNS topic
+      Handler: "lambda_user_subscription.lambda_handler"
+      FunctionName: !Sub ${Application}-${Environment}-lambda-user-subscription
+      Role: !GetAtt UserSubscriptionLambdaRole.Arn
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+      MemorySize: 512
+      Timeout: 900
+      LoggingConfig:
+        LogGroup: !Ref UserSubscriptionLogGroup
+      TracingConfig:
+        Mode: Active
+      DeadLetterConfig:
+        TargetArn: !GetAtt UserSubscriptionLambdaDLQ.Arn
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  UserSubscriptionLambdaPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - UserSubscriptionLambdaFunction
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref UserSubscriptionLambdaFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
+
+
   # Cognito
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
+    DependsOn:
+      - UserSubscriptionLambdaFunction
     Properties:
       UserPoolName: !Sub ${Application}-${Environment}-MigrationFactory
+      LambdaConfig:
+        PreSignUp: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${Application}-${Environment}-lambda-user-subscription'
+        PostAuthentication: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${Application}-${Environment}-lambda-user-subscription'
       UsernameAttributes:
         - email
       UserPoolTags:

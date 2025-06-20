@@ -52,6 +52,7 @@ import { ToolsContext } from "../../contexts/ToolsContext";
 import { Attribute, BaseData, EntitySchema } from "../../models/EntitySchema";
 import { SchemaAccess, UserAccess } from "../../models/UserAccess";
 import { OptionDefinition } from "../../utils/OptionDefinition.ts";
+import { TaskLevelEmailSettingsAttribute } from "./TaskLevelEmailSettingsAttribute.tsx";
 
 const constDefaultGroupName = "Details";
 
@@ -114,6 +115,7 @@ const AllAttributes = (props: AllAttributesParams) => {
 
   const [formValidationErrors, setFormValidationErrors] = useState<any[]>([]);
   const [showadvancedpolicy, setShowadvancedpolicy] = useState(false);
+  const [ showTaskLevelNotification, setTaskLevelNotification ] = useState(false);
 
   function getFilterAttributes(attribute: Attribute): Attribute[] {
     let attributes_with_rel_filter = props.schema.attributes.filter((attributeFilter) => {
@@ -137,6 +139,31 @@ const AllAttributes = (props: AllAttributesParams) => {
       return attribute.name === attributeFilter.lookup && attributeFilter.type === "embedded_entity";
     });
 
+    if (attribute.name === "pipeline_enable_email_notifications") {
+      setTaskLevelNotification(value ? true : false);
+    }
+
+    // Special case for email recipients and groups in pipeline
+    if (attribute.name === "pipeline_default_email_recipients" ||
+       attribute.name === "pipeline_default_email_groups" || 
+       attribute.name === "pipeline_enable_email_notifications") {
+        // Use the most up-to-date values for validation:
+        // 1. For the field being changed, use the 'value' parameter (contains the new selection)
+        // 2. Use getNestedValuePath to get exiting user and group selections
+        // This ensures validation happens with the latest data before React state updates
+        const emailRecipients = attribute.name === "pipeline_default_email_recipients" ? value : getNestedValuePath(props.item, "pipeline_default_email_recipients") || [];
+        const emailGroups = attribute.name === "pipeline_default_email_groups" ? value : getNestedValuePath(props.item, "pipeline_default_email_groups") || [];
+
+        if (emailRecipients.length > 0 || emailGroups.length > 0)  {
+          validationError = null;
+          clearAttributeFormError("pipeline_default_email_recipients");
+          clearAttributeFormError("pipeline_default_email_groups");
+          clearAttributeFormError("pipeline_enable_email_notifications");
+        } else {
+          validationError = "You must specify either default email recipients or default email groups when email notifications are enabled";
+        }
+    }
+
     let values: {
       field: string;
       value: any[] | string | {};
@@ -146,7 +173,7 @@ const AllAttributes = (props: AllAttributesParams) => {
         field: attribute.name,
         value: value,
         validationError: validationError,
-      },
+      }
     ];
 
     // As filter value has been changed, set all child attribute values to empty.
@@ -252,6 +279,9 @@ const AllAttributes = (props: AllAttributesParams) => {
         break;
       case "policy":
         listFull = getSelectOptions(permissionsData.policies, permissionsIsLoading, attribute, currentRecord);
+        break;
+      case "user":
+        listFull = getSelectOptions(permissionsData.users, permissionsIsLoading, attribute, currentRecord);
         break;
       case "pipeline":
         listFull = getSelectOptions(dataPipelines, isLoadingPipelines, attribute, currentRecord);
@@ -420,8 +450,26 @@ const AllAttributes = (props: AllAttributesParams) => {
 
   function returnErrorMessage(attribute: Attribute) {
     let errorMsg: string | null | undefined;
-
+    
     let value = getAttributeValue(attribute);
+    const defaultEmailValidationError = "You must specify either default email recipients or default email groups when email notifications are enabled";
+
+    // Special case for email recipients and groups in pipeline
+    if (props.schemaName === "pipeline" &&
+        props.item?.pipeline_enable_email_notifications &&
+        (attribute.name === "pipeline_default_email_recipients" ||
+         attribute.name === "pipeline_default_email_groups")) {
+
+      const emailRecipients = getNestedValuePath(props.item, "pipeline_default_email_recipients") || [];
+      const emailGroups = getNestedValuePath(props.item, "pipeline_default_email_groups") || [];
+
+      // If both are empty, show error
+      if (emailRecipients.length === 0 && emailGroups.length === 0) {
+        return defaultEmailValidationError;
+      }
+
+      return null;
+    }
 
     if (isAttributeValueRequired(attribute, props.item) && !isValueSet(value)) {
       errorMsg = "You must specify a valid value.";
@@ -828,7 +876,7 @@ const AllAttributes = (props: AllAttributesParams) => {
 
     if (
       !userAccess[schemaName] ||
-      (userAccess[schemaName].create && (attribute.required || schema.schema_type === "automation"))
+      userAccess[schemaName].create
     ) {
       //Any required attributes will be available if the user has the create permission.
       return false;
@@ -907,14 +955,16 @@ const AllAttributes = (props: AllAttributesParams) => {
         switch (attribute.type) {
           case "checkbox":
             return (
-              <CheckboxAttribute
-                key={displayKey}
-                attribute={attribute}
-                isReadonly={attributeReadOnly}
-                value={getNestedValuePath(props.item, attribute.name)}
-                handleUserInput={handleUserInput}
-                displayHelpInfoLink={displayHelpInfoLink}
-              />
+              <>
+                <CheckboxAttribute
+                  key={displayKey}
+                  attribute={attribute}
+                  isReadonly={attributeReadOnly}
+                  value={getNestedValuePath(props.item, attribute.name)}
+                  handleUserInput={handleUserInput}
+                  displayHelpInfoLink={displayHelpInfoLink}
+                />
+              </>
             );
           case "multivalue-string":
             validationError = returnErrorMessage(attribute);
@@ -1008,15 +1058,16 @@ const AllAttributes = (props: AllAttributesParams) => {
 
             return getPolicy(props.schemas, attribute, value, index);
           }
-          case "groups":
+          case "groups": // Both groups and users use raw string arrays
+          case "users": // Use GroupsAttribute for both groups and users
             return (
               <GroupsAttribute
                 key={displayKey}
                 attribute={attribute}
                 isReadonly={attributeReadOnly}
                 value={getNestedValuePath(props.item, attribute.name)}
-                errorText={returnErrorMessage(attribute)}
-                handleUserInput={props.handleUserInput}
+                returnErrorMessage={returnErrorMessage}
+                handleUserInput={handleUserInput}
                 displayHelpInfoLink={displayHelpInfoLink}
               />
             );
@@ -1051,21 +1102,21 @@ const AllAttributes = (props: AllAttributesParams) => {
               if (!template_tasks) {
                 return null;
               }
-
+            
               let embedded_task_arg_schemas = template_tasks?.map((templateTask) => {
                 return allData.script?.data.find((t) => {
                   return t.package_uuid === templateTask.task_id;
                 });
               });
-
+          
               let missing_scripts = [];
-
+          
               for (let script_idx = 0; script_idx < template_tasks.length; script_idx++) {
                 if (!embedded_task_arg_schemas[script_idx]) {
                   missing_scripts.push(template_tasks[script_idx]);
                 }
               }
-
+          
               if (template_tasks && missing_scripts.length > 0) {
                 return (
                   <Alert
@@ -1083,7 +1134,6 @@ const AllAttributes = (props: AllAttributesParams) => {
               let embedded_task_arg_schemas_attributes = embedded_task_arg_schemas?.flatMap((task: any) =>
                 getRelationshipValue(attribute, allData, getNestedValuePath({ task }, attribute.lookup))
               );
-
               // De-duping duplicate embedded entity values across pipeline template tasks
               const embedded_entity_values = embedded_task_arg_schemas_attributes
                 ?.flatMap((schema) => schema.value)
@@ -1239,7 +1289,9 @@ const AllAttributes = (props: AllAttributesParams) => {
       if (!allNull) {
         return (
           <Container key={item.name} header={<Header variant="h2">{item.name}</Header>}>
-            <SpaceBetween size="l">{group}</SpaceBetween>
+            <SpaceBetween size="l">
+              {group}
+            </SpaceBetween>
           </Container>
         );
       } else {
@@ -1253,6 +1305,18 @@ const AllAttributes = (props: AllAttributesParams) => {
           <Audit item={props.item} />
         </Container>
       );
+    }
+
+    // Only add TaskLevelEmailSettingsAttribute if email notifications are enabled
+    // and it doesn't already exist in allContainers
+    if (showTaskLevelNotification) {
+        allContainers.push(
+          <TaskLevelEmailSettingsAttribute 
+            item={props.item} 
+            handleUserInput={props.handleUserInput} 
+            dataAll={allData} 
+          />
+        );
     }
 
     return allContainers;

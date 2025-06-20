@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from models import PipelineTemplate
 from test_common_utils import default_mock_os_environ as mock_os_environ
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 
 @patch('cmf_boto.client')
@@ -67,6 +68,69 @@ class LambdaImportTemplatesTest(TestCase):
 
         # THEN
         self.assertEqual(201, response['statusCode'])
+        
+    def test_drawio_format_valid_list(self, _):
+        from lambda_import_export_pipeline_templates import lambda_handler
+
+        # WHEN
+        sample_drawio = '''
+        <mxfile host="drawio.corp.com">
+            <diagram1 name="Empty">
+                <mxGraphModel>
+                    <root>
+                        <mxCell id="0"/>
+                        <mxCell id="1" parent="0"/>
+                    </root>
+                </mxGraphModel>
+            </diagram1>
+        </mxfile>
+        '''
+
+        # THEN
+        with patch('lambda_import_export_pipeline_templates.DrawIOParser.parse', return_value=[]) as mock_parse:
+            response = lambda_handler({
+            'httpMethod': 'POST',
+            'body': json.dumps({"fileFormat": "drawio", "content": sample_drawio}),
+            'requestContext': {}
+            })
+            # Verify
+            mock_parse.assert_called_once_with(sample_drawio)
+
+    def test_lucid_format_valid_list(self, _):
+        from lambda_import_export_pipeline_templates import lambda_handler
+
+        # WHEN
+        sample_lucid_csv = '''Id,Name,Shape Library,Page ID,Contained By,Group,Line Source,Line Destination,Source Arrow,Destination Arrow,Status,Text Area 1,Comments,automationid,start,tasktype
+                1,Document,,,,,,,,,Draft,Lusid-DTR,,,,
+                2,Page,,,,,,,,,,LTR2,,,,
+                3,Connector,Flowchart Shapes/Containers,2,,,,,,,,Start step,,,Rehost Servers
+               '''
+
+        # THEN
+        with patch('lambda_import_export_pipeline_templates.LucidCSVParser.parse', return_value=[]) as mock_parse:
+            response = lambda_handler({
+            'httpMethod': 'POST',
+            'body': json.dumps({"fileFormat": "lucid-csv", "content": sample_lucid_csv}),
+            'requestContext': {}
+            })
+            # Verify
+            mock_parse.assert_called_once_with(sample_lucid_csv)
+    
+    def test_content_passed_through_when_cmf_json(self, _):
+        """Test DrawIO format with valid list response"""
+        # Setup
+        from lambda_import_export_pipeline_templates import lambda_handler
+    
+        # WHEN
+        with patch('lambda_import_export_pipeline_templates.DrawIOParser.parse', return_value=[]) as mock_parse:
+            response = lambda_handler({
+            'httpMethod': 'POST',
+            'body': json.dumps([]),
+            'requestContext': {}
+            })
+            # THEN
+            mock_parse.assert_not_called()
+
 
     def test_error_on_lambda_invoke(self, mock_cmf_boto_client):
         from lambda_import_export_pipeline_templates import lambda_handler

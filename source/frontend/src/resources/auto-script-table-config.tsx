@@ -185,7 +185,7 @@ export const CUSTOM_PREFERENCE_OPTIONS = [];
 
 export const DEFAULT_PREFERENCES = {
   pageSize: 10,
-  visibleContent: ["script_name", "script_description", "default", "latest"],
+  visibleContent: ["script_name", "script_description", "default", "latest", "compute_platform"],
   wraplines: false,
   trackBy: "package_uuid",
 };

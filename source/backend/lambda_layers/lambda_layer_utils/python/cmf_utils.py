@@ -4,6 +4,11 @@ from datetime import datetime, timezone
 import os
 import requests
 import json
+import botocore
+
+from cmf_types import NotificationType
+from cmf_logger import logger
+import boto3
 
 # System-wide data format for logging and notifications.
 CONST_DT_FORMAT = '%Y-%m-%dT%H:%M:%S.%f%z'
@@ -56,3 +61,47 @@ def get_date_from_string(str_date):
     created_timestamp = created_timestamp.replace(tzinfo=timezone.utc)
 
     return created_timestamp
+
+
+def publish_event(notification: NotificationType, eventsClient: boto3.client, eventSource: str, eventBusName: str) -> None:
+    """
+    Publishes job status notification to EventBridge.
+    
+    Args:
+        notification: Notification object to be published
+        eventsClient: EventBridge client
+        eventSource: source of event
+        eventBusName: name of the eventbus
+        
+    Returns:
+        None
+        
+    Raises:
+        ClientError: If EventBridge publish fails
+    """
+    try:
+        logger.info(f"Publishing {str(notification)} to {eventBusName}")
+
+        event_entry = {
+            'Source': eventSource,  #f'{application}-{environment}-task-orchestrator',
+            'DetailType': notification['type'],
+            'Detail': json.dumps(notification),
+            'EventBusName': eventBusName,
+            'Time': datetime.now(timezone.utc)
+        }
+
+        # Write notification to event bus
+        response = eventsClient.put_events(
+            Entries=[event_entry]
+        )
+
+        if response.get('FailedEntryCount')> 0:
+            logger.error(
+                f"Failed to publish event to EventBridge: "
+                f"ErrorCode={response['Entries'][0]['ErrorCode']}, "
+                f"ErrorMessage={response['Entries'][0].get('ErrorMessage', 'No message')}, "
+                f"EventId={response['Entries'][0].get('EventId', 'No ID')}"
+            )
+
+    except botocore.exceptions.ClientError as e:
+        logger.error(f"EventBridge error occurred while publishing event: {str(e)}")

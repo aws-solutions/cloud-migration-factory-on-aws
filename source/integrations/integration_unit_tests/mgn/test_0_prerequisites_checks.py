@@ -524,7 +524,7 @@ class PreRequsitesCheckTestCase(TestCase):
             "test": "DHCLIENT Package", "result": "Fail", "error": prereq_check.MSG_SSH_UNABLE_TO_CONNECT}, 
             self.s_result["test_results"]
         )
-        self.assertEquals(False, self.s_result["success"])
+        self.assertEqual(False, self.s_result["success"])
 
     @mock.patch("paramiko.SSHClient")
     def test_check_dhclient_paramiko_exception(self, mock_ssh_client):
@@ -534,7 +534,7 @@ class PreRequsitesCheckTestCase(TestCase):
         prereq_check.check_dhclient(mocked_ssh, self.s_result)
 
         self.assertIn({'test': "DHCLIENT Package", "result": "Fail", "error": ""}, self.s_result["test_results"])
-        self.assertEquals(False, self.s_result["success"])
+        self.assertEqual(False, self.s_result["success"])
 
     @mock.patch("paramiko.SSHClient")
     def test_check_dhclient_fails_stderr_contains_not_found(self, mock_ssh_client):
@@ -573,7 +573,7 @@ class PreRequsitesCheckTestCase(TestCase):
 
         result = prereq_check.check_linux(self.params)
 
-        self.assertEquals(mock_tcp_connectivity.call_count, 3)
+        self.assertEqual(mock_tcp_connectivity.call_count, 3)
         self.assertIn(
             [
                 mock.call(mocked_ssh, self.params["MGNEndpoint"], '443', self.s_result, "MGNEndpoint"),
@@ -582,7 +582,7 @@ class PreRequsitesCheckTestCase(TestCase):
             ],
             mock_tcp_connectivity.call_args_list
         )
-        self.assertEquals(mock_freespace.call_count, 2)
+        self.assertEqual(mock_freespace.call_count, 2)
         self.assertIn(
             [
                 mock.call(mocked_ssh, '/', 2.0, self.s_result),
