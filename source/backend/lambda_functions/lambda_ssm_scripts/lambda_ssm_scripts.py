@@ -10,6 +10,7 @@ import yaml
 import uuid
 import shutil
 import tempfile
+import botocore
 from policy import MFAuth
 from boto3.dynamodb.conditions import Key
 from decimal import Decimal
@@ -45,11 +46,10 @@ class JsonEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-bucketName = os.environ['scripts_bucket_name']
+bucket_name = os.environ['scripts_bucket_name']
 application = os.environ['application']
 environment = os.environ['environment']
 
-s3_resource = cmf_boto.resource('s3')
 s3 = cmf_boto.client('s3')
 lambda_client = cmf_boto.client('lambda')
 
@@ -103,26 +103,39 @@ def add_script_attribute_to_schema(update_exists_attribute, new_attr):
                                             Payload=json.dumps(scripts_event))
 
     scripts_response_pl = scripts_response['Payload'].read()
-
     scripts = json.loads(scripts_response_pl)
 
-    if 'statusCode' in scripts and scripts['statusCode'] != 200 and 'already exist' in scripts['body']:
-        print(scripts['body'] + ' in schema ' + new_attr['schema'] + ' , performing update...')
+    # Check for specific error conditions and handle recursively
+    if _should_retry_with_update(scripts):
         update_result = add_script_attribute_to_schema(True, new_attr)
         if not update_result:
             return update_result
-    elif 'statusCode' in scripts and scripts['statusCode'] != 200:
+    elif _has_error_status(scripts):
         return scripts['body']
-    elif 'body' in scripts and 'ResponseMetadata' in scripts['body']:
-        lambda_response = json.loads(scripts['body'])
-        if 'ResponseMetadata' in lambda_response:
-            if 'HTTPStatusCode' in lambda_response['ResponseMetadata'] \
-                    and lambda_response['ResponseMetadata']['HTTPStatusCode'] != 200:
-                return scripts['body']
 
     logger.info('Invocation: %s, Attribute added/updated in schema: ' + json.dumps(new_attr), logging_context)
-
     return None
+
+
+def _should_retry_with_update(scripts):
+    """Check if we should retry the schema update operation."""
+    return ('statusCode' in scripts and 
+            scripts['statusCode'] != 200 and 
+            'already exist' in scripts['body'])
+
+
+def _has_error_status(scripts):
+    """Check if the response has an error status."""
+    if 'statusCode' in scripts and scripts['statusCode'] != 200:
+        return True
+    
+    if 'body' in scripts and 'ResponseMetadata' in scripts['body']:
+        lambda_response = json.loads(scripts['body'])
+        if 'ResponseMetadata' in lambda_response:
+            return ('HTTPStatusCode' in lambda_response['ResponseMetadata'] and
+                    lambda_response['ResponseMetadata']['HTTPStatusCode'] != 200)
+    
+    return False
 
 
 def process_schema_extensions(script, update=False):
@@ -226,112 +239,107 @@ def valid_attribute(attribute):
 
 def change_default_script_version(event, package_uuid, default_version):
     logging_context = 'make_default'
-    # Update record audit
+    
+    # Validate authorization
+    auth_error = _validate_authorization(event, logging_context)
+    if auth_error:
+        return auth_error
+    
+    # Get user and script version
+    auth = MFAuth()
+    auth_response = auth.get_user_resource_creation_policy(event, 'script')
+    
+    db_response = get_script_version(package_uuid, default_version)
+    if 'Item' not in db_response:
+        error_msg = f"The requested version does not exist for the script {package_uuid}."
+        logger.error(log_invocation_message_prefix + error_msg, logging_context)
+        return {'headers': {**default_http_headers}, 'statusCode': 400, 'body': error_msg}
+
+    # Update the default version
+    return _update_default_version(package_uuid, auth_response['user'], db_response["Item"], default_version, logging_context)
+
+
+def _validate_authorization(event, logging_context):
+    """Validate user authorization for script operations."""
     auth = MFAuth()
     auth_response = auth.get_user_resource_creation_policy(event, 'script')
 
     if auth_response['action'] != 'allow':
         logger.warning(log_invocation_message_prefix + 'Authorisation failed: ' + json.dumps(auth_response), logging_context)
-        return {'headers': {**default_http_headers},
-                'statusCode': 401,
-                'body': auth_response['cause']}
+        return {'headers': {**default_http_headers}, 'statusCode': 401, 'body': auth_response['cause']}
 
     if 'user' not in auth_response:
-        return {'headers': {**default_http_headers},
-                'statusCode': 401,
+        return {'headers': {**default_http_headers}, 'statusCode': 401, 
                 'body': f"No user details found from auth. {auth_response['cause']}"}
+    
+    return None
 
-    db_response = get_script_version(package_uuid, default_version)
 
-    if 'Item' not in db_response:
-        error_msg = f"The requested version does not exist for the script {package_uuid}."
-        logger.error(log_invocation_message_prefix + error_msg,
-                     logging_context)
-        return {'headers': {**default_http_headers},
-                'statusCode': 400, 'body': error_msg}
-
-    last_modified_by = auth_response['user']
+def _update_default_version(package_uuid, user, default_item, default_version, logging_context):
+    """Update the default version in DynamoDB."""
+    last_modified_by = user
     last_modified_timestamp = datetime.now(timezone.utc).isoformat()
 
-    default_item = db_response["Item"]
-
+    key = {'package_uuid': package_uuid, 'version': 0}
+    update_expression = ('SET #default = :default, #version_id = :version_id, '
+                       '#_history.#lastModifiedTimestamp = :lastModifiedTimestamp, '
+                       '#_history.#lastModifiedBy = :lastModifiedBy, '
+                       '#script_masterfile = :script_masterfile, #script_description = :script_description, '
+                       '#script_update_url = :script_update_url, #script_group = :script_group, '
+                       '#script_name = :script_name, #script_dependencies = :script_dependencies, '
+                       '#script_arguments = :script_arguments')
     
-    Key = {
-        'package_uuid': package_uuid,
-        'version': 0
-    }
-    # Atomic counter is used to increment the latest version
-    UpdateExpression = 'SET #default = :default, ' \
-                        '#version_id = :version_id, ' \
-                        '#_history.#lastModifiedTimestamp = :lastModifiedTimestamp, ' \
-                        '#_history.#lastModifiedBy = :lastModifiedBy, ' \
-                        '#script_masterfile = :script_masterfile, ' \
-                        '#script_description = :script_description, ' \
-                        '#script_update_url = :script_update_url, ' \
-                        '#script_group = :script_group, ' \
-                        '#script_name = :script_name, ' \
-                        '#script_dependencies = :script_dependencies, ' \
-                        '#script_arguments = :script_arguments'
-    ExpressionAttributeNames = {
-        '#default': 'default',
-        '#version_id': 'version_id',
-        '#_history': '_history',
-        '#lastModifiedTimestamp': 'lastModifiedTimestamp',
-        '#lastModifiedBy': 'lastModifiedBy',
-        '#script_masterfile': 'script_masterfile',
-        '#script_description': 'script_description',
-        '#script_update_url': 'script_update_url',
-        '#script_group': 'script_group',
-        '#script_name': 'script_name',
-        '#script_dependencies': 'script_dependencies',
+    expression_attribute_names = {
+        '#default': 'default', '#version_id': 'version_id', '#_history': '_history',
+        '#lastModifiedTimestamp': 'lastModifiedTimestamp', '#lastModifiedBy': 'lastModifiedBy',
+        '#script_masterfile': 'script_masterfile', '#script_description': 'script_description',
+        '#script_update_url': 'script_update_url', '#script_group': 'script_group',
+        '#script_name': 'script_name', '#script_dependencies': 'script_dependencies',
         '#script_arguments': 'script_arguments'
     }
-    ExpressionAttributeValues = {
-        ':default': default_version,
-        ':version_id': default_item['version_id'],
-        ':lastModifiedBy': last_modified_by,
-        ':lastModifiedTimestamp': last_modified_timestamp,
+    
+    expression_attribute_values = {
+        ':default': default_version, ':version_id': default_item['version_id'],
+        ':lastModifiedBy': last_modified_by, ':lastModifiedTimestamp': last_modified_timestamp,
         ':script_masterfile': default_item['script_masterfile'],
         ':script_description': default_item['script_description'],
         ':script_update_url': default_item['script_update_url'],
-        ':script_group': default_item['script_group'],
-        ':script_name': default_item['script_name'],
+        ':script_group': default_item['script_group'], ':script_name': default_item['script_name'],
         ':script_dependencies': default_item['script_dependencies'],
-        ':script_arguments': default_item['script_arguments'],
-        ':compute_platform': default_item.get('compute_platform')
+        ':script_arguments': default_item['script_arguments']
     }
+    
     if 'compute_platform' in default_item:
-        UpdateExpression += ', #compute_platform = :compute_platform'
-        ExpressionAttributeNames['#compute_platform'] = 'compute_platform'
-        ExpressionAttributeValues[':compute_platform'] = default_item.get('compute_platform')
-    packages_table.update_item(
-        Key=Key,
-        UpdateExpression=UpdateExpression,
-        ExpressionAttributeNames=ExpressionAttributeNames,
-        ExpressionAttributeValues=ExpressionAttributeValues
-    )
+        update_expression += ', #compute_platform = :compute_platform'
+        expression_attribute_names['#compute_platform'] = 'compute_platform'
+        expression_attribute_values[':compute_platform'] = default_item.get('compute_platform')
+    
+    try:
+        packages_table.update_item(
+            Key=key, UpdateExpression=update_expression,
+            ExpressionAttributeNames=expression_attribute_names,
+            ExpressionAttributeValues=expression_attribute_values
+        )
+    except Exception as e:
+        logger.error(f"{log_invocation_message_prefix}Failed to update default script version in DynamoDB: {str(e)}", logging_context)
+        return {'headers': {**default_http_headers}, 'statusCode': 500, 
+                'body': f'Failed to update default script version: {str(e)}'}
 
-    return {
-        'headers': {
-            **default_http_headers
-        },
-        'body': f"Default version changed to: {default_version}",
-        'statusCode': 200
-    }
+    return {'headers': {**default_http_headers}, 'statusCode': 200, 
+            'body': f"Default version changed to: {default_version}"}
 
 
 def does_script_name_exist(script_name, existing_package_uuid=None):
     default_list = get_all_default_scripts()
 
-    def script_name_filter(script):
-        if existing_package_uuid and script["package_uuid"] != existing_package_uuid:
-            return script['script_name']
-
     if default_list["Count"] != 0:
-        default_list = default_list["Items"]
-        script_name_list = list(map(script_name_filter, default_list))
-        if script_name in script_name_list:
-            return True
+        for script in default_list["Items"]:
+            # Skip the current package if we're updating an existing one
+            if existing_package_uuid and script["package_uuid"] == existing_package_uuid:
+                continue
+            # Check if script name matches
+            if script['script_name'] == script_name:
+                return True
 
     return False
 
@@ -341,57 +349,69 @@ def extract_script_package(base64_encoded_script_package, package_uuid):
 
     temp_path = tempfile.gettempdir() + "/" + package_uuid + ".zip"
     script_package_path = tempfile.gettempdir() + "/" + package_uuid
-    # Package path to save the uploaded file
-    split_data = base64_encoded_script_package.split(',')  # Split data to allow removal of DataURL if present.
-    if len(split_data) == 1:
-        decoded_data_as_bytes = base64.b64decode(
-            split_data[0])  # Decode Base64 to bytes data does not include DataURL header.
-    elif len(split_data) == 2:
-        decoded_data_as_bytes = base64.b64decode(split_data[1])  # Decode Base64 to bytes
-    else:
-        cleanup_temp(package_uuid)
-        error_msg = 'Zip file is not able to be decoded.'
-        logger.error(log_invocation_message_prefix + error_msg,
-                     logging_context)
-        return {'headers': {**default_http_headers},
-                'statusCode': 400, 'body': error_msg}
+    
+    # Decode the base64 data
+    decoded_data_as_bytes = _decode_base64_data(base64_encoded_script_package, package_uuid, logging_context)
+    if isinstance(decoded_data_as_bytes, dict):  # Error response
+        return decoded_data_as_bytes
 
-    # Convert binary as UTF-8 --> Binary file
+    # Write decoded data to temp file
     with open(temp_path, "wb") as text_file:
         text_file.write(decoded_data_as_bytes)
         text_file.close()
 
+    # Extract and validate zip file
+    return _extract_and_validate_zip(temp_path, script_package_path, package_uuid, decoded_data_as_bytes, logging_context)
+
+
+def _decode_base64_data(base64_encoded_script_package, package_uuid, logging_context):
+    """Decode base64 data and handle different formats."""
+    split_data = base64_encoded_script_package.split(',')
+    
+    if len(split_data) == 1:
+        return base64.b64decode(split_data[0])
+    elif len(split_data) == 2:
+        return base64.b64decode(split_data[1])
+    else:
+        cleanup_temp(package_uuid)
+        error_msg = 'Zip file is not able to be decoded.'
+        logger.error(log_invocation_message_prefix + error_msg, logging_context)
+        return {'headers': {**default_http_headers}, 'statusCode': 400, 'body': error_msg}
+
+
+def _extract_and_validate_zip(temp_path, script_package_path, package_uuid, decoded_data_as_bytes, logging_context):
+    """Extract zip file and validate size constraints."""
     try:
-        # Extract contents of zip
+        # Check uncompressed size
         with open(temp_path, "rb") as script_package_zip_file:
             script_package_zip = zipfile.ZipFile(script_package_zip_file)
             total_uncompressed_size = sum(file.file_size for file in script_package_zip.infolist())
+        
         if total_uncompressed_size > ZIP_MAX_SIZE:
             cleanup_temp(package_uuid)
             error_msg = f'Zip file uncompressed contents exceeds maximum size of {ZIP_MAX_SIZE / 1e+6}MBs.'
-            logger.error(log_invocation_message_prefix + error_msg,
-                         logging_context)
-            return {'headers': {**default_http_headers},
-                    'statusCode': 400, 'body': error_msg}
-        else:
-            with open(temp_path, "rb") as script_package_zip_file:
-                script_package_zip = zipfile.ZipFile(script_package_zip_file)
-                script_package_zip.extractall(script_package_path)  # NOSONAR This size of the file is in control
-            return {'headers': {**default_http_headers},
-                'statusCode': 200,
-                'body':
-                    {'statusMessage': f"Files extracted to {script_package_path}",
-                     'scriptPath': script_package_path,
-                     'decodedData': decoded_data_as_bytes
-                     }
-                }
+            logger.error(log_invocation_message_prefix + error_msg, logging_context)
+            return {'headers': {**default_http_headers}, 'statusCode': 400, 'body': error_msg}
+        
+        # Extract files
+        with open(temp_path, "rb") as script_package_zip_file:
+            script_package_zip = zipfile.ZipFile(script_package_zip_file)
+            script_package_zip.extractall(script_package_path)
+        
+        return {
+            'headers': {**default_http_headers},
+            'statusCode': 200,
+            'body': {
+                'statusMessage': f"Files extracted to {script_package_path}",
+                'scriptPath': script_package_path,
+                'decodedData': decoded_data_as_bytes
+            }
+        }
     except (IOError, zipfile.BadZipfile):
         cleanup_temp(package_uuid)
         error_msg = 'Invalid zip file.'
-        logger.error(log_invocation_message_prefix + error_msg,
-                     logging_context)
-        return {'headers': {**default_http_headers},
-                'statusCode': 400, 'body': error_msg}
+        logger.error(log_invocation_message_prefix + error_msg, logging_context)
+        return {'headers': {**default_http_headers}, 'statusCode': 400, 'body': error_msg}
 
 
 def check_script_package_dependencies_exist(package_script_path, file_dependencies):
@@ -430,6 +450,58 @@ def validate_compute_platform(compute_platform):
     return True
 
 
+def handle_yaml_error(error_yaml, validation_failures):
+    """Handle YAML parsing errors and add appropriate error messages to validation_failures."""
+    if hasattr(error_yaml, 'problem_mark'):
+        mark = error_yaml.problem_mark
+        validation_failures.append(f"Error reading error YAML {script_package_yaml_file_name}. "
+                                   f"Error position: {mark.line + 1}:{mark.column + 1}")
+    else:
+        validation_failures.append(f"Error reading error YAML {script_package_yaml_file_name}.")
+    logger.info(f"Yaml file format failures: {validation_failures}")
+
+
+def _validate_master_file_exists(script_package_path, parsed_yaml_file, validation_failures):
+    """Validate that the master file exists in the package."""
+    master_file_exists = check_script_package_master_file_exists(script_package_path,
+                                                                 parsed_yaml_file.get("MasterFileName"))
+    if master_file_exists is False:
+        validation_failures.append(f"{parsed_yaml_file.get('MasterFileName')} "
+                                   f"not found in root of package, "
+                                   f"and is referenced as the MasterFileName.")
+
+
+def _validate_compute_platform_value(parsed_yaml_file, validation_failures):
+    """Validate the compute platform value."""
+    valid_compute_platform = validate_compute_platform(parsed_yaml_file.get("ComputePlatform"))
+    if not valid_compute_platform:
+        validation_failures.append("Invalid compute platform. "
+                                   "ComputePlatform must be 'SSM Automation Document' or empty.")
+
+
+def _validate_package_dependencies(script_package_path, parsed_yaml_file, validation_failures):
+    """Validate that all package dependencies exist."""
+    try:
+        check_script_package_dependencies_exist(script_package_path, parsed_yaml_file.get("Dependencies"))
+    except MissingDependencyException as missing_dependency_error:
+        validation_failures.append(str(missing_dependency_error))
+
+
+def validate_parsed_yaml_content(script_package_path, parsed_yaml_file, validation_failures):
+    """Validate the parsed YAML content and add any validation errors to validation_failures."""
+    package_yaml_validation = validate_script_package_yaml(parsed_yaml_file)
+    logger.info(f"package_yaml_validation result: {package_yaml_validation}")
+    
+    if len(package_yaml_validation) > 0:
+        validation_failures.append(f"Missing the following required keys or values in "
+                                   f"{script_package_yaml_file_name}, {','.join(package_yaml_validation)}")
+        return
+    
+    _validate_master_file_exists(script_package_path, parsed_yaml_file, validation_failures)
+    _validate_compute_platform_value(parsed_yaml_file, validation_failures)
+    _validate_package_dependencies(script_package_path, parsed_yaml_file, validation_failures)
+
+
 def validate_extracted_script_package_contents(script_package_path, config_file_path, validation_failures):
     try:
         logger.info(f"Validating yaml file - {script_package_path}")
@@ -437,34 +509,9 @@ def validate_extracted_script_package_contents(script_package_path, config_file_
             parsed_yaml_file = yaml.full_load(config_file)
 
     except yaml.YAMLError as error_yaml:
-        if hasattr(error_yaml, 'problem_mark'):
-            mark = error_yaml.problem_mark
-            validation_failures.append(f"Error reading error YAML {script_package_yaml_file_name}. "
-                                       f"Error position: {mark.line + 1}:{mark.column + 1}")
-        else:
-            validation_failures.append(f"Error reading error YAML {script_package_yaml_file_name}.")
-        logger.info(f"Yaml file format failures: {validation_failures}")
+        handle_yaml_error(error_yaml, validation_failures)
     else:
-        package_yaml_validation = validate_script_package_yaml(parsed_yaml_file)
-        logger.info(f"package_yaml_validation result: {package_yaml_validation}")
-        if len(package_yaml_validation) > 0:
-            validation_failures.append(f"Missing the following required keys or values in "
-                                       f"{script_package_yaml_file_name}, {','.join(package_yaml_validation)}")
-        else:
-            master_file_exists = check_script_package_master_file_exists(script_package_path,
-                                                                         parsed_yaml_file.get("MasterFileName"))
-            if master_file_exists is False:
-                validation_failures.append(f"{parsed_yaml_file.get('MasterFileName')} "
-                                           f"not found in root of package, "
-                                           f"and is referenced as the MasterFileName.")
-            valid_compute_platform = validate_compute_platform(parsed_yaml_file.get("ComputePlatform"))
-            if not valid_compute_platform:
-                validation_failures.append("Invalid compute platform. "
-                                           "ComputePlatform must be 'SSM Automation Document' or empty.")
-            try:
-                check_script_package_dependencies_exist(script_package_path, parsed_yaml_file.get("Dependencies"))
-            except MissingDependencyException as missing_dependency_error:
-                validation_failures.append(str(missing_dependency_error))
+        validate_parsed_yaml_content(script_package_path, parsed_yaml_file, validation_failures)
 
 
 def validate_extracted_script_package(script_package_path):
@@ -508,7 +555,13 @@ def get_script_name(body, parsed_yaml_file):
 
 def validate_attributes(parsed_yaml_file, package_uuid, logging_context):
     script_arguments_validation = []
-    for script_argument_idx, script_argument_attribute in enumerate(parsed_yaml_file.get("Arguments")):
+    arguments = parsed_yaml_file.get("Arguments")
+    
+    # Handle case where Arguments is None or empty
+    if not arguments:
+        return  # No arguments to validate
+        
+    for script_argument_idx, script_argument_attribute in enumerate(arguments):
         attribute_validation_result = valid_attribute(script_argument_attribute)
         if attribute_validation_result:
             script_arguments_validation.append(
@@ -555,79 +608,102 @@ def load_script_package(event, package_uuid, body, decoded_data_as_byte, new_ver
     s3_path = f'scripts/{package_uuid}.zip'
 
     # Get and load the configuration file from the extracted zip
-    config_file_path = f"{tempfile.gettempdir()}/{package_uuid}/{script_package_yaml_file_name}"
-    with open(config_file_path) as config_file:
-        parsed_yaml_file = yaml.full_load(config_file)
+    parsed_yaml_file = _load_and_validate_yaml_config(package_uuid)
 
     try:
         script_name = get_script_name(body, parsed_yaml_file)
     except SSMScriptsValidationException as e:
         return e.info_obj
 
-    if does_script_name_exist(script_name, package_uuid):
-        error_msg = 'Script name already defined in another package'
-        return {'headers': {**default_http_headers},
-                'statusCode': 400, 'body': error_msg}
+    # Validate script name uniqueness
+    uniqueness_error = _validate_script_name_uniqueness(script_name, package_uuid)
+    if uniqueness_error:
+        return uniqueness_error
 
     cleanup_temp(package_uuid)
 
-    # Use decoded data and store in S3 bucket
-    s3_response = s3.put_object(Bucket=bucketName, Key=s3_path, Body=decoded_data_as_byte)
-
     try:
+        s3_response = s3.put_object(Bucket=bucket_name, Key=s3_path, Body=decoded_data_as_byte)
+
         created_by, created_timestamp, auth_response = authenticate_and_extract_user(event, logging_context)
-        logger.info( "User authenticated..")
-    except SSMScriptsValidationException as e:
-        logger.error(f"User authentication failed: {e.info_obj}")
-        return e.info_obj
+        logger.info("User authenticated..")
 
-    try:
         validate_attributes(parsed_yaml_file, package_uuid, logging_context)
-    except SSMScriptsValidationException as e:
-        return e.info_obj
 
-    if new_version:
-        logger.info("Incrementing new version for script..")
-        updated_master_script_package = increment_script_package_version(package_uuid, auth_response)
-        if updated_master_script_package is not None:
-            script_package_version = updated_master_script_package["Attributes"]["latest"]
+        # Handle version creation
+        if new_version:
+            script_package_version, error_response = _handle_version_increment(package_uuid, auth_response, logging_context)
+            if error_response is not None:
+                return error_response
         else:
-            logger.warning(CONST_INVOCATION_AUTH_ERROR + json.dumps(auth_response), logging_context)
+            script_package_version = _handle_first_version_creation(package_uuid, s3_response, parsed_yaml_file, script_name, created_by, created_timestamp)
+
+        # Create and store script data
+        script_data = _create_script_data_dict(package_uuid, script_package_version, s3_response, parsed_yaml_file, script_name, created_by, created_timestamp)
+        try:
+            packages_table.put_item(Item=script_data)
+        except Exception as e:
+            logger.error(f"{log_invocation_message_prefix}Failed to store script data in DynamoDB: {str(e)}", logging_context)
             return {
                 'headers': {**default_http_headers},
-                'statusCode': 401,
-                'body': auth_response['cause']
+                'statusCode': 500,
+                'body': f'Failed to store script data in DynamoDB: {str(e)}'
             }
-    else:
-        script_package_version = 1
-        # Define package metadata
-        package_data = {
-            "package_uuid": package_uuid,
-            "version": 0,
-            "latest": 1,
-            "default": 1,
-            "lambda_function_name_suffix": "ssm",
-            "type": "Automated",
-            "version_id": s3_response["VersionId"],
-            "script_masterfile": parsed_yaml_file.get("MasterFileName"),
-            "script_description": parsed_yaml_file.get("Description"),
-            "script_update_url": parsed_yaml_file.get('UpdateUrl'),
-            "script_group": parsed_yaml_file.get('Group'),
-            "script_name": script_name,
-            "script_dependencies": parsed_yaml_file.get("Dependencies"),
-            "script_arguments": parsed_yaml_file.get("Arguments"),
-            "_history": {"createdBy": created_by,
-                         "createdTimestamp": created_timestamp}
+
+        # Handle schema extensions and make default request
+        schema_error = _handle_schema_extensions(parsed_yaml_file, package_uuid, logging_context)
+        default_error = _handle_make_default_request(body, event, package_uuid, script_data["version"])
+        
+        # Return first error encountered, if any
+        if schema_error or default_error:
+            return schema_error or default_error
+            
+    except SSMScriptsValidationException as e:
+        logger.error(f"Validation failed: {e.info_obj}")
+        return e.info_obj
+    except Exception as e:
+        logger.error(f"{log_invocation_message_prefix}Failed to process script package: {str(e)}", logging_context)
+        return {
+            'headers': {**default_http_headers},
+            'statusCode': 500,
+            'body': f'Failed to process script package: {str(e)}'
         }
 
-        if 'ComputePlatform' in parsed_yaml_file:
-            package_data["compute_platform"] = parsed_yaml_file.get("ComputePlatform")
+    return {
+        'headers': {**default_http_headers},
+        'body': script_name + " package successfully uploaded with uuid: " + package_uuid,
+        'statusCode': 200
+    }
 
-        packages_table.put_item(
-            Item=package_data,
-        )
 
-    # Define attributes for new item
+def _create_package_data_dict(package_uuid, s3_response, parsed_yaml_file, script_name, created_by, created_timestamp):
+    """Create package metadata dictionary."""
+    package_data = {
+        "package_uuid": package_uuid,
+        "version": 0,
+        "latest": 1,
+        "default": 1,
+        "lambda_function_name_suffix": "ssm",
+        "type": "Automated",
+        "version_id": s3_response["VersionId"],
+        "script_masterfile": parsed_yaml_file.get("MasterFileName"),
+        "script_description": parsed_yaml_file.get("Description"),
+        "script_update_url": parsed_yaml_file.get('UpdateUrl'),
+        "script_group": parsed_yaml_file.get('Group'),
+        "script_name": script_name,
+        "script_dependencies": parsed_yaml_file.get("Dependencies"),
+        "script_arguments": parsed_yaml_file.get("Arguments"),
+        "_history": {"createdBy": created_by, "createdTimestamp": created_timestamp}
+    }
+    
+    if 'ComputePlatform' in parsed_yaml_file:
+        package_data["compute_platform"] = parsed_yaml_file.get("ComputePlatform")
+    
+    return package_data
+
+
+def _create_script_data_dict(package_uuid, script_package_version, s3_response, parsed_yaml_file, script_name, created_by, created_timestamp):
+    """Create script data dictionary."""
     script_data = {
         "package_uuid": package_uuid,
         "version": script_package_version,
@@ -641,39 +717,77 @@ def load_script_package(event, package_uuid, body, decoded_data_as_byte, new_ver
         "script_name": script_name,
         "script_dependencies": parsed_yaml_file.get("Dependencies"),
         "script_arguments": parsed_yaml_file.get("Arguments"),
-        "_history": {"createdBy": created_by,
-                     "createdTimestamp": created_timestamp}
+        "_history": {"createdBy": created_by, "createdTimestamp": created_timestamp}
     }
-
+    
     if 'ComputePlatform' in parsed_yaml_file:
         script_data["compute_platform"] = parsed_yaml_file.get("ComputePlatform")
+    
+    return script_data
 
-    packages_table.put_item(Item=script_data)
 
+def _handle_version_increment(package_uuid, auth_response, logging_context):
+    """Handle version increment for existing packages."""
+    logger.info("Incrementing new version for script..")
+    updated_master_script_package = increment_script_package_version(package_uuid, auth_response)
+    
+    if updated_master_script_package is not None:
+        return updated_master_script_package["Attributes"]["latest"], None
+    
+    logger.warning(CONST_INVOCATION_AUTH_ERROR + json.dumps(auth_response), logging_context)
+    return None, {
+        'headers': {**default_http_headers},
+        'statusCode': 401,
+        'body': auth_response['cause']
+    }
+
+
+def _handle_first_version_creation(package_uuid, s3_response, parsed_yaml_file, script_name, created_by, created_timestamp):
+    """Handle creation of first version (version 0) package."""
+    package_data = _create_package_data_dict(package_uuid, s3_response, parsed_yaml_file, script_name, created_by, created_timestamp)
+    try:
+        packages_table.put_item(Item=package_data)
+    except botocore.exceptions.ClientError as e:
+        logger.error(f"Failed to store package data in DynamoDB: {str(e)}")
+        raise
+    return 1
+
+
+def _load_and_validate_yaml_config(package_uuid):
+    """Load and parse the YAML configuration file."""
+    config_file_path = f"{tempfile.gettempdir()}/{package_uuid}/{script_package_yaml_file_name}"
+    with open(config_file_path) as config_file:
+        return yaml.full_load(config_file)
+
+
+def _validate_script_name_uniqueness(script_name, package_uuid):
+    """Validate that the script name is unique."""
+    if does_script_name_exist(script_name, package_uuid):
+        error_msg = 'Script name already defined in another package'
+        return {'headers': {**default_http_headers}, 'statusCode': 400, 'body': error_msg}
+    return None
+
+
+def _handle_schema_extensions(parsed_yaml_file, package_uuid, logging_context):
+    """Handle schema extensions and return error if any fail."""
     extensions_result, extension_errors = process_schema_extensions(parsed_yaml_file)
-
+    
     if not extensions_result:
-        # Schema extension failed.
         cleanup_temp(package_uuid)
         error_msg = 'Schema extensions failed to be applied, errors are: ' + json.dumps(extension_errors)
-        logger.error(log_invocation_message_prefix + error_msg,
-                     logging_context)
+        logger.error(log_invocation_message_prefix + error_msg, logging_context)
+        return {'headers': {**default_http_headers}, 'statusCode': 409, 'body': error_msg}
+    
+    return None
 
-        return {'headers': {**default_http_headers},
-                'statusCode': 409, 'body': error_msg}
 
+def _handle_make_default_request(body, event, package_uuid, script_version):
+    """Handle make default request if specified."""
     if '__make_default' in body and body['__make_default']:
-        make_default_response = change_default_script_version(event, package_uuid, script_data["version"])
+        make_default_response = change_default_script_version(event, package_uuid, script_version)
         if make_default_response.get('statusCode') != 200:
             return make_default_response
-
-    return {
-        'headers': {
-            **default_http_headers
-        },
-        'body': script_name + " package successfully uploaded with uuid: " + package_uuid,
-        'statusCode': 200
-    }
+    return None
 
 
 def delete_script_package(event, package_uuid):
@@ -688,12 +802,29 @@ def delete_script_package(event, package_uuid):
                 'statusCode': 401,
                 'body': auth_response['cause']}
 
-    scan = packages_table.query(KeyConditionExpression=Key('package_uuid').eq(package_uuid))
+    try:
+        scan = packages_table.query(KeyConditionExpression=Key('package_uuid').eq(package_uuid))
+    except Exception as e:
+        logger.error(f"{log_invocation_message_prefix}Failed to query packages from DynamoDB: {str(e)}", logging_context)
+        return {
+            'headers': {**default_http_headers},
+            'statusCode': 500,
+            'body': f'Failed to query packages: {str(e)}'
+        }
 
     if scan['Count'] != 0:
-        with packages_table.batch_writer() as batch:
-            for item in scan['Items']:
-                batch.delete_item(Key={'package_uuid': item['package_uuid'], 'version': item['version']})
+        try:
+            with packages_table.batch_writer() as batch:
+                for item in scan['Items']:
+                    batch.delete_item(Key={'package_uuid': item['package_uuid'], 'version': item['version']})
+        except Exception as e:
+            logger.error(f"{log_invocation_message_prefix}Failed to delete packages from DynamoDB: {str(e)}", logging_context)
+            return {
+                'headers': {**default_http_headers},
+                'statusCode': 500,
+                'body': f'Failed to delete packages: {str(e)}'
+            }
+            
         return {'headers': {**default_http_headers},
                 'statusCode': 200, 'body': 'Package ' + package_uuid + " was successfully deleted"}
     else:
@@ -712,30 +843,34 @@ def increment_script_package_version(package_uuid, user_auth):
         last_modified_by = user_auth
 
     last_modified_timestamp = datetime.now(timezone.utc).isoformat()
-    db_response = packages_table.update_item(
-        Key={
-            'package_uuid': package_uuid,
-            'version': 0
-        },
-        # Atomic counter is used to increment the latest version
-        UpdateExpression='SET latest = latest + :incrval, '
-                         '#_history.#lastModifiedTimestamp = :lastModifiedTimestamp, '
-                         '#_history.#lastModifiedBy = :lastModifiedBy',
-        ExpressionAttributeNames={
-            '#_history': '_history',
-            '#lastModifiedTimestamp': 'lastModifiedTimestamp',
-            '#lastModifiedBy': 'lastModifiedBy'
-        },
-        ExpressionAttributeValues={
-            ':lastModifiedBy': last_modified_by,
-            ':lastModifiedTimestamp': last_modified_timestamp,
-            ':incrval': 1
-        },
-        # return the affected attribute after the update
-        ReturnValues='UPDATED_NEW'
-    )
-
-    return db_response
+    
+    try:
+        db_response = packages_table.update_item(
+            Key={
+                'package_uuid': package_uuid,
+                'version': 0
+            },
+            # Atomic counter is used to increment the latest version
+            UpdateExpression='SET latest = latest + :incrval, '
+                             '#_history.#lastModifiedTimestamp = :lastModifiedTimestamp, '
+                             '#_history.#lastModifiedBy = :lastModifiedBy',
+            ExpressionAttributeNames={
+                '#_history': '_history',
+                '#lastModifiedTimestamp': 'lastModifiedTimestamp',
+                '#lastModifiedBy': 'lastModifiedBy'
+            },
+            ExpressionAttributeValues={
+                ':lastModifiedBy': last_modified_by,
+                ':lastModifiedTimestamp': last_modified_timestamp,
+                ':incrval': 1
+            },
+            # return the affected attribute after the update
+            ReturnValues='UPDATED_NEW'
+        )
+        return db_response
+    except Exception as e:
+        logger.error(f"Failed to increment script package version in DynamoDB: {str(e)}")
+        return None
 
 
 def proces_get_download(event, logging_context, item_form_db):
@@ -744,24 +879,38 @@ def proces_get_download(event, logging_context, item_form_db):
     package_uuid = event['pathParameters']['scriptid']
     package_zip_key = 'scripts/' + package_uuid + '.zip'
 
-    if 'version_id' in item_form_db:
-        # Version id present get specific version from S3.
-        logger.debug('Invocation: %s, downloading version: ' + item_form_db[
-            'version_id'] + ' of script: ' + package_zip_key, logging_context)
-        s3_object = s3.get_object(Bucket=bucketName, Key='scripts/' + package_uuid + '.zip',
-                                  VersionId=item_form_db['version_id'])
-    else:
-        # version id not present, get current active version.
-        logger.debug(
-            'Invocation: %s, downloading current version of script: ' + package_zip_key,
-            logging_context)
-        s3_object = s3.get_object(Bucket=bucketName, Key=package_zip_key)
-    streaming_body = s3_object["Body"]
+    try:
+        if 'version_id' in item_form_db:
+            # Version id present get specific version from S3.
+            logger.debug('Invocation: %s, downloading version: ' + item_form_db[
+                'version_id'] + ' of script: ' + package_zip_key, logging_context)
+            s3_object = s3.get_object(Bucket=bucket_name, Key='scripts/' + package_uuid + '.zip',
+                                      VersionId=item_form_db['version_id'])
+        else:
+            # version id not present, get current active version.
+            logger.debug(
+                'Invocation: %s, downloading current version of script: ' + package_zip_key,
+                logging_context)
+            s3_object = s3.get_object(Bucket=bucket_name, Key=package_zip_key)
+    except Exception as e:
+        logger.error(f'Invocation: {logging_context}, Failed to download script package from S3: {str(e)}')
+        return {
+            'error': f'Failed to download script package from S3: {str(e)}',
+            'statusCode': 500
+        }
 
-    logger.debug('Invocation: %s, reading S3 object into memory.', logging_context)
-    zip_content = streaming_body.read()
-    logger.debug('Invocation: %s, encoding S3 object, script package to base64.', logging_context)
-    script_zip_encoded = base64.b64encode(zip_content)
+    try:
+        streaming_body = s3_object["Body"]
+        logger.debug('Invocation: %s, reading S3 object into memory.', logging_context)
+        zip_content = streaming_body.read()
+        logger.debug('Invocation: %s, encoding S3 object, script package to base64.', logging_context)
+        script_zip_encoded = base64.b64encode(zip_content)
+    except Exception as e:
+        logger.error(f'Invocation: {logging_context}, Failed to process script package content: {str(e)}')
+        return {
+            'error': f'Failed to process script package content: {str(e)}',
+            'statusCode': 500
+        }
 
     logger.info('Invocation: %s, script download response built successfully.', logging_context)
     return {
@@ -784,68 +933,110 @@ def determine_get_intent(event):
 def process_get(event, logging_context: str):
     response = []
     get_intent = determine_get_intent(event)
+    
     if get_intent == 'get_all_default':
-        db_response = get_all_default_scripts()
-
-        if db_response["Count"] == 0:
-            return {
-                'headers': {**default_http_headers},
-                'body': json.dumps(response)
-            }
-
-        response = sorted(db_response["Items"], key=lambda d: d['script_name'])
-
-        add_system_default_attributes(response)
-
+        return _handle_get_all_default()
     elif get_intent == 'get_single_version_with_action':
-        db_response = get_script_version(event['pathParameters']['scriptid'],
-                                         int(event['pathParameters']['version']))
-
-        if 'Item' not in db_response:
-            return {
-                'headers': {**default_http_headers},
-                'body': json.dumps(db_response)
-            }
-
-        if event['pathParameters']['action'] == 'download':
-            response = proces_get_download(event, logging_context, db_response['Item'])
-        else:
-            response.append(db_response["Item"])
-
-            add_system_default_attributes(response)
-
-    # GET single version
+        return _handle_get_single_version_with_action(event, logging_context)
     elif get_intent == 'get_single_version':
-        logger.info('Invocation: %s, processing request for version:' + str(event['pathParameters']['version']),
-                    logging_context)
-        db_response = get_script_version(event['pathParameters']['scriptid'],
-                                         int(event['pathParameters']['version']))
-
-        if 'Item' not in db_response:
-            return {
-                'headers': {**default_http_headers},
-                'body': json.dumps(response)
-            }
-
-        response.append(db_response["Item"])
-
-        add_system_default_attributes(response)
-
-    # GET all versions
+        return _handle_get_single_version(event, logging_context)
     elif get_intent == 'get_all_versions':
-        logger.info('Invocation: %s, processing request for all versions.',
-                    logging_context)
-        db_response = get_scripts(event['pathParameters']['scriptid'])
-        if db_response["Count"] == 0:
+        return _handle_get_all_versions(event, logging_context)
+
+    return {
+        'headers': {**default_http_headers},
+        'body': json.dumps(response, cls=JsonEncoder)
+    }
+
+
+def _handle_get_all_default():
+    """Handle getting all default scripts."""
+    db_response = get_all_default_scripts()
+    
+    if db_response["Count"] == 0:
+        return {
+            'headers': {**default_http_headers},
+            'body': json.dumps([])
+        }
+
+    response = sorted(db_response["Items"], key=lambda d: d['script_name'])
+    add_system_default_attributes(response)
+    
+    return {
+        'headers': {**default_http_headers},
+        'body': json.dumps(response, cls=JsonEncoder)
+    }
+
+
+def _handle_get_single_version_with_action(event, logging_context):
+    """Handle getting single version with action."""
+    db_response = get_script_version(event['pathParameters']['scriptid'],
+                                     int(event['pathParameters']['version']))
+
+    if 'Item' not in db_response:
+        return {
+            'headers': {**default_http_headers},
+            'body': json.dumps(db_response)
+        }
+
+    if event['pathParameters']['action'] == 'download':
+        response = proces_get_download(event, logging_context, db_response['Item'])
+        # Check if download failed
+        if isinstance(response, dict) and 'error' in response and 'statusCode' in response:
             return {
                 'headers': {**default_http_headers},
-                'body': json.dumps(response)
+                'statusCode': response['statusCode'],
+                'body': json.dumps({'error': response['error']})
             }
-
-        response = db_response["Items"]
-
+        return {
+            'headers': {**default_http_headers},
+            'body': json.dumps(response, cls=JsonEncoder)
+        }
+    else:
+        response = [db_response["Item"]]
         add_system_default_attributes(response)
+        return {
+            'headers': {**default_http_headers},
+            'body': json.dumps(response, cls=JsonEncoder)
+        }
 
+
+def _handle_get_single_version(event, logging_context):
+    """Handle getting single version."""
+    logger.info('Invocation: %s, processing request for version:' + str(event['pathParameters']['version']),
+                logging_context)
+    db_response = get_script_version(event['pathParameters']['scriptid'],
+                                     int(event['pathParameters']['version']))
+
+    if 'Item' not in db_response:
+        return {
+            'headers': {**default_http_headers},
+            'body': json.dumps([])
+        }
+
+    response = [db_response["Item"]]
+    add_system_default_attributes(response)
+    
+    return {
+        'headers': {**default_http_headers},
+        'body': json.dumps(response, cls=JsonEncoder)
+    }
+
+
+def _handle_get_all_versions(event, logging_context):
+    """Handle getting all versions."""
+    logger.info('Invocation: %s, processing request for all versions.', logging_context)
+    db_response = get_scripts(event['pathParameters']['scriptid'])
+    
+    if db_response["Count"] == 0:
+        return {
+            'headers': {**default_http_headers},
+            'body': json.dumps([])
+        }
+
+    response = db_response["Items"]
+    add_system_default_attributes(response)
+    
     return {
         'headers': {**default_http_headers},
         'body': json.dumps(response, cls=JsonEncoder)
@@ -858,7 +1049,15 @@ def process_post(event, logging_context: str):
     package_uuid = str(uuid.uuid4())
 
     # Set variables
-    body = json.loads(event.get('body'))
+    body_str = event.get('body')
+    if not body_str:
+        return {
+            'headers': {**default_http_headers},
+            'statusCode': 400,
+            'body': 'Request body is required'
+        }
+    
+    body = json.loads(body_str)
 
     extract_script_package_response = extract_script_package(body['script_file'], package_uuid)
 
@@ -887,50 +1086,55 @@ def process_post(event, logging_context: str):
 def process_put(event, logging_context: str):
     package_uuid = event['pathParameters']['scriptid']
 
-    body = json.loads(event.get('body'))
+    body_str = event.get('body')
+    if not body_str:
+        return {
+            'headers': {**default_http_headers},
+            'statusCode': 400,
+            'body': 'Request body is required'
+        }
+    
+    body = json.loads(body_str)
+    action = body.get('action')
 
-    if body['action'] == 'update_package':
-        logger.debug('Invocation: %s, update package processing started.', logging_context)
-
-        extract_script_package_response = extract_script_package(body['script_file'], package_uuid)
-
-        if extract_script_package_response.get('statusCode') != 200:
-            return extract_script_package_response
-
-        validate_script_resp = validate_extracted_script_package(extract_script_package_response.get('body')
-                                                                 .get('scriptPath'))
-        if len(validate_script_resp) != 0:
-            cleanup_temp(package_uuid)
-            logger.error(log_invocation_message_prefix + ','.join(validate_script_resp),
-                         logging_context)
-            return {'headers': {**default_http_headers},
-                    'statusCode': 400, 'body': ','.join(validate_script_resp)}
-        print("Starting to load script ..")
-        load_script_response = load_script_package(
-            event,
-            package_uuid,
-            body,
-            extract_script_package_response
-            .get('body')
-            .get('decodedData'),
-            True)
-
-        return load_script_response
-
-    elif body['action'] == 'update_default':
-        logger.debug('Invocation: %s, updating default version of package. UUID:' +
-                     event['pathParameters']['scriptid'], logging_context)
-
-        make_default_response = change_default_script_version(event, package_uuid, int(body['default']))
-
-        return make_default_response
-
+    if action == 'update_package':
+        return _handle_update_package(event, package_uuid, body, logging_context)
+    elif action == 'update_default':
+        return _handle_update_default(event, package_uuid, body, logging_context)
     else:
         error_msg = 'Script update action is not supported.'
-        logger.error(log_invocation_message_prefix + error_msg,
-                     logging_context)
-        return {'headers': {**default_http_headers},
-                'statusCode': 400, 'body': error_msg}
+        logger.error(log_invocation_message_prefix + error_msg, logging_context)
+        return {'headers': {**default_http_headers}, 'statusCode': 400, 'body': error_msg}
+
+
+def _handle_update_package(event, package_uuid, body, logging_context):
+    """Handle package update operation."""
+    logger.debug('Invocation: %s, update package processing started.', logging_context)
+
+    extract_script_package_response = extract_script_package(body['script_file'], package_uuid)
+
+    if extract_script_package_response.get('statusCode') != 200:
+        return extract_script_package_response
+
+    validate_script_resp = validate_extracted_script_package(
+        extract_script_package_response.get('body').get('scriptPath'))
+    
+    if len(validate_script_resp) != 0:
+        cleanup_temp(package_uuid)
+        logger.error(log_invocation_message_prefix + ','.join(validate_script_resp), logging_context)
+        return {'headers': {**default_http_headers}, 'statusCode': 400, 'body': ','.join(validate_script_resp)}
+    
+    logger.debug("Starting to load script ..")
+    return load_script_package(
+        event, package_uuid, body,
+        extract_script_package_response.get('body').get('decodedData'), True)
+
+
+def _handle_update_default(event, package_uuid, body, logging_context):
+    """Handle default version update operation."""
+    logger.debug('Invocation: %s, updating default version of package. UUID:' +
+                 event['pathParameters']['scriptid'], logging_context)
+    return change_default_script_version(event, package_uuid, int(body['default']))
 
 
 def process_delete(event, logging_context: str):

@@ -100,7 +100,7 @@ class LambdaUINotificationTest(TestCase):
             
             # Verify the message content sent to gateway
             expected_message = {
-                'type': 'TaskSuccess',
+                'type': 'success',
                 'dismissible': True,
                 'header': 'Test Header',
                 'content': 'Test Content',

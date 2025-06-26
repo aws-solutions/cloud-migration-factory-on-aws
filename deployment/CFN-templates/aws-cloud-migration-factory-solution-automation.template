@@ -971,14 +971,6 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - !If
-                - DeploymentPublic
-                -
-                  Effect: Allow
-                  Action:
-                    - 'execute-api:ManageConnections'
-                  Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SSMSocketAPI}/prod/POST/@connections/*"
-                - !Ref 'AWS::NoValue'
               -
                 Effect: Allow
                 Action:
@@ -990,7 +982,6 @@ Resources:
                   - 'dynamodb:UpdateItem'
                   - 'dynamodb:DescribeTable'
                 Resource:
-                  - !Join ['', [!GetAtt SSMConnectionIdDynamoDBTable.Arn, '*']]
                   - !Join ['', [!GetAtt SSMJobsTable.Arn, '*']]
                   - !Join ['', [!GetAtt TaskExecutionsTable.Arn, '*']]
               -
@@ -1178,7 +1169,31 @@ Resources:
                   - xray:PutTraceSegments
                   - xray:PutTelemetryRecords
                 Resource: !Sub 'arn:${AWS::Partition}:xray:${AWS::Region}:${AWS::AccountId}:trace/*'
-
+        - PolicyName: UI-PostAPIMessage
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - !If
+                - DeploymentPublic
+                - Effect: Allow
+                  Action:
+                    - 'execute-api:ManageConnections'
+                  Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SSMSocketAPI}/prod/POST/@connections/*"
+                - !Ref 'AWS::NoValue'
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:Scan'
+                Resource:
+                  - !Join [ '', [ !GetAtt SSMConnectionIdDynamoDBTable.Arn, '*' ] ]
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt UINotificationLambdaDLQ.Arn
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: !Sub 'arn:${AWS::Partition}:xray:${AWS::Region}:${AWS::AccountId}:trace/*'
   EmailNotificationLambdaFunction:
     Type: AWS::Lambda::Function
     DependsOn: 
@@ -2544,7 +2559,6 @@ Resources:
                                     'statusCode': 200,
                                     'body': {
                                         'message': 'Python script executed successfully',
-                                        'output': output,
                                         'stderr': process.stderr if process.stderr else None
                                     }
                                 }
@@ -2586,6 +2600,16 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:GetObjectVersion'
+                  - 's3:ListBucket'
+                Resource:
+                  - !Sub "${SSMBucket.Arn}"
+                  - !Sub "${SSMBucket.Arn}/*"
               -
                 Effect: Allow
                 Action:

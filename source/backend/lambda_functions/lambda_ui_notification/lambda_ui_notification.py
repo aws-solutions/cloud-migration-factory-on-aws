@@ -15,6 +15,14 @@ dynamodb = cmf_boto.resource("dynamodb")
 connectionIds_table_name = f'{application}-{environment}-ssm-connectionIds'
 connectionIds_table = dynamodb.Table(connectionIds_table_name)
 socket_url = os.environ["socket_url"]
+# map types in notifications to flashbar notification types.
+task_types = {
+    "TaskFailed": "error",
+    "TaskSuccess": "success",
+    "TaskPending": "pending",
+    "TaskTimedOut": "error",
+    "TaskManualApprovalNeeded": "success"
+}
 
 if SECURE_SOCKET_PROTOCOL not in socket_url:
     gatewayapi = None
@@ -52,21 +60,77 @@ def validate_event(event: Dict[str, Any]) -> None:
     for field, expected_type in required_fields.items():
         if field not in detail:
             raise ValueError(f"Missing required field: {field}")
-        
+
         if not isinstance(detail[field], expected_type):
             raise ValueError(f"'{field}' must be a {expected_type.__name__}")
 
 def create_notification(event: NotificationEvent):
     """Create a notification object from validated event"""
     detail = event['detail']
+    task_type = task_types.get(event.get('detail-type', ''),event.get('detail-type', ''))
+
     return NotificationType(
-        type = event.get('detail-type', ''),
+        type = task_type,
         uuid = detail.get('uuid', ''),
         dismissible = detail.get('dismissible', True),
         header = detail.get('header', 'Job Update'),
         content = detail.get('content', ''),
         timeStamp = detail.get('timeStamp', datetime.now(timezone.utc).isoformat(sep='T'))
-    )  
+    )
+
+def scan_connections_table(scan_kwargs):
+    """
+    Scan the connections table and handle errors.
+    
+    Args:
+        scan_kwargs: Scan parameters for DynamoDB
+        
+    Returns:
+        tuple: (response, success) where success is True if scan succeeded
+    """
+    try:
+        resp = connectionIds_table.scan(**scan_kwargs)
+        return resp, True
+    except botocore.exceptions.ClientError as err:
+        logger.error(
+            f"Could not scan for connections due to: "
+            f"{err.response['Error']['Code']}: "
+            f"{err.response['Error']['Message']}"
+        )
+        return None, False
+    except Exception as e:
+        logger.error(f"Unexpected error during scan: {str(e)}")
+        return None, False
+
+def send_notification_to_connection(connection_id, notification_data):
+    """
+    Send notification to a single connection and handle errors.
+    
+    Args:
+        connection_id: The WebSocket connection ID
+        notification_data: JSON string of notification data
+    """
+    try:
+        gatewayapi.post_to_connection(ConnectionId=connection_id, Data=notification_data)
+    except botocore.exceptions.ClientError as err:
+        logger.error(
+            f"Error posting to wss connection: "
+            f"{err.response['Error']['Code']}: "
+            f"{err.response['Error']['Message']}"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error posting to wss connection {connection_id}: {str(e)}")
+
+def process_connections_batch(items, notification_data):
+    """
+    Process a batch of connections and send notifications.
+    
+    Args:
+        items: List of connection items from DynamoDB scan
+        notification_data: JSON string of notification data
+    """
+    for item in items:
+        send_notification_to_connection(item["connectionId"], notification_data)
 
 def lambda_handler(event: NotificationEvent, _):
     # Validate event
@@ -76,6 +140,7 @@ def lambda_handler(event: NotificationEvent, _):
     notification: NotificationType = create_notification(event)
 
     if gatewayapi:  # If socket is set then send notifications to users.
+        notification_data = json.dumps(notification)
         # Implement pagination for scan operation
         scan_kwargs = {}
         done = False
@@ -85,32 +150,12 @@ def lambda_handler(event: NotificationEvent, _):
             if start_key:
                 scan_kwargs['ExclusiveStartKey'] = start_key
 
-            try:
-                resp = connectionIds_table.scan(**scan_kwargs)
-            except botocore.exceptions.ClientError as err:
-                logger.error(
-                    f"Could not scan for connections due to: "
-                    f"{err.response['Error']['Code']}: "
-                    f"{err.response['Error']['Message']}"
-                )
-                break
-            except Exception as e:
-                logger.error(f"Unexpected error during scan: {str(e)}")
+            resp, success = scan_connections_table(scan_kwargs)
+            if not success:
                 break
 
             # Process items from scan
-            for item in resp["Items"]:
-                try:
-                    # Send to all connections
-                    gatewayapi.post_to_connection(ConnectionId=item["connectionId"], Data=json.dumps(notification))
-                except botocore.exceptions.ClientError as err:
-                    logger.error(
-                        f"Error posting to wss connection: "
-                        f"{err.response['Error']['Code']}: "
-                        f"{err.response['Error']['Message']}"
-                    )
-                except Exception as e:
-                    logger.error(f"Unexpected error posting to wss connection {item['connectionId']}: {str(e)}")
+            process_connections_batch(resp["Items"], notification_data)
 
             # Check if there are more items to process
             start_key = resp.get("LastEvaluatedKey", None)

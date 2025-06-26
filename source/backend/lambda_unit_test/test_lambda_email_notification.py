@@ -485,6 +485,519 @@ class LambdaEmailNotificationTest(unittest.TestCase):
     @patch('lambda_email_notification.cognito')
     @patch('lambda_email_notification.sns')
     @patch('lambda_email_notification.pipeline_table')
+    def test_cognito_group_emails_single_group_no_pagination(self, mock_table, mock_sns, mock_cognito):
+        """Test lambda_handler with single Cognito group and no pagination"""
+        import lambda_email_notification
+
+        # Mock Cognito response with no pagination
+        mock_cognito.list_users_in_group.return_value = {
+            'Users': [
+                {
+                    'Username': 'user1',
+                    'Attributes': [{'Name': 'email', 'Value': 'user1@example.com'}]
+                },
+                {
+                    'Username': 'user2', 
+                    'Attributes': [{'Name': 'email', 'Value': 'user2@example.com'}]
+                }
+            ]
+        }
+
+        # Mock pipeline data with single group
+        mock_table.get_item.return_value = self.create_pipeline_data(
+            default_groups=['test-group'],
+            task_email_enabled=True
+        )
+
+        # Mock SNS response
+        mock_sns.publish.return_value = {'MessageId': 'test-message-id'}
+
+        event = self.create_event()
+
+        with patch('lambda_email_notification.logger') as mock_logger:
+            response = lambda_email_notification.lambda_handler(event, None)
+
+            self.assertEqual(response['statusCode'], 200)
+            self.assertEqual(
+                json.loads(response['body'])['message'],
+                'Email Notification sent to default recipients'
+            )
+
+            # Verify Cognito call
+            mock_cognito.list_users_in_group.assert_called_once_with(
+                UserPoolId='us-east-1_testpool',
+                GroupName='test-group',
+                Limit=60
+            )
+
+            # Verify SNS was called with group emails
+            actual_call = mock_sns.publish.call_args
+            actual_recipients = json.loads(
+                actual_call.kwargs['MessageAttributes']['Email']['StringValue']
+            )
+            expected_recipients = ['user1@example.com', 'user2@example.com']
+            self.assertEqual(sorted(actual_recipients), sorted(expected_recipients))
+
+    @patch('lambda_email_notification.cognito')
+    @patch('lambda_email_notification.sns')
+    @patch('lambda_email_notification.pipeline_table')
+    def test_cognito_group_emails_multiple_groups(self, mock_table, mock_sns, mock_cognito):
+        """Test lambda_handler with multiple Cognito groups"""
+        import lambda_email_notification
+
+        # Mock different responses for different groups
+        def mock_list_users_side_effect(**kwargs):
+            group_name = kwargs['GroupName']
+            if group_name == 'group1':
+                return {
+                    'Users': [
+                        {
+                            'Username': 'user1',
+                            'Attributes': [{'Name': 'email', 'Value': 'user1@example.com'}]
+                        }
+                    ]
+                }
+            elif group_name == 'group2':
+                return {
+                    'Users': [
+                        {
+                            'Username': 'user2',
+                            'Attributes': [{'Name': 'email', 'Value': 'user2@example.com'}]
+                        },
+                        {
+                            'Username': 'user3',
+                            'Attributes': [{'Name': 'email', 'Value': 'user3@example.com'}]
+                        }
+                    ]
+                }
+            return {'Users': []}
+
+        mock_cognito.list_users_in_group.side_effect = mock_list_users_side_effect
+
+        # Mock pipeline data with multiple groups
+        mock_table.get_item.return_value = self.create_pipeline_data(
+            default_groups=['group1', 'group2'],
+            task_email_enabled=True
+        )
+
+        # Mock SNS response
+        mock_sns.publish.return_value = {'MessageId': 'test-message-id'}
+
+        event = self.create_event()
+
+        with patch('lambda_email_notification.logger') as mock_logger:
+            response = lambda_email_notification.lambda_handler(event, None)
+
+            self.assertEqual(response['statusCode'], 200)
+
+            # Verify Cognito calls for both groups
+            self.assertEqual(mock_cognito.list_users_in_group.call_count, 2)
+            mock_cognito.list_users_in_group.assert_any_call(
+                UserPoolId='us-east-1_testpool',
+                GroupName='group1',
+                Limit=60
+            )
+            mock_cognito.list_users_in_group.assert_any_call(
+                UserPoolId='us-east-1_testpool',
+                GroupName='group2',
+                Limit=60
+            )
+
+            # Verify SNS was called with all group emails
+            actual_call = mock_sns.publish.call_args
+            actual_recipients = json.loads(
+                actual_call.kwargs['MessageAttributes']['Email']['StringValue']
+            )
+            expected_recipients = ['user1@example.com', 'user2@example.com', 'user3@example.com']
+            self.assertEqual(sorted(actual_recipients), sorted(expected_recipients))
+
+    @patch('lambda_email_notification.cognito')
+    @patch('lambda_email_notification.sns')
+    @patch('lambda_email_notification.pipeline_table')
+    def test_cognito_group_emails_with_extensive_pagination(self, mock_table, mock_sns, mock_cognito):
+        """Test lambda_handler with Cognito group pagination across multiple pages"""
+        import lambda_email_notification
+
+        # Create 3 pages of results with 60, 60, and 30 users respectively
+        page1_users = [f'user{i}@example.com' for i in range(1, 61)]  # 60 users
+        page2_users = [f'user{i}@example.com' for i in range(61, 121)]  # 60 more users
+        page3_users = [f'user{i}@example.com' for i in range(121, 151)]  # 30 more users
+
+        # Set up mock responses with pagination
+        mock_cognito.list_users_in_group.side_effect = [
+            self.create_mock_cognito_response(page1_users, 'token1'),
+            self.create_mock_cognito_response(page2_users, 'token2'),
+            self.create_mock_cognito_response(page3_users)
+        ]
+
+        # Mock pipeline data with task level config
+        mock_table.get_item.return_value = self.create_pipeline_data(
+            task_recipients=['direct@example.com'],
+            task_groups=['large-group'],
+            task_email_enabled=True,
+            task_override_defaults=True
+        )
+
+        # Mock SNS response
+        mock_sns.publish.return_value = {'MessageId': 'test-message-id'}
+
+        event = self.create_event()
+
+        with patch('lambda_email_notification.logger') as mock_logger:
+            response = lambda_email_notification.lambda_handler(event, None)
+
+            self.assertEqual(response['statusCode'], 200)
+            self.assertEqual(
+                json.loads(response['body'])['message'],
+                'Email Notification sent to task level recipients'
+            )
+
+            # Verify Cognito calls for paginated results
+            mock_cognito.list_users_in_group.assert_has_calls([
+                call(UserPoolId='us-east-1_testpool', GroupName='large-group', Limit=60),
+                call(UserPoolId='us-east-1_testpool', GroupName='large-group', Limit=60, NextToken='token1'),
+                call(UserPoolId='us-east-1_testpool', GroupName='large-group', Limit=60, NextToken='token2')
+            ])
+
+            # Verify SNS publish was called with all recipients
+            actual_call = mock_sns.publish.call_args
+            actual_recipients = json.loads(
+                actual_call.kwargs['MessageAttributes']['Email']['StringValue']
+            )
+
+            # Build expected recipients list
+            expected_recipients = ['direct@example.com']  # Direct recipient
+            expected_recipients.extend(page1_users)  # Page 1 group members
+            expected_recipients.extend(page2_users)  # Page 2 group members
+            expected_recipients.extend(page3_users)  # Page 3 group members
+
+            # Verify all recipients were included
+            self.assertEqual(len(actual_recipients), 151)  # 1 direct + 150 from groups
+            self.assertEqual(sorted(actual_recipients), sorted(expected_recipients))
+
+    @patch('lambda_email_notification.cognito')
+    @patch('lambda_email_notification.sns')
+    @patch('lambda_email_notification.pipeline_table')
+    def test_cognito_group_emails_users_without_email(self, mock_table, mock_sns, mock_cognito):
+        """Test lambda_handler with Cognito users missing email attributes"""
+        import lambda_email_notification
+
+        # Mock response with users missing email
+        mock_cognito.list_users_in_group.return_value = {
+            'Users': [
+                {
+                    'Username': 'user1',
+                    'Attributes': [{'Name': 'email', 'Value': 'user1@example.com'}]
+                },
+                {
+                    'Username': 'user2',
+                    'Attributes': [{'Name': 'phone_number', 'Value': '+1234567890'}]  # No email
+                },
+                {
+                    'Username': 'user3',
+                    'Attributes': []  # No attributes at all
+                },
+                {
+                    'Username': 'user4',
+                    'Attributes': [{'Name': 'email', 'Value': 'user4@example.com'}]
+                }
+            ]
+        }
+
+        # Mock pipeline data with group
+        mock_table.get_item.return_value = self.create_pipeline_data(
+            default_groups=['test-group'],
+            task_email_enabled=True
+        )
+
+        # Mock SNS response
+        mock_sns.publish.return_value = {'MessageId': 'test-message-id'}
+
+        event = self.create_event()
+
+        with patch('lambda_email_notification.logger') as mock_logger:
+            response = lambda_email_notification.lambda_handler(event, None)
+
+            self.assertEqual(response['statusCode'], 200)
+
+            # Verify warnings were logged for users without email
+            warning_calls = [call for call in mock_logger.warning.call_args_list]
+            self.assertEqual(len(warning_calls), 2)
+            self.assertIn("No email found for user 'user2'", str(warning_calls[0]))
+            self.assertIn("No email found for user 'user3'", str(warning_calls[1]))
+
+            # Verify SNS was called with only valid emails
+            actual_call = mock_sns.publish.call_args
+            actual_recipients = json.loads(
+                actual_call.kwargs['MessageAttributes']['Email']['StringValue']
+            )
+            expected_recipients = ['user1@example.com', 'user4@example.com']
+            self.assertEqual(sorted(actual_recipients), sorted(expected_recipients))
+
+    @patch('lambda_email_notification.cognito')
+    @patch('lambda_email_notification.sns')
+    @patch('lambda_email_notification.pipeline_table')
+    def test_cognito_group_emails_empty_group(self, mock_table, mock_sns, mock_cognito):
+        """Test lambda_handler with empty Cognito group"""
+        import lambda_email_notification
+
+        # Mock empty response
+        mock_cognito.list_users_in_group.return_value = {
+            'Users': []
+        }
+
+        # Mock pipeline data with empty group and direct recipients
+        mock_table.get_item.return_value = self.create_pipeline_data(
+            default_recipients=['direct@example.com'],
+            default_groups=['empty-group'],
+            task_email_enabled=True
+        )
+
+        # Mock SNS response
+        mock_sns.publish.return_value = {'MessageId': 'test-message-id'}
+
+        event = self.create_event()
+
+        with patch('lambda_email_notification.logger') as mock_logger:
+            response = lambda_email_notification.lambda_handler(event, None)
+
+            self.assertEqual(response['statusCode'], 200)
+
+            # Verify Cognito call was made
+            mock_cognito.list_users_in_group.assert_called_once_with(
+                UserPoolId='us-east-1_testpool',
+                GroupName='empty-group',
+                Limit=60
+            )
+
+            # Verify SNS was called with only direct recipients
+            actual_call = mock_sns.publish.call_args
+            actual_recipients = json.loads(
+                actual_call.kwargs['MessageAttributes']['Email']['StringValue']
+            )
+            expected_recipients = ['direct@example.com']
+            self.assertEqual(sorted(actual_recipients), sorted(expected_recipients))
+
+    @patch('lambda_email_notification.cognito')
+    @patch('lambda_email_notification.sns')
+    @patch('lambda_email_notification.pipeline_table')
+    def test_cognito_group_emails_duplicate_emails_across_groups(self, mock_table, mock_sns, mock_cognito):
+        """Test lambda_handler with duplicate emails across multiple Cognito groups"""
+        import lambda_email_notification
+
+        # Mock responses where same user appears in multiple groups
+        def mock_list_users_side_effect(**kwargs):
+            return {
+                'Users': [
+                    {
+                        'Username': 'shared_user',
+                        'Attributes': [{'Name': 'email', 'Value': 'shared@example.com'}]
+                    },
+                    {
+                        'Username': f'user_{kwargs["GroupName"]}',
+                        'Attributes': [{'Name': 'email', 'Value': f'{kwargs["GroupName"]}@example.com'}]
+                    }
+                ]
+            }
+
+        mock_cognito.list_users_in_group.side_effect = mock_list_users_side_effect
+
+        # Mock pipeline data with multiple groups
+        mock_table.get_item.return_value = self.create_pipeline_data(
+            default_groups=['group1', 'group2'],
+            task_email_enabled=True
+        )
+
+        # Mock SNS response
+        mock_sns.publish.return_value = {'MessageId': 'test-message-id'}
+
+        event = self.create_event()
+
+        with patch('lambda_email_notification.logger') as mock_logger:
+            response = lambda_email_notification.lambda_handler(event, None)
+
+            self.assertEqual(response['statusCode'], 200)
+
+            # Verify SNS was called with deduplicated emails
+            actual_call = mock_sns.publish.call_args
+            actual_recipients = json.loads(
+                actual_call.kwargs['MessageAttributes']['Email']['StringValue']
+            )
+            expected_recipients = ['shared@example.com', 'group1@example.com', 'group2@example.com']
+            self.assertEqual(sorted(actual_recipients), sorted(expected_recipients))
+
+    @patch('lambda_email_notification.cognito')
+    @patch('lambda_email_notification.sns')
+    @patch('lambda_email_notification.pipeline_table')
+    def test_cognito_group_emails_client_error_partial_failure(self, mock_table, mock_sns, mock_cognito):
+        """Test lambda_handler when some Cognito groups fail with ClientError"""
+        import lambda_email_notification
+
+        # Mock ClientError for first group, success for second
+        def mock_list_users_side_effect(**kwargs):
+            group_name = kwargs['GroupName']
+            if group_name == 'error-group':
+                raise botocore.exceptions.ClientError(
+                    {'Error': {'Code': 'ResourceNotFoundException', 'Message': 'Group not found'}},
+                    'ListUsersInGroup'
+                )
+            else:
+                return {
+                    'Users': [
+                        {
+                            'Username': 'user1',
+                            'Attributes': [{'Name': 'email', 'Value': 'user1@example.com'}]
+                        }
+                    ]
+                }
+
+        mock_cognito.list_users_in_group.side_effect = mock_list_users_side_effect
+
+        # Mock pipeline data with both error and valid groups
+        mock_table.get_item.return_value = self.create_pipeline_data(
+            default_groups=['error-group', 'valid-group'],
+            task_email_enabled=True
+        )
+
+        # Mock SNS response
+        mock_sns.publish.return_value = {'MessageId': 'test-message-id'}
+
+        event = self.create_event()
+
+        with patch('lambda_email_notification.logger') as mock_logger:
+            response = lambda_email_notification.lambda_handler(event, None)
+
+            self.assertEqual(response['statusCode'], 200)
+
+            # Verify error was logged
+            mock_logger.error.assert_called_once()
+            error_call = mock_logger.error.call_args[0][0]
+            self.assertIn("Error retrieving users in group 'error-group'", error_call)
+
+            # Verify SNS was called with emails from valid group only
+            actual_call = mock_sns.publish.call_args
+            actual_recipients = json.loads(
+                actual_call.kwargs['MessageAttributes']['Email']['StringValue']
+            )
+            expected_recipients = ['user1@example.com']
+            self.assertEqual(sorted(actual_recipients), sorted(expected_recipients))
+
+    @patch('lambda_email_notification.cognito')
+    @patch('lambda_email_notification.sns')
+    @patch('lambda_email_notification.pipeline_table')
+    def test_cognito_group_emails_all_groups_error(self, mock_table, mock_sns, mock_cognito):
+        """Test lambda_handler when all Cognito groups fail with ClientError"""
+        import lambda_email_notification
+
+        # Mock ClientError for all groups
+        mock_cognito.list_users_in_group.side_effect = botocore.exceptions.ClientError(
+            {'Error': {'Code': 'AccessDeniedException', 'Message': 'Access denied'}},
+            'ListUsersInGroup'
+        )
+
+        # Mock pipeline data with groups only (no direct recipients)
+        mock_table.get_item.return_value = self.create_pipeline_data(
+            default_groups=['group1', 'group2'],
+            task_email_enabled=True
+        )
+
+        event = self.create_event()
+
+        with patch('lambda_email_notification.logger') as mock_logger:
+            response = lambda_email_notification.lambda_handler(event, None)
+
+            # Should fail since no recipients could be retrieved
+            self.assertEqual(response['statusCode'], 500)
+            self.assertEqual(
+                json.loads(response['body'])['error'],
+                'Failed to send email notification to any recipients'
+            )
+
+            # Verify errors were logged for both groups
+            self.assertEqual(mock_logger.error.call_count, 2)
+
+            # Verify SNS was not called
+            mock_sns.publish.assert_not_called()
+
+    @patch('lambda_email_notification.cognito')
+    @patch('lambda_email_notification.sns')
+    @patch('lambda_email_notification.pipeline_table')
+    def test_cognito_group_emails_mixed_task_and_default_groups(self, mock_table, mock_sns, mock_cognito):
+        """Test lambda_handler with both task-level and default-level Cognito groups"""
+        import lambda_email_notification
+
+        # Mock different responses for task vs default groups
+        def mock_list_users_side_effect(**kwargs):
+            group_name = kwargs['GroupName']
+            if group_name == 'task-group':
+                return {
+                    'Users': [
+                        {
+                            'Username': 'task_user',
+                            'Attributes': [{'Name': 'email', 'Value': 'task@example.com'}]
+                        }
+                    ]
+                }
+            elif group_name == 'default-group':
+                return {
+                    'Users': [
+                        {
+                            'Username': 'default_user',
+                            'Attributes': [{'Name': 'email', 'Value': 'default@example.com'}]
+                        }
+                    ]
+                }
+            return {'Users': []}
+
+        mock_cognito.list_users_in_group.side_effect = mock_list_users_side_effect
+
+        # Mock pipeline data with both task and default groups
+        mock_table.get_item.return_value = self.create_pipeline_data(
+            task_groups=['task-group'],
+            default_groups=['default-group'],
+            task_email_enabled=True,
+            task_override_defaults=True
+        )
+
+        # Mock SNS response
+        mock_sns.publish.return_value = {'MessageId': 'test-message-id'}
+
+        event = self.create_event()
+
+        with patch('lambda_email_notification.logger') as mock_logger:
+            response = lambda_email_notification.lambda_handler(event, None)
+
+            self.assertEqual(response['statusCode'], 200)
+            self.assertEqual(
+                json.loads(response['body'])['message'],
+                'Email Notification sent to task level recipients'
+            )
+
+            # Verify both groups were called (lambda processes defaults first, then task-level)
+            # but task-level recipients are used for sending
+            self.assertEqual(mock_cognito.list_users_in_group.call_count, 2)
+            mock_cognito.list_users_in_group.assert_any_call(
+                UserPoolId='us-east-1_testpool',
+                GroupName='default-group',
+                Limit=60
+            )
+            mock_cognito.list_users_in_group.assert_any_call(
+                UserPoolId='us-east-1_testpool',
+                GroupName='task-group',
+                Limit=60
+            )
+
+            # Verify SNS was called with task group emails only (task overrides defaults)
+            actual_call = mock_sns.publish.call_args
+            actual_recipients = json.loads(
+                actual_call.kwargs['MessageAttributes']['Email']['StringValue']
+            )
+            expected_recipients = ['task@example.com']
+            self.assertEqual(sorted(actual_recipients), sorted(expected_recipients))
+
+    @patch('lambda_email_notification.cognito')
+    @patch('lambda_email_notification.sns')
+    @patch('lambda_email_notification.pipeline_table')
     def test_paginated_group_members(self, mock_table, mock_sns, mock_cognito):
         """Test handling of paginated responses from list_users_in_group"""
         import lambda_email_notification

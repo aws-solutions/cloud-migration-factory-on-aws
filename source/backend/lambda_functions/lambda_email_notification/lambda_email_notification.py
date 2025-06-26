@@ -154,6 +154,83 @@ def get_pipeline_item(pipeline_id: str) -> Optional[Pipeline]:
         logger.error(f"Error retrieving pipeline {pipeline_id}: {str(e)}")
         raise
 
+def _extract_user_email(user: Dict, group_name: str) -> Optional[str]:
+    """
+    Extracts email address from a Cognito user object.
+    
+    Args:
+        user (Dict): Cognito user object containing attributes
+        group_name (str): Group name for logging purposes
+        
+    Returns:
+        Optional[str]: Email address if found, None otherwise
+    """
+    email = next((attr['Value'] for attr in user['Attributes'] if attr['Name'] == EMAIL), None)
+    if not email:
+        logger.warning(f"No email found for user '{user['Username']}' in group '{group_name}'.")
+    return email
+
+
+def _process_users_batch(users: List[Dict], group_name: str) -> Set[str]:
+    """
+    Processes a batch of users and extracts their email addresses.
+    
+    Args:
+        users (List[Dict]): List of Cognito user objects
+        group_name (str): Group name for logging purposes
+        
+    Returns:
+        Set[str]: Set of email addresses found in the batch
+    """
+    batch_emails = set()
+    for user in users:
+        email = _extract_user_email(user, group_name)
+        if email:
+            batch_emails.add(email)
+    return batch_emails
+
+
+def _get_group_users_paginated(group_name: str) -> Set[str]:
+    """
+    Retrieves all users from a Cognito group with pagination support.
+    
+    Args:
+        group_name (str): Name of the Cognito group
+        
+    Returns:
+        Set[str]: Set of email addresses for users in the group
+        
+    Raises:
+        ClientError: When there are errors accessing Cognito
+    """
+    group_emails = set()
+    next_token = None
+    
+    while True:
+        request_params = {
+            'UserPoolId': user_pool_id,
+            'GroupName': group_name,
+            'Limit': 60
+        }
+        
+        if next_token:
+            request_params['NextToken'] = next_token
+            
+        response = cognito.list_users_in_group(**request_params)
+        user_count = len(response.get('Users', []))
+        has_next_token = 'NextToken' in response
+        logger.info(f'Retrieved {user_count} users from Cognito group {group_name}, has_next_token: {has_next_token}')
+        
+        batch_emails = _process_users_batch(response['Users'], group_name)
+        group_emails.update(batch_emails)
+        
+        next_token = response.get('NextToken')
+        if not next_token:
+            break
+            
+    return group_emails
+
+
 def get_cognito_group_emails(group_names: List[str]) -> Set[str]:
     """
     Retrieves the email addresses of Cognito users who are members of the specified groups.
@@ -171,39 +248,8 @@ def get_cognito_group_emails(group_names: List[str]) -> Set[str]:
 
     for group_name in group_names:
         try:
-            response = cognito.list_users_in_group(
-                UserPoolId=user_pool_id,
-                GroupName=group_name,
-                Limit=60
-            )
-
-            logger.info(f'Cognito list users response: {str(response)}')
-
-            for user in response['Users']:
-                email = next((attr['Value'] for attr in user['Attributes'] if attr['Name'] == EMAIL), None)
-                if email:
-                    user_emails.add(email)
-                else:
-                    logger.warning(f"No email found for user '{user['Username']}' in group '{group_name}'.")
-
-            next_token = response.get('NextToken')
-            while next_token:
-                response = cognito.list_users_in_group(
-                    UserPoolId=user_pool_id,
-                    GroupName=group_name,
-                    Limit=60,
-                    NextToken=next_token
-                )
-
-                for user in response['Users']:
-                    email = next((attr['Value'] for attr in user['Attributes'] if attr['Name'] == EMAIL), None)
-                    if email:
-                        user_emails.add(email)
-                    else:
-                        logger.warning(f"No email found for user '{user['Username']}' in group '{group_name}'.")
-
-                next_token = response.get('NextToken')
-
+            group_emails = _get_group_users_paginated(group_name)
+            user_emails.update(group_emails)
         except ClientError as e:
             logger.error(f"Error retrieving users in group '{group_name}': {e}")
 
@@ -416,7 +462,6 @@ def lambda_handler(event: NotificationEvent, _):
 
         detail: NotificationType = event.get(DETAIL)
         pipeline_id = detail.get(PIPELINE_ID)
-        task_id = detail.get(TASK_ID)
         task_name = detail.get('task_name', 'Unknown Task')
 
         pipeline: Pipeline = get_pipeline_item(pipeline_id)

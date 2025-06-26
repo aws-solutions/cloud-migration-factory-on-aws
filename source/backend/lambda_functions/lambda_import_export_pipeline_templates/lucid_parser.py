@@ -9,6 +9,9 @@ from diagram_parser import DiagramParser
 
 class LucidCSVParser(DiagramParser):
     
+    # Constants for CSV column names
+    TEXT_AREA_1_COLUMN = "Text Area 1"
+    
     def _get_nodes(self, csv_data):
         """
         Extract valid nodes from CSV data.
@@ -29,15 +32,15 @@ class LucidCSVParser(DiagramParser):
                 - message: Descriptive error message about missing data
         """
         try:
-            nodes = {row["Id"]: row for row in csv_data if row["Id"] and row["Text Area 1"]}
+            nodes = {row["Id"]: row for row in csv_data if row["Id"] and row[self.TEXT_AREA_1_COLUMN]}
             if not nodes:
                 raise ClientException(error="ValidationError",
-                message="No valid nodes found. Each node must have an 'Id' and 'Text Area 1'",
+                message=f"No valid nodes found. Each node must have an 'Id' and '{self.TEXT_AREA_1_COLUMN}'",
                 status_code=400)
             return nodes
         except KeyError:
             raise ClientException( error="ValidationError",
-                message="Required columns 'Id' or 'Text Area 1' are missing in CSV file",
+                message=f"Required columns 'Id' or '{self.TEXT_AREA_1_COLUMN}' are missing in CSV file",
                 status_code=400)
         
     def _get_links(self, csv_data):
@@ -126,7 +129,7 @@ class LucidCSVParser(DiagramParser):
         if node_key in nodes:
             node = nodes[node_key]
             
-            task_name = node.get("Text Area 1") or None
+            task_name = node.get(self.TEXT_AREA_1_COLUMN) or None
             automation_id = node.get("automationid") or "Manual"
             
             successors = self._find_relations(node_key, links)
@@ -189,8 +192,8 @@ class LucidCSVParser(DiagramParser):
             for node_id, node_data in start_nodes.items():
                 page_id = node_data.get("Page ID")
                 page_node = nodes[page_id]
-                templateName = page_node.get("Text Area 1")
-                description = node_data.get("Text Area 1")
+                template_name = page_node.get(self.TEXT_AREA_1_COLUMN)
+                description = node_data.get(self.TEXT_AREA_1_COLUMN)
                 tasks = []
                 template_id = str(uuid.uuid4())
                 
@@ -200,7 +203,7 @@ class LucidCSVParser(DiagramParser):
                     self._traverse_and_build(
                         node_key, nodes, links, tasks, template_id
                     )
-                template = self.create_template(template_id=template_id, name=templateName, description=description, tasks=tasks)
+                template = self.create_template(template_id=template_id, name=template_name, description=description, tasks=tasks)
                 templates.append(template)
             return templates
             

@@ -273,6 +273,43 @@ def update_predecessors(task_executions):
         task_execution['__task_predecessors'] = successors_to_predecessors_task_dict.get(task_execution['task_execution_id'],None)
 
 
+def _process_successor_task(successor_task_execution, all_task_executions):
+    """
+    Processes a single successor task and determines its status category.
+    
+    Args:
+        successor_task_execution: The successor task execution object
+        all_task_executions: List of all task executions in the pipeline
+        
+    Returns:
+        tuple: (category, task_id, incomplete_predecessors) where category is one of:
+               'already_processed', 'abandon', 'ready', 'incomplete'
+    """
+    task_id = successor_task_execution['task_execution_id']
+    successor_task_execution_status = get_task_execution_status(successor_task_execution)
+    
+    # Check if successor task is already processed
+    if successor_task_execution_status != TaskExecutionStatus.NOT_STARTED:
+        return 'already_processed', task_id, []
+    
+    # Check predecessors if they exist
+    if not successor_task_execution.get('__task_predecessors', None):
+        return 'ready', task_id, []
+    
+    predecessors_tasks = filter_tasks(all_task_executions, successor_task_execution.get('__task_predecessors', []))
+    successor_incomplete_predecessors_tasks = get_incomplete_predecessors(predecessors_tasks)
+    
+    # Check if all predecessors are abandoned
+    if all(get_task_execution_status(task) == TaskExecutionStatus.ABANDONED for task in predecessors_tasks):
+        return 'abandon', task_id, []
+    
+    # Check if all predecessors are complete
+    if len(successor_incomplete_predecessors_tasks) == 0:
+        return 'ready', task_id, []
+    
+    return 'incomplete', task_id, successor_incomplete_predecessors_tasks
+
+
 # Check that the successors, predecessors are complete.
 def check_successors_predecessors_complete(all_task_executions, task_execution_id):
     update_predecessors(all_task_executions)
@@ -284,29 +321,24 @@ def check_successors_predecessors_complete(all_task_executions, task_execution_i
     already_processed_successor_tasks = []
     abandon_successor_tasks = []
 
-    if len(current_task_execution) > 0:
-        for successor_task_id in current_task_execution[0].get('task_successors', []):
-            successor_task_execution = [task for task in all_task_executions if
-                                        task['task_execution_id'] == successor_task_id]
-
-            successor_task_execution_status = get_task_execution_status(successor_task_execution[0])
-            # check that successor task is not started if not then do not start it again.
-            if successor_task_execution_status != TaskExecutionStatus.NOT_STARTED:
-                already_processed_successor_tasks.append(successor_task_execution[0]['task_execution_id'])
-                continue
-            # check that all it's predecessors are complete
-            if successor_task_execution[0].get('__task_predecessors', None):
-                predecessors_tasks = filter_tasks(all_task_executions, successor_task_execution[0].get('__task_predecessors', []))
-                successor_incomplete_predecessors_tasks = get_incomplete_predecessors(predecessors_tasks)
-                    
-                if all(get_task_execution_status(task) == TaskExecutionStatus.ABANDONED for task in predecessors_tasks):
-                    abandon_successor_tasks.append(successor_task_execution[0]['task_execution_id'])
-                elif len(successor_incomplete_predecessors_tasks) == 0:
-                    ready_successor_tasks.append(successor_task_execution[0]['task_execution_id'])
-                else:
-                    incomplete_predecessors_tasks.extend(successor_incomplete_predecessors_tasks)
-    else:
+    if len(current_task_execution) == 0:
         logger.error(f'{task_execution_id} not found in tasks in pipeline.')
+        return incomplete_predecessors_tasks, ready_successor_tasks, already_processed_successor_tasks, abandon_successor_tasks
+
+    for successor_task_id in current_task_execution[0].get('task_successors', []):
+        successor_task_execution = [task for task in all_task_executions if
+                                    task['task_execution_id'] == successor_task_id]
+
+        category, task_id, incomplete_preds = _process_successor_task(successor_task_execution[0], all_task_executions)
+        
+        if category == 'already_processed':
+            already_processed_successor_tasks.append(task_id)
+        elif category == 'abandon':
+            abandon_successor_tasks.append(task_id)
+        elif category == 'ready':
+            ready_successor_tasks.append(task_id)
+        elif category == 'incomplete':
+            incomplete_predecessors_tasks.extend(incomplete_preds)
 
     return incomplete_predecessors_tasks, ready_successor_tasks, already_processed_successor_tasks, abandon_successor_tasks
 
@@ -463,6 +495,83 @@ def is_valid_abandon(old_task_execution_status: TaskExecutionStatus, new_task_ex
     return (old_task_execution_status in [TaskExecutionStatus.NOT_STARTED, TaskExecutionStatus.PENDING_APPROVAL] and new_task_execution_status == TaskExecutionStatus.ABANDONED)
 
 
+def _handle_failed_task_notification(task_execution_id):
+    """Handle notification for failed task execution."""
+    task_execution = get_task_execution(task_execution_id)
+    task_id = task_execution['task_id']
+    task_version = task_execution['task_version']
+    task = ssm_scripts_table.get_item(Key={'package_uuid': task_id, 'version' : int(task_version)})['Item']
+    notification: NotificationType = create_notification(task, task_execution, NotificationDetailType.TASK_FAILED.value)
+    publish_event(notification, eventsClient, eventSource, eventBusName)
+
+
+def _handle_valid_update_successors(pipeline_id, task_execution_id, all_task_executions):
+    """Handle successor processing for valid updates."""
+    incomplete_predecessor_task_ids, ready_successor_task_ids, already_processed_successor_tasks, _ = check_successors_predecessors_complete(all_task_executions, task_execution_id)
+
+    if len(ready_successor_task_ids) > 0:
+        logger.info(f'All predecessors complete for {", ".join(ready_successor_task_ids)} starting task.')
+        task_execution_successors = get_execution_tasks(ready_successor_task_ids)
+        handle_task_executions(pipeline_id, task_execution_successors)
+
+    if len(incomplete_predecessor_task_ids) > 0:
+        logger.info(f'Waiting on predecessors: {",".join(incomplete_predecessor_task_ids)}')
+
+    if len(already_processed_successor_tasks) > 0:
+        logger.warning(f'Successors will not be processed, as already in state other than {TaskExecutionStatus.NOT_STARTED}: {",".join(incomplete_predecessor_task_ids)}')
+
+
+def _handle_valid_update(pipeline_id, task_execution_id, new_task_execution_status):
+    """Handle valid task execution update."""
+    logger.info(f'Received task {new_task_execution_status} update for {task_execution_id}')
+
+    # Get all pipeline tasks for evaluation.
+    all_task_executions = query_task_executions(pipeline_id)
+
+    # get successor tasks based on the currently processing task id.
+    _handle_valid_update_successors(pipeline_id, task_execution_id, all_task_executions)
+
+    pipeline_complete, _, _ = is_pipeline_complete(all_task_executions)
+
+    if pipeline_complete:
+        logger.info(f'Pipeline Id: {pipeline_id} is complete.')
+        update_pipeline_status(pipeline_id, TaskExecutionStatus.COMPLETE)
+        send_anonymous_usage_data('PipelineComplete')
+
+
+def _handle_abandon_successors(pipeline_id, task_execution_id):
+    """Handle abandoning successor tasks."""
+    all_task_executions = query_task_executions(pipeline_id)
+    abandon_successor_tasks = check_successors_predecessors_complete(all_task_executions, task_execution_id)[3]
+    
+    if len(abandon_successor_tasks) > 0:
+        for task_id in abandon_successor_tasks:
+            logger.info(f'Abandoning task execution: {task_id}')
+            update_task_execution_status(task_id, TaskExecutionStatus.ABANDONED)
+
+
+def _handle_abandon_pipeline_completion(pipeline_id):
+    """Handle pipeline completion check after abandon operations."""
+    all_task_executions = query_task_executions(pipeline_id)  # Refresh task executions after updates
+    pipeline_complete, _, _ = is_pipeline_complete(all_task_executions)
+    
+    if pipeline_complete:
+        # Check if pipeline should be marked as abandoned (all end tasks are abandoned)
+        if is_pipeline_abandoned(all_task_executions):
+            logger.info(f'Pipeline Id: {pipeline_id} is being marked as Abandoned as all end tasks are abandoned.')
+            update_pipeline_status(pipeline_id, TaskExecutionStatus.ABANDONED)
+        else:
+            logger.info(f'Pipeline Id: {pipeline_id} is complete.')
+            update_pipeline_status(pipeline_id, TaskExecutionStatus.COMPLETE)
+            send_anonymous_usage_data('PipelineComplete')
+
+
+def _handle_abandon_update(pipeline_id, task_execution_id):
+    """Handle task execution abandon update."""
+    _handle_abandon_successors(pipeline_id, task_execution_id)
+    _handle_abandon_pipeline_completion(pipeline_id)
+
+
 def process_task_execution_event(dynamodb_record):
     if 'OldImage' not in dynamodb_record or 'NewImage' not in dynamodb_record:
         logger.info('Received Task Execution creation or deletion event. Ignoring..')
@@ -477,68 +586,19 @@ def process_task_execution_event(dynamodb_record):
     pipeline_id = new_dynamodb_record['pipeline_id']['S']
 
     if new_task_execution_status == TaskExecutionStatus.FAILED:
-        task_execution = get_task_execution(task_execution_id)
-        task_id = task_execution['task_id']
-        task_version = task_execution['task_version']
-        task = ssm_scripts_table.get_item(Key={'package_uuid': task_id, 'version' : int(task_version)})['Item']
-        notification: NotificationType = create_notification(task, task_execution, NotificationDetailType.TASK_FAILED.value)
-        publish_event(notification, eventsClient, eventSource, eventBusName)
+        _handle_failed_task_notification(task_execution_id)
 
     if is_valid_failed_update(old_task_execution_status, new_task_execution_status):
         logger.info(f'Received failed update for {task_execution_id}')
         update_pipeline_status(pipeline_id, TaskExecutionStatus.FAILED)
     elif is_valid_update(old_task_execution_status, new_task_execution_status):
-        logger.info(f'Received task {new_task_execution_status} update for {task_execution_id}')
-
-        # Get all pipeline tasks for evaluation.
-        all_task_executions = query_task_executions(pipeline_id)
-
-        # get successor tasks based on the currently processing task id.
-        incomplete_predecessor_task_ids, ready_successor_task_ids, already_processed_successor_tasks, _ = check_successors_predecessors_complete(all_task_executions, task_execution_id)
-
-        if len(ready_successor_task_ids) > 0:
-            logger.info(f'All predecessors complete for {", ".join(ready_successor_task_ids)} starting task.')
-            task_execution_successors = get_execution_tasks(ready_successor_task_ids)
-            handle_task_executions(pipeline_id, task_execution_successors)
-
-        if len(incomplete_predecessor_task_ids) > 0:
-            logger.info(f'Waiting on predecessors: {",".join(incomplete_predecessor_task_ids)}')
-
-        if len(already_processed_successor_tasks) > 0:
-            logger.warning(f'Successors will not be processed, as already in state other than {TaskExecutionStatus.NOT_STARTED}: {",".join(incomplete_predecessor_task_ids)}')
-
-        pipeline_complete, _, _ = is_pipeline_complete(all_task_executions)
-
-        if pipeline_complete:
-            logger.info(f'Pipeline Id: {pipeline_id} is complete.')
-            update_pipeline_status(pipeline_id, TaskExecutionStatus.COMPLETE)
-            send_anonymous_usage_data('PipelineComplete')
+        _handle_valid_update(pipeline_id, task_execution_id, new_task_execution_status)
     elif is_valid_retry(old_task_execution_status, new_task_execution_status):
         logger.info(f'Retrying previously task execution {task_execution_id}')
         task_execution = get_task_execution(task_execution_id)
         handle_task_execution(pipeline_id, task_execution)
     elif is_valid_abandon(old_task_execution_status, new_task_execution_status):
-        # Get all pipeline tasks for evaluation.
-        all_task_executions = query_task_executions(pipeline_id)
-        abandon_successor_tasks = check_successors_predecessors_complete(all_task_executions, task_execution_id)[3]
-        if len(abandon_successor_tasks) > 0:
-            for task_id in abandon_successor_tasks:
-                logger.info(f'Abandoning task execution: {task_id}')
-                update_task_execution_status(task_id, TaskExecutionStatus.ABANDONED)
-        
-        # After abandoning tasks, check if the pipeline should be marked as complete or abandoned
-        all_task_executions = query_task_executions(pipeline_id)  # Refresh task executions after updates
-        pipeline_complete, _, _ = is_pipeline_complete(all_task_executions)
-        
-        if pipeline_complete:
-            # Check if pipeline should be marked as abandoned (all end tasks are abandoned)
-            if is_pipeline_abandoned(all_task_executions):
-                logger.info(f'Pipeline Id: {pipeline_id} is being marked as Abandoned as all end tasks are abandoned.')
-                update_pipeline_status(pipeline_id, TaskExecutionStatus.ABANDONED)
-            else:
-                logger.info(f'Pipeline Id: {pipeline_id} is complete.')
-                update_pipeline_status(pipeline_id, TaskExecutionStatus.COMPLETE)
-                send_anonymous_usage_data('PipelineComplete')
+        _handle_abandon_update(pipeline_id, task_execution_id)
 
 
 def lambda_handler(event, _):
