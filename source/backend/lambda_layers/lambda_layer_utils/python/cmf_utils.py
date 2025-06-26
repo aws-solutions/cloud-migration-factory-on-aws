@@ -63,15 +63,15 @@ def get_date_from_string(str_date):
     return created_timestamp
 
 
-def publish_event(notification: NotificationType, eventsClient: boto3.client, eventSource: str, eventBusName: str) -> None:
+def publish_event(notification: NotificationType, events_client: boto3.client, event_source: str, event_bus_name: str) -> None:
     """
     Publishes job status notification to EventBridge.
     
     Args:
         notification: Notification object to be published
-        eventsClient: EventBridge client
-        eventSource: source of event
-        eventBusName: name of the eventbus
+        events_client: EventBridge client
+        event_source: source of event
+        event_bus_name: name of the eventbus
         
     Returns:
         None
@@ -80,18 +80,18 @@ def publish_event(notification: NotificationType, eventsClient: boto3.client, ev
         ClientError: If EventBridge publish fails
     """
     try:
-        logger.info(f"Publishing {str(notification)} to {eventBusName}")
+        logger.info(f"Publishing {str(notification)} to {event_bus_name}")
 
         event_entry = {
-            'Source': eventSource,  #f'{application}-{environment}-task-orchestrator',
+            'Source': event_source,  #f'{application}-{environment}-task-orchestrator',
             'DetailType': notification['type'],
             'Detail': json.dumps(notification),
-            'EventBusName': eventBusName,
+            'EventBusName': event_bus_name,
             'Time': datetime.now(timezone.utc)
         }
 
         # Write notification to event bus
-        response = eventsClient.put_events(
+        response = events_client.put_events(
             Entries=[event_entry]
         )
 

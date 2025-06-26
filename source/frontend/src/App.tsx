@@ -362,12 +362,6 @@ const App = () => {
           external: true,
           href: "https://aws.amazon.com/prescriptive-guidance/large-migrations",
         },
-        {
-          id: "lab",
-          text: "Cloud Migration Factory Lab",
-          external: true,
-          href: "https://cloud-migration-factory.s3.amazonaws.com/apg-public/workshop/index.html",
-        },
       ],
     },
     {

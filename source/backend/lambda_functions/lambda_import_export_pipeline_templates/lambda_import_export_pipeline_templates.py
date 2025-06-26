@@ -148,20 +148,23 @@ def with_tasks(pipeline_template: PipelineTemplate, all_tasks: Iterable[Pipeline
     }
 
 
-def process_post(event: APIGatewayProxyEvent, request_context):
-    body = json.loads(event.body)
+def _parse_pipeline_templates(body):
+    """Parse pipeline templates based on file format."""
     if 'fileFormat' in body and body['fileFormat'] in SUPPORTED_PARSERS:
         parser = SUPPORTED_PARSERS[body['fileFormat']]()
-        pipeline_templates = parser.parse(body['content'])
+        return parser.parse(body['content'])
     elif 'fileFormat' not in body or body['fileFormat'] == 'cmf-json':
-        pipeline_templates = json.loads(body['content']) if 'content' in body else body
+        return json.loads(body['content']) if 'content' in body else body
     else:
         raise ClientException(
-                error="UnsupportedFormat",
-                message=f"Unsupported file format, Supported file formats are cmf-json, lucid-csv and drawio",
-                status_code=400
-            )
-        
+            error="UnsupportedFormat",
+            message=f"Unsupported file format, Supported file formats are cmf-json, lucid-csv and drawio",
+            status_code=400
+        )
+
+
+def _validate_pipeline_templates(pipeline_templates):
+    """Validate pipeline templates structure."""
     if not isinstance(pipeline_templates, list):
         raise ClientException('ValidationError', 'Invalid request body')
 
@@ -170,73 +173,103 @@ def process_post(event: APIGatewayProxyEvent, request_context):
             'statusCode': 201,
             'body': 'No template data provided.'
         }
+    return None
+
+
+def _prepare_task_ids(tasks):
+    """Prepare new task IDs and create mapping from old to new IDs."""
+    new_to_old_ids = {}
+    for task in tasks:
+        new_id = str(uuid.uuid4())
+        new_to_old_ids[task['pipeline_template_task_id']] = new_id
+        task['__pipeline_template_task_id'] = new_id
+    return new_to_old_ids
+
+
+def _save_tasks_without_successors(sanitized_pipeline_template_tasks, request_context):
+    """Save pipeline task templates without successors to ensure records exist."""
+    sanitized_pipeline_template_tasks_no_successors = copy.deepcopy(list(sanitized_pipeline_template_tasks))
+    
+    for task in sanitized_pipeline_template_tasks_no_successors:
+        task.pop('task_successors', None)
+
+    return save_pipeline_task_templates(sanitized_pipeline_template_tasks_no_successors, request_context)
+
+
+def _process_single_template(template, request_context, all_scripts):
+    """Process a single pipeline template and its tasks."""
+    tasks = template.pop('pipeline_template_tasks', [])
+
+    # Create pipeline template
+    pipeline_template_response_payload = create_pipeline(template, request_context)
+    pipeline_template_response_body = json.loads(pipeline_template_response_payload['body'])
+
+    if pipeline_template_response_body.get('errors'):
+        return {'statusCode': 401, **pipeline_template_response_payload}
+
+    new_pipeline_template_id = pipeline_template_response_body['newItems'][0][f"{PIPELINE_TEMPLATE_SCHEMA}_id"]
+
+    # Prepare task IDs and validate
+    validation_errors = []
+    new_to_old_ids = _prepare_task_ids(tasks)
+    sanitized_pipeline_template_tasks = sanitize_pipeline_template_tasks(tasks)
+
+    update_task_template_ids(
+        new_pipeline_template_id,
+        template,
+        sanitized_pipeline_template_tasks,
+        validation_errors,
+        new_to_old_ids,
+        all_scripts
+    )
+
+    if validation_errors:
+        rollback_pipeline_template_import(new_pipeline_template_id, request_context)
+        return {
+            'statusCode': 401,
+            'body': json.dumps({'errors': {'validation_errors': validation_errors}})
+        }
+
+    # Save tasks without successors first
+    pipeline_template_tasks_response_body, pipeline_template_tasks_response_payload = _save_tasks_without_successors(
+        sanitized_pipeline_template_tasks, request_context
+    )
+
+    if pipeline_template_tasks_response_body.get('errors'):
+        rollback_pipeline_template_import(new_pipeline_template_id, request_context)
+        return {'statusCode': 401, **pipeline_template_tasks_response_payload}
+
+    # Save tasks with successors
+    pipeline_template_tasks_response_body, pipeline_template_tasks_response_payload = save_pipeline_task_templates(
+        sanitized_pipeline_template_tasks, request_context
+    )
+
+    if pipeline_template_tasks_response_body.get('errors'):
+        rollback_pipeline_template_import(new_pipeline_template_id, request_context)
+        return {'statusCode': 401, **pipeline_template_tasks_response_payload}
+
+    return None  # Success
+
+
+def process_post(event: APIGatewayProxyEvent, request_context):
+    body = json.loads(event.body)
+    
+    # Parse pipeline templates based on format
+    pipeline_templates = _parse_pipeline_templates(body)
+    
+    # Validate templates
+    validation_result = _validate_pipeline_templates(pipeline_templates)
+    if validation_result:
+        return validation_result
 
     sanitized_pipeline_templates = sanitize_pipeline_templates(pipeline_templates)
-
     all_scripts = get_scripts()
 
+    # Process each template
     for template in sanitized_pipeline_templates:
-        tasks = template.pop('pipeline_template_tasks', [])
-
-        pipeline_template_response_payload = create_pipeline(template, request_context)
-
-        pipeline_template_response_body = json.loads(pipeline_template_response_payload['body'])
-
-        if pipeline_template_response_body.get('errors'):
-            return {'statusCode': 401, **pipeline_template_response_payload}
-
-        new_pipeline_template_id = pipeline_template_response_body['newItems'][0][f"{PIPELINE_TEMPLATE_SCHEMA}_id"]
-
-        validation_errors = []
-        new_to_old_ids = {}
-        # add new ID to task and create dict of old to new mappings for successor update.
-        for task in tasks:
-            new_id = str(uuid.uuid4())
-            new_to_old_ids[task['pipeline_template_task_id']] = new_id
-            task['__pipeline_template_task_id'] = new_id
-
-        sanitized_pipeline_template_tasks = sanitize_pipeline_template_tasks(tasks)
-
-        update_task_template_ids(
-            new_pipeline_template_id,
-            template,
-            sanitized_pipeline_template_tasks,
-            validation_errors,
-            new_to_old_ids,
-            all_scripts
-        )
-
-        if validation_errors:
-            rollback_pipeline_template_import(new_pipeline_template_id, request_context)
-            return {
-                'statusCode': 401,
-                'body': json.dumps({'errors': {'validation_errors': validation_errors}})
-            }
-
-        # create write update without related successors to ensure records exist.
-        sanitized_pipeline_template_tasks_no_successors = copy.deepcopy(list(sanitized_pipeline_template_tasks))
-
-        for task in sanitized_pipeline_template_tasks_no_successors:
-            task.pop('task_successors', None)
-
-        pipeline_template_tasks_response_body, pipeline_template_tasks_response_payload = save_pipeline_task_templates(
-            sanitized_pipeline_template_tasks_no_successors,
-            request_context
-        )
-
-        if pipeline_template_tasks_response_body.get('errors'):
-            rollback_pipeline_template_import(new_pipeline_template_id, request_context)
-            return {'statusCode': 401, **pipeline_template_tasks_response_payload}
-
-        # write related records.
-        pipeline_template_tasks_response_body, pipeline_template_tasks_response_payload = save_pipeline_task_templates(
-            sanitized_pipeline_template_tasks,
-            request_context
-        )
-
-        if pipeline_template_tasks_response_body.get('errors'):
-            rollback_pipeline_template_import(new_pipeline_template_id, request_context)
-            return {'statusCode': 401, **pipeline_template_tasks_response_payload}
+        result = _process_single_template(template, request_context, all_scripts)
+        if result:  # Error occurred
+            return result
 
     return {
         'headers': default_http_headers,
