@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.1] - 2025-07-10
+
+### Fixed
+
+- **SSM Scripts**: Fixed TypeError when script_arguments is None by adding null check and using copy() method to prevent mutation of the default constant. This resolves potential runtime errors when processing SSM scripts with null or missing script_arguments.
+
+### Changed  
+
+- **SSM Scripts**: Enhanced script_arguments validation logic to handle both None values and missing attributes when adding system default attributes to SSM scripts.
+
 ## [4.5.0] - 2025-06-23
 
 ### Added

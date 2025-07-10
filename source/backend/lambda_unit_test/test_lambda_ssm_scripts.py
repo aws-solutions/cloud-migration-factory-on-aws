@@ -803,6 +803,172 @@ class LambdaSSMScriptsTest(unittest.TestCase):
         self.assert_nothing_uploaded_to_s3()
 
     @mock.patch('lambda_ssm_scripts.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_user_resource_creation_policy_default_deny)
+    def test_lambda_handler_event_get_default_with_null_script_arguments(self):
+        """Test add_system_default_attributes handles None script_arguments correctly"""
+        import lambda_ssm_scripts
+        
+        # Update an existing SSM script to have script_arguments set to None
+        # This simulates the edge case that could cause TypeError
+        self.scripts_table.update_item(
+            Key={
+                'package_uuid': self.package_uuid_1,
+                'version': self.package_version_1
+            },
+            UpdateExpression='SET script_arguments = :null_val, lambda_function_name_suffix = :ssm',
+            ExpressionAttributeValues={
+                ':null_val': None,
+                ':ssm': 'ssm'
+            }
+        )
+        
+        # Call GET default which triggers add_system_default_attributes
+        response = lambda_ssm_scripts.lambda_handler(self.event_get_default, None)
+        
+        # Verify the response is successful (no statusCode in GET default response)
+        self.assertEqual(lambda_ssm_scripts.default_http_headers, response['headers'])
+        
+        # Parse response and find our modified script
+        body = json.loads(response['body'])
+        modified_script = None
+        for script in body:
+            if script['package_uuid'] == self.package_uuid_1 and script['version'] == str(self.package_version_1):
+                modified_script = script
+                break
+        
+        # Verify the script was found and has default attributes added
+        self.assertIsNotNone(modified_script, "Modified script should be found in response")
+        self.assertIn('script_arguments', modified_script, "script_arguments should be present")
+        self.assertIsNotNone(modified_script['script_arguments'], "script_arguments should not be None")
+        self.assertIsInstance(modified_script['script_arguments'], list, "script_arguments should be a list")
+        
+        # Verify default SSM attributes were added
+        # The CONST_DEFAULT_SSM_SCRIPT_ATTRIBUTES should be added
+        default_attr_found = False
+        for arg in modified_script['script_arguments']:
+            if arg.get('name') == 'mi_id' and arg.get('description') == 'Automation Server':
+                default_attr_found = True
+                break
+        
+        self.assertTrue(default_attr_found, "Default SSM script attributes should be added")
+        self.assert_nothing_uploaded_to_s3()
+
+    @mock.patch('lambda_ssm_scripts.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_user_resource_creation_policy_default_deny)
+    def test_lambda_handler_event_get_default_with_missing_script_arguments(self):
+        """Test add_system_default_attributes handles missing script_arguments correctly"""
+        import lambda_ssm_scripts
+        
+        # Update an existing SSM script to remove script_arguments entirely
+        # This simulates another edge case
+        self.scripts_table.update_item(
+            Key={
+                'package_uuid': self.package_uuid_1,
+                'version': self.package_version_1
+            },
+            UpdateExpression='REMOVE script_arguments SET lambda_function_name_suffix = :ssm',
+            ExpressionAttributeValues={
+                ':ssm': 'ssm'
+            }
+        )
+        
+        # Call GET default which triggers add_system_default_attributes
+        response = lambda_ssm_scripts.lambda_handler(self.event_get_default, None)
+        
+        # Verify the response is successful (no statusCode in GET default response)
+        self.assertEqual(lambda_ssm_scripts.default_http_headers, response['headers'])
+        
+        # Parse response and find our modified script
+        body = json.loads(response['body'])
+        modified_script = None
+        for script in body:
+            if script['package_uuid'] == self.package_uuid_1 and script['version'] == str(self.package_version_1):
+                modified_script = script
+                break
+        
+        # Verify the script was found and has default attributes added
+        self.assertIsNotNone(modified_script, "Modified script should be found in response")
+        self.assertIn('script_arguments', modified_script, "script_arguments should be present")
+        self.assertIsNotNone(modified_script['script_arguments'], "script_arguments should not be None")
+        self.assertIsInstance(modified_script['script_arguments'], list, "script_arguments should be a list")
+        
+        # Verify default SSM attributes were added
+        default_attr_found = False
+        for arg in modified_script['script_arguments']:
+            if arg.get('name') == 'mi_id' and arg.get('description') == 'Automation Server':
+                default_attr_found = True
+                break
+        
+        self.assertTrue(default_attr_found, "Default SSM script attributes should be added")
+        self.assert_nothing_uploaded_to_s3()
+
+    @mock.patch('lambda_ssm_scripts.MFAuth.get_user_resource_creation_policy',
+                new=mock_get_user_resource_creation_policy_default_deny)
+    def test_lambda_handler_event_get_default_with_existing_script_arguments(self):
+        """Test add_system_default_attributes extends existing script_arguments correctly"""
+        import lambda_ssm_scripts
+        
+        # Update an existing SSM script to have some custom arguments
+        # This verifies that existing arguments are preserved and extended
+        custom_args = [
+            {
+                "name": "custom_arg",
+                "description": "Custom argument",
+                "type": "string",
+                "required": False
+            }
+        ]
+        
+        self.scripts_table.update_item(
+            Key={
+                'package_uuid': self.package_uuid_1,
+                'version': self.package_version_1
+            },
+            UpdateExpression='SET script_arguments = :custom_args, lambda_function_name_suffix = :ssm',
+            ExpressionAttributeValues={
+                ':custom_args': custom_args,
+                ':ssm': 'ssm'
+            }
+        )
+        
+        # Call GET default which triggers add_system_default_attributes
+        response = lambda_ssm_scripts.lambda_handler(self.event_get_default, None)
+        
+        # Verify the response is successful (no statusCode in GET default response)
+        self.assertEqual(lambda_ssm_scripts.default_http_headers, response['headers'])
+        
+        # Parse response and find our modified script
+        body = json.loads(response['body'])
+        modified_script = None
+        for script in body:
+            if script['package_uuid'] == self.package_uuid_1 and script['version'] == str(self.package_version_1):
+                modified_script = script
+                break
+        
+        # Verify the script was found
+        self.assertIsNotNone(modified_script, "Modified script should be found in response")
+        self.assertIn('script_arguments', modified_script, "script_arguments should be present")
+        self.assertIsInstance(modified_script['script_arguments'], list, "script_arguments should be a list")
+        
+        # Verify both custom and default arguments are present
+        custom_arg_found = False
+        default_arg_found = False
+        
+        for arg in modified_script['script_arguments']:
+            if arg.get('name') == 'custom_arg':
+                custom_arg_found = True
+            elif arg.get('name') == 'mi_id' and arg.get('description') == 'Automation Server':
+                default_arg_found = True
+        
+        self.assertTrue(custom_arg_found, "Custom argument should be preserved")
+        self.assertTrue(default_arg_found, "Default SSM script attributes should be added")
+        
+        # Verify we have at least 2 arguments (1 custom + 1 default)
+        self.assertGreaterEqual(len(modified_script['script_arguments']), 2, 
+                               "Should have both custom and default arguments")
+        self.assert_nothing_uploaded_to_s3()
+
+    @mock.patch('lambda_ssm_scripts.MFAuth.get_user_resource_creation_policy',
                 new=mock_get_user_resource_creation_policy_allow)
     def test_lambda_handler_event_post_success(self):
         import lambda_ssm_scripts
