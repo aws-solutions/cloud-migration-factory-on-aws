@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.1] - 2025-07-11
+
+### Fixed
+
+- SSM Scripts: Fixed TypeError when script_arguments is None by adding null check and using copy() method to prevent mutation of default attributes. This issue was causing scripts to not load in cloud migration factory.
+
+
+### Added
+
+- Unit Tests: Added comprehensive test coverage for SSM script argument handling edge cases including null, missing, and existing script_arguments scenarios.
+
 ## [4.5.0] - 2025-06-23
 
 ### Added
