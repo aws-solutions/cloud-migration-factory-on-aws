@@ -396,7 +396,7 @@ def _extract_and_validate_zip(temp_path, script_package_path, package_uuid, deco
         # Extract files
         with open(temp_path, "rb") as script_package_zip_file:
             script_package_zip = zipfile.ZipFile(script_package_zip_file)
-            script_package_zip.extractall(script_package_path)
+            script_package_zip.extractall(script_package_path) # NOSONAR The size of this file is in control
         
         return {
             'headers': {**default_http_headers},
@@ -1149,8 +1149,8 @@ def add_system_default_attributes(scripts):
     for script in scripts:
         # Only add default attributes if the script is a system script.
         if script.get('lambda_function_name_suffix', None) == 'ssm' and script.get('compute_platform', None) != 'SSM Automation Document':
-            if 'script_arguments' not in script:
-                script['script_arguments'] = CONST_DEFAULT_SSM_SCRIPT_ATTRIBUTES
+            if 'script_arguments' not in script or script['script_arguments'] is None:
+                script['script_arguments'] = CONST_DEFAULT_SSM_SCRIPT_ATTRIBUTES.copy()
             else:
                 script['script_arguments'].extend(CONST_DEFAULT_SSM_SCRIPT_ATTRIBUTES)
 
