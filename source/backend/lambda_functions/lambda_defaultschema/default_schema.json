@@ -551,6 +551,41 @@
         {
           "M": {
             "description": {
+              "S": "UEFI Boot Mode"
+            },
+            "long_desc": {
+              "S": "Where or not target EC2 should be created using UEFI Boot. If disabled Legacy BIOS is used."
+            },
+            "name": {
+              "S": "server_boot_mode_uefi"
+            },
+            "type": {
+              "S": "checkbox"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "group": {
+              "S": "Target - Instance"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "UEFI Boot Mode"
+                },
+                "content_html": {
+                  "S": "<b>Enabled</b> - Use UEFI Boot Mode. <b>Disabled</b> - Use Legacy BIOS Mode"
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
               "S": "Subnet Ids"
             },
             "name": {
