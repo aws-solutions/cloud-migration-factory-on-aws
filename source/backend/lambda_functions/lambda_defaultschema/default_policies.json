@@ -457,6 +457,16 @@
                       "S": "server"
                     },
                     "attr_name": {
+                      "S": "server_boot_mode_uefi"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
                       "S": "secret_name"
                     }
                   }
