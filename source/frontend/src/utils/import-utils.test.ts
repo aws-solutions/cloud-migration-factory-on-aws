@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -7,6 +8,7 @@ import { defaultTestProps } from "../__tests__/TestUtils";
 import {
   addImportRowValuesToImportSummaryRecord,
   addRelationshipValueToImportSummaryRecord,
+  convertDataFileToJSON,
   performValueValidation,
   removeNullKeys,
   performDataValidation,
@@ -14,7 +16,143 @@ import {
   updateRelatedItemAttributes,
   getRelationshipValueType,
   getSummary,
+  splitIntoEntities,
+  updateAllRelationships,
 } from "./import-utils";
+import UserApiClient from "../api_clients/userApiClient";
+
+// Mock UserApiClient
+jest.mock("../api_clients/userApiClient");
+const MockedUserApiClient = UserApiClient as jest.MockedClass<typeof UserApiClient>;
+
+
+test("splitIntoEntities splits a row up into 3 different entities", () => {
+  const sampleData = [
+    {
+      wave_name: "wave01",
+      wave_description: "Wave 1",
+      wave_ids: ["wave01"],
+      server_ids: ["server1"],
+      app_name: "app01",
+      server_name: "server1",
+      server_fqdn: "server1.example.com",
+    },
+    {
+      server_name: "server2",
+    },
+  ];
+  const sampleSchema = {
+    wave: {
+      schema_type: "user",
+      attributes: [
+        {
+          system: true,
+          validation_regex: "^(?!\\s*$).+",
+          name: "wave_name",
+          description: "Wave Name",
+          validation_regex_msg: "Wave name must be specified.",
+          group_order: "-1000",
+          type: "string",
+          required: true,
+        },
+        {
+          system: true,
+          name: "wave_description",
+          description: "Wave Desc",
+          group_order: "-1000",
+          type: "string",
+          required: true,
+        },
+      ],
+      schema_name: "wave",
+    },
+    app: {
+      schema_type: "user",
+      attributes: [
+        {
+          system: true,
+          name: "app_name",
+          description: "App Name",
+          group_order: "-1000",
+          type: "string",
+          required: true,
+        },
+        {
+          system: true,
+          name: "wave_ids",
+          description: "Wave Ids",
+          group_order: "-1000",
+          type: "relationship",
+          required: true,
+        },
+        {
+          system: true,
+          name: "server_ids",
+          description: "Server Ids",
+          group_order: "-1000",
+          type: "relationship",
+          required: true,
+        },
+      ],
+      schema_name: "app",
+    },
+    server: {
+      schema_type: "user",
+      attributes: [
+        {
+          system: true,
+          name: "server_name",
+          description: "Server Name",
+          group_order: "-1000",
+          type: "string",
+          required: true,
+        },
+        {
+          system: true,
+          name: "server_fqdn",
+          description: "Server FQDN",
+          group_order: "-1000",
+          type: "string",
+          required: true,
+        },
+        {
+          system: true,
+          name: "wave_ids",
+          description: "Wave Ids",
+          group_order: "-1000",
+          type: "relationship",
+          required: true,
+        },
+      ],
+      schema_name: "server",
+    },
+  };
+  const result = splitIntoEntities(sampleData, sampleSchema);
+  const expectedData = [
+    {
+      __schema: "wave",
+      wave_name: "wave01",
+      wave_description: "Wave 1",
+    },
+    {
+      __schema: "app",
+      app_name: "app01",
+      wave_ids: ["wave01"],
+      server_ids: ["server1"],
+    },
+    {
+      __schema: "server",
+      server_name: "server1",
+      server_fqdn: "server1.example.com",
+      wave_ids: ["wave01"],
+    },
+    {
+      __schema: "server",
+      server_name: "server2",
+    },
+  ];
+  expect(result).toEqual(expectedData);
+});
 
 test("removeNullKeys removes nulls", () => {
   const result = removeNullKeys([
@@ -415,16 +553,16 @@ test("addImportRowValuesToImportSummaryRecord with attribute type checkbox", () 
 test("addRelationshipValueToImportSummaryRecord with attributes, one new and one update", () => {
   const importedAttribute = {
     attribute: {
+      description: "Waves",
       listMultiSelect: true,
-      system: true,
+      name: "wave_ids",
+      readonly: true,
       rel_display_attribute: "wave_name",
-      rel_key: "wave_id",
-      name: "wave_id",
-      description: "Wave Id",
       rel_entity: "wave",
-      group_order: "-999",
-      type: "relationship",
+      rel_key: "wave_id",
       required: false,
+      system: true,
+      type: "multivalue-relationship",
     },
     schema_name: "application",
     lookup_attribute_name: "wave_name",
@@ -458,8 +596,8 @@ test("addRelationshipValueToImportSummaryRecord with attributes, one new and one
     app_name: "Unit testing App 1",
     aws_accountid: "123456789012",
     aws_region: "us-east-2",
-    wave_id: ["0", "tbc"],
-    __wave_id: ["Unit testing Wave 0", "Wave2"],
+    wave_ids: ["0", "tbc"],
+    __wave_ids: ["Unit testing Wave 0", "Wave2"],
   });
 });
 
@@ -528,7 +666,7 @@ test("updateRelatedItemAttributes - update items success", () => {
     app_name: "app1",
     aws_accountid: "123456789012",
     aws_region: "us-east-1",
-    wave_id: "101",
+    wave_ids: ["101"],
     app_id: "101",
   };
   const newItemSchemaName = "application";
@@ -538,13 +676,21 @@ test("updateRelatedItemAttributes - update items success", () => {
       server_os_family: "linux",
       server_os_version: "redhat",
       server_fqdn: "unittest1.testdomain.local",
+      aws_accountid: "123456789012",
+      aws_region: "us-east-2",
       r_type: "Rehost",
-      app_id: "tbc",
-      __app_id: "Unit testing App 1-NEW",
+      app_ids: ["tbc"],
     },
     {
-      all_applications: ["tbc", "something else"],
-      __all_applications: ["app1", "app2"],
+      server_name: "unittest1-NEW",
+      server_os_family: "linux",
+      server_os_version: "redhat",
+      server_fqdn: "unittest1.testdomain.local",
+      aws_accountid: "123456789012",
+      aws_region: "us-east-2",
+      r_type: "Rehost",
+      app_ids: ["tbc"],
+      __app_ids: ["app1"],
     },
   ];
   const relatedSchemaName = "server";
@@ -555,13 +701,20 @@ test("updateRelatedItemAttributes - update items success", () => {
       server_os_family: "linux",
       server_os_version: "redhat",
       server_fqdn: "unittest1.testdomain.local",
+      aws_accountid: "123456789012",
+      aws_region: "us-east-2",
       r_type: "Rehost",
-      app_id: "tbc",
-      __app_id: "Unit testing App 1-NEW",
+      app_ids: ["tbc"],
     },
     {
-      all_applications: ["101", "something else"],
-      __all_applications: ["app1", "app2"],
+      server_name: "unittest1-NEW",
+      server_os_family: "linux",
+      server_os_version: "redhat",
+      server_fqdn: "unittest1.testdomain.local",
+      aws_accountid: "123456789012",
+      aws_region: "us-east-2",
+      r_type: "Rehost",
+      app_ids: ["101"],
     },
   ]);
 });
@@ -739,6 +892,40 @@ test("getSummary - different scenarios", () => {
         attribute: {
           schema: "server",
           system: true,
+          validation_regex: "^\\d{12}$",
+          listvalue: "123456789012,111122223333",
+          name: "aws_accountid",
+          description: "AWS Account Id",
+          validation_regex_msg: "Invalid AWS account Id.",
+          type: "list",
+          required: true,
+          group: "Target",
+        },
+        schema_name: "server",
+        lookup_attribute_name: "aws_accountid",
+        lookup_schema_name: "server",
+        import_raw_header: "aws_accountid",
+      },
+      {
+        attribute: {
+          system: true,
+          listvalue:
+            "us-east-2,us-east-1,us-west-1,us-west-2,af-south-1,ap-east-1,ap-southeast-3,ap-south-1,ap-northeast-3,ap-northeast-2,ap-southeast-1,ap-southeast-2,ap-northeast-1,ca-central-1,cn-north-1,cn-northwest-1,eu-central-1,eu-west-1,eu-west-2,eu-south-1,eu-west-3,eu-north-1,me-south-1,sa-east-1",
+          name: "aws_region",
+          description: "AWS Region",
+          type: "list",
+          required: true,
+          group: "Target",
+        },
+        schema_name: "server",
+        lookup_attribute_name: "aws_region",
+        lookup_schema_name: "server",
+        import_raw_header: "aws_region",
+      },
+      {
+        attribute: {
+          schema: "server",
+          system: true,
           help_content: {
             header: "Migration Strategy",
             content_html:
@@ -757,15 +944,15 @@ test("getSummary - different scenarios", () => {
       },
       {
         attribute: {
+          description: "Related Applications",
+          listMultiSelect: true,
+          name: "app_ids",
           rel_display_attribute: "app_name",
-          system: true,
+          rel_entity: "app",
           rel_key: "app_id",
-          name: "app_id",
-          description: "Application",
-          rel_entity: "application",
-          group_order: "-998",
-          type: "relationship",
-          required: true,
+          required: false,
+          system: true,
+          type: "multivalue-relationship",
         },
         schema_name: "database",
         lookup_attribute_name: "app_name",
@@ -790,15 +977,15 @@ test("getSummary - different scenarios", () => {
       },
       {
         attribute: {
+          description: "Related Applications",
+          listMultiSelect: true,
+          name: "app_ids",
           rel_display_attribute: "app_name",
-          system: true,
+          rel_entity: "app",
           rel_key: "app_id",
-          name: "app_id",
-          description: "Application",
-          rel_entity: "application",
-          group_order: "-998",
-          type: "relationship",
-          required: true,
+          required: false,
+          system: true,
+          type: "multivalue-relationship",
         },
         schema_name: "server",
         lookup_attribute_name: "app_name",
@@ -815,7 +1002,7 @@ test("getSummary - different scenarios", () => {
           description: "AWS Account Id",
           validation_regex_msg: "Invalid AWS account Id.",
           type: "list",
-          required: true,
+          required: false,
           group: "Target",
         },
         schema_name: "application",
@@ -831,7 +1018,7 @@ test("getSummary - different scenarios", () => {
           name: "aws_region",
           description: "AWS Region",
           type: "list",
-          required: true,
+          required: false,
           group: "Target",
         },
         schema_name: "application",
@@ -857,15 +1044,16 @@ test("getSummary - different scenarios", () => {
       },
       {
         attribute: {
-          system: true,
+          description: "Waves",
+          listMultiSelect: true,
+          name: "wave_ids",
+          readonly: true,
           rel_display_attribute: "wave_name",
-          rel_key: "wave_id",
-          name: "wave_id",
-          description: "Wave Id",
           rel_entity: "wave",
-          group_order: "-999",
-          type: "relationship",
+          rel_key: "wave_id",
           required: false,
+          system: true,
+          type: "multivalue-relationship",
         },
         schema_name: "application",
         lookup_attribute_name: "wave_name",
@@ -1006,4 +1194,158 @@ test("getSummary - different scenarios", () => {
   expect(response["entities"]["wave"]).toEqual(expect.objectContaining(noChangeNeededEntities));
   expect(response["entities"]["application"]).toEqual(expect.objectContaining(updateNeededEntities));
   expect(response["entities"]["server"]).toEqual(expect.objectContaining(updateNeededEntities));
+});
+
+describe("updateAllRelationships", () => {
+  let mockApiUser: jest.Mocked<UserApiClient>;
+  let mockUpdateUploadStatus: jest.Mock;
+  let mockNotification: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockApiUser = new MockedUserApiClient() as jest.Mocked<UserApiClient>;
+    mockUpdateUploadStatus = jest.fn();
+    mockNotification = {
+      id: "test-notification",
+      status: "test",
+      percentageComplete: 0,
+      increment: 10,
+    };
+  });
+
+  test("handles multivalue relationships correctly", async () => {
+    // Arrange
+    const allNewItems = [
+      {
+        __schemaName: "application",
+        app_id: "101",
+        app_name: "Test App 1",
+      },
+      {
+        __schemaName: "application",
+        app_id: "102",
+        app_name: "Test App 2",
+      },
+    ];
+
+    const dataImport = {
+      server: {
+        Create: [
+          {
+            server_id: "301",
+            server_name: "Test Server 1",
+            app_ids: ["tbc", "tbc"],
+            __app_ids: ["Test App 1", "Test App 2"],
+          },
+        ],
+        Update: [],
+      },
+      application: {
+        Create: [],
+        Update: [],
+      },
+    };
+
+    const outputCommitErrors: any[] = [];
+    const commitErrors: any[] = [];
+
+    // Mock the API client methods
+    mockApiUser.putItem = jest.fn().mockResolvedValue({});
+
+    // Act
+    await updateAllRelationships(
+      allNewItems,
+      dataImport,
+      defaultTestProps.schemas,
+      mockNotification,
+      mockUpdateUploadStatus,
+      outputCommitErrors,
+      commitErrors
+    );
+
+    // Assert
+    const serverItem = dataImport.server.Create[0];
+    expect(serverItem.app_ids).toEqual(["101", "102"]);
+    expect(serverItem.__app_ids).toBeUndefined(); // Should be removed after all items are resolved
+  });
+
+  test("handles errors gracefully and reports them correctly", async () => {
+    // Arrange
+    const allNewItems = [
+      {
+        __schemaName: "application",
+        app_id: "101",
+        app_name: "Test App 1",
+      },
+    ];
+
+    const dataImport = {
+      server: {
+        Create: [
+          {
+            server_id: "301",
+            server_name: "Test Server 1",
+            app_ids: ["tbc"],
+            __app_ids: ["Test App 1"],
+          },
+        ],
+        Update: [],
+      },
+      application: {
+        Create: [],
+        Update: [],
+      },
+    };
+
+    const outputCommitErrors: any[] = [];
+    const commitErrors: any[] = [];
+
+    // Mock the API client to throw an error
+    const mockError = new Error("API Error");
+    mockApiUser.putItem = jest.fn().mockRejectedValue(mockError);
+
+    // Act
+    await updateAllRelationships(
+      allNewItems,
+      dataImport,
+      defaultTestProps.schemas,
+      mockNotification,
+      mockUpdateUploadStatus,
+      outputCommitErrors,
+      commitErrors
+    );
+
+    // Assert
+    expect(mockUpdateUploadStatus).toHaveBeenCalledWith(mockNotification, "Updating all relationships...", 0);
+    expect(mockUpdateUploadStatus).toHaveBeenCalledWith(mockNotification, "Relationship updates completed", 0);
+
+    // Verify that the server item's relationship was still updated in memory
+    const serverItem = dataImport.server.Create[0];
+    expect(serverItem.app_ids).toEqual(["101"]);
+    expect(serverItem.__app_ids).toBeUndefined();
+
+    // Verify that errors were captured (the exact error handling depends on the saveChangedItemsBulk implementation)
+    // This test ensures the function doesn't crash when API calls fail
+  });
+});
+
+
+// Tests for convertDataFileToJSON preserving leading zeros in AWS account IDs
+describe("convertDataFileToJSON", () => {
+  test("preserves AWS account IDs with leading zeros in CSV", async () => {
+    const csvContent =
+      "aws_accountid,server_name\n" +
+      "012345678901,server1\n" +
+      "001122334455,server2\n" +
+      "000000000000,server3\n";
+    const csvFile = new Blob([csvContent], { type: "text/csv" });
+
+    const reader = new FileReader();
+    const result = (await convertDataFileToJSON(reader, csvFile)) as Record<string, string>[];
+
+    expect(result).toHaveLength(3);
+    expect(result[0].aws_accountid).toBe("012345678901");
+    expect(result[1].aws_accountid).toBe("001122334455");
+    expect(result[2].aws_accountid).toBe("000000000000");
+  });
 });

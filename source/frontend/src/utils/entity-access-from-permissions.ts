@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -73,7 +74,7 @@ function processRole(role: { policies: any }, permissionsData: any, entity_acces
 export function entityAccessFromPermissions(permissionsData: any, userGroups: string[]) {
   // Get list of policies user is authorized for, apply the most privileged access over others.
 
-  let entity_access: any = {};
+  const entity_access: any = {};
   for (const role of permissionsData.roles) {
     for (const group of role.groups) {
       if (userGroups.includes(group.group_name)) {

@@ -1,7 +1,6 @@
-/*
- * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0
- */
+/* eslint-disable */
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 // jest-dom adds custom jest matchers for asserting on DOM nodes.
 // allows you to do things like:
@@ -37,6 +36,32 @@ jest.setTimeout(30000); // stop any test if running for more than 30 seconds
   COGNITO_HOSTED_UI_URL: "",
   VERSION_UI: "v4.0.0",
 };
+
+if (typeof window !== "undefined") {
+  if (!window.File || !window.File.prototype.arrayBuffer) {
+    Object.defineProperty(File.prototype, "arrayBuffer", {
+      value: function () {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.readAsArrayBuffer(this);
+        });
+      },
+    });
+  }
+
+  if (!window.Blob || !window.Blob.prototype.arrayBuffer) {
+    Object.defineProperty(Blob.prototype, "arrayBuffer", {
+      value: function () {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.readAsArrayBuffer(this);
+        });
+      },
+    });
+  }
+}
 
 // Establish API mocking before all tests.
 export const server = setupServer(

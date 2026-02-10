@@ -23,7 +23,7 @@ Arguments:
     rel_entity: "application"
     rel_key: "app_id"
     source_filter_attribute_name: "script.script_arguments.Waveid"
-    rel_filter_attribute_name: "wave_id"
+    rel_filter_attribute_name: "wave_ids"
     required: false
     group_order: "2"
   - name: "ServerIds"
@@ -34,6 +34,6 @@ Arguments:
     rel_entity: "server"
     rel_key: "server_id"
     source_filter_attribute_name: "script.script_arguments.AppIds"
-    rel_filter_attribute_name: "app_id"
+    rel_filter_attribute_name: "app_ids"
     required: false
     group_order: "3"

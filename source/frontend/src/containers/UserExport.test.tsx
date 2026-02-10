@@ -1,4 +1,4 @@
-import { defaultTestProps, TEST_SESSION_STATE } from "../__tests__/TestUtils";
+import { TEST_SESSION_STATE } from "../__tests__/TestUtils";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { SessionContext } from "../contexts/SessionContext";
@@ -8,7 +8,7 @@ import * as XLSX from "xlsx";
 import UserExport from "./UserExport";
 import { ToolsContext } from "../contexts/ToolsContext";
 
-function renderUserExportComponent(props = defaultTestProps) {
+function renderUserExportComponent() {
   const helpPanelMockContext = {
     setHelpPanelContent: jest.fn(),
     setHelpPanelContentFromSchema: jest.fn(),

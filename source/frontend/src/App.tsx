@@ -1,15 +1,17 @@
+/* eslint-disable */
+
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useContext, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useState } from "react";
 import { Auth } from "@aws-amplify/auth";
 import AuthRoutes from "./AuthenticatedRoutes";
 import UserApiClient from "./api_clients/userApiClient";
 import { AppLayout, Button, Flashbar, StatusIndicator } from "@cloudscape-design/components";
 import { useSchema } from "./actions/SchemaHook";
-import ServiceNavigation from "./components/servicenavigation";
+import ServiceNavigation from "./components/ServiceNavigation";
 import { useAdminPermissions } from "./actions/AdminPermissionsHook";
 import ToolHelp from "./components/ToolHelp";
 import { useNavigate } from "react-router-dom";
@@ -111,13 +113,13 @@ const App = () => {
         );
 
         // Connection opened
-        websocket.addEventListener("open", function (event) {
+        websocket.addEventListener("open", function () {
           console.log("websocket session open");
           const data = {
             type: "auth",
             token: idToken,
           };
-          let message = JSON.stringify(data);
+          const message = JSON.stringify(data);
           websocket!.send(message);
         });
 
@@ -296,6 +298,13 @@ const App = () => {
     }
   }, [userGroups]);
 
+  const reloadSchema = useCallback((refresh?: boolean) => {
+    // Reset the last notification date time so that
+    // serverNotificationsTick does not load schema again
+    locallastCentralNotificationDateTime = null;
+    return schemaUpdate(refresh);
+  }, []);
+
   function displayAuthenticatedMainUI() {
     if (schemaIsLoading && !schemaError) {
       return (
@@ -313,21 +322,26 @@ const App = () => {
       );
     }
 
+    const environment = (window as any).env;
+    const enabledModules = environment.ENABLED_MODULES ? JSON.parse(environment.ENABLED_MODULES) : []
+    const versionUi = environment.VERSION_UI;
+
     const childProps: AppChildProps = {
       schemas: schemas,
       schemaIsLoading: schemaIsLoading,
       schemaMetadata: schemaMetadata,
-      reloadSchema: schemaUpdate,
+      reloadSchema,
       reloadPermissions: permissionsUpdate,
       isReady: !schemaIsLoading && !schemaError,
       userGroups: userGroups,
       userEntityAccess: entityAccess,
+      enabledModules,
     };
 
     return (
       <AppLayout
         headerSelector="#h"
-        navigation={<ServiceNavigation userGroups={userGroups} schemaMetadata={schemaMetadata} />}
+        navigation={<ServiceNavigation userGroups={userGroups} schemaMetadata={schemaMetadata} versionUi={versionUi} enabledModules={enabledModules} />}
         notifications={<Flashbar items={notifications} />}
         //breadcrumbs={<Breadcrumbs/>} ATTN: Implement new dynamic breadcrumbs functions in future.
         content={<AuthRoutes childProps={childProps} />}

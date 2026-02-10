@@ -1,0 +1,44 @@
+[
+  {
+    "wpm_job_id": {
+      "S": "1"
+    },
+    "move_group_ids": {
+      "L": [
+      {
+        "S": "1"
+      },
+      {
+        "S": "2"
+      },
+      {
+        "S": "3"
+      },
+      {
+        "S": "4"
+      },
+      {
+        "S": "5"
+      }
+      ]
+    },
+    "nomination_app_count": {
+      "N": "5"
+    },
+    "starting_wave_server_capacity": {
+      "N": "1"
+    },
+    "wave_server_capacity": {
+      "N": "10"
+    },
+    "wave_server_capacity_increase": {
+      "N": "3"
+    },
+    "wave_storage_capacity": {
+      "N": "10000"
+    },
+    "wpm_job_name": {
+      "S": "1"
+    }
+  }
+]

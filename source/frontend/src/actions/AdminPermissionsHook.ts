@@ -11,55 +11,57 @@ import {
   requestSuccessful,
 } from "../resources/permissionsReducer";
 
-import { useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 import AdminApiClient from "../api_clients/adminApiClient";
 import LoginApiClient from "../api_clients/loginApiClient";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type PermissionsModel = { roles: any[]; policies: any[]; groups: any[]; users: any[] };
 
-export const useAdminPermissions: () => [PermissionsReducerState, { update: () => Promise<unknown> }] = () => {
-  const emptyPermissions: PermissionsModel = {
-    policies: [],
-    roles: [],
-    groups: [],
-    users: [],
-  };
+const apiAdmin = new AdminApiClient();
+const apiLogin = new LoginApiClient();
 
+const emptyPermissions: PermissionsModel = {
+  policies: [],
+  roles: [],
+  groups: [],
+  users: [],
+};
+
+export const useAdminPermissions: () => [PermissionsReducerState, { update: () => Promise<unknown> }] = () => {
   const [state, dispatch] = useReducer(reducer, {
     isLoading: true,
     data: emptyPermissions,
     error: null,
   });
 
-  async function update() {
+  const update = useCallback(async () => {
     const myAbortController = new AbortController();
     const permissions = { ...emptyPermissions };
 
     dispatch(requestStarted());
 
     try {
-      let apiAdmin = new AdminApiClient();
-
       permissions.roles = await apiAdmin.getRoles();
       permissions.policies = await apiAdmin.getPolicies();
       permissions.users = await apiAdmin.getUsers();
-    } catch (e: any) {
-      if (e.message !== "Request aborted") {
+    } catch (e) {
+      if (e instanceof Error && e.message !== "Request aborted") {
         console.error("Admin Permissions Hook", e);
       }
       dispatch(requestFailed({ error: e }));
     }
 
     try {
-      let apiLogin = new LoginApiClient();
       const response = await apiLogin.getGroups();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       permissions.groups = response.map((group: any) => {
         return { group_name: group };
       });
 
       dispatch(requestSuccessful({ data: permissions }));
-    } catch (e: any) {
-      if (e.message !== "Request aborted") {
+    } catch (e) {
+      if (e instanceof Error && e.message !== "Request aborted") {
         console.error("Admin Permissions Hook", e);
       }
       dispatch(requestFailed({ error: e }));
@@ -68,7 +70,7 @@ export const useAdminPermissions: () => [PermissionsReducerState, { update: () =
     return () => {
       myAbortController.abort();
     };
-  }
+  }, []);
 
   useEffect(() => {
     let cancelledRequest;
@@ -81,7 +83,7 @@ export const useAdminPermissions: () => [PermissionsReducerState, { update: () =
     return () => {
       cancelledRequest = true;
     };
-  }, []);
+  }, [update]);
 
   return [state, { update }];
 };

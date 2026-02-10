@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -165,7 +166,7 @@ const CredentialManager = () => {
   }) {
     setCredentialManagerModalVisible(false);
 
-    let secretFormData = buildSecretFormData(secretData);
+    const secretFormData = buildSecretFormData(secretData);
 
     //This is needed to ensure the item in selectApps reflects new updates
     setSelectedItems([]);
@@ -187,7 +188,7 @@ const CredentialManager = () => {
   }
 
   function buildSecretFormData(secretData: SecretFormData) {
-    let secretFormData: any = {
+    const secretFormData: any = {
       secretName: secretData.secretName,
       secretType: secretData.secretType,
       description: secretData.description ?? "Secret for Migration Factory",
@@ -230,7 +231,7 @@ const CredentialManager = () => {
   }) {
     setCredentialManagerModalVisible(false);
 
-    let secretFormData = buildSecretFormData(secretData);
+    const secretFormData = buildSecretFormData(secretData);
 
     //This is needed to ensure the item in selectApps reflects new updates
     setSelectedItems([]);

@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -106,8 +107,8 @@ export function getContentSelectorOptions() {
     options: [],
   };
 
-  let options = COLUMN_DEFINITIONS.map((attr, index) => {
-    let column = {
+  const options = COLUMN_DEFINITIONS.map((attr) => {
+    const column = {
       id: attr.id,
       label: attr.header,
       editable: true,

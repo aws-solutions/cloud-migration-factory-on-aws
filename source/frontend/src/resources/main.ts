@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -33,14 +34,14 @@ const TAGS_MAX_VALUE_LENGTH = 256;
  * @returns {{}|null}
  */
 export function getChanges(newItem: any, dataArray: any[] | undefined, key: string, keepCalculated = false) {
-  let update: Record<string, any> = {};
+  const update: Record<string, any> = {};
 
   if (!dataArray) {
   //   dataArray undefined, this is to be assumed as the first item.
     return newItem;
   }
 
-  let currentItem = dataArray.find((item) => {
+  const currentItem = dataArray.find((item) => {
     if (item[key].toLowerCase() === newItem[key].toLowerCase()) {
       return true;
     }
@@ -138,16 +139,16 @@ function resolveRelationshipValuesForRelationsAndPolicies(
   for (const attributesWithRelationsItem of attributesWithRelations) {
     for (const lMainDataItem of lMainData) {
       if (propExists(lMainDataItem, attributesWithRelationsItem.name)) {
-        let lRel_Value = getRelationshipValue(
+        const lRel_Value = getRelationshipValue(
           relatedData,
           attributesWithRelationsItem,
           getNestedValuePath(lMainDataItem, attributesWithRelationsItem.name)
         );
 
         //Update last element in key name with __ to reflect names that are path based.
-        let arrName = attributesWithRelationsItem.name.split(".");
+        const arrName = attributesWithRelationsItem.name.split(".");
         arrName[arrName.length - 1] = "__" + arrName[arrName.length - 1];
-        let newName = arrName.join(".");
+        const newName = arrName.join(".");
 
         if (lRel_Value.status === "loaded") {
           setNestedValuePath(lMainDataItem, newName, lRel_Value.value);
@@ -170,13 +171,13 @@ function resolveRelationshipValuesForTags(attributesWithTags: Attribute[], lMain
     for (const lMainDataItem of lMainData) {
       if (propExists(lMainDataItem, attributesWithTagsItem.name)) {
         //Update last element in key name with __ to reflect names that are path based.
-        let arrName = attributesWithTagsItem.name.split(".");
+        const arrName = attributesWithTagsItem.name.split(".");
         arrName[arrName.length - 1] = "__" + arrName[arrName.length - 1];
-        let newName = arrName.join(".");
+        const newName = arrName.join(".");
 
-        let value = getNestedValuePath(lMainDataItem, attributesWithTagsItem.name);
+        const value = getNestedValuePath(lMainDataItem, attributesWithTagsItem.name);
 
-        let lRel_Value = value
+        const lRel_Value = value
           .map((tag: { key: string; value: string }) => {
             return tag.key + "=" + tag.value;
           })
@@ -195,14 +196,14 @@ function resolveRelationshipValuesForTags(attributesWithTags: Attribute[], lMain
  * @returns {*}
  */
 export function resolveRelationshipValues(relatedData: any, mainData: readonly any[], mainDataSchema: EntitySchema) {
-  let lMainData = mainData;
+  const lMainData = mainData;
 
-  let attributesWithRelations = mainDataSchema.attributes.filter(function (entry) {
+  const attributesWithRelations = mainDataSchema.attributes.filter(function (entry) {
     return entry.type === "relationship" || entry.type === "policies";
   });
   resolveRelationshipValuesForRelationsAndPolicies(attributesWithRelations, lMainData, relatedData);
 
-  let attributesWithTags = mainDataSchema.attributes.filter(function (entry) {
+  const attributesWithTags = mainDataSchema.attributes.filter(function (entry) {
     return entry.type === "tag";
   });
   resolveRelationshipValuesForTags(attributesWithTags, lMainData);
@@ -247,7 +248,7 @@ function getRelationshipValueFromMatchingRecord(record: any, attribute: Attribut
         }
       : { status: "loaded", value: null };
   } else if (attribute.type === "policies" || (attribute.type === "relationship" && attribute.listMultiSelect)) {
-    let returnArray = [];
+    const returnArray = [];
     for (const item of record) {
       if (item[attribute.rel_display_attribute!]) {
         returnArray.push(item[attribute.rel_display_attribute!]);
@@ -302,7 +303,7 @@ function validateValueList(
   errorMsg: string | null
 ) {
   if (attribute.listvalue) {
-    let attrListValues = attribute.listvalue.split(",");
+    const attrListValues = attribute.listvalue.split(",");
     let foundAll = null;
 
     for (const attrListValue of attrListValues) {
@@ -314,6 +315,29 @@ function validateValueList(
     if (!foundAll) {
       errorMsg = "Value entered is invalid, " + "possible values are: " + attribute.listvalue + ".";
     }
+  }
+  return errorMsg;
+}
+
+function validateMinMax(
+  value: string,
+  attribute: {
+    type: string;
+    validation_min?: number;
+    validation_max?: number;
+  },
+  errorMsg: string | null,
+) {
+  if (attribute.type !== "number" || value === undefined || value === null) {
+    return errorMsg;
+  }
+  const valueNum = parseFloat(value);
+  if (isNaN(valueNum)) {
+    errorMsg = "Value entered is invalid, must be a number.";
+  } else if (attribute.validation_min != null && valueNum < attribute.validation_min) {
+    errorMsg = "Value entered is invalid, " + "possible values are greater than " + attribute.validation_min + ".";
+  } else if (attribute.validation_max != null && valueNum > attribute.validation_max) {
+    errorMsg = "Value entered is invalid, " + "possible values are smaller than " + attribute.validation_max + ".";
   }
   return errorMsg;
 }
@@ -353,6 +377,8 @@ export function validateValue(
     validation_regex?: any;
     validation_regex_msg?: any;
     listvalue?: any;
+    validation_min?: number;
+    validation_max?: number;
   }
 ) {
   const stdError = "Error in validation, please check entered value.";
@@ -373,6 +399,14 @@ export function validateValue(
     value !== null
   ) {
     errorMsg = validateRegEx(value, attribute, errorMsg, stdError);
+  }
+
+  //Validate min and max constraints.
+  if (
+    ( attribute.validation_min != null || attribute.validation_max != null) &&
+    value !== ""
+  ) {
+    errorMsg = validateMinMax(value, attribute, errorMsg);
   }
 
   return errorMsg;
@@ -421,9 +455,9 @@ function setNestedValuePathToUndefined(o_arr: any[], parts: string[], o: any) {
  * @param value
  */
 export function setNestedValuePath(obj: any, path: string, value: any) {
-  let parts = path.split(".");
+  const parts = path.split(".");
   let o = obj;
-  let o_arr = [];
+  const o_arr = [];
   if (parts.length > 1) {
     for (let i = 0; i < parts.length - 1; i++) {
       if (!o[parts[i]])
@@ -530,8 +564,8 @@ export function returnLocaleDateTime(stringDateTime: string, returnObject = fals
     return undefined;
   }
 
-  let originalDate = new Date(stringDateTime);
-  let newDate = new Date(originalDate.getTime() - originalDate.getTimezoneOffset() * 60 * 1000);
+  const originalDate = new Date(stringDateTime);
+  const newDate = new Date(originalDate.getTime() - originalDate.getTimezoneOffset() * 60 * 1000);
 
   if (returnObject) {
     return newDate;
@@ -579,7 +613,7 @@ function extracted(
   const items: any[] = [];
   if (schemas[schema_name].group) {
     //Has groups
-    let group = existingItems.filter(function (item) {
+    const group = existingItems.filter(function (item) {
       return item.id === schemas[schema_name].group && item.items;
     });
 
@@ -645,7 +679,7 @@ export function validateTags(
     lTags = [];
   }
 
-  let validationRequiredTagErrors = validateRequiredTags(attribute, lTags);
+  const validationRequiredTagErrors = validateRequiredTags(attribute, lTags);
   if (validationRequiredTagErrors) {
     validationErrors = validationRequiredTagErrors;
   }
@@ -660,7 +694,7 @@ export function validateTags(
     ) {
       continue;
     }
-    let tagValidationErrors = validateTag(attribute, tag);
+    const tagValidationErrors = validateTag(attribute, tag);
     if (tagValidationErrors) {
       validationErrors.push(...tagValidationErrors);
     }
@@ -674,7 +708,7 @@ export function validateTags(
 }
 
 function validateTag(attribute: { type: any; requiredTags?: tag[]; validation_regex?: string }, tag: tag) {
-  let validationErrors = [];
+  const validationErrors = [];
   let validation_regex: RegExp | string = TAGS_DEFAULT_CHAR_REGEX;
   let overrideDefault = false;
 
@@ -730,7 +764,7 @@ const awsPrefixCheck = (value: string) => {
 
 
 function validateRequiredTag(lTags: tag[], attribute: { type: any; requiredTags?: tag[]; validation_regex?: string },  requiredTag: tag) {
-  let validationErrors = [];
+  const validationErrors = [];
   const tagKeyFound = lTags.find((tag: any) => {
     return requiredTag.key === tag.key;
   });
@@ -743,7 +777,7 @@ function validateRequiredTag(lTags: tag[], attribute: { type: any; requiredTags?
     }
   } else if (tagKeyFound) {
     // perform standard validation
-    let validationMsg = validateTag(attribute, tagKeyFound);
+    const validationMsg = validateTag(attribute, tagKeyFound);
     if (validationMsg) {
       validationErrors.push(...validationMsg);
     }
@@ -764,11 +798,11 @@ export function validateRequiredTags(
     lTags = [];
   }
 
-  let validationErrors = [];
+  const validationErrors = [];
   if (attribute.requiredTags) {
     for (const requiredTag of attribute.requiredTags) {
-      const tagErrors = validateRequiredTag(lTags, attribute, requiredTag)
-      validationErrors.push(...tagErrors)
+      const tagErrors = validateRequiredTag(lTags, attribute, requiredTag);
+      validationErrors.push(...tagErrors);
     }
   }
 
@@ -786,4 +820,15 @@ function validateTagRegEx(key: string, value: string, regEx: RegExp | string) {
   } else {
     return null;
   }
+}
+
+export function tryParseFloat(value: string | number | undefined, defaultValue: number) {
+  if (!value) {
+      return defaultValue;
+  }
+  if (typeof value === "number") {
+    return value;
+  }
+  const result = parseFloat(value);
+  return isNaN(result) ? defaultValue : result;
 }

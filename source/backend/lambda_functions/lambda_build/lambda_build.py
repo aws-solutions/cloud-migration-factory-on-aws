@@ -19,14 +19,18 @@ ADMIN_API = os.getenv('ADMIN_API')
 LOGIN_API = os.getenv('LOGIN_API')
 TOOLS_API = os.getenv('TOOLS_API')
 SSM_WS_API = os.getenv('SSM_WS_API')
+GENAI_WS_API = os.getenv('GENAI_WS_API')
 USER_POOL_ID = os.getenv('USER_POOL_ID')
 VPCE_API_ID = os.getenv('VPCE_API_ID')
 APP_CLIENT_ID = os.getenv('APP_CLIENT_ID')
 COGNITO_HOSTED_UI_URL = os.getenv('COGNITO_HOSTED_UI_URL')
 FRONTEND_BUCKET = os.getenv('FRONTEND_BUCKET')
+DATA_UPLOADS_BUCKET = os.getenv('DATA_UPLOADS_BUCKET')
 SOURCE_BUCKET = os.getenv('SOURCE_BUCKET')
 SOURCE_KEY = os.getenv('SOURCE_KEY')
 VERSION = os.getenv('SOLUTION_VERSION')
+GENAI_SUPPORTED = os.getenv('GENAI_SUPPORTED')
+ENABLED_MODULES = os.getenv('ENABLED_MODULES', '[]')
 
 FRONTEND_CONFIG_FILENAME = 'env.js'
 FRONTEND_INDEX_FILENAME = 'index.html'
@@ -38,10 +42,14 @@ PLACEHOLDER_ADMIN_API = '{{admin-api}}'
 PLACEHOLDER_LOGIN_API = '{{login-api}}'
 PLACEHOLDER_TOOLS_API = '{{tools-api}}'
 PLACEHOLDER_SSM_WS_API = '{{ssm-ws-api}}'
+PLACEHOLDER_GENAI_WS_API = '{{genai-ws-api}}'
+PLACEHOLDER_DATA_UPLOADS_BUCKET = '{{data-uploads-bucket}}'
 PLACEHOLDER_USER_POOL_ID = '{{user-pool-id}}'
 PLACEHOLDER_APP_CLIENT = '{{app-client-id}}'
 PLACEHOLDER_UI_VERSION = '{{version}}'
 PLACEHOLDER_VPCE = '{{vpce-id}}'
+PLACEHOLDER_GENAI_SUPPORTED = '{{genai-supported}}'
+PLACEHOLDER_ENABLED_MODULES = '{{enabled-modules}}'
 
 temp_directory_name = tempfile.gettempdir() + '/frontend/'
 temp_path = tempfile.gettempdir() + '/frontend.zip'
@@ -49,7 +57,6 @@ temp_path = tempfile.gettempdir() + '/frontend.zip'
 s3 = cmf_boto.client('s3')
 
 ZIP_MAX_SIZE = 500000000  # Set maximum size of uncompressed file to 500MBs. This is just under the /tmp max size of 512MB in Lambda.
-
 
 def get_files(directory_path):
     files = []
@@ -85,10 +92,13 @@ def update_configuration_file():
     config = config.replace(PLACEHOLDER_LOGIN_API, LOGIN_API)
     config = config.replace(PLACEHOLDER_TOOLS_API, TOOLS_API)
     config = config.replace(PLACEHOLDER_SSM_WS_API, SSM_WS_API)
+    config = config.replace(PLACEHOLDER_GENAI_WS_API, GENAI_WS_API)
     config = config.replace(PLACEHOLDER_USER_POOL_ID, USER_POOL_ID)
     config = config.replace(PLACEHOLDER_APP_CLIENT, APP_CLIENT_ID)
     config = config.replace(PLACEHOLDER_UI_VERSION, VERSION)
     config = config.replace(PLACEHOLDER_HOSTED_UI, COGNITO_HOSTED_UI_URL)
+    config = config.replace(PLACEHOLDER_GENAI_SUPPORTED, GENAI_SUPPORTED)
+    config = config.replace(PLACEHOLDER_ENABLED_MODULES, ENABLED_MODULES)
 
     with open(temp_directory_name + FRONTEND_CONFIG_FILENAME, "w", encoding='utf8') as w:
         w.write(config)
@@ -118,6 +128,8 @@ def update_index_html():
     index_html = index_html.replace(PLACEHOLDER_LOGIN_API, LOGIN_API)
     index_html = index_html.replace(PLACEHOLDER_TOOLS_API, TOOLS_API)
     index_html = index_html.replace(PLACEHOLDER_SSM_WS_API, SSM_WS_API)
+    index_html = index_html.replace(PLACEHOLDER_GENAI_WS_API, GENAI_WS_API)
+    index_html = index_html.replace(PLACEHOLDER_DATA_UPLOADS_BUCKET, DATA_UPLOADS_BUCKET)
 
     with open(temp_directory_name + FRONTEND_INDEX_FILENAME, "w", encoding='utf8') as w:
         w.write(index_html)

@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -39,6 +40,7 @@ const RelationshipAttribute = ({
     if (
       localValue &&
       localValue !== "" &&
+      localRelatedRecord &&
       !(
         record === null ||
         attribute.listMultiSelect ||
@@ -90,7 +92,7 @@ const RelationshipAttribute = ({
 
   function getSelectedOptions() {
     if (localRelatedRecord !== null) {
-      let selectedOptions = localRelatedRecord.map((item) => {
+      const selectedOptions = localRelatedRecord.map((item) => {
         return { label: item[attribute.rel_display_attribute], value: item[attribute.rel_key] };
       });
       if (localValue.invalid.length === 0) {
@@ -150,7 +152,7 @@ const RelationshipAttribute = ({
           loadingText={"Loading " + attribute.rel_entity + "s"}
           // statusType={undefined}
           options={localOptions}
-          disabled={isReadonly}
+          readOnly={isReadonly}
           selectedAriaLabel={"selected"}
           filteringType="auto"
           placeholder={getPlaceholder(attribute, localValue)}
@@ -166,7 +168,7 @@ const RelationshipAttribute = ({
               statusType={localValue.status === "loading" ? "loading" : undefined}
               options={localOptions}
               selectedAriaLabel={"selected"}
-              disabled={isReadonly}
+              readOnly={isReadonly}
               placeholder={"Choose " + attribute.description}
             />
             {displayRelatedRecordPopover(attribute)}

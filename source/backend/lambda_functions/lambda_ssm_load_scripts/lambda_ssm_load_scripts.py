@@ -226,7 +226,11 @@ def get_all_ddb_table_items(ddb_table_name):
     ddb_table_items = response['Items']
 
     while 'LastEvaluatedKey' in response:
-        response = client_ddb.scan(ExclusiveStartKey=response['LastEvaluatedKey'], ConsistentRead=True)
+        response = client_ddb.scan(
+            TableName=ddb_table_name,
+            ExclusiveStartKey=response['LastEvaluatedKey'],
+            ConsistentRead=True
+        )
         ddb_table_items.extend(response['Items'])
 
     return ddb_table_items

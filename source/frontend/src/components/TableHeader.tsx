@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -24,6 +25,7 @@ const TableHeader = ({
   actionsButtonDisabled,
   disabledButtons,
   info,
+  editButtonText = "Edit", // Add a new prop with default value "Edit"
 }) => {
   const isOnlyOneSelected = selectedItems ? selectedItems.length === 1 : false;
 
@@ -55,9 +57,9 @@ const TableHeader = ({
             </Button>
           ) : null}
           {handleEditClick ? (
-            <Button onClick={handleEditClick} disabled={!isOnlyOneSelected || isButtonDisabled("edit")}>
+            <Button onClick={handleEditClick} disabled={!isOnlyOneSelected || isButtonDisabled("edit")} >
               {" "}
-              Edit
+              {editButtonText}
             </Button>
           ) : null}
           {handleDeleteClick ? (

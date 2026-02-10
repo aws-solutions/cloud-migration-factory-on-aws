@@ -42,277 +42,295 @@ default_mock_os_environ = {
 }
 
 
+def create_and_populate_table(ddb_client, entity_name, table_name=None, pk_name=None, range_key=None, 
+                             additional_attributes=None, gsi_keys=None, data_file_name=None):
+    """
+    Generic function to create and populate a DynamoDB table based on entity name
+    
+    Args:
+        ddb_client: DynamoDB client
+        entity_name: Base entity name (e.g., 'wave', 'app')
+        table_name: Optional table name override (default: entity_name + 's')
+        pk_name: Optional primary key name override (default: entity_name + '_id')
+        range_key: Optional range key with format (name, type)
+        additional_attributes: List of additional attribute names to define
+        gsi_keys: List of GSI configurations
+        data_file_name: Optional JSON file with data to populate the table
+    """
+    try:
+        # Use conventions for table name and primary key
+        actual_table_name = table_name or f"{entity_name}s"
+        hash_key = pk_name or f"{entity_name}_id"
+        name_key = f"{entity_name}_name"
+        
+        # Check if table already exists
+        try:
+            ddb_client.describe_table(TableName=actual_table_name)
+            logger.info(f"Table {actual_table_name} already exists")
+        except ddb_client.exceptions.ResourceNotFoundException:
+            # Build key schema
+            key_schema = [{'AttributeName': hash_key, 'KeyType': 'HASH'}]
+            if range_key:
+                key_schema.append({'AttributeName': range_key[0], 'KeyType': 'RANGE'})
+            
+            # Build attribute definitions
+            attribute_definitions = [{'AttributeName': hash_key, 'AttributeType': 'S'},]
+            if name_key != hash_key:
+                attribute_definitions.append({'AttributeName': name_key, 'AttributeType': 'S'})
+            if range_key:
+                attribute_definitions.append({'AttributeName': range_key[0], 'AttributeType': range_key[1]})
+            
+            # Add additional attributes if specified
+            if additional_attributes:
+                for attr_name, attr_type in additional_attributes:
+                    if not any(attr['AttributeName'] == attr_name for attr in attribute_definitions):
+                        attribute_definitions.append({'AttributeName': attr_name, 'AttributeType': attr_type})
+            
+            # Build GSIs (including NameIndex GSI)
+            global_secondary_indexes = [{
+                "IndexName": "NameIndex",
+                "KeySchema": [{"AttributeName": name_key, "KeyType" : "HASH"}],
+                "Projection": { "ProjectionType": "KEYS_ONLY" }
+            }]
+            if gsi_keys:
+                for gsi in gsi_keys:
+                    gsi_hash = gsi.get('hash')
+                    gsi_name = gsi.get('name', f"{gsi_hash}-index")
+                    
+                    gsi_schema = [{'AttributeName': gsi_hash, 'KeyType': 'HASH'}]
+                    if 'range' in gsi:
+                        gsi_schema.append({'AttributeName': gsi['range'], 'KeyType': 'RANGE'})
+                    
+                    global_secondary_indexes.append({
+                        'IndexName': gsi_name,
+                        'KeySchema': gsi_schema,
+                        'Projection': {'ProjectionType': 'ALL'}
+                    })
+            
+            # Create table
+            create_params = {
+                'TableName': actual_table_name,
+                'BillingMode': 'PAY_PER_REQUEST',
+                'KeySchema': key_schema,
+                'AttributeDefinitions': attribute_definitions
+            }
+            
+            create_params['GlobalSecondaryIndexes'] = global_secondary_indexes
+                
+            ddb_client.create_table(**create_params)
+            
+            # Wait for table to be created
+            waiter = ddb_client.get_waiter('table_exists')
+            waiter.wait(TableName=actual_table_name)
+            logger.info(f"Created table {actual_table_name}")
+        
+        # Populate table if data file provided
+        if data_file_name:
+            populate_table(ddb_client, actual_table_name, data_file_name)
+        
+        return actual_table_name
+    except Exception as e:
+        logger.error(f"Error creating/populating table for entity {entity_name}: {str(e)}")
+        raise
+
+
+# Simplified table creation functions using the convention-based approach
 def create_and_populate_tasks(ddb_client, tasks_table_name, data_file_name='tasks.json'):
-    ddb_client.create_table(
-        TableName=tasks_table_name,
-        BillingMode='PAY_PER_REQUEST',
-        KeySchema=[
-            {'AttributeName': 'task_execution_id', 'KeyType': 'HASH'}
-        ],
-        AttributeDefinitions=[
-            {'AttributeName': 'task_execution_id', 'AttributeType': 'S'},
-            {'AttributeName': 'pipeline_id', 'AttributeType': 'S'},
-            {'AttributeName': 'task_id', 'AttributeType': 'S'},
-        ],
-        GlobalSecondaryIndexes=[
-            {"IndexName": "pipeline_id-index",
-             "KeySchema": [
-                 {"AttributeName": "pipeline_id", "KeyType": "HASH"},
-                 {"AttributeName": "task_id", "KeyType": "HASH"}
-             ],
-             "Projection": {
-                 "ProjectionType": "ALL"}
-             }
-        ]
+    create_and_populate_table(
+        ddb_client, 'task_execution', tasks_table_name,
+        additional_attributes=[('pipeline_id', 'S'), ('task_id', 'S')],
+        gsi_keys=[{'hash': 'pipeline_id', 'range': 'task_id'}],
+        data_file_name=data_file_name
     )
-    populate_table(ddb_client, tasks_table_name, data_file_name)
 
 
 def create_and_populate_servers(ddb_client, servers_table_name, data_file_name='servers.json'):
-    ddb_client.create_table(
-        TableName=servers_table_name,
-        BillingMode='PAY_PER_REQUEST',
-        KeySchema=[
-            {'AttributeName': 'server_id', 'KeyType': 'HASH'},
-        ],
-        AttributeDefinitions=[
-            {'AttributeName': 'server_id', 'AttributeType': 'S'},
-            {'AttributeName': 'app_id', 'AttributeType': 'S'},
-        ],
-        GlobalSecondaryIndexes=[
-            {'IndexName': 'app_id-index',
-             'KeySchema': [
-                 {'AttributeName': 'app_id', 'KeyType': 'HASH'}
-             ],
-             'Projection': {
-                 'ProjectionType': 'ALL'}
-             }
-        ]
+    create_and_populate_table(
+        ddb_client, 'server', servers_table_name,
+        data_file_name=data_file_name
     )
-    populate_table(ddb_client, servers_table_name, data_file_name)
 
 
 def create_and_populate_apps(ddb_client, apps_table_name, data_file_name='apps.json'):
-    ddb_client.create_table(
-        TableName=apps_table_name,
-        BillingMode='PAY_PER_REQUEST',
-        KeySchema=[
-            {'AttributeName': 'app_id', 'KeyType': 'HASH'},
-        ],
-        AttributeDefinitions=[
-            {'AttributeName': 'app_id', 'AttributeType': 'S'},
-        ],
-        GlobalSecondaryIndexes=[
-            {
-                'IndexName': 'app_id-index',
-                'KeySchema': [
-                    {
-                        'AttributeName': 'app_id',
-                        'KeyType': 'HASH'
-                    },
-                ],
-                'Projection': {
-                    'ProjectionType': 'ALL'
-                }
-            }
-        ]
+    create_and_populate_table(
+        ddb_client, 'app', apps_table_name,
+        data_file_name=data_file_name
     )
-    populate_table(ddb_client, apps_table_name, data_file_name)
+
+def create_and_populate_apps_ulid(ddb_client, apps_ulid_table_name, data_file_name='apps_ulid.json'):
+    create_and_populate_table(ddb_client, 'app_ulid', apps_ulid_table_name, data_file_name=data_file_name)
 
 
 def create_and_populate_pipeline_templates(ddb_client, table_name, data_file_name=None):
-    ddb_client.create_table(
-        TableName=table_name,
-        BillingMode='PAY_PER_REQUEST',
-        KeySchema=[
-            {'AttributeName': 'pipeline_template_id', 'KeyType': 'HASH'},
-        ],
-        AttributeDefinitions=[
-            {'AttributeName': 'pipeline_template_id', 'AttributeType': 'S'},
-        ],
-        GlobalSecondaryIndexes=[
-            {
-                'IndexName': 'pipeline_template_id-index',
-                'KeySchema': [
-                    {
-                        'AttributeName': 'pipeline_template_id',
-                        'KeyType': 'HASH'
-                    },
-                ],
-                'Projection': {
-                    'ProjectionType': 'ALL'
-                }
-            }
-        ]
+    create_and_populate_table(
+        ddb_client, 'pipeline_template', table_name,
+        data_file_name=data_file_name
     )
-    if data_file_name:
-        populate_table(ddb_client, table_name, data_file_name)
 
 
 def create_and_populate_pipeline_template_tasks(ddb_client, table_name, data_file_name=None):
-    ddb_client.create_table(
-        TableName=table_name,
-        BillingMode='PAY_PER_REQUEST',
-        KeySchema=[
-            {'AttributeName': 'pipeline_template_task_id', 'KeyType': 'HASH'},
-        ],
-        AttributeDefinitions=[
-            {'AttributeName': 'pipeline_template_task_id', 'AttributeType': 'S'},
-        ],
-        GlobalSecondaryIndexes=[
-            {
-                'IndexName': 'pipeline_template_task_id-index',
-                'KeySchema': [
-                    {
-                        'AttributeName': 'pipeline_template_task_id',
-                        'KeyType': 'HASH'
-                    },
-                ],
-                'Projection': {
-                    'ProjectionType': 'ALL'
-                }
-            }
-        ]
+    create_and_populate_table(
+        ddb_client, 'pipeline_template_task', table_name,
+        data_file_name=data_file_name
     )
-    if data_file_name:
-        populate_table(ddb_client, table_name, data_file_name)
+
 
 def create_and_populate_waves(ddb_client, waves_table_name, data_file_name='waves.json'):
-    ddb_client.create_table(
-        TableName=waves_table_name,
-        BillingMode='PAY_PER_REQUEST',
-        KeySchema=[
-            {'AttributeName': 'wave_id', 'KeyType': 'HASH'},
-        ],
-        AttributeDefinitions=[
-            {'AttributeName': 'wave_id', 'AttributeType': 'S'},
-        ]
+    create_and_populate_table(
+        ddb_client, 'wave', waves_table_name,
+        data_file_name=data_file_name
     )
-    populate_table(ddb_client, waves_table_name, data_file_name)
 
 
 def create_and_populate_schemas(ddb_client, schemas_table_name, data_file_name='schemas.json'):
-    ddb_client.create_table(
-        TableName=schemas_table_name,
-        BillingMode='PAY_PER_REQUEST',
-        KeySchema=[
-            {'AttributeName': 'schema_name', 'KeyType': 'HASH'},
-        ],
-        AttributeDefinitions=[
-            {'AttributeName': 'schema_name', 'AttributeType': 'S'},
-        ]
+    create_and_populate_table(
+        ddb_client, 'schema', schemas_table_name,
+        pk_name='schema_name',
+        data_file_name=data_file_name
     )
-    populate_table(ddb_client, schemas_table_name, data_file_name)
+    
+    # Add rule schema for testing
+    import boto3
+    schema_table = boto3.resource('dynamodb').Table(schemas_table_name)
+    schema_table.put_item(
+        Item={
+            'schema_name': 'rule',
+            'schema_type': 'user',
+            'attributes': [
+                {'name': 'rule_type', 'type': 'string', 'required': True},
+                {'name': 'rule_id', 'type': 'string', 'required': True},
+                {'name': 'rule_name', 'type': 'string', 'required': True},
+                {'name': 'status', 'type': 'string', 'required': True}
+            ]
+        }
+    )
 
 
 def create_and_populate_policies(ddb_client, policies_table_name, data_file_name='policies.json'):
-    ddb_client.create_table(
-        TableName=policies_table_name,
-        BillingMode='PAY_PER_REQUEST',
-        KeySchema=[
-            {'AttributeName': 'policy_id', 'KeyType': 'HASH'},
-        ],
-        AttributeDefinitions=[
-            {'AttributeName': 'policy_id', 'AttributeType': 'S'},
-        ]
+    create_and_populate_table(
+        ddb_client, 'policy', policies_table_name,
+        data_file_name=data_file_name
     )
-    populate_table(ddb_client, policies_table_name, data_file_name)
 
 
 def create_and_populate_roles(ddb_client, table_name, data_file_name='roles.json'):
-    ddb_client.create_table(
-        TableName=table_name,
-        BillingMode='PAY_PER_REQUEST',
-        KeySchema=[
-            {'AttributeName': 'role_id', 'KeyType': 'HASH'},
-        ],
-        AttributeDefinitions=[
-            {'AttributeName': 'role_id', 'AttributeType': 'S'},
-        ]
+    create_and_populate_table(
+        ddb_client, 'role', table_name,
+        data_file_name=data_file_name
     )
-    populate_table(ddb_client, table_name, data_file_name)
 
 
 def create_and_populate_ssm_jobs(ddb_client, table_name, data_file_name='ssm_jobs.json'):
-    ddb_client.create_table(
-        TableName=table_name,
-        BillingMode='PAY_PER_REQUEST',
-        KeySchema=[
-            {'AttributeName': 'SSMId', 'KeyType': 'HASH'},
-        ],
-        AttributeDefinitions=[
-            {'AttributeName': 'SSMId', 'AttributeType': 'S'},
-        ]
+    create_and_populate_table(
+        ddb_client, 'ssm', table_name,
+        pk_name='SSMId',
+        data_file_name=data_file_name
     )
-    populate_table(ddb_client, table_name, data_file_name)
 
 
 def create_and_populate_connection_ids(ddb_client, table_name, data_file_name='connection_ids.json'):
-    ddb_client.create_table(
-        TableName=table_name,
-        BillingMode='PAY_PER_REQUEST',
-        KeySchema=[
-            {'AttributeName': 'connectionId', 'KeyType': 'HASH'},
-        ],
-        AttributeDefinitions=[
-            {'AttributeName': 'connectionId', 'AttributeType': 'S'},
-        ]
+    create_and_populate_table(
+        ddb_client, 'connection', table_name,
+        pk_name='connectionId',
+        data_file_name=data_file_name
     )
-    populate_table(ddb_client, table_name, data_file_name)
 
 
 def create_and_populate_ssm_scripts(ddb_client, table_name, data_file_name='ssm_scripts.json'):
+    create_and_populate_table(
+        ddb_client, 'package', table_name,
+        pk_name='package_uuid',
+        range_key=('version', 'N'),
+        gsi_keys=[{'hash': 'version'}],
+        data_file_name=data_file_name
+    )
+
+
+def create_and_populate_pipelines(ddb_client, table_name, data_file_name='pipelines.json'):
+    create_and_populate_table(
+        ddb_client, 'pipeline', table_name,
+        data_file_name=data_file_name
+    )
+
+
+def create_and_populate_move_groups(ddb_client, table_name, data_file_name='move_groups.json'):
+    try:
+        # Check if table already exists
+        try:
+            ddb_client.describe_table(TableName=table_name)
+            print(f"Table {table_name} already exists")
+        except ddb_client.exceptions.ResourceNotFoundException:
+            # Create table if it doesn't exist
+            ddb_client.create_table(
+                TableName=table_name,
+                BillingMode='PAY_PER_REQUEST',
+                KeySchema=[
+                    {'AttributeName': 'move_group_id', 'KeyType': 'HASH'},
+                ],
+                AttributeDefinitions=[
+                    {'AttributeName': 'move_group_id', 'AttributeType': 'S'},
+                ]
+            )
+            # Wait for table to be created
+            waiter = ddb_client.get_waiter('table_exists')
+            waiter.wait(TableName=table_name)
+
+        # Populate table
+        populate_table(ddb_client, table_name, data_file_name)
+    except Exception as e:
+        print(f"Error creating/populating table {table_name}: {str(e)}")
+        raise
+
+
+def create_and_populate_wpm_jobs(ddb_client, table_name, data_file_name='wpm_jobs.json'):
     ddb_client.create_table(
         TableName=table_name,
         BillingMode='PAY_PER_REQUEST',
         KeySchema=[
-            {"AttributeName": "package_uuid", "KeyType": "HASH"},
-            {"AttributeName": "version", "KeyType": "RANGE"}
+            {'AttributeName': 'wpm_job_id', 'KeyType': 'HASH'},
         ],
         AttributeDefinitions=[
-            {"AttributeName": "package_uuid", "AttributeType": "S"},
-            {"AttributeName": "version", "AttributeType": "N"},
-        ],
-        GlobalSecondaryIndexes=[
-            {"IndexName": "version-index",
-             "KeySchema": [
-                 {"AttributeName": "version", "KeyType": "HASH"}
-             ],
-             "Projection": {
-                 "ProjectionType": "ALL"}
-             }
+            {'AttributeName': 'wpm_job_id', 'AttributeType': 'S'},
         ]
     )
     populate_table(ddb_client, table_name, data_file_name)
 
 
-def create_and_populate_pipelines(ddb_client, table_name, data_file_name='pipelines.json'):
-    ddb_client.create_table(
-        TableName=table_name,
-        BillingMode='PAY_PER_REQUEST',
-        KeySchema=[
-            {'AttributeName': 'pipeline_id', 'KeyType': 'HASH'},
-        ],
-        AttributeDefinitions=[
-            {'AttributeName': 'pipeline_id', 'AttributeType': 'S'},
-        ],
-        GlobalSecondaryIndexes=[
-            {
-                'IndexName': 'pipeline_id-index',
-                'KeySchema': [
-                    {
-                        'AttributeName': 'pipeline_id',
-                        'KeyType': 'HASH'
-                    },
+def create_and_populate_rules(ddb_client, table_name, data_file_name='rules.json'):
+    """Create rules table with composite key for testing"""
+    try:
+        # Check if table already exists
+        try:
+            ddb_client.describe_table(TableName=table_name)
+            logger.info(f"Table {table_name} already exists")
+        except ddb_client.exceptions.ResourceNotFoundException:
+            # Create table with composite key
+            ddb_client.create_table(
+                TableName=table_name,
+                BillingMode='PAY_PER_REQUEST',
+                KeySchema=[
+                    {'AttributeName': 'rule_type', 'KeyType': 'HASH'},
+                    {'AttributeName': 'rule_id', 'KeyType': 'RANGE'}
                 ],
-                'Projection': {
-                    'ProjectionType': 'ALL'
-                }
-            }
-        ]
-    )
-    if data_file_name:
-        populate_table(ddb_client, table_name, data_file_name)
+                AttributeDefinitions=[
+                    {'AttributeName': 'rule_type', 'AttributeType': 'S'},
+                    {'AttributeName': 'rule_id', 'AttributeType': 'S'}
+                ]
+            )
+            # Wait for table to be created
+            waiter = ddb_client.get_waiter('table_exists')
+            waiter.wait(TableName=table_name)
+            logger.info(f"Created table {table_name}")
+        
+        # Populate table if data file exists
+        if data_file_name:
+            try:
+                populate_table(ddb_client, table_name, data_file_name)
+            except FileNotFoundError:
+                logger.info(f"Data file {data_file_name} not found, skipping population")
+    except Exception as e:
+        logger.error(f"Error creating/populating table {table_name}: {str(e)}")
+        raise
 
 
 def populate_table(ddb_client, table_name, data_file_name):
@@ -372,16 +390,16 @@ def set_cors_flag(test_package: str, value=True):
 test_account_id = '111111111111'
 
 
-def mock_get_mf_auth_policy_allow(obj, event, schema):
-    logger.debug(f'mock_get_user_resource_creation_policy_allow({obj}, {event}, {schema})')
+def mock_get_mf_auth_policy_allow(event, schema):
+    logger.debug(f'mock_get_user_resource_creation_policy_allow({event}, {schema})')
     return {'action': 'allow', 'user': 'testuser@example.com'}
 
 
-def mock_get_mf_auth_policy_allow_no_user(obj, event, schema):
-    logger.debug(f'mock_get_user_resource_creation_policy_allow_no_user({obj}, {event}, {schema})')
+def mock_get_mf_auth_policy_allow_no_user(event, schema):
+    logger.debug(f'mock_get_user_resource_creation_policy_allow_no_user({event}, {schema})')
     return {'action': 'allow'}
 
 
-def mock_get_mf_auth_policy_default_deny(obj, event, schema):
-    logger.debug(f'mock_get_user_resource_creation_policy_default_deny({obj}, {event}, {schema})')
+def mock_get_mf_auth_policy_default_deny(event, schema):
+    logger.debug(f'mock_get_user_resource_creation_policy_default_deny({event}, {schema})')
     return {'action': 'deny', 'cause': 'Request is not Authenticated'}

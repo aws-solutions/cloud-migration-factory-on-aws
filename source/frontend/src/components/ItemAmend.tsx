@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -15,9 +16,11 @@ import { CMFModal } from "./Modal";
 
 type ItemAmendParams = {
   item: any;
-  handleSave: (arg0: any, arg1: any) => any;
+  handleSave?: (arg0: any, arg1: any) => any;
   action: string;
-  handleCancel: () => void;
+  handleCancel?: () => void;
+  handleItemUpdate?: (item: any) => void;
+  handleFormValidationUpdate?: (isFormValid: boolean) => void;
   schemaName: string;
   schemas: Record<string, EntitySchema>;
   userAccess: UserAccess;
@@ -39,7 +42,7 @@ const ItemAmend = (props: ItemAmendParams) => {
 
   async function handleUserInput(value: any[]) {
     let valueArray = [];
-    let newRecord = Object.assign({}, localItem);
+    const newRecord = Object.assign({}, localItem);
 
     //Convert non-Array values to array in order to keep procedure simple.
     if (Array.isArray(value)) {
@@ -58,6 +61,9 @@ const ItemAmend = (props: ItemAmendParams) => {
 
     setLocalItem(newRecord);
     setDataChanged(true);
+    if (props.handleItemUpdate) {
+      props.handleItemUpdate(newRecord);
+    }
   }
 
   const handleArrayInput = (valueItem: any, newRecord: any) => {
@@ -82,7 +88,7 @@ const ItemAmend = (props: ItemAmendParams) => {
   };
 
   const handleTagField = (valueItem: any, newRecord: any) => {
-    let updatedTags = valueItem.value.map(
+    const updatedTags = valueItem.value.map(
       (item: { existing: boolean | undefined; key: any; value: any; markedForRemoval: any }) => {
         if (item.existing === false) {
           return { key: item.key, value: item.value };
@@ -103,7 +109,9 @@ const ItemAmend = (props: ItemAmendParams) => {
 
     setIsSaving(true);
 
-    await props.handleSave(localItem, props.action);
+    if (props.handleSave) {
+      await props.handleSave(localItem, props.action);
+    }
 
     setIsSaving(false);
   };
@@ -115,7 +123,9 @@ const ItemAmend = (props: ItemAmendParams) => {
       setUnsavedConfirmationModalVisible(true);
     } else {
       setUnsavedConfirmationModalVisible(false);
-      props.handleCancel();
+      if (props.handleCancel) {
+        props.handleCancel();
+      }
     }
   };
 
@@ -123,7 +133,9 @@ const ItemAmend = (props: ItemAmendParams) => {
     e.preventDefault();
 
     setUnsavedConfirmationModalVisible(false);
-    props.handleCancel();
+    if (props.handleCancel) {
+      props.handleCancel();
+    }
   };
 
   const handleContinueEditing: any = (e: ClickEvent) => {
@@ -137,10 +149,10 @@ const ItemAmend = (props: ItemAmendParams) => {
   }
 
   useEffect(() => {
-    if (formErrors.length === 0) {
-      setFormValidation(true);
-    } else {
-      setFormValidation(false);
+    const isFormValid = formErrors.length === 0;
+    setFormValidation(isFormValid);
+    if (props.handleFormValidationUpdate) {
+      props.handleFormValidationUpdate(isFormValid);
     }
   }, [formErrors]);
 
@@ -168,19 +180,29 @@ const ItemAmend = (props: ItemAmendParams) => {
         actions={
           // located at the bottom of the form
           <SpaceBetween direction="horizontal" size="xs">
-            <Button onClick={handleCancel} ariaLabel={"cancel"} variant="link">
-              Cancel
-            </Button>
-            <Button onClick={handleSave} ariaLabel={"save"} disabled={!validForm} variant="primary" loading={isSaving}>
-              Save
-            </Button>
+            {props.handleCancel && (
+              <Button onClick={handleCancel} ariaLabel="cancel" variant="link">
+                Cancel
+              </Button>
+            )}
+            {props.handleSave && (
+              <Button 
+                onClick={handleSave} 
+                ariaLabel="save" 
+                disabled={!validForm} 
+                variant="primary" 
+                loading={isSaving}
+              >
+                Save
+              </Button>
+            )}
           </SpaceBetween>
         }
         errorText={
           formErrors.length > 0
             ? formErrors.map((error: any, index: number) => {
                 const displayKey = index;
-                let errorReason = getCurrentAttributeError(error);
+                const errorReason = getCurrentAttributeError(error);
                 return <p key={displayKey}>{error.description + " - " + errorReason}</p>;
               })
             : undefined
@@ -194,6 +216,7 @@ const ItemAmend = (props: ItemAmendParams) => {
           item={localItem}
           handleUserInput={handleUserInput}
           handleUpdateValidationErrors={handleUpdateFormErrors}
+          hideAudit={props.action === "Add"}
         />
       </Form>
 

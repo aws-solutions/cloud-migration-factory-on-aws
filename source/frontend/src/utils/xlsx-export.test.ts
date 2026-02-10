@@ -62,7 +62,6 @@ test("exports an array of objects to an excel spreadsheet where object contains 
   // GIVEN
   const items = generateTestApps(2);
 
-  // @ts-ignore
   items[0].os_state = "-".repeat(32769);
 
   // WHEN
@@ -84,7 +83,6 @@ test("exports an array of objects to an excel spreadsheet with a object containi
   // GIVEN
   const items = generateTestApps(2);
 
-  // @ts-ignore
   items[0].sg_test = ["test1", "test2"];
 
   // WHEN

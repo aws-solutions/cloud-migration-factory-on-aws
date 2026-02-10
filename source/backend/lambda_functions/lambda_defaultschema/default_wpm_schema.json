@@ -1,0 +1,1235 @@
+[
+  {
+    "schema_name": {
+      "S": "rule"
+    },
+    "schema_type": {
+      "S": "user"
+    },
+    "attributes": {
+      "L": [
+        {
+          "M": {
+            "name": {
+              "S": "rule_id"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Rule Identifier"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "hidden": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "rule_name"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Rule Name"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "rule_type"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Rule Type"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "listvalue": {
+              "S": "WPM_JOB,GROUPING_INCLUSIVE,GROUPING_EXCLUSIVE,PRIORITIZING"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "rule_description"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Rule Description"
+            },
+            "required": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "group_order"
+            },
+            "type": {
+              "S": "number"
+            },
+            "description": {
+              "S": "Group Order"
+            },
+            "required": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "status"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Rule Status"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "listvalue": {
+              "S": "ENABLED,DISABLED"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "relationships"
+            },
+            "type": {
+              "S": "list"
+            },
+            "description": {
+              "S": "relationships"
+            },
+            "required": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "sub_type"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Rule Sub Type"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "listvalue": {
+              "S": "SCORING,SORTING"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "asset_type"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Asset Type"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "listvalue": {
+              "S": "app,server,database"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "attr_key"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Attribute Key"
+            },
+            "required": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "scoring_criteria"
+            },
+            "type": {
+              "S": "list"
+            },
+            "description": {
+              "S": "Scoring Criteria"
+            },
+            "required": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "sort_order"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Sort Order"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "listvalue": {
+              "S": "ASC,DSC"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "sort_level"
+            },
+            "type": {
+              "S": "number"
+            },
+            "description": {
+              "S": "Sort Level"
+            },
+            "required": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "sort_by_value"
+            },
+            "type": {
+              "S": "list"
+            },
+            "description": {
+              "S": "Sort By Value"
+            },
+            "required": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "isDefault"
+            },
+            "type": {
+              "S": "boolean"
+            },
+            "description": {
+              "S": "Is Default Rule"
+            },
+            "required": {
+              "BOOL": false
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "schema_name": {
+      "S": "wpm_job"
+    },
+    "friendly_name": {
+      "S": "Wave Planning Job"
+    },
+    "schema_type": {
+      "S": "user"
+    },
+    "attributes": {
+      "L": [
+        {
+          "M": {
+            "name": {
+              "S": "wpm_job_id"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Job Identifier"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "hidden": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "wpm_job_name"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Job Name"
+            },
+            "group_order": {
+              "S": "-1"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "nomination_app_count"
+            },
+            "type": {
+              "S": "number"
+            },
+            "description": {
+              "S": "Nomination Application Count"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "validation_min": {
+              "N": "1"
+            },
+            "validation_max": {
+              "N": "100"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "wave_server_capacity"
+            },
+            "type": {
+              "S": "number"
+            },
+            "description": {
+              "S": "Max Wave Server Capacity"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "validation_min": {
+              "N": "1"
+            },
+            "validation_max": {
+              "N": "1000"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "wave_storage_capacity"
+            },
+            "type": {
+              "S": "number"
+            },
+            "description": {
+              "S": "Wave Storage Capacity"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "validation_min": {
+              "N": "1"
+            },
+            "validation_max": {
+              "N": "1000000"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "starting_wave_server_capacity"
+            },
+            "type": {
+              "S": "number"
+            },
+            "description": {
+              "S": "Starting Wave Server Capacity"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "validation_min": {
+              "N": "1"
+            },
+            "validation_max": {
+              "N": "1000"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "wave_server_capacity_increase"
+            },
+            "type": {
+              "S": "number"
+            },
+            "description": {
+              "S": "Wave Server Capacity Increase"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "validation_min": {
+              "N": "1"
+            },
+            "validation_max": {
+              "N": "1000"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "move_group_ids"
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "description": {
+              "S": "Group Identifiers"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "rel_entity": {
+              "S": "move_group"
+            },
+            "rel_key": {
+              "S": "move_group_id"
+            },
+            "rel_display_attribute": {
+              "S": "move_group_name"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "wave_ids"
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "description": {
+              "S": "Wave Identifiers"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "data_changed_flag"
+            },
+            "type": {
+              "S": "boolean"
+            },
+            "description": {
+              "S": "Data Changed Flag"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "hidden": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Current step"
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "current_step"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "schema_name": {
+      "S": "move_group"
+    },
+    "schema_type": {
+      "S": "user"
+    },
+    "attributes": {
+      "L": [
+        {
+          "M": {
+            "name": {
+              "S": "move_group_id"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Move Group Id"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "hidden": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "move_group_name"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Move Group Name"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-100"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "wpm_job_id"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "description": {
+              "S": "WPM Job"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "rel_entity": {
+              "S": "wpm_job"
+            },
+            "rel_key": {
+              "S": "wpm_job_id"
+            },
+            "rel_display_attribute": {
+              "S": "wpm_job_name"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "WPM Job"
+                },
+                "content_html": {
+                  "S": "ID of the wave planning job associated with this move group. This field is readonly and automatically set by WPM Job Wizard."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "server_count"
+            },
+            "type": {
+              "S": "number"
+            },
+            "description": {
+              "S": "Server Count"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-60"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Server Count"
+                },
+                "content_html": {
+                  "S": "Number of servers related to this move group."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "total_server_storage"
+            },
+            "type": {
+              "S": "number"
+            },
+            "description": {
+              "S": "Total Server Storage"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-50"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Total Server Storage"
+                },
+                "content_html": {
+                  "S": "Total storage of servers related to this move group."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "complexity_score"
+            },
+            "type": {
+              "S": "number"
+            },
+            "description": {
+              "S": "Complexity Score"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-80"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Complexity Score"
+                },
+                "content_html": {
+                  "S": "Total complexity score of applications related to this move group."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "wave_id"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "description": {
+              "S": "Wave"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "group_order": {
+              "S": "-90"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "app_ids"
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "description": {
+              "S": "Related Applications"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "rel_entity": {
+              "S": "app"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-30"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Related Applications"
+                },
+                "content_html": {
+                  "S": "Applications related to this move group. To modify, edit the related asset instead."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "server_ids"
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "description": {
+              "S": "Related Servers"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "rel_entity": {
+              "S": "server"
+            },
+            "rel_key": {
+              "S": "server_id"
+            },
+            "rel_display_attribute": {
+              "S": "server_name"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-70"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Related Servers"
+                },
+                "content_html": {
+                  "S": "Servers related to this move group. To modify, edit the server instead."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "database_ids"
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "description": {
+              "S": "Related Databases"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "rel_entity": {
+              "S": "database"
+            },
+            "rel_key": {
+              "S": "database_id"
+            },
+            "rel_display_attribute": {
+              "S": "database_name"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-40"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Related Databases"
+                },
+                "content_html": {
+                  "S": "Databases related to this move group. To modify, edit the database instead."
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "schema_name": {
+      "S": "move_group_request"
+    },
+    "schema_type": {
+      "S": "user"
+    },
+    "attributes": {
+      "L": [
+        {
+          "M": {
+            "name": {
+              "S": "move_group_request_id"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "MoveGroupRequest Identifier"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "hidden": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "move_group_request_name"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "MoveGroupRequest Name"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "wpm_job_id"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "description": {
+              "S": "WPM Job Identifier"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "rel_entity": {
+              "S": "wpm_job"
+            },
+            "rel_key": {
+              "S": "wpm_job_id"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "app_ids"
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "description": {
+              "S": "Application Identifiers"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "rel_entity": {
+              "S": "app"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "move_group_ids"
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "description": {
+              "S": "MoveGroup Identifiers"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "rel_entity": {
+              "S": "move_group"
+            },
+            "rel_key": {
+              "S": "move_group_id"
+            },
+            "rel_display_attribute": {
+              "S": "move_group_name"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "status"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "MoveGroupRequest Status"
+            },
+            "required": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "errorMessage"
+            },
+            "type": {
+              "S": "string"
+            },
+            "description": {
+              "S": "Error Message"
+            },
+            "required": {
+              "BOOL": false
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "schema_name": {
+      "S": "data_source"
+    },
+    "schema_type": {
+      "S": "user"
+    },
+    "friendly_name": {
+      "S": "Data Source"
+    },
+    "attributes": {
+      "L": [
+        {
+          "M": {
+            "description": {
+              "S": "Data Source Id"
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "data_source_id"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Data Source Name"
+            },
+            "name": {
+              "S": "data_source_name"
+            },
+            "type": {
+              "S": "string"
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).{1,255}$"
+            },
+            "validation_regex_msg": {
+              "S": "Data source name must be specified, and be a maximum of 255 characters."
+            },
+            "group_order": {
+              "S": "-1000"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Data Source Description"
+            },
+            "name": {
+              "S": "data_source_description"
+            },
+            "type": {
+              "S": "string"
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).{0,500}$"
+            },
+            "validation_regex_msg": {
+              "S": "Data source description must be a maximum of 500 characters."
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Data Source Type"
+            },
+            "name": {
+              "S": "data_source_type"
+            },
+            "type": {
+              "S": "list"
+            },
+            "listvalue": {
+              "S": "File,ADS"
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).+"
+            },
+            "validation_regex_msg": {
+              "S": "Please select a valid data source type."
+            },
+            "required": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "File Name"
+            },
+            "name": {
+              "S": "file_name"
+            },
+            "type": {
+              "S": "string"
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).{1,255}$"
+            },
+            "validation_regex_msg": {
+              "S": "File name must be specified, and be a maximum of 255 characters."
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Header Mappings"
+            },
+            "name": {
+              "S": "header_mappings"
+            },
+            "type": {
+              "S": "json"
+            },
+            "validation_regex_msg": {
+              "S": "Header mappings must be a valid JSON object."
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Header Mappings"
+                },
+                "content_html": {
+                  "S": "Define mappings between source headers and target headers in JSON format. Format should follow: {\"sheet_name\": {\"asset_type\": [{\"data_source_header\": \"string\", \"target_header\": \"string\"}]}}"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+]

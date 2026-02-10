@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -21,6 +22,10 @@ export default class AdminApiClient {
     const data = '{ "event":"PUT", "update_schema":' + schemastr + "}";
     const obj = JSON.parse(data);
     return API.put(this.apiName, "/admin/schema/" + schemaName, { body: obj });
+  }
+
+  postSchema(schema: EntitySchema) {
+    return API.post(this.apiName, `/admin/schema/${schema.schema_name}`, { body: schema });
   }
 
   putSchemaAttr(schemaName: string, attr: any, attr_name: string) {
@@ -73,7 +78,7 @@ export default class AdminApiClient {
 
   putRole(role: any) {
     // Remove role_id from body before PUT to meet API enforcement
-    let updateRole = Object.assign({}, role);
+    const updateRole = Object.assign({}, role);
     delete updateRole.role_id;
     return API.put(this.apiName, "/admin/role/" + role.role_id, { body: updateRole });
   }

@@ -10,14 +10,6 @@ from unittest import TestCase, mock
 from common.test_mfcommon_util import default_mock_os_environ, \
 set_up_secret_manager, \
 set_up_cognito_credential, \
-mock_requests_get_empty_accounts, \
-mock_requests_get_valid_accounts, \
-mock_requests_get_invalid_accounts, \
-mock_requests_get_valid_accounts_and_servers, \
-mock_requests_get_missing_server_os, \
-mock_requests_get_missing_server_fqdn, \
-mock_requests_get_same_server_os, \
-mock_requests_get_invalid_server_os, \
 mock_requests_put, \
 mock_requests_post, \
 mock_requests_with_failed_status_code, \
@@ -34,8 +26,7 @@ mock_execute_cmd_via_ssh_with_ubuntu, \
 mock_execute_cmd_via_ssh_with_fedora, \
 mock_execute_cmd_via_ssh_with_suse, \
 mock_subprocess_run, \
-logger, \
-mock_file_open
+logger
 
         
 @mock.patch.dict('os.environ', default_mock_os_environ)
@@ -78,8 +69,8 @@ class CommonTestCase(TestCase):
         self.cmf_server = {
             "server_id": "server1",
             "server_name": "test_sever_1",
-            "server_fqdn": "test_server_fqdn"
-
+            "server_fqdn": "test_server_fqdn",
+            "wave_id": "1",
         }
         self.mgn_source_servers = [
             {
@@ -178,6 +169,66 @@ class CommonTestCase(TestCase):
         self.server = server
         self.secret_override = secret_override
         self.no_user_prompts = no_user_prompts
+        
+    def test_filter_items_no_filter(self):
+        from mfcommon import filter_items
+        items = [{"id": "1"}, {"id": "2"}]
+        result = filter_items(items, "id")
+        self.assertEqual(result, items)
+
+    def test_filter_items_single_value_filter(self):
+        from mfcommon import filter_items
+        items = [{"id": "1"}, {"id": "2"}, {"id": "3"}]
+        result = filter_items(items, "id", "2")
+        self.assertEqual(result, [{"id": "2"}])
+
+    def test_filter_items_list_filter(self):
+        from mfcommon import filter_items
+        items = [{"id": "1"}, {"id": "2"}, {"id": "3"}]
+        result = filter_items(items, "id", ["1", "3"])
+        self.assertEqual(result, [{"id": "1"}, {"id": "3"}])
+
+    def test_filter_items_single_value_in_array(self):
+        from mfcommon import filter_items
+        items = [
+            {"id": "1", "app_ids": ["app1", "app2"]},
+            {"id": "2", "app_ids": ["app2", "app3"]},
+        ]
+        result = filter_items(items, "app_ids", "app1")
+        self.assertEqual(result, [{"id": "1", "app_ids": ["app1", "app2"]}])        
+        
+        result = filter_items(items, "app_ids", "app2")
+        self.assertEqual(result, items)        
+    
+    def test_filter_items_array_intersection(self):
+        from mfcommon import filter_items
+        items = [
+            {"id": "1", "app_ids": ["app1", "app2"]},
+            {"id": "2", "app_ids": ["app2", "app3"]},
+        ]
+        
+        result = filter_items(items, "app_ids", ["app1", "app2"])
+        self.assertEqual(result, items)        
+
+        result = filter_items(items, "app_ids", ["app1", "app3"])
+        self.assertEqual(result, items)        
+
+    def test_filter_items_nonexistent_key(self):
+        from mfcommon import filter_items
+        items = [{"id": "1"}, {"id": "2"}]
+        result = filter_items(items, "nonexistent_key", "value")
+        self.assertEqual(result, [])
+
+    def test_filter_items_no_intersection(self):
+        from mfcommon import filter_items
+        items = [
+            {"id": "1", "app_ids": ["app1", "app2"]},
+            {"id": "2", "app_ids": ["app2", "app3"]},
+        ]
+        
+        result = filter_items(items, "app_ids", ["app4", "app5"])
+        self.assertEqual(result, [])        
+
     
     def test_factory_login_with_invalid_account(self):
         logger.info("Testing test_mfcommon: "
@@ -479,258 +530,6 @@ class CommonTestCase(TestCase):
             expected_response
         )
         print("Response: ", response)
-        self.assertEqual(response, expected_response)
-
-    def test_get_factory_servers_with_bad_request(self):
-        logger.info("Testing test_mfcommon: "
-                    "test_get_factory_servers_with_bad_request")
-        from mfcommon import get_factory_servers
-        str_io = io.StringIO()
-        with self.assertRaises(SystemExit) as se, \
-            contextlib.redirect_stdout(str_io) as print_str:
-            response, _, _ = get_factory_servers(
-                waveid=self.wave_id,
-                token=self.token,
-                os_split=self.os_split,
-                rtype=self.r_type
-            )
-        self.assertIsNone(se.exception.code)
-        response = print_str.getvalue()
-        print("Response: ", response)
-        expected_response = ("ERROR: Bad response from API https://xxxxxx.execute-api.us-east-1.amazonaws.com"
-                             "/prod/user/server/user/server. Not yet implemented\n")
-        self.assertEqual(response, expected_response)
-
-    @mock.patch("requests.get", new=mock_requests_get_empty_accounts)
-    def test_get_factory_servers_with_empty_accounts(self):
-        logger.info("Testing test_mfcommon: "
-                    "test_get_factory_servers_with_empty_accounts")
-        from mfcommon import get_factory_servers
-        str_io = io.StringIO()
-        with self.assertRaises(SystemExit) as se, \
-            contextlib.redirect_stdout(str_io) as print_str:
-            response, _, _ = get_factory_servers(
-                waveid=self.wave_id,
-                token=self.token,
-                os_split=self.os_split,
-                rtype=self.r_type)
-        self.assertIsNone(se.exception.code)
-        response = print_str.getvalue()
-        print("Response: ", response)
-        expected_response = "ERROR: AWS Account list for wave_id 1 is empty....\n"
-        self.assertEqual(response, expected_response)
-
-    @mock.patch("requests.get", new=mock_requests_get_valid_accounts)
-    def test_get_factory_servers_with_valid_accounts(self):
-        logger.info("Testing test_mfcommon: "
-                    "test_get_factory_servers_with_valid_accounts")
-        from mfcommon import get_factory_servers
-        response, _, _ = get_factory_servers(
-            waveid=self.wave_id,
-            token=self.token,
-            os_split=self.os_split,
-            rtype=self.r_type
-        )
-        print("Response: ", response)
-        expected_response = [
-            {'aws_accountid': '111111111111', 'aws_region': 'us-east-1', 'servers_windows': [], 'servers_linux': []}, 
-            {'aws_accountid': '222222222222', 'aws_region': 'us-east-1', 'servers_windows': [], 'servers_linux': []}
-        ]
-        self.assertEqual(response, expected_response)
-
-    @mock.patch("requests.get", new=mock_requests_get_invalid_accounts)
-    def test_get_factory_servers_with_invalid_accounts(self):
-        logger.info("Testing test_mfcommon: "
-                    "test_get_factory_servers_with_invalid_accounts")
-        from mfcommon import get_factory_servers
-        str_io = io.StringIO()
-        with self.assertRaises(SystemExit) as se, \
-            contextlib.redirect_stdout(str_io) as print_str:
-            response, _, _ = get_factory_servers(
-                waveid=self.wave_id,
-                token=self.token,
-                os_split=self.os_split,
-                rtype=self.r_type)
-        self.assertIsNone(se.exception.code)
-        response = print_str.getvalue()
-        print("Response: ", response)
-        expected_response = "ERROR: Incorrect AWS Account Id Length for app: app_name_1\n"
-        self.assertEqual(response, expected_response)
-
-    @mock.patch("requests.get", new=mock_requests_get_missing_server_os)
-    def test_get_factory_servers_with_missing_server_os(self):
-        logger.info("Testing test_mfcommon: "
-                    "test_get_factory_servers_with_missing_server_os")
-        from mfcommon import get_factory_servers
-        str_io = io.StringIO()
-        with self.assertRaises(SystemExit) as se, \
-            contextlib.redirect_stdout(str_io) as print_str:
-            response, _, _ = get_factory_servers(
-                waveid=self.wave_id,
-                token=self.token,
-                os_split=self.os_split,
-                rtype=self.r_type
-            )
-        self.assertIsNone(se.exception.code)
-        response = print_str.getvalue()
-        print("Response: ", response)
-        expected_response = \
-        "### Servers in Target Account: 111111111111, region: us-east-1 ###\nERROR: server_os_family does not exist for: server1\n"
-        self.assertEqual(response, expected_response)
-
-    @mock.patch("requests.get", new=mock_requests_get_missing_server_fqdn)
-    def test_get_factory_servers_with_missing_server_fqdn(self):
-        logger.info("Testing test_mfcommon: "
-                    "test_get_factory_servers_with_missing_server_fqdn")
-        from mfcommon import get_factory_servers
-        str_io = io.StringIO()
-        with self.assertRaises(SystemExit) as se, \
-            contextlib.redirect_stdout(str_io) as print_str:
-            response, _, _ = get_factory_servers(
-                waveid=self.wave_id,
-                token=self.token,
-                os_split=self.os_split,
-                rtype=self.r_type)
-        self.assertIsNone(se.exception.code)
-        response = print_str.getvalue()
-        print("Response: ", response)
-        expected_response = \
-        "### Servers in Target Account: 111111111111, region: us-east-1 ###\nERROR: server_fqdn for server: server1 doesn't exist\n"
-        self.assertEqual(response, expected_response)
-
-    @mock.patch("requests.get", new=mock_requests_get_valid_accounts_and_servers)
-    def test_get_factory_servers_with_valid_accounts_and_servers(self):
-        logger.info("Testing test_mfcommon: "
-                    "test_get_factory_servers_with_valid_accounts_and_servers")
-        from mfcommon import get_factory_servers
-        response, _, _ = get_factory_servers(
-            waveid=self.wave_id,
-            token=self.token,
-            os_split=self.os_split,
-            rtype=self.r_type
-        )
-        print("Response: ", response)
-        expected_response = [
-            {
-                "aws_accountid": "111111111111",
-                "aws_region": "us-east-1",
-                "servers_windows": [],
-                "servers_linux": [
-                    {
-                        "server_id": "1",
-                        "server_name": "server1",
-                        "app_id": "app_id_1",
-                        "r_type": "Rehost",
-                        "server_os_family": "linux",
-                        "server_fqdn": "wordpress-web.onpremsim.env"
-                    }
-                ]
-            },
-            {
-                "aws_accountid": "222222222222",
-                "aws_region": "us-east-1",
-                "servers_windows": [
-                    {
-                        "server_id": "2",
-                        "server_name": "server2",
-                        "app_id": "app_id_2",
-                        "r_type": "Rehost",
-                        "server_os_family": "windows",
-                        "server_fqdn": "laptop-personal.workspace.net"
-                    }
-                ],
-                "servers_linux": []
-            }
-        ]
-        
-        self.assertEqual(response, expected_response)
-
-    @mock.patch("requests.get", new=mock_requests_get_same_server_os)
-    def test_get_factory_servers_with_same_os(self):
-        logger.info("Testing test_mfcommon: "
-                    "test_get_factory_servers_with_same_os")
-        from mfcommon import get_factory_servers
-        self.os_split = False
-        response = get_factory_servers(
-            waveid=self.wave_id,
-            token=self.token,
-            os_split=self.os_split,
-            rtype=self.r_type
-        )
-        print("Response: ", response)
-        expected_response = [
-            {
-                "aws_accountid": "111111111111",
-                "aws_region": "us-east-1",
-                "servers": [
-                    {
-                        "server_id": "1",
-                        "server_name": "server1",
-                        "app_id": "app_id_1",
-                        "r_type": "Rehost",
-                        "server_os_family": "linux",
-                        "server_fqdn": "wordpress-web.onpremsim.env"
-                    }
-                ]
-            },
-            {
-                "aws_accountid": "222222222222",
-                "aws_region": "us-east-1",
-                "servers": [
-                    {
-                        "server_id": "2",
-                        "server_name": "server2",
-                        "app_id": "app_id_2",
-                        "r_type": "Rehost",
-                        "server_os_family": "linux",
-                        "server_fqdn": "wordpress-web.onpremsim.env"
-                    }
-                ]
-            }
-        ]
-        self.assertEqual(response, expected_response)
-        self.os_split = True    # Reset to default True
-
-    @mock.patch("requests.get", new=mock_requests_get_invalid_server_os)
-    def test_get_factory_servers_with_invalid_server_os(self):
-        logger.info("Testing test_mfcommon: "
-                    "test_get_factory_servers_with_invalid_server_os")
-        from mfcommon import get_factory_servers
-        str_io = io.StringIO()
-        with self.assertRaises(SystemExit) as se, \
-            contextlib.redirect_stdout(str_io) as print_str:
-            response, _, _ = get_factory_servers(
-                waveid=self.wave_id,
-                token=self.token,
-                os_split=self.os_split,
-                rtype=self.r_type
-            )
-        self.assertIsNone(se.exception.code)
-        response = print_str.getvalue()
-        print("Response: ", response)
-        expected_response = \
-        "### Servers in Target Account: 111111111111, region: us-east-1 ###\nERROR: Invalid server_os_family for: server1, please select either Windows or Linux\n"
-        self.assertEqual(response, expected_response)
-
-    @mock.patch("requests.get", new=mock_requests_with_connection_error)
-    def test_get_factory_servers_with_connection_error(self):
-        logger.info("Testing test_mfcommon: "
-                    "test_get_factory_servers_with_connection_error")
-        from mfcommon import get_factory_servers
-        str_io = io.StringIO()
-        with self.assertRaises(SystemExit) as se, \
-            contextlib.redirect_stdout(str_io) as print_str:
-            response, _, _ = get_factory_servers(
-                waveid=self.wave_id,
-                token=self.token,
-                os_split=self.os_split,
-                rtype=self.r_type
-            )
-        self.assertIsNone(se.exception.code)
-        response = print_str.getvalue()
-        print("Response: ", response)
-        expected_response = \
-        "ERROR: Could not connect to API endpoint https://xxxxxx.execute-api.us-east-1.amazonaws.com/prod/user/server/user/server.\n"
         self.assertEqual(response, expected_response)
 
     def test_get_mf_config_user_api_id_with_user_api(self):

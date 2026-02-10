@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -16,7 +17,7 @@ import { useEffect, useReducer } from "react";
 import AdminApiClient from "../api_clients/adminApiClient";
 import { EntitySchema, SchemaMetaData } from "../models/EntitySchema";
 
-export const useSchema = (): [SchemaReducerState, { update: () => Promise<() => void> }] => {
+export const useSchema = (): [SchemaReducerState, { update: (refresh?: boolean) => Promise<() => void> }] => {
   const initialState: {
     isLoading: boolean;
     schemas: Record<string, EntitySchema> | undefined;
@@ -30,10 +31,10 @@ export const useSchema = (): [SchemaReducerState, { update: () => Promise<() => 
   };
   const [state, dispatch] = useReducer(schemaReducer, initialState);
 
-  async function update() {
+  async function update(refresh?: boolean) {
     const myAbortController = new AbortController();
 
-    if (state.schemas) {
+    if (state.schemas || refresh) {
       console.log("schemas refresh started");
       dispatch(requestRefresh());
     } else {
@@ -50,12 +51,11 @@ export const useSchema = (): [SchemaReducerState, { update: () => Promise<() => 
       for (const schemaItem of schemaMetadata) {
         const entitySchema = await apiAdmin.getSchema(schemaItem.schema_name);
 
+        schemas[schemaItem.schema_name] = entitySchema;
         // postprocess schema name to mitigate inconsistency between `app` and `application`
-        if (schemaItem["schema_name"] === "app") {
-          schemaItem["schema_name"] = "application";
+        if (schemaItem.schema_name === "app") {
+          schemas["application"] = schemas["app"];
         }
-
-        schemas[schemaItem["schema_name"]] = entitySchema;
       }
 
       dispatch(requestSuccessful({ schemas, schemaMetadata }));

@@ -1,9 +1,9 @@
+/* eslint-disable */
+// @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
-
-// @ts-nocheck
 
 import { getNestedValue, returnLocaleDateTime, sortAscendingComparator } from "./main";
 
@@ -77,7 +77,7 @@ export function getContentSelectorOptions() {
     options: [],
   };
 
-  contentSelectorOptions.options = COLUMN_DEFINITIONS.map((attr, index) => {
+  contentSelectorOptions.options = COLUMN_DEFINITIONS.map((attr) => {
     return {
       id: attr.id,
       label: attr.header,

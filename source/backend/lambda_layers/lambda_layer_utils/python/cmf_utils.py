@@ -1,14 +1,15 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 from datetime import datetime, timezone
+from decimal import Decimal
 import os
 import requests
 import json
 import botocore
-
 from cmf_types import NotificationType
 from cmf_logger import logger
 import boto3
+from botocore.exceptions import ClientError
 
 # System-wide data format for logging and notifications.
 CONST_DT_FORMAT = '%Y-%m-%dT%H:%M:%S.%f%z'
@@ -36,7 +37,6 @@ if region == 'unknown':
 anonymous_usage_data_url = 'https://metrics.awssolutionsbuilder.com/generic'
 solution_id = os.getenv('SOLUTION_ID', 'SO0097')
 
-
 def send_anonymous_usage_data(status):
     if anonymous_usage_data == "Yes":
         usage_data = {"Solution": solution_id,
@@ -62,6 +62,81 @@ def get_date_from_string(str_date):
 
     return created_timestamp
 
+def update_job_array_field(table, wpm_job_id: str, item_id: str, field_name: str) -> bool:
+    """
+    Updates a WPM job by adding an item ID to a specified array field.
+    
+    Args:
+        table: The DynamoDB table object for jobs
+        wpm_job_id (str): The ID of the WPM job to update
+        item_id (str): The ID to add to the array field
+        field_name (str): The name of the array field to update (e.g., 'move_group_ids', 'wave_ids')
+        
+    Returns:
+        bool: True if update was successful, False otherwise
+    """
+    if not wpm_job_id or not item_id:
+        logger.warning(f"Cannot update WPM job: Missing wpm_job_id or {field_name} item_id")
+        return False
+        
+    try:
+        # First, get the current WPM job to check if the field exists
+        response = table.get_item(
+            Key={"wpm_job_id": wpm_job_id},
+            ConsistentRead=True
+        )
+        
+        if "Item" not in response:
+            logger.warning(f"WPM job {wpm_job_id} not found")
+            return False
+            
+        wpm_job = response["Item"]
+        current_ids = wpm_job.get(field_name, []) or []
+        
+        # Check if the item_id is already in the list
+        if item_id in current_ids:
+            logger.info(f"Item {item_id} already exists in WPM job {wpm_job_id} {field_name}")
+            return True
+            
+        # Add the new item_id to the list
+        current_ids.append(item_id)
+        
+        # Update the WPM job
+        table.update_item(
+            Key={"wpm_job_id": wpm_job_id},
+            UpdateExpression=f"SET {field_name} = :{field_name}",
+            ExpressionAttributeValues={
+                f":{field_name}": current_ids
+            }
+        )
+        
+        logger.info(f"Successfully updated WPM job {wpm_job_id} with {field_name} item {item_id}")
+        return True
+        
+    except ClientError as e:
+        logger.error(f"Error updating WPM job {wpm_job_id}: {str(e)}")
+        return False
+
+
+def convert_floats_to_decimal(obj, precision=2):
+    """
+    Recursively convert float values to Decimal for DynamoDB compatibility.
+    
+    Args:
+        obj: Object to convert (dict, list, or primitive)
+        precision (int): Number of decimal places to round to (default: 2)
+        
+    Returns:
+        Object with floats converted to Decimal and rounded
+    """
+    if isinstance(obj, float):
+        # Convert float to string first to avoid precision issues, then round
+        return round(Decimal(str(obj)), precision)
+    elif isinstance(obj, dict):
+        return {k: convert_floats_to_decimal(v, precision) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_floats_to_decimal(item, precision) for item in obj]
+    return obj
 
 def publish_event(notification: NotificationType, events_client: boto3.client, event_source: str, event_bus_name: str) -> None:
     """

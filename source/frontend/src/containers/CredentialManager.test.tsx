@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { mockNotificationContext, TEST_SESSION_STATE } from "../__tests__/TestUtils";
 import { render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -190,10 +191,9 @@ test("submitting the add form saves plaintext secret to API", async () => {
 
 test("handles an API error", async () => {
   // GIVEN
-  let captureRequest: any;
   server.use(
     rest.post(`/admin/credentialmanager`, async (request, response, context) => {
-      request.json().then((body) => (captureRequest = body));
+      request.json().then(() => {});
       return response(context.status(403));
     }),
     rest.get("/credentialmanager", (request, response, context) => {

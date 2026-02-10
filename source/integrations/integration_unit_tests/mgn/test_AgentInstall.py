@@ -16,7 +16,7 @@ agent_install_main = importlib.import_module('1-AgentInstall')
 CMF_LINUX_SERVER = {
     "server_id": "1",
     "server_name": "server1",
-    "app_id": "1",
+    "app_ids": ["1"],
     "r_type": "Rehost",
     "server_os_family": "linux",
     "server_fqdn": "server1.onpremsim.env"
@@ -25,7 +25,7 @@ CMF_LINUX_SERVER = {
 CMF_WINDOWS_SERVER = {
     "server_id": "2",
     "server_name": "server2",
-    "app_id": "2",
+    "app_ids": ["2"],
     "r_type": "Rehost",
     "server_os_family": "windows",
     "server_fqdn": "server2.onpremsim.env"

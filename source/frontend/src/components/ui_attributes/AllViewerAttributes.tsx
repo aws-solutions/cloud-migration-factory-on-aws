@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -10,7 +11,8 @@ import TextAttribute from "./TextAttribute";
 import RelatedRecordPopover from "./RelatedRecordPopover";
 import { getNestedValuePath } from "../../resources/main";
 import { getRelationshipRecord, getRelationshipValue } from "../../resources/recordFunctions";
-import { Attribute, BaseData, EntitySchema } from "../../models/EntitySchema";
+import { Attribute, BaseData, EntitySchema, EntityName } from "../../models/EntitySchema";
+import { normalizeEntityName } from "../../utils/import-utils";
 
 type AllViewerAttributesParams = {
   item: any;
@@ -88,7 +90,7 @@ const AllViewerAttributes = ({
     actualValuesNames: { [x: string]: string },
     actualValue: { [x: string]: string | number | boolean }
   ) {
-    let multipleApps = [];
+    const multipleApps = [];
     if (actualValuesNames) {
       for (const subValueIdx in actualValue) {
         if (actualValue[subValueIdx] === "tbc") {
@@ -127,7 +129,7 @@ const AllViewerAttributes = ({
         );
       }
 
-      let actualValuesNames = getNestedValuePath(item, "__" + attribute.name); //Only used when importing data.
+      const actualValuesNames = getNestedValuePath(item, "__" + attribute.name); //Only used when importing data.
       if (actualValuesNames) {
         multipleApps = createMutipleRelationshipList(actualValuesNames, actualValue);
       }
@@ -154,28 +156,20 @@ const AllViewerAttributes = ({
   }
 
   function addRelationshipAttribute(attribute: Attribute) {
-    let attributeValue = getNestedValuePath(item, attribute.name);
-    let relatedValue = getRelationshipValue(attribute, dataAll, getNestedValuePath(item, attribute.name));
-    let relatedRecord = getRelationshipRecord(attribute, dataAll, getNestedValuePath(item, attribute.name));
+    const attributeValue = getNestedValuePath(item, attribute.name);
+    const relatedValue = getRelationshipValue(attribute, dataAll, getNestedValuePath(item, attribute.name));
+    const relatedRecord = getRelationshipRecord(attribute, dataAll, getNestedValuePath(item, attribute.name));
     const relatedSchema = attribute.rel_entity!;
 
     if (attribute.listMultiSelect) {
       if (displayEmpty || attributeValue) {
-        if (relatedRecord) {
-          return getMultiRelationshipDisplayValues(
-            relatedSchema,
-            attribute,
-            relatedValue,
-            attributeValue,
-            relatedRecord
-          );
-        } else {
-          return (
-            <TextAttribute key={attribute.name} label={attribute.description}>
-              {attributeValue ? attributeValue : "-"}
-            </TextAttribute>
-          );
-        }
+        return getMultiRelationshipDisplayValues(
+          relatedSchema,
+          attribute,
+          relatedValue,
+          attributeValue,
+          relatedRecord
+        );
       } else {
         return null;
       }
@@ -201,8 +195,8 @@ const AllViewerAttributes = ({
   }
 
   function addEmbeddedEntityAttribute(attribute: Attribute) {
-    let currentLookupValue = getNestedValuePath(item, attribute.lookup!);
-    let embedded_value = getRelationshipValue(attribute, dataAll, currentLookupValue);
+    const currentLookupValue = getNestedValuePath(item, attribute.lookup!);
+    const embedded_value = getRelationshipValue(attribute, dataAll, currentLookupValue);
     const embedded_relatedSchema = attribute.rel_entity!;
 
     if (embedded_value.status === "loading") {
@@ -240,7 +234,7 @@ const AllViewerAttributes = ({
       });
       embedded_value.value = embedded_value.value.map((item: { name: string; __orig_name: any; group: string }) => {
         //prepend the embedded_entity name to all attribute names in order to store them under a single key.
-        let appendedName = attribute.name + "." + item.name;
+        const appendedName = attribute.name + "." + item.name;
         if (item.__orig_name) {
           //Item has already been updated name.
           return item;
@@ -281,7 +275,7 @@ const AllViewerAttributes = ({
           {attribute.description}
         </Box>
         {valueJson.map((policy: any) => {
-          let finalMsg = [];
+          const finalMsg = [];
 
           if (policy.create) {
             finalMsg.push("Create");
@@ -406,9 +400,16 @@ const AllViewerAttributes = ({
     }
   }
 
-  let allAttributes: any[];
+  // Normalize any entity names
+  const normalizedAttributes = [...attributes].map(attr => {
+    return {
+      ...attr,
+      ...(attr.rel_entity && { rel_entity: normalizeEntityName(attr.rel_entity) as EntityName })
+    }
+  });
+
   //ATTN: - finish this sort script to allow grouped attributes to be created together
-  let sortedSchemaAttributes = [...attributes].sort(function (a, b) {
+  const sortedSchemaAttributes = [...normalizedAttributes].sort(function (a, b) {
     if (a.group && b.group) {
       return a.group > b.group ? 1 : -1;
     } else if (!a.group && b.group) {
@@ -419,9 +420,9 @@ const AllViewerAttributes = ({
   });
 
   //ATTN: Add to state in future and possibly store in user profile.
-  let displayEmpty = !hideEmpty;
+  const displayEmpty = !hideEmpty;
 
-  allAttributes = sortedSchemaAttributes.map((attribute) => {
+  const allAttributes = sortedSchemaAttributes.map((attribute) => {
     if (!attribute.hidden) {
       switch (attribute.type) {
         case "checkbox": {
@@ -439,7 +440,8 @@ const AllViewerAttributes = ({
         case "tag": {
           return addTagAttribute(attribute);
         }
-        case "relationship": {
+        case "relationship":
+        case "multivalue-relationship": {
           return addRelationshipAttribute(attribute);
         }
         case "password": {

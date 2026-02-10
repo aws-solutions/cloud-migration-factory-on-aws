@@ -42,8 +42,18 @@ testing-venv
 source/integrations/integration_unit_tests/.coverage*
 .temp_redpencil
 
-**/**/.coverage
+.coverage*
+**/**/.coverage*
 **/**/coverage/
 
 # Python
 __pycache__
+
+# Build files
+build/
+/build/
+../../build/
+.build/
+
+# IDE
+/.vscode

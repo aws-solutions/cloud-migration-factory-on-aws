@@ -4,9 +4,20 @@
  */
 
 export type Database = {
-  app_id: string;
-  database_type: string;
+  // System fields
   database_id: string;
   database_name: string;
+  database_type: string;
+  // Application related fields
+  app_ids?: string[];
+  // Migration field
+  r_type?: string;
+
+  // WPM fields
+  move_group_id?: string;
+  wpm_job_id?: string;
+  wave_id?: string;
+
+  // Audit
   _history: { createdBy: { userRef: string; email: string }; createdTimestamp: string };
 };

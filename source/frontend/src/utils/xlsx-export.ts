@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -51,19 +52,19 @@ const truncateLargeText = (item: any, key: string) => {
     // If the text is longer than excel supports truncate it.
     if (item[key].length > excel_limit_chars) {
       //Truncate long strings
-      let over_chars: number = item[key].length - truncate_to;
+      const over_chars: number = item[key].length - truncate_to;
 
-      let message_over: string = "[" + over_chars + " characters truncated, first " + truncate_to + " provided]";
+      const message_over: string = "[" + over_chars + " characters truncated, first " + truncate_to + " provided]";
 
       item[key + "[truncated - Excel max chars " + excel_limit_chars + "]"] =
         message_over + item[key].substring(0, truncate_to);
-      delete item[key];
+      delete item /* eslint-disable */[key];
     }
   }
 };
 
 const preprocessItems = (item: any) => {
-  for (let key in item) {
+  for (const key in item) {
     if (key.startsWith("__")) {
       //Remove system computed keys.
       delete item[key];

@@ -143,21 +143,21 @@ export function generateTestTaskExecutions(pipeline: Pipeline, tasks: Array<Task
     },
   }));
 }
-  // generate the POST response object with an array with the given number of pipeline_template records
-  export function generateTestPostPipelineTemplatesResponse(count: number, data?: { pipelineTemplate: PipelineTemplate }): object {
-    const numbers = Array.from({ length: count }, (_, index) => index);
-    let response = numbers.map((number) => ({
-      pipeline_template_id: `${number}`,
-      pipeline_template_name: `unittest_pipeline_template${number}`,
-      pipeline_template_description: `Description for unittest_pipeline_template${number}`,
-      version: `0`,
-      _history: {
-        createdBy: {
-          userRef: v4(),
-          email: "foo@example.com",
-        },
-        createdTimestamp: new Date().toISOString(),
+// generate the POST response object with an array with the given number of pipeline_template records
+export function generateTestPostPipelineTemplatesResponse(count: number): object {
+  const numbers = Array.from({ length: count }, (_, index) => index);
+  const response = numbers.map((number) => ({
+    pipeline_template_id: `${number}`,
+    pipeline_template_name: `unittest_pipeline_template${number}`,
+    pipeline_template_description: `Description for unittest_pipeline_template${number}`,
+    version: `0`,
+    _history: {
+      createdBy: {
+        userRef: v4(),
+        email: "foo@example.com",
       },
-    }))
-    return {"newItems": response};
+      createdTimestamp: new Date().toISOString(),
+    },
+  }));
+  return { newItems: response };
 }

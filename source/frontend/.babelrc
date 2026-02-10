@@ -8,5 +8,12 @@
         "runtime": "automatic"
       }
     ]
-  ]
+  ],
+  "env": {
+    "test": {
+      "plugins": [
+        "babel-plugin-transform-import-meta"
+      ]
+    }
+  }
 }

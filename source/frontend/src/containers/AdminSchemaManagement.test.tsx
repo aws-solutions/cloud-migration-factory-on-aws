@@ -1,28 +1,35 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {render, screen, waitFor, within} from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import React from "react";
 
-import {defaultTestProps, mockNotificationContext} from "../__tests__/TestUtils";
+import { defaultTestProps, mockNotificationContext } from "../__tests__/TestUtils";
 import AdminSchemaMgmt from "./AdminSchemaMgmt";
-import {NotificationContext} from "../contexts/NotificationContext";
+import { NotificationContext } from "../contexts/NotificationContext";
 import userEvent from "@testing-library/user-event";
-import {server} from "../setupTests";
-import {rest} from "msw";
+import { server } from "../setupTests";
+import { rest } from "msw";
+import { AppChildProps } from "../models";
 
-const renderAdminSchemaManagementComponent = () => {
+const renderAdminSchemaManagementComponent = (testProps: AppChildProps = defaultTestProps) => {
   return {
     addNotification: mockNotificationContext.addNotification,
     renderResult: render(
       <NotificationContext.Provider value={mockNotificationContext}>
-        <AdminSchemaMgmt {...defaultTestProps} />
+        <AdminSchemaMgmt {...testProps} />
       </NotificationContext.Provider>
     ),
   };
 };
+
+const defaultTestPropsWithWPMEnabled = {
+  ...defaultTestProps,
+  enabledModules: ["WPM"]
+}
 
 test("Schema management screen loads and displays tabs.", () => {
   renderAdminSchemaManagementComponent();
@@ -47,7 +54,7 @@ test("loads Attributes table with the attributes of database schema", async () =
   // THEN show the attributes according to the loaded schema
   expect(screen.getByRole("heading", { name: "Attributes (5)" })).toBeInTheDocument();
   expect(screen.getByRole("cell", { name: /database_id/i })).toBeInTheDocument();
-  expect(screen.getByRole("cell", { name: /app_id/i })).toBeInTheDocument();
+  expect(screen.getByRole("cell", { name: /app_ids/i })).toBeInTheDocument();
   expect(screen.getByRole("cell", { name: /database_name/i })).toBeInTheDocument();
   expect(screen.getByRole("cell", { name: /database_type/i })).toBeInTheDocument();
 });
@@ -64,7 +71,7 @@ test('click on add button opens "Add attribute" form', async () => {
   await userEvent.click(addButton);
 
   // THEN
-  expect(screen.getByRole("heading", { name: "Amend attribute" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Add attribute" })).toBeInTheDocument();
 
   // AND WHEN
   await userEvent.click(screen.getByRole("button", { name: /Cancel/i }));
@@ -90,7 +97,7 @@ test("submitting the add form saves a new attribute to API", async () => {
   await userEvent.click(addButton);
 
   // THEN
-  const dialog = screen.getByRole("dialog", { name: "Amend attribute" });
+  const dialog = screen.getByRole("dialog", { name: "Add attribute" });
   expect(dialog).toBeInTheDocument();
 
   // AND WHEN we populate the required fields
@@ -137,7 +144,7 @@ test("submitting the edit form saves a new attribute to API", async () => {
   await userEvent.click(editButton);
 
   // THEN
-  const dialog = screen.getByRole("dialog", { name: "Amend attribute" });
+  const dialog = screen.getByRole("dialog", { name: "Edit attribute" });
   expect(dialog).toBeInTheDocument();
 
   // AND WHEN we change the display name
@@ -364,4 +371,147 @@ test("cancelling the edit of the schema settings", async () => {
 
   // THEN
   expect(screen.queryByRole("textbox", { name: /Schema friendly name/i })).not.toBeInTheDocument();
+});
+
+test("displaying add new schema tab button and show modal on click when WPM enabled", async () => {
+  renderAdminSchemaManagementComponent(defaultTestPropsWithWPMEnabled);
+
+  await userEvent.click(screen.getByRole("button", { name: "Add new schema tab" }));
+  expect(screen.getByRole("dialog", { name: "Create New Schema" })).toBeInTheDocument();
+
+  expect(screen.getByText("Schema name is required")).toBeInTheDocument();
+});
+
+test("do not show add new schema tab button when WPM disabled", async () => {
+  renderAdminSchemaManagementComponent();
+
+  const addButton = screen.queryByRole("button", { name: "Add new schema tab" });
+  expect(addButton).not.toBeInTheDocument();
+});
+
+test("displaying error message if schema name is invalid", async () => {
+  renderAdminSchemaManagementComponent(defaultTestPropsWithWPMEnabled);
+
+  await userEvent.click(screen.getByRole("button", { name: "Add new schema tab" }));
+  const dialog = screen.getByRole("dialog", { name: "Create New Schema" });
+  await userEvent.type(within(dialog).getByRole("textbox", { name: "Schema Name" }), "123");
+  expect(
+    screen.getByText(
+      "Schema name must be 1-40 characters long, start with a letter and contain only letters, numbers, and underscores."
+    )
+  ).toBeInTheDocument();
+});
+
+test("displaying error message if schema name already exists", async () => {
+  renderAdminSchemaManagementComponent(defaultTestPropsWithWPMEnabled);
+
+  await userEvent.click(screen.getByRole("button", { name: "Add new schema tab" }));
+  const dialog = screen.getByRole("dialog", { name: "Create New Schema" });
+  await userEvent.type(within(dialog).getByRole("textbox", { name: "Schema Name" }), "server");
+  expect(screen.getByText(`A schema with name "server" already exists.`)).toBeInTheDocument();
+});
+
+test("calling API to save new schema and fixed attributes.", async () => {
+  const createSchemaRequestParams: any[] = [];
+  const createSchemaRequestBodies: any[] = [];
+  const createSchemaAttributeRequestParams: any[] = [];
+  const createSchemaAttributeRequestBodies: any[] = [];
+
+  server.use(
+    rest.post(`/admin/schema/:schema_name`, async (request, response, context) => {
+      createSchemaRequestParams.push(request.params.schema_name);
+      request.json().then((body) => createSchemaRequestBodies.push(body));
+      return response(context.status(200));
+    }),
+    rest.put(`/admin/schema/:schema_name`, async (request, response, context) => {
+      createSchemaAttributeRequestParams.push(request.params.schema_name);
+      request.json().then((body) => createSchemaAttributeRequestBodies.push(body));
+      return response(context.status(200));
+    })
+  );
+
+  renderAdminSchemaManagementComponent(defaultTestPropsWithWPMEnabled);
+
+  await userEvent.click(screen.getByRole("button", { name: "Add new schema tab" }));
+
+  const dialog = screen.getByRole("dialog", { name: "Create New Schema" });
+  await userEvent.type(within(dialog).getByRole("textbox", { name: "Schema Name" }), "unit_test");
+  await userEvent.type(within(dialog).getByRole("textbox", { name: "Friendly Name" }), "Unit Test");
+
+  await userEvent.click(within(dialog).getByRole("button", { name: "Ok" }));
+
+  await waitFor(() => {
+    expect(createSchemaRequestParams).toEqual(["unit_test"]);
+    expect(createSchemaRequestBodies).toEqual([
+      {
+        attributes: [],
+        friendly_name: "Unit Test",
+        schema_name: "unit_test",
+        schema_type: "custom",
+      },
+    ]);
+    expect(createSchemaAttributeRequestParams).toEqual(["unit_test", "unit_test", "unit_test", "application"]);
+    expect(createSchemaAttributeRequestBodies).toEqual([
+      {
+        event: "POST",
+        new: {
+          description: "Unit Test Id",
+          hidden: true,
+          name: "unit_test_id",
+          required: true,
+          system: true,
+          type: "string",
+        },
+      },
+      {
+        event: "POST",
+        new: {
+          description: "Unit Test Name",
+          name: "unit_test_name",
+          required: true,
+          system: true,
+          type: "string",
+          validation_regex: "^(?!\\s*$).{1,255}$",
+          validation_regex_msg: "Unit Test name must be specified, and be a maximum of 255 characters.",
+        },
+      },
+      {
+        event: "POST",
+        new: {
+          description: "Related Applications",
+          help_content: {
+            content_html: "Select applications that this Unit Test is associated with.",
+            header: "Related Applications",
+          },
+          listMultiSelect: true,
+          name: "app_ids",
+          rel_display_attribute: "app_name",
+          rel_entity: "app",
+          rel_key: "app_id",
+          required: false,
+          system: true,
+          type: "multivalue-relationship",
+        },
+      },
+      {
+        event: "POST",
+        new: {
+          description: "Related Unit Tests",
+          help_content: {
+            content_html: "Unit Tests related to this application. To modify, edit the Unit Test instead.",
+            header: "Related Unit Tests",
+          },
+          listMultiSelect: true,
+          name: "unit_test_ids",
+          readonly: true,
+          rel_display_attribute: "unit_test_name",
+          rel_entity: "unit_test",
+          rel_key: "unit_test_id",
+          required: false,
+          system: true,
+          type: "multivalue-relationship",
+        },
+      },
+    ]);
+  });
 });

@@ -1,7 +1,6 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-from botocore.exceptions import ClientError
 from unittest import TestCase, mock
 
 from cmf_logger import logger
@@ -13,23 +12,13 @@ mock_os_environ = {
 }
 
 def mock_boto(obj, operation_name, kwarg):
-    if operation_name == 'GetHomeRegion':
-        return {
-            'HomeRegion': 'us-west-2'
-        }
-    if operation_name == "DescribeConfigurations":
-        return {}
+    # Deprecated MGH and ADS APIs removed - function now logs events only
+    return {}
 
 
 def mock_boto_no_server_in_ads(obj, operation_name, kwarg):
-    if operation_name == "DescribeConfigurations":
-        raise ClientError(operation_name="DescribeConfigurations", error_response={
-            "Error": {
-                "Code": "InvalidParameterValueException",
-                "Message": "Test"
-            }
-        })
-    return mock_boto(obj, operation_name, kwarg)
+    # Deprecated ADS APIs removed - function now logs events only
+    return {}
 
 
 def get_event(migration_status):
@@ -48,85 +37,49 @@ class LambdaServerStreamTest(TestCase):
         pass
 
     @mock.patch('botocore.client.BaseClient._make_api_call')
-    def test_lambda_handler_with_no_home_region_is_no_op(self, mock_boto_client):
-        logger.info("Testing test_lambda_server_stream: test_lambda_handler_with_no_home_region_is_no_op")
+    def test_lambda_handler_logs_deprecation_message(self, mock_boto_client):
+        logger.info("Testing test_lambda_server_stream: test_lambda_handler_logs_deprecation_message")
         mock_boto_client.return_value = {}
         from lambda_server_stream import lambda_handler
 
+        # Test that the function runs without errors and logs appropriately
         lambda_handler(get_event('Validation Complete'), {})
+        
+        # Since MGH/ADS integration is removed, no API calls should be made
+        mock_boto_client.assert_not_called()
 
 
-    @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto)
     def test_lambda_handler_with_no_new_image_is_no_op(self):
-        logger.info("Testing test_lambda_server_stream: test_lambda_handler_with_no_new_image_is_no_opdler_with_no_home_region_is_no_op")
+        logger.info("Testing test_lambda_server_stream: test_lambda_handler_with_no_new_image_is_no_op")
         from lambda_server_stream import lambda_handler
 
         event = {'Records': [{'dynamodb': {'OldImage': {'server_id': {'S': '1'}, 'server_name': {'S': 'Test'}, 'migration_status': {'S': 'Test Complete'}}}}]}
 
+        # Should run without errors - no MGH/ADS calls will be made
         lambda_handler(event, {})
 
 
-    @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto)
     def test_lambda_handler_with_no_migration_status_is_no_op(self):
         logger.info("Testing test_lambda_server_stream: test_lambda_handler_with_no_migration_status_is_no_op")
         from lambda_server_stream import lambda_handler
 
         event = {'Records': [{'dynamodb': {'NewImage': {'server_id': {'S': '1'}, 'server_name': {'S': 'Test'}}}}]}
 
+        # Should run without errors - no MGH/ADS calls will be made
         lambda_handler(event, {})
 
 
-    @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_no_server_in_ads)
-    def test_lambda_handler_with_no_server_in_ads_is_no_op(self):
-        logger.info("Testing test_lambda_server_stream: test_lambda_handler_with_no_server_in_ads_is_no_op")
+    def test_lambda_handler_with_empty_records(self):
+        logger.info("Testing test_lambda_server_stream: test_lambda_handler_with_empty_records")
         from lambda_server_stream import lambda_handler
 
-        lambda_handler(get_event('Validation Complete'), {})
+        # Test with empty records
+        lambda_handler({'Records': []}, {})
 
 
-    @mock.patch('botocore.client.BaseClient._make_api_call')
-    def test_lambda_handler_with_server_in_ads_updates_mgh_tracking(self, mock_boto_client):
-        logger.info("Testing test_lambda_server_stream: test_lambda_handler_with_server_in_ads_updates_mgh_tracking")
-        mock_boto_client.side_effect = lambda operation_name, kwargs: mock_boto(self, operation_name, kwargs)
+    def test_lambda_handler_logs_server_status_update(self):
+        logger.info("Testing test_lambda_server_stream: test_lambda_handler_logs_server_status_update")
         from lambda_server_stream import lambda_handler
 
-        lambda_handler(get_event('Validation Complete'), {})
-
-        for write_call in mock_boto_client.call_args_list:
-            print('args: {}'.format(write_call[0]))
-            print('kwargs: {}'.format(write_call[1]))
-
-        mock_boto_client.assert_any_call('CreateProgressUpdateStream', { 'ProgressUpdateStreamName': 'CloudMigrationFactory' })
-        mock_boto_client.assert_any_call('ImportMigrationTask', { 'ProgressUpdateStream': 'CloudMigrationFactory', 'MigrationTaskName': 'Validation Complete' })
-        mock_boto_client.assert_any_call('AssociateDiscoveredResource',
-                                         { 'ProgressUpdateStream': 'CloudMigrationFactory',
-                                           'MigrationTaskName': 'Validation Complete',
-                                           'DiscoveredResource': {'ConfigurationId': 'Test'} })
-        mock_boto_client.assert_any_call('NotifyMigrationTaskState',
-                                         { 'ProgressUpdateStream': 'CloudMigrationFactory',
-                                           'MigrationTaskName': 'Validation Complete',
-                                           'NextUpdateSeconds': mock.ANY,
-                                           'UpdateDateTime': mock.ANY,
-                                           'Task': {'Status': 'COMPLETED'} })
-
-
-    @mock.patch('botocore.client.BaseClient._make_api_call')
-    def test_lambda_handler_with_failed_task_updates_mgh_tracking(self, mock_boto_client):
-        logger.info("Testing test_lambda_server_stream: test_lambda_handler_with_failed_task_updates_mgh_tracking")
-        mock_boto_client.side_effect = lambda operation_name, kwargs: mock_boto(self, operation_name, kwargs)
-        from lambda_server_stream import lambda_handler
-
-        lambda_handler(get_event('Validation Failed'), {})
-
-        mock_boto_client.assert_any_call('CreateProgressUpdateStream', { 'ProgressUpdateStreamName': 'CloudMigrationFactory' })
-        mock_boto_client.assert_any_call('ImportMigrationTask', { 'ProgressUpdateStream': 'CloudMigrationFactory', 'MigrationTaskName': 'Validation Failed' })
-        mock_boto_client.assert_any_call('AssociateDiscoveredResource',
-                                         {'ProgressUpdateStream': 'CloudMigrationFactory',
-                                          'MigrationTaskName': 'Validation Failed',
-                                          'DiscoveredResource': {'ConfigurationId': 'Test'} })
-        mock_boto_client.assert_any_call('NotifyMigrationTaskState',
-                                         {'ProgressUpdateStream': 'CloudMigrationFactory',
-                                          'MigrationTaskName': 'Validation Failed',
-                                          'NextUpdateSeconds': mock.ANY,
-                                          'UpdateDateTime': mock.ANY,
-                                          'Task': {'Status': 'FAILED'} })
+        # Test that status updates are logged but no external service calls are made
+        lambda_handler(get_event('Migration Complete'), {})

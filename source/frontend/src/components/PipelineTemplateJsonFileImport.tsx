@@ -26,8 +26,8 @@ const FILE_TYPES = {
     format: "cmf-json",
     parseContent: (content: string) => {
       JSON.parse(content); // Validate JSON structure
-      return content;      
-    }
+      return content;
+    },
   },
   csv: {
     format: "lucid-csv",
@@ -65,7 +65,7 @@ export const FileImportStep = ({ setFileJSON, acceptedFileTypes }: FileImportSte
           type: "error",
           dismissible: true,
           header: "Error parsing file",
-          content:  error instanceof Error ? error.message : "Invalid file content"
+          content: error instanceof Error ? error.message : "Invalid file content",
         });
         console.error("Error parsing uploaded file:", error);
         setFileJSON(null);

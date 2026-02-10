@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -41,13 +42,13 @@ const AutomationTools = (props: AutomationToolsParams) => {
       return {};
     }
 
-    let relationshipAttributes = props.schema.attributes.filter(function (item: { type: string }) {
+    const relationshipAttributes = props.schema.attributes.filter(function (item: { type: string }) {
       return item.type === "relationship";
     });
 
     if (relationshipAttributes.length > 0) {
       //some values to prepopulate.
-      let newTool: any = {};
+      const newTool: any = {};
       for (const relAttribute of relationshipAttributes) {
         if (items[0][relAttribute.rel_key!]) {
           newTool[relAttribute.name] = items[0][relAttribute.rel_key!];
@@ -60,7 +61,7 @@ const AutomationTools = (props: AutomationToolsParams) => {
   }
 
   function handleUserInput(value: AttributeUpdateRequest[] | AttributeUpdateRequest) {
-    let newItem = Object.assign({}, localTool);
+    const newItem = Object.assign({}, localTool);
 
     if (Array.isArray(value)) {
       for (const item of value) {

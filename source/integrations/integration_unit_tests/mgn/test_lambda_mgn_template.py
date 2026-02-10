@@ -41,7 +41,7 @@ class MGNLambdaTemplateTestCase(TestCase):
         self.factory_server = {
             "launch_template_id": "lt-01238c059e3466abc",
             "server_id": "3",
-            "app_id": "2",
+            "app_ids": ["2"],
             "instanceType": "t3.medium",
             "r_type": "Rehost",
             "securitygroup_IDs": [

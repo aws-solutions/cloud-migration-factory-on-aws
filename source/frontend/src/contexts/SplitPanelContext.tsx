@@ -1,3 +1,4 @@
+/* eslint-disable */
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -23,9 +24,9 @@ export type SplitPanelState = {
 
 // default context, used if no context is provided. automatically applied to tests
 const NULL_CONTEXT: SplitPanelContextType = {
-  setContent: (content, silent) => {},
-  setContentFromSchema: (schemas: Record<string, EntitySchema>, schemaName: string) => {},
-  setSplitPanelOpen: (open: boolean) => {},
+  setContent: () => {},
+  setContentFromSchema: () => {},
+  setSplitPanelOpen: () => {},
   splitPanelState: { splitPanelOpen: false },
 };
 

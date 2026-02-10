@@ -83,7 +83,7 @@ class LambdaExportTemplatesTest(LambdaItemCommonTest):
              template['pipeline_template_name'] == "Migration Hub Import"),
             None
         )
-        self.assertEqual(2, len(migration_hub_import_template['pipeline_template_tasks']))
+        self.assertEqual(1, len(migration_hub_import_template['pipeline_template_tasks']))
 
     @patch('lambda_import_export_pipeline_templates.lambda_client')
     def test_filters_by_pipeline_id(self, mock_lambda_client):
@@ -120,4 +120,4 @@ class LambdaExportTemplatesTest(LambdaItemCommonTest):
         migration_hub_import_template = pipeline_templates[0]
 
         self.assertEqual("Migration Hub Import", migration_hub_import_template['pipeline_template_name'])
-        self.assertEqual(2, len(migration_hub_import_template['pipeline_template_tasks']))
+        self.assertEqual(1, len(migration_hub_import_template['pipeline_template_tasks']))

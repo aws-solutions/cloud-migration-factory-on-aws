@@ -19,12 +19,25 @@ POLICY_TABLE = os.getenv('PolicyDynamoDBTable')
 PIPELINE_TEMPLATE_TABLE = os.getenv('PipelineTemplateDynamoDBTable')
 SCRIPTS_TABLE = os.getenv('ScriptsDynamoDBTable')
 PIPELINE_TEMPLATE_TASK_TABLE = os.getenv('PipelineTemplateTaskDynamoDBTable')
+WPM = os.getenv('WPM')
+RULE_TABLE = os.getenv('RuleDynamoDBTable')
 
 SCHEMAS_TO_OVERWRITE_DURING_UPDATE = ['ssm_job', 'job', 'mgn', 'policy', 'group', 'user', 'role', 'secret']
 
 # Load default schema from json.
 with open('default_schema.json') as json_schema_file:
     default_schema = json.load(json_schema_file)
+
+# Load default WPM schema, policies, and rules from json if WPM is enabled
+default_wpm_policies = None
+default_wpm_rules = None
+if WPM == 'true':
+    with open('default_wpm_schema.json') as json_wpm_schema_file:
+        default_schema.extend(json.load(json_wpm_schema_file))
+    with open('default_wpm_policies.json') as json_wpm_policies_file:
+        default_wpm_policies = json.load(json_wpm_policies_file)
+    with open('default_wpm_rules.json') as json_wpm_rules_file:
+        default_wpm_rules = json.load(json_wpm_rules_file)
 
 # Load default policies from json.
 with open('default_policies.json') as json_policies_file:
@@ -65,7 +78,8 @@ def load_default_pipeline_templates_and_tasks():
                                         InvocationType='RequestResponse',
                                         Payload=json.dumps(import_event))
 
-    logger.info(import_response)
+    payload = json.loads(import_response['Payload'].read())
+    logger.info(payload)
 
 
 def add_last_modified_attributes(item):
@@ -123,6 +137,14 @@ def load_cmf_system_defaults():
             Item=add_last_modified_attributes(item)
         )
 
+    if WPM == 'true':
+        logger.info("Loading default rules")
+        for item in default_wpm_rules:
+            client.put_item(
+                TableName=RULE_TABLE,
+                Item=item
+            )
+
     logger.info("Loading default pipeline templates")
     load_default_pipeline_templates_and_tasks()
 
@@ -178,7 +200,7 @@ def merge_updated_and_existing_polices(existing_entity_access_policy, updated_en
             updated_entity_access["M"]["attributes"]["L"].append(existing_attribute_access)
 
 
-def update_policy(ddb_client, existing_policies, updated_policy):
+def merge_policy(existing_policies, updated_policy):
 
     existing_policy = next((existing_policy for existing_policy in existing_policies if existing_policy["policy_name"]["S"] == updated_policy["policy_name"]["S"]), None)
 
@@ -197,20 +219,12 @@ def update_policy(ddb_client, existing_policies, updated_policy):
                 logger.info(f'Preserved existing entity access not present in updated system policy: {existing_entity_access_policy["M"]["schema_name"]["S"]}')
                 updated_policy['entity_access']["L"].append(existing_entity_access_policy)
 
-    # apply updated policy.
-    ddb_client.put_item(
-        TableName=POLICY_TABLE,
-        Item=updated_policy
-    )
 
+def merge_policies(existing_policies, updated_policies):
 
-def update_policies(ddb_client):
-    existing_policies = get_all_ddb_table_items(POLICY_TABLE)
-
-    logger.info("Updating default policies")
-    for updated_policy in default_policies:
-        update_policy(ddb_client, existing_policies, updated_policy)
-
+    logger.info("Updating existing policies")
+    for updated_policy in updated_policies:
+        merge_policy(existing_policies, updated_policy)
 
 def update_schemas(ddb_client):
     existing_schemas = get_all_ddb_table_items(SCHEMA_TABLE)
@@ -232,7 +246,15 @@ def update_cmf_system_defaults():
             Item=item
         )
 
-    update_policies(ddb_client)
+    existing_policies = get_all_ddb_table_items(POLICY_TABLE)
+    merge_policies(existing_policies, default_policies)
+
+    logger.info("Replacing default policiex")
+    for item in default_policies:
+        ddb_client.put_item(
+            TableName=POLICY_TABLE,
+            Item=item
+        )
 
     logger.info("Replacing default integration tasks")
     for item in default_tasks:
@@ -243,6 +265,14 @@ def update_cmf_system_defaults():
 
     logger.info("Replacing default pipeline templates")
     load_default_pipeline_templates_and_tasks()
+    
+    if WPM == 'true':
+        logger.info("Replacing default rules")
+        for item in default_wpm_rules:
+            ddb_client.put_item(
+                TableName=RULE_TABLE,
+                Item=item
+            )
 
 
 def get_all_ddb_table_items(ddb_table_name):
@@ -264,6 +294,9 @@ def lambda_handler(event, context):
     try:
         logger.info('Event:\n {}'.format(event))
         logger.info('Context:\n {}'.format(context))
+
+        if default_wpm_policies is not None:
+            merge_policies(default_wpm_policies, default_policies)
 
         if event['RequestType'] == 'Create':
             logger.info('Create action')

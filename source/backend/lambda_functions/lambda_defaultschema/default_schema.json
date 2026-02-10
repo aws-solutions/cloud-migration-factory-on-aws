@@ -61,6 +61,34 @@
         {
           "M": {
             "description": {
+              "S": "Wave Description"
+            },
+            "name": {
+              "S": "wave_description"
+            },
+            "type": {
+              "S": "string"
+            },
+            "validation_regex": {
+              "S": "^(?!\\s*$).{1,300}$"
+            },
+            "group_order": {
+              "S": "-990"
+            },
+            "validation_regex_msg": {
+              "S": "Wave description must be a maximum of 300 characters."
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
               "S": "Wave Status"
             },
             "name": {
@@ -73,7 +101,7 @@
               "S": "list"
             },
             "group_order": {
-              "S": "-999"
+              "S": "-960"
             }
           }
         },
@@ -87,6 +115,9 @@
             },
             "type": {
               "S": "date"
+            },
+            "group_order": {
+              "S": "-980"
             }
           }
         },
@@ -100,6 +131,9 @@
             },
             "type": {
               "S": "date"
+            },
+            "group_order": {
+              "S": "-970"
             }
           }
         },
@@ -113,6 +147,9 @@
             },
             "type": {
               "S": "string"
+            },
+            "group_order": {
+              "S": "-950"
             }
           }
         },
@@ -126,6 +163,9 @@
             },
             "type": {
               "S": "string"
+            },
+            "group_order": {
+              "S": "-940"
             }
           }
         },
@@ -139,6 +179,9 @@
             },
             "type": {
               "S": "string"
+            },
+            "group_order": {
+              "S": "-930"
             }
           }
         },
@@ -152,6 +195,368 @@
             },
             "type": {
               "S": "string"
+            },
+            "group_order": {
+              "S": "-920"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Server Count"
+            },
+            "name": {
+              "S": "server_count"
+            },
+            "type": {
+              "S": "number"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-880"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Server Count"
+                },
+                "content_html": {
+                  "S": "Number of servers related to this wave."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Total Server Storage"
+            },
+            "name": {
+              "S": "total_server_storage"
+            },
+            "type": {
+              "S": "number"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-870"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Total Server Storage"
+                },
+                "content_html": {
+                  "S": "Total storage of servers related to this wave."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Complexity Score"
+            },
+            "name": {
+              "S": "complexity_score"
+            },
+            "type": {
+              "S": "number"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-910"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Complexity Score"
+                },
+                "content_html": {
+                  "S": "Total complexity score of applications related to this wave."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "WPM Job"
+            },
+            "name": {
+              "S": "wpm_job_id"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "rel_display_attribute": {
+              "S": "wpm_job_name"
+            },
+            "rel_entity": {
+              "S": "wpm_job"
+            },
+            "rel_key": {
+              "S": "wpm_job_id"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "WPM Job"
+                },
+                "content_html": {
+                  "S": "ID of the wave planning job associated with this wave. This field is readonly and automatically set by WPM Job Wizard."
+                }
+              }
+            },
+            "group_order": {
+              "S": "-490"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Related Move Groups"
+            },
+            "name": {
+              "S": "move_group_ids"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "rel_display_attribute": {
+              "S": "move_group_name"
+            },
+            "rel_entity": {
+              "S": "move_group"
+            },
+            "rel_key": {
+              "S": "move_group_id"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-590"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Related Move Group"
+                },
+                "content_html": {
+                  "S": "Move Groups related to this wave. To modify, edit the move group instead."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Related Applications"
+            },
+            "name": {
+              "S": "app_ids"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_entity": {
+              "S": "app"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-690"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Related Applications"
+                },
+                "content_html": {
+                  "S": "Applications related to this wave. To modify, edit the related asset instead."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Related Servers"
+            },
+            "name": {
+              "S": "server_ids"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "rel_display_attribute": {
+              "S": "server_name"
+            },
+            "rel_entity": {
+              "S": "server"
+            },
+            "rel_key": {
+              "S": "server_id"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-890"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Related Servers"
+                },
+                "content_html": {
+                  "S": "Servers related to this wave. To modify, edit the server instead."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Related Databases"
+            },
+            "name": {
+              "S": "database_ids"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "rel_display_attribute": {
+              "S": "database_name"
+            },
+            "rel_entity": {
+              "S": "database"
+            },
+            "rel_key": {
+              "S": "database_id"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "group_order": {
+              "S": "-790"
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Related Databases"
+                },
+                "content_html": {
+                  "S": "Databases related to this wave. To modify, edit the database instead."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Warnings"
+            },
+            "name": {
+              "S": "warnings"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "multivalue-string"
             }
           }
         }
@@ -161,6 +566,9 @@
   {
     "schema_name": {
       "S": "app"
+    },
+    "key_type": {
+      "S": "ulid"
     },
     "schema_type": {
       "S": "user"
@@ -220,21 +628,46 @@
         {
           "M": {
             "description": {
-              "S": "Wave Id"
+              "S": "Application Owner"
             },
             "name": {
-              "S": "wave_id"
+              "S": "app_owner"
             },
             "type": {
-              "S": "relationship"
-            },
-            "group_order": {
-              "S": "-999"
+              "S": "string"
             },
             "required": {
               "BOOL": false
             },
             "system": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Waves"
+            },
+            "name": {
+              "S": "wave_ids"
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "group": {
+              "S": "Migration Planning"
+            },
+            "group_order": {
+              "S": "-10"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
               "BOOL": true
             },
             "rel_display_attribute": {
@@ -245,6 +678,19 @@
             },
             "rel_key": {
               "S": "wave_id"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Waves"
+                },
+                "content_html": {
+                  "S": "Also known as migration wave, it describes a group of applications and servers with the same migration schedule.\nAn application can belong to multiple waves and its waves are derived from its servers and databases thus cannot be modified."
+                }
+              }
             }
           }
         },
@@ -254,7 +700,7 @@
               "S": "AWS Account Id"
             },
             "listvalue": {
-              "S": "111122223333,222233334444"
+              "S": "000000000000,111122223333,222233334444"
             },
             "name": {
               "S": "aws_accountid"
@@ -269,7 +715,7 @@
               "S": "Invalid AWS account Id."
             },
             "required": {
-              "BOOL": true
+              "BOOL": false
             },
             "system": {
               "BOOL": true
@@ -291,16 +737,318 @@
               "S": "list"
             },
             "listvalue": {
-              "S": "us-east-2,us-east-1,us-west-1,us-west-2,af-south-1,ap-east-1,ap-southeast-3,ap-south-1,ap-northeast-3,ap-northeast-2,ap-southeast-1,ap-southeast-2,ap-northeast-1,ca-central-1,cn-north-1,cn-northwest-1,eu-central-1,eu-west-1,eu-west-2,eu-south-1,eu-west-3,eu-north-1,me-south-1,sa-east-1"
+              "S": "TBC,us-east-2,us-east-1,us-west-1,us-west-2,af-south-1,ap-east-1,ap-southeast-3,ap-south-1,ap-northeast-3,ap-northeast-2,ap-southeast-1,ap-southeast-2,ap-northeast-1,ca-central-1,cn-north-1,cn-northwest-1,eu-central-1,eu-west-1,eu-west-2,eu-south-1,eu-west-3,eu-north-1,me-south-1,sa-east-1"
             },
             "required": {
-              "BOOL": true
+              "BOOL": false
             },
             "system": {
               "BOOL": true
             },
             "group": {
               "S": "Target"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Related Servers"
+            },
+            "name": {
+              "S": "server_ids"
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "rel_display_attribute": {
+              "S": "server_name"
+            },
+            "rel_entity": {
+              "S": "server"
+            },
+            "rel_key": {
+              "S": "server_id"
+            },
+            "group_order": {
+              "S": "-996"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Related Servers"
+                },
+                "content_html": {
+                  "S": "Servers related to this application. To modify, edit the server instead."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Related Databases"
+            },
+            "name": {
+              "S": "database_ids"
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "rel_display_attribute": {
+              "S": "database_name"
+            },
+            "rel_entity": {
+              "S": "database"
+            },
+            "rel_key": {
+              "S": "database_id"
+            },
+            "group_order": {
+              "S": "-995"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Related Databases"
+                },
+                "content_html": {
+                  "S": "Databases related to this application. To modify, edit the database instead."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "WPM Job IDs"
+            },
+            "name": {
+              "S": "wpm_job_ids"
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "rel_display_attribute": {
+              "S": "wpm_job_name"
+            },
+            "rel_entity": {
+              "S": "wpm_job"
+            },
+            "rel_key": {
+              "S": "wpm_job_id"
+            },
+            "group": {
+              "S": "Migration Planning"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "WPM Job IDs"
+                },
+                "content_html": {
+                  "S": "ID of the wave planning job. An app can be associated with multiple WPM jobs. This field is readonly and automatically set by WPM Job Wizard."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Move Groups"
+            },
+            "name": {
+              "S": "move_group_ids"
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "rel_display_attribute": {
+              "S": "move_group_name"
+            },
+            "rel_entity": {
+              "S": "move_group"
+            },
+            "rel_key": {
+              "S": "move_group_id"
+            },
+            "group": {
+              "S": "Migration Planning"
+            },
+            "group_order": {
+              "S": "-20"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Move Groups"
+                },
+                "content_html": {
+                  "S": "A move group is a collection of assets that must be migrated together due to technical dependencies or business requirements. An app can belong to multiple groups and its groups are derived from its servers and databases thus cannot be modified."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Rank"
+            },
+            "name": {
+              "S": "rank"
+            },
+            "type": {
+              "S": "number"
+            },
+            "group": {
+              "S": "Migration Planning"
+            },
+            "group_order": {
+              "S": "3"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Rank"
+                },
+                "content_html": {
+                  "S": "Output of prioritization scoring rules."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Complexity Score"
+            },
+            "name": {
+              "S": "complexity_score"
+            },
+            "type": {
+              "S": "number"
+            },
+            "group": {
+              "S": "Migration Planning"
+            },
+            "group_order": {
+              "S": "4"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Complexity Score"
+                },
+                "content_html": {
+                  "S": "Output of prioritization scoring rules."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Planning Status"
+            },
+            "name": {
+              "S": "planning_status"
+            },
+            "type": {
+              "S": "list"
+            },
+            "listvalue": {
+              "S": "NOT_STARTED,PARTIAL,COMPLETED"
+            },
+            "group": {
+              "S": "Migration Planning"
+            },
+            "group_order": {
+              "S": "5"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Planning Status"
+                },
+                "content_html": {
+                  "S": "Current status of the application planning process: NOT_STARTED (No assets are in move groups), PARTIAL (Some assets are in move groups, some are not), COMPLETED (All assets are in move groups)."
+                }
+              }
             }
           }
         }
@@ -310,6 +1058,9 @@
   {
     "schema_name": {
       "S": "server"
+    },
+    "key_type": {
+      "S": "ulid"
     },
     "schema_type": {
       "S": "user"
@@ -382,31 +1133,44 @@
         {
           "M": {
             "description": {
-              "S": "Application"
+              "S": "Related Applications"
             },
             "name": {
-              "S": "app_id"
+              "S": "app_ids"
             },
             "type": {
-              "S": "relationship"
+              "S": "multivalue-relationship"
             },
             "rel_display_attribute": {
               "S": "app_name"
             },
             "rel_entity": {
-              "S": "application"
+              "S": "app"
             },
             "rel_key": {
               "S": "app_id"
             },
             "group_order": {
-              "S": "-998"
+              "S": "-997"
             },
             "required": {
-              "BOOL": true
+              "BOOL": false
             },
             "system": {
               "BOOL": true
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Related Applications"
+                },
+                "content_html": {
+                  "S": "Select Related Applications that this server is associated with. The primary application should be set in the 'Application' field."
+                }
+              }
             }
           }
         },
@@ -444,10 +1208,13 @@
               "S": "Server OS Family"
             },
             "listvalue": {
-              "S": "windows,linux"
+              "S": "TBC,windows,linux"
             },
             "name": {
               "S": "server_os_family"
+            },
+            "default": {
+              "S": "TBC"
             },
             "type": {
               "S": "list"
@@ -474,6 +1241,9 @@
             "name": {
               "S": "server_os_version"
             },
+            "default": {
+              "S": "TBC"
+            },
             "type": {
               "S": "string"
             },
@@ -493,6 +1263,9 @@
             "name": {
               "S": "server_fqdn"
             },
+            "default": {
+              "S": "TBC"
+            },
             "type": {
               "S": "string"
             },
@@ -500,7 +1273,7 @@
               "S": "^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]*[A-Za-z0-9])$"
             },
             "validation_regex_msg": {
-              "S": "Server FQDN must contain only aplhanumeric, hyphen or period charaters."
+              "S": "Server FQDN must contain only alphanumeric, hyphen or period characters."
             },
             "group_order": {
               "S": "-999"
@@ -532,6 +1305,68 @@
         {
           "M": {
             "description": {
+              "S": "AWS Account Id"
+            },
+            "listvalue": {
+              "S": "000000000000,111122223333,222233334444"
+            },
+            "default": {
+              "S": "000000000000"
+            },
+            "name": {
+              "S": "aws_accountid"
+            },
+            "type": {
+              "S": "list"
+            },
+            "validation_regex": {
+              "S": "^\\d{12}$"
+            },
+            "validation_regex_msg": {
+              "S": "Invalid AWS account Id."
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "group": {
+              "S": "Target"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "AWS Region"
+            },
+            "name": {
+              "S": "aws_region"
+            },
+            "type": {
+              "S": "list"
+            },
+            "listvalue": {
+              "S": "TBC,us-east-2,us-east-1,us-west-1,us-west-2,af-south-1,ap-east-1,ap-southeast-3,ap-south-1,ap-northeast-3,ap-northeast-2,ap-southeast-1,ap-southeast-2,ap-northeast-1,ca-central-1,cn-north-1,cn-northwest-1,eu-central-1,eu-west-1,eu-west-2,eu-south-1,eu-west-3,eu-north-1,me-south-1,sa-east-1"
+            },
+            "default": {
+              "S": "TBC"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "group": {
+              "S": "Target"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
               "S": "Server Environment"
             },
             "name": {
@@ -545,6 +1380,31 @@
             },
             "system": {
               "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Server Storage Size"
+            },
+            "name": {
+              "S": "storage_size"
+            },
+            "type": {
+              "S": "number"
+            },
+            "group_order": {
+              "S": "-997"
+            },
+            "system": {
+              "BOOL": true
+            },
+            "validation_min": {
+              "N": "1"
+            },
+            "validation_max": {
+              "N": "1000000"
             }
           }
         },
@@ -899,6 +1759,9 @@
             },
             "group": {
               "S": "Status"
+            },
+            "default": {
+              "S": "Not started"
             }
           }
         },
@@ -967,6 +1830,9 @@
             },
             "listvalue": {
               "S": "Retire,Retain,Relocate,Rehost,Repurchase,Replatform,Rearchitect,TBC"
+            },
+            "default": {
+              "S": "TBC"
             },
             "name": {
               "S": "r_type"
@@ -1268,6 +2134,151 @@
         {
           "M": {
             "description": {
+              "S": "Move Group"
+            },
+            "name": {
+              "S": "move_group_id"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "rel_display_attribute": {
+              "S": "move_group_name"
+            },
+            "rel_entity": {
+              "S": "move_group"
+            },
+            "rel_key": {
+              "S": "move_group_id"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "__wave_id"
+                }
+              ]
+            },
+            "group": {
+              "S": "Migration Planning"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Move Group"
+                },
+                "content_html": {
+                  "S": "A move group is a collection of assets that must be migrated together due to technical dependencies or business requirements."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Wave"
+            },
+            "name": {
+              "S": "wave_id"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "group": {
+              "S": "Migration Planning"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Wave"
+                },
+                "content_html": {
+                  "S": "Also known as migration wave, it describes a group of applications and servers with the same migration schedule.\nThe wave is derived from the move group thus cannot be modified."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "WPM Job"
+            },
+            "name": {
+              "S": "wpm_job_id"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "rel_display_attribute": {
+              "S": "wpm_job_name"
+            },
+            "rel_entity": {
+              "S": "wpm_job"
+            },
+            "rel_key": {
+              "S": "wpm_job_id"
+            },
+            "group": {
+              "S": "Migration Planning"
+            },
+            "group_order": {
+              "S": "3"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "WPM Job"
+                },
+                "content_html": {
+                  "S": "The wave planning job associated with this server. This field is readonly and automatically set by WPM Job Wizard."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
               "S": "Encrypt EBS volumes"
             },
             "long_desc": {
@@ -1328,6 +2339,9 @@
     "schema_name": {
       "S": "database"
     },
+    "key_type": {
+      "S": "ulid"
+    },
     "schema_type": {
       "S": "user"
     },
@@ -1352,37 +2366,6 @@
             },
             "type": {
               "S": "string"
-            }
-          }
-        },
-        {
-          "M": {
-            "description": {
-              "S": "Application"
-            },
-            "name": {
-              "S": "app_id"
-            },
-            "type": {
-              "S": "relationship"
-            },
-            "rel_display_attribute": {
-              "S": "app_name"
-            },
-            "rel_entity": {
-              "S": "application"
-            },
-            "rel_key": {
-              "S": "app_id"
-            },
-            "group_order": {
-              "S": "-998"
-            },
-            "required": {
-              "BOOL": true
-            },
-            "system": {
-              "BOOL": true
             }
           }
         },
@@ -1442,7 +2425,10 @@
               "S": "Database Type"
             },
             "listvalue": {
-              "S": "oracle,mssql,db2,mysql,postgresql"
+              "S": "TBC,oracle,mssql,db2,mysql,postgresql"
+            },
+            "default": {
+              "S": "TBC"
             },
             "name": {
               "S": "database_type"
@@ -1461,6 +2447,195 @@
             },
             "system": {
               "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Related Applications"
+            },
+            "name": {
+              "S": "app_ids"
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_entity": {
+              "S": "app"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "group_order": {
+              "S": "-997"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Related Applications"
+                },
+                "content_html": {
+                  "S": "Select Related Applications that this database is associated with. The primary application should be set in the 'Application' field."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Move Group"
+            },
+            "name": {
+              "S": "move_group_id"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "rel_display_attribute": {
+              "S": "move_group_name"
+            },
+            "rel_additional_attributes": {
+              "L": [
+                {
+                  "S": "__wave_id"
+                }
+              ]
+            },
+            "rel_entity": {
+              "S": "move_group"
+            },
+            "rel_key": {
+              "S": "move_group_id"
+            },
+            "group": {
+              "S": "Migration Planning"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Move Group"
+                },
+                "content_html": {
+                  "S": "A move group is a collection of assets that must be migrated together due to technical dependencies or business requirements."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Wave"
+            },
+            "name": {
+              "S": "wave_id"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "group": {
+              "S": "Migration Planning"
+            },
+            "group_order": {
+              "S": "1"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "Wave"
+                },
+                "content_html": {
+                  "S": "Also known as migration wave, it describes a group of applications and servers with the same migration schedule.\nThe wave is derived from the move group thus cannot be modified."
+                }
+              }
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "WPM Job"
+            },
+            "name": {
+              "S": "wpm_job_id"
+            },
+            "type": {
+              "S": "relationship"
+            },
+            "rel_display_attribute": {
+              "S": "wpm_job_name"
+            },
+            "rel_entity": {
+              "S": "wpm_job"
+            },
+            "rel_key": {
+              "S": "wpm_job_id"
+            },
+            "group": {
+              "S": "Migration Planning"
+            },
+            "group_order": {
+              "S": "3"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "readonly": {
+              "BOOL": true
+            },
+            "help_content": {
+              "M": {
+                "header": {
+                  "S": "WPM Job"
+                },
+                "content_html": {
+                  "S": "The wave planning job associated with this database. This field is readonly and automatically set by WPM Job Wizard."
+                }
+              }
             }
           }
         }
@@ -2016,7 +3191,7 @@
               }
             }
           }
-        }, 
+        },
         {
           "M": {
             "listMultiSelect": {
@@ -2784,9 +3959,6 @@
             "system": {
               "BOOL": true
             },
-            "readonly": {
-              "BOOL": true
-            },
             "name": {
               "S": "default"
             },
@@ -2809,9 +3981,6 @@
             "system": {
               "BOOL": true
             },
-            "readonly": {
-              "BOOL": true
-            },
             "name": {
               "S": "latest"
             },
@@ -2832,9 +4001,6 @@
         {
           "M": {
             "system": {
-              "BOOL": true
-            },
-            "readonly": {
               "BOOL": true
             },
             "name": {
@@ -3056,13 +4222,13 @@
               "S": "task_id"
             },
             "rel_display_attribute": {
-              "S": "pipeline_template_task_name"
+              "S": "script_name"
             },
             "rel_entity": {
-              "S": "pipeline_template_task"
+              "S": "script"
             },
             "rel_key": {
-              "S": "task_id"
+              "S": "package_uuid"
             },
             "required": {
               "BOOL": true
@@ -3372,14 +4538,35 @@
             "rel_key": {
               "S": "server_id"
             },
-            "source_filter_attribute_name": {
-              "S": "appidlist"
+            "filters": {
+              "L": [
+                {
+                  "M": {
+                    "source_filter_attribute_name": {
+                      "S": "appidlist"
+                    },
+                    "rel_filter_attribute_name": {
+                      "S": "app_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "source_filter_attribute_name": {
+                      "S": "waveid"
+                    },
+                    "rel_filter_attribute_name": {
+                      "S": "wave_id"
+                    }
+                  }
+                }
+              ]
             },
             "description": {
               "S": "Optional - Servers"
             },
             "long_desc": {
-              "S": "If not specified all servers for the selected applications are included, to target specific servers only select them here."
+              "S": "If not specified all servers for the selected applications and wave are included, to target specific servers only select them here."
             },
             "rel_entity": {
               "S": "server"
@@ -3395,9 +4582,6 @@
             },
             "name": {
               "S": "server_ids"
-            },
-            "rel_filter_attribute_name": {
-              "S": "app_id"
             },
             "group_order": {
               "S": "4"
@@ -3453,7 +4637,7 @@
               "S": "At least one application must be provided."
             },
             "rel_filter_attribute_name": {
-              "S": "wave_id"
+              "S": "wave_ids"
             },
             "group_order": {
               "S": "3"

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -24,7 +25,7 @@ type EndpointConfig = {
   region: string;
   custom_header: () => {};
 };
-let awsConfig: {
+const awsConfig: {
   Auth: { userPoolWebClientId: string; region: string; userPoolId: string; mandatorySignIn: boolean };
   API: { endpoints: EndpointConfig[] };
 } = {

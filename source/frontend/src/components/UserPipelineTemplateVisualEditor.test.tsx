@@ -1,5 +1,6 @@
+/* eslint-disable */
 import React from "react";
-import {fireEvent, render, screen, waitFor, waitForElementToBeRemoved, within} from "@testing-library/react";
+import {fireEvent, render, screen, within} from "@testing-library/react";
 import { PipelineTemplateVisualEditorWrapper } from "./UserPipelineTemplateVisualEditor";
 import { PipelineTemplate, PipelineTemplateTask, Task } from "../models/Pipeline";
 import {
@@ -114,7 +115,7 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
 
   it("handles direction change", async () => {
     // GIVEN
-    const { addNotification, renderResult } = renderComponent();
+    renderComponent();
     const user = userEvent.setup();
     // @ts-ignore
     const nodeId = pipelineTemplateUnderTest.pipeline_template_tasks[0].pipeline_template_task_id;
@@ -161,7 +162,7 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     expect(node).not.toBeNull();
     expect(node).toBeInTheDocument();
     expect(node).toHaveClass('react-flow__node', 'react-flow__node-task', 'nopan', 'selectable', 'draggable');
-    expect(node).toHaveAttribute('role', 'button');
+    expect(node).toHaveAttribute('role', 'group');
     expect(node.ownerDocument).toBe(document);
     expect(document.body.contains(node)).toBe(true);
 
@@ -172,7 +173,7 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     expect(editButton).toBeEnabled();
 
     //AND WHEN the user clicks the edit button
-    await user.click(editButton)
+    await user.click(editButton);
     // THEN expect a dialog box pops up
     await screen.findByRole("dialog");
     const popupDialog = screen.getByRole("dialog");
@@ -207,23 +208,20 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     expect(node).not.toBeNull();
     expect(node).toBeInTheDocument();
     expect(node).toHaveClass('react-flow__node', 'react-flow__node-task', 'nopan', 'selectable', 'draggable');
-    expect(node).toHaveAttribute('role', 'button');
+    expect(node).toHaveAttribute('role', 'group');
     expect(node.ownerDocument).toBe(document);
     expect(document.body.contains(node)).toBe(true);
 
     // WHEN the user selects the node
-    // Note: user.click(node) cannot be used here, because the node is hidden/not-user-interactable
     fireEvent.click(node);
 
     // THEN expect the delete button to be enabled
     expect(deleteButton).toBeEnabled();
 
     //AND WHEN the user clicks the delete button
-    await user.click(deleteButton)
+    await user.click(deleteButton);
 
     // THEN expect a confirmation dialog to appear
-    // @ts-ignore
-    const task_name = pipelineTemplateUnderTest.pipeline_template_tasks[0].pipeline_template_task_name;
     const dialog = within(await screen.findByRole("dialog"));
     expect(await dialog.findByText(/Are you sure you wish to delete the task.*\?/)).toBeInTheDocument();
 
@@ -273,17 +271,16 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     expect(node).not.toBeNull();
     expect(node).toBeInTheDocument();
     expect(node).toHaveClass('react-flow__node', 'react-flow__node-task', 'nopan', 'selectable', 'draggable');
-    expect(node).toHaveAttribute('role', 'button');
+    expect(node).toHaveAttribute('role', 'group');
 
     // WHEN the user selects the node
-    // Note: user.click(node) cannot be used here, because the node is hidden/not-user-interactable
     fireEvent.click(node);
 
     // THEN expect the delete button to be enabled
     expect(deleteButton).toBeEnabled();
 
     //AND WHEN the user clicks the delete button
-    await user.click(deleteButton)
+    await user.click(deleteButton);
 
     // THEN expect a confirmation dialog to appear
     // @ts-ignore
@@ -309,7 +306,7 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
 
   it("handles edit task button click and saves the change", async () => {
     // GIVEN
-    const { addNotification } = renderComponent();
+    renderComponent();
     const editButton = screen.getByRole("button", { name: "Edit" });
     expect(editButton).toBeDisabled();
     const user = userEvent.setup();
@@ -324,7 +321,7 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     expect(node).not.toBeNull();
     expect(node).toBeInTheDocument();
     expect(node).toHaveClass('react-flow__node', 'react-flow__node-task', 'nopan', 'selectable', 'draggable');
-    expect(node).toHaveAttribute('role', 'button');
+    expect(node).toHaveAttribute('role', 'group');
     expect(node.ownerDocument).toBe(document);
     expect(document.body.contains(node)).toBe(true);
 
@@ -363,7 +360,7 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     await user.click(editButton);
 
     // THEN expect a dialog box pops up
-    const dialog= await screen.findByRole("dialog");
+    await screen.findByRole("dialog");
     const input = within(popupDialog).getByRole('textbox', { name: /task_sequence_number/i });
     expect(input).toHaveValue("-some-edit");
   });

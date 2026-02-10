@@ -1,4 +1,5 @@
 [tool.poetry]
+version = "0.1.0"
 name = "cloud-migration-factory-on-aws"
 package-mode = false
 

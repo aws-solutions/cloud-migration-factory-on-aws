@@ -3,46 +3,49 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
 import { ColumnLayout, Container, Header, SpaceBetween, Tabs } from "@cloudscape-design/components";
 
 import TextAttribute from "../components/ui_attributes/TextAttribute";
 import AllViewerAttributes from "../components/ui_attributes/AllViewerAttributes";
 import ItemTable from "./ItemTable";
 import Audit from "./ui_attributes/Audit";
-import { DataLoadingState, EntitySchema } from "../models/EntitySchema";
-import { Application } from "../models/Application";
-import { Server } from "../models/Server";
+import { DataLoadingState, EntitySchema, Application, Server, Job, Wave } from "../models";
+import { Schemas } from "../utils/Constants";
 
 type WaveDetailsViewParams = {
-  schemas: Record<string, EntitySchema>;
-  selectedItems: any[];
-  dataAll: {
-    application: DataLoadingState<Application>;
-    server: DataLoadingState<Server>;
-    job: DataLoadingState<any>;
+  readonly schemas: Record<string, EntitySchema>;
+  readonly selectedItems: Wave[];
+  readonly dataAll: {
+    readonly app: DataLoadingState<Application>;
+    readonly server: DataLoadingState<Server>;
+    readonly job: DataLoadingState<Job>;
   };
+  readonly handleTabChange: (tabId: string) => void;
+  readonly selectedTab: string;
 };
 
-export const WaveDetailsView = ({ dataAll, schemas, selectedItems }: WaveDetailsViewParams) => {
-  const [viewerCurrentTab, setViewerCurrentTab] = useState("details");
-
+export const WaveDetailsView = ({
+  dataAll,
+  schemas,
+  selectedItems,
+  handleTabChange,
+  selectedTab,
+}: WaveDetailsViewParams) => {
   if (selectedItems.length !== 1) return <></>;
+
   const selectedWave = selectedItems[0];
   const selectedWaveId = selectedWave.wave_id;
 
-  const appsForCurrentWave = dataAll.application.data.filter((app) => app.wave_id === selectedWaveId);
+  const appsForCurrentWave = dataAll.app.data.filter((app) => app.wave_ids?.includes(selectedWaveId));
 
-  const serversForCurrentWave = appsForCurrentWave.flatMap((app) =>
-    dataAll.server.data.filter((server) => server.app_id === app.app_id)
-  );
+  const serversForCurrentWave = dataAll.server.data.filter((server) => server.wave_id === selectedWaveId);
 
   const jobsForCurrentWave = dataAll.job.data.filter((job) => job.script.script_arguments?.Waveid === selectedWaveId);
 
   return (
     <Tabs
-      activeTabId={viewerCurrentTab}
-      onChange={({ detail }) => setViewerCurrentTab(detail.activeTabId)}
+      activeTabId={selectedTab}
+      onChange={({ detail }) => handleTabChange(detail.activeTabId)}
       tabs={[
         {
           label: "Details",
@@ -65,8 +68,8 @@ export const WaveDetailsView = ({ dataAll, schemas, selectedItems }: WaveDetails
           content: (
             <ItemTable
               schema={schemas.server}
-              schemaKeyAttribute={"server_id"}
-              schemaName={"server"}
+              schemaKeyAttribute={Schemas.Server.keyAttribute}
+              schemaName={Schemas.Server.name}
               dataAll={dataAll}
               items={serversForCurrentWave}
               isLoading={dataAll.server.isLoading}
@@ -81,12 +84,12 @@ export const WaveDetailsView = ({ dataAll, schemas, selectedItems }: WaveDetails
           content: (
             <ItemTable
               schema={schemas.application}
-              schemaKeyAttribute={"app_id"}
-              schemaName={"application"}
+              schemaKeyAttribute={Schemas.Application.keyAttribute}
+              schemaName={Schemas.Application.name}
               dataAll={dataAll}
               items={appsForCurrentWave}
-              isLoading={dataAll.application.isLoading}
-              errorLoading={dataAll.application.error}
+              isLoading={dataAll.app.isLoading}
+              errorLoading={dataAll.app.error}
               provideLink={true}
             />
           ),
