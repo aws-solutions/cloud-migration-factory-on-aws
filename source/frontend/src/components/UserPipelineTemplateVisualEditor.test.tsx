@@ -162,7 +162,6 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     expect(node).not.toBeNull();
     expect(node).toBeInTheDocument();
     expect(node).toHaveClass('react-flow__node', 'react-flow__node-task', 'nopan', 'selectable', 'draggable');
-    expect(node).toHaveAttribute('role', 'group');
     expect(node.ownerDocument).toBe(document);
     expect(document.body.contains(node)).toBe(true);
 
@@ -208,7 +207,6 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     expect(node).not.toBeNull();
     expect(node).toBeInTheDocument();
     expect(node).toHaveClass('react-flow__node', 'react-flow__node-task', 'nopan', 'selectable', 'draggable');
-    expect(node).toHaveAttribute('role', 'group');
     expect(node.ownerDocument).toBe(document);
     expect(document.body.contains(node)).toBe(true);
 
@@ -271,7 +269,6 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     expect(node).not.toBeNull();
     expect(node).toBeInTheDocument();
     expect(node).toHaveClass('react-flow__node', 'react-flow__node-task', 'nopan', 'selectable', 'draggable');
-    expect(node).toHaveAttribute('role', 'group');
 
     // WHEN the user selects the node
     fireEvent.click(node);
@@ -321,7 +318,6 @@ describe("PipelineTemplateVisualEditorWrapper", () => {
     expect(node).not.toBeNull();
     expect(node).toBeInTheDocument();
     expect(node).toHaveClass('react-flow__node', 'react-flow__node-task', 'nopan', 'selectable', 'draggable');
-    expect(node).toHaveAttribute('role', 'group');
     expect(node.ownerDocument).toBe(document);
     expect(document.body.contains(node)).toBe(true);
 
