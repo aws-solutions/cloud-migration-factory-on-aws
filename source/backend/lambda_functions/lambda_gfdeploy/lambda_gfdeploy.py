@@ -46,7 +46,7 @@ def extract_numeric(input_str):
 
 
 def process_app(app, body, context, wave_name, stack_result_set):
-    if 'wave_id' in app and str(app['wave_id']) == body['waveid']:
+    if body['waveid'] in app.get("wave_ids", []):
         app_name = extract_alnum(app['app_name'])
         print('App Name :' + app_name)
 
@@ -122,7 +122,9 @@ def extract_stack_result_set_error(stack_result_set):
 
 def process_servers(servers):
     for server in servers:
-        if "app_id" in server and "r_type" in server:
+        # TODO: original code below does not make sense, to be tested
+        # if "app_id" in server and "r_type" in server:
+        if "app_ids" in server and "r_type" in server:
             print(server['r_type'].upper())
             if server['r_type'].upper() == 'REPLATFORM':
                 # update

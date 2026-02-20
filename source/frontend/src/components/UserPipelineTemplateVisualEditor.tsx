@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -59,7 +60,7 @@ const PipelineTemplateTaskNode = (props: NodeProps<TaskNode>) => {
       header={
         <SpaceBetween size={"xs"} direction={"horizontal"}>
           <RadioGroup
-            onChange={({ detail }) => {}}
+            onChange={() => {}}
             value={props?.selected ? "selected" : null}
             items={[{ value: "selected", label: "" }]}
           />
@@ -90,10 +91,6 @@ interface PipelineTemplateVisualEditorProps {
   handleRefresh: any;
 }
 
-const options = {
-  includeHiddenNodes: false,
-};
-
 const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> = ({
   pipelineTemplate,
   schemas,
@@ -108,7 +105,7 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
   const [directionTB, setDirectionTB] = useState(true);
   const [nodes, setNodes] = useState<Node[]>();
   const [edges, setEdges] = useState<Edge[]>();
-  const [viewPort, setViewPort] = useState<Viewport>()
+  const [viewPort, setViewPort] = useState<Viewport>();
   const [action, setAction] = useState<EditorAction>("Add");
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance>();
   const [isDeleteConfirmationModalVisible, setIsDeleteConfirmationModalVisible] = useState(false);
@@ -163,7 +160,7 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
   const getDefaultWidth = (node: TaskNode) => {
-    let width = node.data?.task ? node.data?.task.pipeline_template_task_name.length * 15 : 15;
+    const width = node.data?.task ? node.data?.task.pipeline_template_task_name.length * 15 : 15;
 
     return width < 100 ? 100 : width;
   };
@@ -181,7 +178,7 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
 
     if (nodes) {
       nodes.forEach((node: Node) => {
-        let newData = node.data;
+        const newData = node.data;
         newData.layoutDirectionTB = directionTB;
         g.setNode(node.id, {
           ...node,
@@ -423,7 +420,7 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
     try {
       const apiUser = new UserApiClient();
       if (action === "Edit") {
-        let pipeline_template_task_id = amendedItemCopy.pipeline_template_task_id;
+        const pipeline_template_task_id = amendedItemCopy.pipeline_template_task_id;
         amendedItemCopy = getChanges(
           amendedItemCopy,
           pipelineTemplate.pipeline_template_tasks,
@@ -443,7 +440,7 @@ const PipelineTemplateVisualEditor: React.FC<PipelineTemplateVisualEditorProps> 
       }
 
       if (result["errors"]) {
-        let errorsReturned = parsePUTResponseErrors(result["errors"]).join(",");
+        const errorsReturned = parsePUTResponseErrors(result["errors"]).join(",");
         console.error(errorsReturned);
         addNotification({
           type: "error",

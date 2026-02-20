@@ -1,17 +1,25 @@
-import { defaultTestProps, mockNotificationContext, TEST_SESSION_STATE } from "../__tests__/TestUtils";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { SessionContext } from "../contexts/SessionContext";
-import React from "react";
-import UserDatabaseTable from "./UserTableDatabases";
-import { server } from "../setupTests";
-import { rest } from "msw";
-import { generateTestApps, generateTestDatabases } from "../__tests__/mocks/user_api";
 import userEvent from "@testing-library/user-event";
+import { rest } from "msw";
+import { MemoryRouter } from "react-router-dom";
 import * as XLSX from "xlsx";
-import { NotificationContext } from "../contexts/NotificationContext";
 
-function renderUserDatabasesTable(props = defaultTestProps) {
+import {
+  generateTestApps,
+  generateTestDatabases,
+  generateTestMoveGroups,
+  generateTestWaves,
+  generateTestWpmJobs,
+} from "../__tests__/mocks/user_api";
+import { mockNotificationContext, TEST_SESSION_STATE, wpmTestProps } from "../__tests__/TestUtils";
+import { NotificationContext } from "../contexts/NotificationContext";
+import { SessionContext } from "../contexts/SessionContext";
+import { server } from "../setupTests";
+import UserDatabaseTable from "./UserTableDatabases";
+import { Database } from "../models";
+
+function renderUserDatabasesTable(props = wpmTestProps) {
   return {
     ...mockNotificationContext,
     renderResult: render(
@@ -27,6 +35,67 @@ function renderUserDatabasesTable(props = defaultTestProps) {
   };
 }
 
+function setupApiCallsForLoad(...dbs: Database[][]) {
+  let getDatabaseCall = 0;
+  server.use(
+    rest.get("/user/database", (request, response, context) => {
+      const index = Math.min(getDatabaseCall++, dbs.length - 1);
+      return response(context.status(200), context.json(dbs[index]));
+    }),
+    rest.get("/user/app", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestApps(2)));
+    }),
+    rest.get("/user/move_group", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestMoveGroups(1)));
+    }),
+    rest.get("/user/wave", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestWaves(1)));
+    }),
+    rest.get("/user/wpm_job", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestWpmJobs(1)));
+    })
+  );
+}
+
+function setupApiCallsForSave(operation: "post" | "put" | "delete", createDbItem?: Database) {
+  const saveDbRequestBodies: any[] = [];
+  const manageEntityRequestBodies: any[] = [];
+  const saveAppRequestBodies: any[] = [];
+
+  if (operation === "post") {
+    server.use(
+      rest.post(`/user/database`, async (request, response, context) => {
+        request.json().then((body) => saveDbRequestBodies.push(body));
+        return response(context.status(200), context.json({ newItems: [createDbItem] }));
+      })
+    );
+  } else if (operation === "put") {
+    server.use(
+      rest.put(`/user/database/:id`, async (request, response, context) => {
+        request.json().then((body) => saveDbRequestBodies.push(body));
+        return response(context.status(200));
+      })
+    );
+  }
+
+  server.use(
+    rest.put(`/user/app/:id`, (request, response, context) => {
+      request.json().then((body) => saveAppRequestBodies.push(body));
+      return response(context.status(200), context.json({}));
+    }),
+    rest.post("/manage-entities", (request, response, context) => {
+      request.json().then((body) => manageEntityRequestBodies.push(body));
+      return response(context.status(200), context.json({}));
+    })
+  );
+
+  return {
+    saveDbRequestBodies,
+    manageEntityRequestBodies,
+    saveAppRequestBodies,
+  };
+}
+
 test('it renders an empty table with "no databases" message', async () => {
   // WHEN
   renderUserDatabasesTable();
@@ -34,7 +103,7 @@ test('it renders an empty table with "no databases" message', async () => {
   // THEN
   // page should render in loading state
   expect(screen.getByRole("heading", { name: "Databases (0)" })).toBeInTheDocument();
-  expect(screen.getByText("Loading databases")).toBeInTheDocument();
+  expect(screen.getByText("Loading Databases")).toBeInTheDocument();
 
   // after server response came in, it should render the table
   await waitForElementToBeRemoved(() => screen.queryByText(/Loading databases/i));
@@ -42,8 +111,8 @@ test('it renders an empty table with "no databases" message', async () => {
   const table = screen.getByRole("table");
   const tbody = within(table).getAllByRole("rowgroup")[1];
 
-  expect(await within(tbody).findByText("No databases")).toBeInTheDocument();
-  expect(within(tbody).getByRole("button", { name: "Add database" })).toBeInTheDocument();
+  expect(await within(tbody).findByText("No Databases")).toBeInTheDocument();
+  expect(within(tbody).getByRole("button", { name: "Add Database" })).toBeInTheDocument();
 });
 
 test("it renders a paginated table with 50 databases", async () => {
@@ -114,19 +183,10 @@ test('click on add button opens "Add database" form', async () => {
 
 test("submitting the add form saves a new database to API", async () => {
   // GIVEN
-  let captureRequest: any;
-  server.use(
-    rest.get("/user/database", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestDatabases(2)));
-    }),
-    rest.post(`/user/database`, async (request, response, context) => {
-      request.json().then((body) => (captureRequest = body));
-      return response(context.status(201));
-    }),
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
-    })
-  );
+  const [db0, db1] = generateTestDatabases(2);
+
+  setupApiCallsForLoad([db0], [db0, db1]);
+  const { saveDbRequestBodies, saveAppRequestBodies, manageEntityRequestBodies } = setupApiCallsForSave("post", db1);
 
   renderUserDatabasesTable();
   const addButton = screen.getByRole("button", { name: "Add" });
@@ -141,7 +201,7 @@ test("submitting the add form saves a new database to API", async () => {
   // AND WHEN we populate all fields
   await userEvent.type(screen.getByRole("textbox", { name: "database_name" }), "my-test-database");
 
-  await userEvent.click(screen.getByLabelText("Application"));
+  await userEvent.click(screen.getByText("Select Related Applications"));
   await userEvent.click(await screen.findByText("Unit testing App 1"));
 
   await userEvent.click(screen.getByLabelText("Database Type"));
@@ -155,22 +215,42 @@ test("submitting the add form saves a new database to API", async () => {
 
   // THEN verify the API has received the expected update request
   await waitFor(() => {
-    expect(captureRequest.database_name).toEqual("my-test-database");
+    expect(saveDbRequestBodies).toEqual([{ database_name: "my-test-database", database_type: "db2", app_ids: ["1"] }]);
+  });
+  await waitFor(() => {
+    expect(saveAppRequestBodies).toEqual([
+      {
+        database_ids: ["1"],
+      },
+    ]);
+  });
+  await waitFor(() => {
+    expect(manageEntityRequestBodies).toEqual([
+      {
+        // TODO: Set Move Group ID, but it is blocked by WPM-666
+        // destination_entity_id: "1",
+        destination_entity_type: "move_group",
+        operation: "move",
+        source_entity_type: "move_group",
+        target_entities: [
+          {
+            entity_id: "1",
+            entity_type: "database",
+          },
+        ],
+      },
+    ]);
   });
   await screen.findByRole("heading", { name: "Databases (2)" });
 });
 
+//TODO: Add test case where the app_ids & move_group_id get changed after WPM-666 fixed
+
 test('click on row enables "Edit" button and shows "Details" tab', async () => {
   // GIVEN
   const databases = generateTestDatabases(1);
-  server.use(
-    rest.get("/user/database", (request, response, context) => {
-      return response(context.status(200), context.json(databases));
-    }),
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
-    })
-  );
+
+  setupApiCallsForLoad(databases);
 
   const { addNotification } = renderUserDatabasesTable();
   const editButton = screen.getByRole("button", { name: "Edit" });
@@ -207,7 +287,7 @@ test('click on row enables "Edit" button and shows "Details" tab', async () => {
     expect(addNotification).toHaveBeenCalledWith({
       content: "No updates to save.",
       dismissible: true,
-      header: "Save database",
+      header: "Edit database",
       type: "warning",
     });
   });
@@ -215,20 +295,12 @@ test('click on row enables "Edit" button and shows "Details" tab', async () => {
 
 test("submitting the edit form saves the database to API", async () => {
   // GIVEN
-  let captureRequest: any;
-  const databases = generateTestDatabases(1);
-  server.use(
-    rest.get("/user/database", (request, response, context) => {
-      return response(context.status(200), context.json(databases));
-    }),
-    rest.put(`/user/database/${databases[0].database_id}`, async (request, response, context) => {
-      request.json().then((body) => (captureRequest = body));
-      return response(context.status(200));
-    }),
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
-    })
-  );
+  const databases = generateTestDatabases(1, { appId: "1" });
+  databases[0].app_ids = ["0"];
+  databases[0].database_type = "oracle";
+
+  setupApiCallsForLoad(databases);
+  const { saveDbRequestBodies, saveAppRequestBodies, manageEntityRequestBodies } = setupApiCallsForSave("put");
 
   renderUserDatabasesTable();
   const editButton = screen.getByRole("button", { name: "Edit" });
@@ -244,13 +316,19 @@ test("submitting the edit form saves the database to API", async () => {
   const saveButton = await screen.findByRole("button", { name: /Save/i });
   await waitFor(() => expect(saveButton).toBeEnabled());
 
-  // AND WHEN
-  await userEvent.click(await screen.findByRole("button", { name: "Related details" }));
+  const [moveGroupDetailsLink, waveDetailsLink] = await screen.findAllByRole("button", {
+    name: "Related details",
+  });
 
-  // THEN
-  const dialog = await screen.findByRole("dialog");
-  expect(await within(dialog).findByRole("heading", { name: "Item detail" })).toBeInTheDocument();
-  expect(await within(dialog).findByText("Unit testing App 1")).toBeInTheDocument();
+  expect(await screen.findByText("Unit testing App 0")).toBeInTheDocument();
+
+  await userEvent.click(moveGroupDetailsLink);
+  let dialog = await screen.findByRole("dialog");
+  expect(await within(dialog).findByText("Unit testing Group 0")).toBeInTheDocument();
+
+  await userEvent.click(waveDetailsLink);
+  dialog = await screen.findByRole("dialog");
+  expect(await within(dialog).findByText("Unit testing Wave 0")).toBeInTheDocument();
 
   // AND WHEN we edit some data and hit 'save'
   const databaseNameInput = screen.getByRole("textbox", { name: "database_name" });
@@ -259,25 +337,22 @@ test("submitting the edit form saves the database to API", async () => {
 
   // THEN verify the API has received the expected update request
   await waitFor(() => {
-    expect(captureRequest.database_name).toEqual("unittest0-some-name");
+    expect(saveDbRequestBodies).toEqual([{ database_name: "unittest0-some-name" }]);
+    expect(saveAppRequestBodies).toEqual([]);
+    expect(manageEntityRequestBodies).toEqual([]);
   });
   await screen.findByRole("heading", { name: "Databases (1)" });
 });
 
 test("when update fails with server error, display notification", async () => {
   // GIVEN
-  let captureRequest: any;
   const databases = generateTestDatabases(1);
+  setupApiCallsForLoad(databases);
+
   server.use(
-    rest.get("/user/database", (request, response, context) => {
-      return response(context.status(200), context.json(databases));
-    }),
     rest.put(`/user/database/${databases[0].database_id}`, async (request, response, context) => {
-      request.json().then((body) => (captureRequest = body));
+      request.json().then(() => {});
       return response(context.status(502));
-    }),
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
     })
   );
 
@@ -292,7 +367,7 @@ test("when update fails with server error, display notification", async () => {
 
   // THEN
   expect(await screen.findByRole("heading", { name: "Edit database" })).toBeInTheDocument();
-  const saveButton = await screen.findByRole("button", { name: /Save/i });
+  await screen.findByRole("button", { name: /Save/i });
 
   // AND WHEN we edit some data and hit 'save'
   const databaseNameInput = screen.getByRole("textbox", { name: "database_name" });
@@ -312,12 +387,7 @@ test("when update fails with server error, display notification", async () => {
 });
 
 test('click on row enables "Delete" button, shows "Delete" modal', async () => {
-  // GIVEN
-  server.use(
-    rest.get("/user/database", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestDatabases(1)));
-    })
-  );
+  setupApiCallsForLoad(generateTestDatabases(1));
 
   renderUserDatabasesTable();
   const deleteButton = screen.getByRole("button", { name: "Delete" });
@@ -338,7 +408,7 @@ test('click on row enables "Delete" button, shows "Delete" modal', async () => {
   // THEN
   const withinModal = within(await screen.findByRole("dialog"));
   expect(withinModal.getByRole("heading", { name: "Delete databases" })).toBeInTheDocument();
-  expect(withinModal.getByText("Are you sure you wish to delete the 1 selected databases?")).toBeInTheDocument();
+  expect(withinModal.getByText("Are you sure you wish to delete the 1 selected database?")).toBeInTheDocument();
 
   // AND WHEN
   await userEvent.click(withinModal.getByRole("button", { name: /Cancel/i }));
@@ -350,14 +420,8 @@ test('click on row enables "Delete" button, shows "Delete" modal', async () => {
 test("confirming the deletion successfully deletes a database", async () => {
   // GIVEN
   const databases = generateTestDatabases(1);
-  server.use(
-    rest.get("/user/database", (request, response, context) => {
-      return response.once(context.status(200), context.json(databases));
-    }),
-    rest.delete(`/user/database/:id`, (request, response, context) => {
-      return response(context.status(204));
-    })
-  );
+  setupApiCallsForLoad(databases, []);
+  const { manageEntityRequestBodies, saveDbRequestBodies, saveAppRequestBodies } = setupApiCallsForSave("delete");
 
   const { addNotification } = renderUserDatabasesTable();
   const deleteButton = screen.getByRole("button", { name: "Delete" });
@@ -371,10 +435,20 @@ test("confirming the deletion successfully deletes a database", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Ok" }));
 
   // THEN
+  expect(saveDbRequestBodies).toEqual([]);
+  expect(saveAppRequestBodies).toEqual([]);
+  expect(manageEntityRequestBodies).toEqual([{ entity_ids: ["0"], entity_type: "database", operation: "cleanup" }]);
+
+  expect(addNotification).toHaveBeenCalledWith({
+    dismissible: false,
+    header: "Deleting selected database...",
+    loading: true,
+  });
+
   expect(addNotification).toHaveBeenCalledWith({
     content: "unittest0 was deleted.",
     dismissible: true,
-    header: "database deleted successfully",
+    header: "Delete database",
     type: "success",
   });
   expect(await screen.findByRole("heading", { name: "Databases (0)" })).toBeInTheDocument();
@@ -382,15 +456,8 @@ test("confirming the deletion successfully deletes a database", async () => {
 
 test("delete multiple databases", async () => {
   // GIVEN
-  const databases = generateTestDatabases(2);
-  server.use(
-    rest.get("/user/database", (request, response, context) => {
-      return response.once(context.status(200), context.json(databases));
-    }),
-    rest.delete(`/user/database/:id`, (request, response, context) => {
-      return response(context.status(204));
-    })
-  );
+  setupApiCallsForLoad(generateTestDatabases(2), []);
+  const { manageEntityRequestBodies, saveDbRequestBodies, saveAppRequestBodies } = setupApiCallsForSave("delete");
 
   const { addNotification } = renderUserDatabasesTable();
   const deleteButton = screen.getByRole("button", { name: "Delete" });
@@ -416,21 +483,29 @@ test("delete multiple databases", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Ok" }));
 
   // THEN
+  expect(saveDbRequestBodies).toEqual([]);
+  expect(saveAppRequestBodies).toEqual([]);
+  expect(manageEntityRequestBodies).toEqual([
+    { entity_ids: ["0", "1"], entity_type: "database", operation: "cleanup" },
+  ]);
+
   expect(addNotification).toHaveBeenCalledWith({
     dismissible: false,
     header: "Deleting selected databases...",
     loading: true,
-    type: "success",
   });
-  await waitFor(() => {
-    expect(addNotification).toHaveBeenCalledWith({
-      id: undefined,
-      content: "unittest0, unittest1 were deleted.",
-      dismissible: true,
-      header: "database deleted successfully",
-      type: "success",
-    });
-  });
+
+  await waitFor(
+    () => {
+      expect(addNotification).toHaveBeenCalledWith({
+        content: "unittest0, unittest1 were deleted.",
+        dismissible: true,
+        header: "Delete databases",
+        type: "success",
+      });
+    },
+    { timeout: 10_000 }
+  );
 });
 
 test("click on export downloads an xlsx file", async () => {
@@ -489,9 +564,9 @@ test("buttons are disabled based on user permissions", async () => {
   );
 
   renderUserDatabasesTable({
-    ...defaultTestProps,
+    ...wpmTestProps,
     userEntityAccess: {
-      ...defaultTestProps.userEntityAccess,
+      ...wpmTestProps.userEntityAccess,
       database: {
         delete: false,
         create: false,

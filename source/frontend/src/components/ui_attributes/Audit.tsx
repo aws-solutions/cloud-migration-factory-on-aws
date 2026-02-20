@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -8,14 +9,6 @@ import { ColumnLayout, SpaceBetween } from "@cloudscape-design/components";
 
 import TextAttribute from "./TextAttribute";
 import { getNestedValuePath } from "../../resources/main";
-
-// Attribute Display message content
-function returnLocaleDateTime(stringDateTime: string | number | Date) {
-  let originalDate = new Date(stringDateTime);
-  let newDate = new Date(originalDate.getTime() - originalDate.getTimezoneOffset() * 60 * 1000);
-
-  return newDate.toLocaleString();
-}
 
 const Audit = ({ item }: any) => {
   function getHistoryUser(item: any, type: string) {

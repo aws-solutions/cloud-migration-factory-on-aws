@@ -1,53 +1,5 @@
 [
   {
-    "pipeline_template_id": "1",
-    "pipeline_template_name": "Migration Hub Import",
-    "pipeline_template_description": "Imports Application Discovery Service (ADS) inventory data and EC2 recommendations",
-    "version": "0",
-    "pipeline_template_tasks": [
-      {
-        "pipeline_template_task_id": "1",
-        "pipeline_template_id": "1",
-        "task_id": "845e43b1-4ff4-472c-a634-de4e2e4a78fb",
-        "task_sequence_number": "1",
-        "pipeline_template_task_name": "1-create_home_region",
-        "task_version": "1"
-      },
-      {
-        "pipeline_template_task_id": "2",
-        "pipeline_template_id": "1",
-        "task_id": "ab9c240c-9cbf-4a7e-9ddc-c44f9f6d3952",
-        "task_sequence_number": "2",
-        "pipeline_template_task_name": "1-discover_on_premises_data",
-        "task_version": "1"
-      },
-      {
-        "pipeline_template_task_id": "3",
-        "pipeline_template_id": "1",
-        "task_id": "eaf6fb22-f817-40aa-9f56-2a5d9d90449d",
-        "task_sequence_number": "3",
-        "pipeline_template_task_name": "1-group_inventory",
-        "task_version": "1"
-      },
-      {
-        "pipeline_template_task_id": "4",
-        "pipeline_template_id": "1",
-        "task_id": "2c585097-0e13-4e42-994d-8f1269f7c97d",
-        "task_sequence_number": "4",
-        "pipeline_template_task_name": "1-import_ads_inventory",
-        "task_version": "1"
-      },
-      {
-        "pipeline_template_task_id": "5",
-        "pipeline_template_id": "1",
-        "task_id": "22f4df1d-4b0e-43fa-bf4e-0b335375eeff",
-        "task_sequence_number": "5",
-        "pipeline_template_task_name": "1-import_ec2_rec",
-        "task_version": "1"
-      }
-    ]
-  },
-  {
     "pipeline_template_id": "2",
     "pipeline_template_name": "Rehost with Application Migration Service (MGN)",
     "pipeline_template_description": "Facilitates server replications via Application Migration Service (MGN) for the selected wave",

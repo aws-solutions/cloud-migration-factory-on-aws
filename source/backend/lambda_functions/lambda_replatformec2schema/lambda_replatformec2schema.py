@@ -169,6 +169,7 @@ def set_default_attributes(server_schema, attributes):
             "description": "Root Volume Size (GiB)",
             "name": "root_vol_size",
             "system": True,
+            "default": "1",
             "validation_regex_msg": "Volume Size needs to between 1 GiB and 16384 GiB",
             "validation_regex": "^([1-9]|[1-9][0-9]|[1-9][0-9][0-9]|[1-9][0-9][0-9][0-9]|[1][0-6][0-3][0-8][0-4])$",
             "type": "Integer",
@@ -204,6 +205,7 @@ def set_default_attributes(server_schema, attributes):
                 "system": True,
                 "type": "string",
                 "group": CONST_TARGET_INSTANCE,
+                "default": "ami-00000000",
                 "validation_regex": "^(ami-(([a-z0-9]{8,17})+)$)",
                 "validation_regex_msg": "AMI ID must start with ami- and followed by upto 12 alphanumeric characters.",
                 "conditions": {
@@ -496,6 +498,7 @@ def load_schema():
         schema_table.put_item(
             Item={
                 'schema_name': 'server',
+                'key_type': 'ulid', # set as default in default_schema.json. We don't want to override it
                 'schema_type': 'user',
                 'attributes': attributes
             }
@@ -515,6 +518,7 @@ def delete_schema():
         schema_table.put_item(
             Item={
                 'schema_name': 'server',
+                'key_type': 'ulid', # set as default in default_schema.json. We don't want to override it
                 'schema_type': 'user',
                 'attributes': attributes
             }

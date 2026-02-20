@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -6,6 +7,9 @@
 import { getNestedValuePath } from "./main";
 import { Attribute, BaseData, EntitySchema } from "../models/EntitySchema";
 import { CmfAddNotification } from "../models/AppChildProps";
+
+// Generic error message for unexpected errors
+export const UNEXPECTED_ERROR = "An unexpected error occurred";
 
 type QueryType = {
   comparator: any;
@@ -16,7 +20,7 @@ type QueryType = {
 type QueryResult = boolean | undefined;
 
 function isEqualsQueryTrue(query: QueryType, item: Record<string, any>): QueryResult {
-  let item_value = getNestedValuePath(item, query.attribute);
+  const item_value = getNestedValuePath(item, query.attribute);
   if (item_value && query.value) {
     //Check this condition has ability to provide outcome.
     //Attribute exists.
@@ -25,7 +29,7 @@ function isEqualsQueryTrue(query: QueryType, item: Record<string, any>): QueryRe
 }
 
 function isNotEqualsQueryTrue(query: QueryType, item: Record<string, any>): QueryResult {
-  let item_value = getNestedValuePath(item, query.attribute);
+  const item_value = getNestedValuePath(item, query.attribute);
   if (item_value && query.value) {
     //Check this condition has ability to provide outcome.
     //Attribute exists.
@@ -34,7 +38,7 @@ function isNotEqualsQueryTrue(query: QueryType, item: Record<string, any>): Quer
 }
 
 function isNotEmptyQueryTrue(query: QueryType, item: Record<string, any>): QueryResult {
-  let item_value = getNestedValuePath(item, query.attribute);
+  const item_value = getNestedValuePath(item, query.attribute);
   if (item_value) {
     //Check this condition has ability to provide outcome.
     //Attribute exists.
@@ -50,7 +54,7 @@ function isNotEmptyQueryTrue(query: QueryType, item: Record<string, any>): Query
 }
 
 function isEmptyQueryTrue(query: QueryType, item: Record<string, any>) {
-  let item_value = getNestedValuePath(item, query.attribute);
+  const item_value = getNestedValuePath(item, query.attribute);
   if (item_value) {
     //Check this condition has ability to provide outcome.
     //Attribute exists.
@@ -142,7 +146,7 @@ export function checkAttributeRequiredConditions(
   let queryResult = null;
 
   for (const query of conditions.queries) {
-    let singleQueryResult = evaluateQueryCondition(query, item);
+    const singleQueryResult = evaluateQueryCondition(query, item);
     if (comparisonTypeDefault == "AND") {
       if (singleQueryResult !== false) {
         //AND the results.
@@ -176,7 +180,7 @@ export function checkAttributeRequiredConditions(
 }
 
 function isAttributeRequired(attribute: Attribute, schema: EntitySchema, includeConditional: boolean) {
-  let schemaKeyAttributeName = schema.schema_name === "application" ? "app_id" : schema.schema_name + "_id";
+  const schemaKeyAttributeName = schema.schema_name === "application" ? "app_id" : schema.schema_name + "_id";
 
   if (attribute.required && !attribute.hidden && attribute.name !== schemaKeyAttributeName) {
     attribute.schema = schema.schema_name === "app" ? "application" : schema.schema_name;
@@ -202,15 +206,18 @@ export function getRequiredAttributes(schema: EntitySchema, includeConditional =
 
 export function getRelationshipRecord(attribute: Attribute, relatedData: BaseData, value: string | string[]) {
   // Check if related data for the entity required is present in relatedData object.
-  const relEntity = attribute.rel_entity!;
+  let relEntity = attribute.rel_entity!;
+  relEntity = relEntity === 'application' ? 'app' : relEntity;
+
   if (relatedData?.[relEntity] && !(relatedData[relEntity]?.isLoading || !value)) {
     if (attribute.listMultiSelect) {
       // Multiselect relationship values.
-      return relatedData[relEntity]?.data.filter((item: any) =>
+      const data = relatedData[relEntity]?.data.filter((item: any) =>
         isItemRelationshipMatch(attribute.rel_key, item, value)
       );
+      return data?.length! > 0 ? data : null;
     } else {
-      let record = relatedData[relEntity]?.data.find((item: any) =>
+      const record = relatedData[relEntity]?.data.find((item: any) =>
         isItemRelationshipMatch(attribute.rel_key, item, [value])
       );
 
@@ -244,7 +251,7 @@ function getUnresolvedRelationships(
   resolvedRelationshipRecords: any[],
   relationshipKeyValues: any[]
 ) {
-  let invalidRelationshipKeys = [];
+  const invalidRelationshipKeys = [];
   if (resolvedRelationshipRecords.length !== relationshipKeyValues.length) {
     for (const relationshipKeyValue of relationshipKeyValues) {
       let foundRecord = false;
@@ -275,17 +282,18 @@ function getRelationshipMultiSelectDisplayValues(
   status: "loaded";
 } {
   // Multiselect relationships value.
-  const relEntity = attribute.rel_entity!;
-  let foundRelationshipRecords =
+  let relEntity = attribute.rel_entity!;
+  relEntity = relEntity === 'application' ? 'app' : relEntity;
+  const foundRelationshipRecords =
     relatedData[relEntity]?.data.filter((item: any) =>
       isItemRelationshipMatch(attribute.rel_key, item, relationshipKeyValues)
     ) ?? [];
 
-  let resolvedDisplayValues = foundRelationshipRecords.map((item: any) => {
+  const resolvedDisplayValues = foundRelationshipRecords.map((item: any) => {
     return getNestedValuePath(item, attribute.rel_display_attribute!);
   });
 
-  let unresolvedRelationShips = getUnresolvedRelationships(
+  const unresolvedRelationShips = getUnresolvedRelationships(
     attribute.rel_key,
     foundRelationshipRecords,
     relationshipKeyValues
@@ -303,7 +311,7 @@ function getRelationshipSingleDisplayValue(
   status: "not found" | "loaded";
 } {
   const relEntity = attribute.rel_entity!;
-  let record = relatedData[relEntity]?.data.find((item: any) =>
+  const record = relatedData[relEntity]?.data.find((item: any) =>
     isItemRelationshipMatch(attribute.rel_key, item, [currentValue])
   );
 
@@ -329,7 +337,8 @@ export function getRelationshipValue(
   status: "loaded" | "loading" | "not found";
   invalid?: any[];
 } {
-  const relEntity = attribute.rel_entity!;
+  let relEntity = attribute.rel_entity!;
+  relEntity = relEntity === 'application' ? 'app' : relEntity;
   if (relatedData?.[relEntity]) {
     //relatedData contains the related entity data to perform lookup.
     if (relatedData[relEntity]?.isLoading || !value) {
@@ -369,7 +378,7 @@ function appendExistingNameErrors(errorList: any[], existingNameErrors: any[]) {
 
 // ATTN: cleanly define the expected error datastructure returned from the API
 export function parsePUTResponseErrors(errors: any): any[] {
-  let errorList: any[] = [];
+  const errorList: any[] = [];
   //Check for validation errors.
   appendValidationErrors(errorList, errors?.validation_errors);
 

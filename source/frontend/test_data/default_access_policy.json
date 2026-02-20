@@ -15,7 +15,7 @@
       },
       {
         "attr_type": "application",
-        "attr_name": "wave_id"
+        "attr_name": "wave_ids"
       },
       {
         "attr_type": "application",
@@ -67,7 +67,7 @@
       },
       {
         "attr_type": "server",
-        "attr_name": "app_id"
+        "attr_name": "app_ids"
       },
       {
         "attr_type": "server",
@@ -88,6 +88,14 @@
       {
         "attr_type": "server",
         "attr_name": "server_tier"
+      },
+      {
+        "attr_type": "server",
+        "attr_name": "aws_accountid"
+      },
+      {
+        "attr_type": "server",
+        "attr_name": "aws_region"
       },
       {
         "attr_type": "server",
@@ -243,7 +251,7 @@
       },
       {
         "attr_type": "database",
-        "attr_name": "app_id"
+        "attr_name": "app_ids"
       },
       {
         "attr_type": "database",

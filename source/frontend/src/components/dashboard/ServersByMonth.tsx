@@ -4,100 +4,58 @@
  */
 
 import React from "react";
-import { BarChart, Box, Container, Header } from "@cloudscape-design/components";
+import { BarChart, BarChartProps, Box, Container, Header } from "@cloudscape-design/components";
+import { Application, DataLoadingState, Server, Wave } from "../../models";
 
 type WaveServersByMonthParams = {
-  Waves: { data: any[]; isLoading: any; error: any };
-  Apps: { data: any; isLoading: any; error: any };
-  Servers: { data: any; isLoading: any; error: any };
+  waves: DataLoadingState<Wave>;
+  apps: DataLoadingState<Application>;
+  servers: DataLoadingState<Server>;
 };
 
 // Attribute Display message content
 const WaveServersByMonth = (props: WaveServersByMonthParams) => {
-  function getWaveApplications(dataApps: any[], wave_id: any) {
-    return (
-      dataApps?.filter(function (entry) {
-        return entry.wave_id === wave_id;
-      }) || []
-    );
-  }
-
-  function getWaveServers(wave_id: any, dataApps: any[], dataServers: any[]) {
-    const apps = getWaveApplications(dataApps, wave_id);
-    let servers: any[] = [];
-
-    for (let item in apps) {
-      let lservers = dataServers.filter(function (entry: { app_id: any }) {
-        return entry.app_id === apps[item].app_id;
-      });
-
-      servers = servers.concat(lservers);
-    }
-
-    return servers;
-  }
-
   function dateRange(startDate: Date, endDate: Date) {
-    let startYear = startDate.getFullYear();
-    let endYear = endDate.getFullYear();
-    let dates = [];
+    const startYear = startDate.getFullYear();
+    const endYear = endDate.getFullYear();
+    const dates = [];
 
     for (let i = startYear; i <= endYear; i++) {
-      let endMonth = i != endYear ? 11 : endDate.getMonth();
-      let startMon = i === startYear ? startDate.getMonth() : 0;
+      const endMonth = i != endYear ? 11 : endDate.getMonth();
+      const startMon = i === startYear ? startDate.getMonth() : 0;
       for (let j = startMon; j <= endMonth; j = j > 12 ? j % 12 || 11 : j + 1) {
-        let month = j + 1;
+        const month = j + 1;
         dates.push({ x: [i, month].join("-"), y: 0 });
       }
     }
     return dates;
   }
 
-  let statusType: any = "loading";
+  let statusType: BarChartProps<string>["statusType"] = "loading";
   let chart_data: { x: string; y: number }[] = [];
 
   //Get Wave end time into data array for chart.
-  let waveStatus = props.Waves.data.map(function (value) {
-    let servers = getWaveServers(value["wave_id"], props.Apps.data, props.Servers.data);
+  const waveStatus = props.waves.data
+    .map((value) => {
+      const servers = props.servers.data.filter((server) => server.wave_id === value.wave_id);
 
-    if (value["wave_end_time"]) {
-      let startDate = new Date(value["wave_end_time"]);
-
-      return { x: startDate, y: servers.length };
-    } else {
-      return { x: undefined, y: servers.length };
-    }
-  });
-
-  //Remove waves that do not have an end date set.
-  waveStatus = waveStatus.filter(function (value) {
-    return value.x !== undefined;
-  });
-
-  waveStatus = waveStatus.sort(function (a, b) {
-    if (a.x && b.x) {
-      return a.x > b.x ? 1 : -1;
-    } else if (!a.x && b.x) {
-      return -1;
-    } else {
-      return 1;
-    }
-  });
+      return { x: value.wave_end_time ? new Date(value.wave_end_time) : undefined, y: servers.length };
+    })
+    .filter((d): d is { x: Date; y: number } => d.x !== undefined)
+    .sort((a, b) => (a.x > b.x ? 1 : -1));
 
   //Pre-populate chart_data with all months between the earliest and latest dates for the waves.
   if (waveStatus !== undefined && waveStatus.length > 0) {
-    chart_data = dateRange(waveStatus[0].x!, waveStatus[waveStatus.length - 1].x!);
+    chart_data = dateRange(waveStatus[0].x, waveStatus[waveStatus.length - 1].x);
 
     //Map each wave into the chart_data array and combine waves server totals where occurring the same month.
-    waveStatus.forEach(function (value) {
+    waveStatus.forEach((value) => {
       if (value.x) {
-        let startDate = new Date(value.x);
-        let month = startDate.getMonth() + 1;
-        let year = startDate.getFullYear();
+        const startDate = new Date(value.x);
+        const month = startDate.getMonth() + 1;
+        const year = startDate.getFullYear();
 
-        let item = chart_data.filter(function (entry) {
-          return entry.x === year + "-" + month;
-        });
+        const item = chart_data.filter((entry) => entry.x === year + "-" + month);
 
         if (item.length === 1) {
           item[0].y += value.y;
@@ -109,28 +67,29 @@ const WaveServersByMonth = (props: WaveServersByMonthParams) => {
   }
 
   if (
-    !props.Waves.isLoading &&
-    !props.Waves.error &&
-    !props.Servers.isLoading &&
-    !props.Servers.error &&
-    !props.Apps.isLoading &&
-    !props.Apps.error
+    !props.waves.isLoading &&
+    !props.waves.error &&
+    !props.servers.isLoading &&
+    !props.servers.error &&
+    !props.apps.isLoading &&
+    !props.apps.error
   ) {
     statusType = "finished";
   } else if (
-    (!props.Waves.isLoading && props.Waves.error) ||
-    (!props.Servers.isLoading && props.Servers.error) ||
-    (!props.Apps.isLoading && props.Apps.error)
+    (!props.waves.isLoading && props.waves.error) ||
+    (!props.servers.isLoading && props.servers.error) ||
+    (!props.apps.isLoading && props.apps.error)
   ) {
     statusType = "error";
   }
 
-  const series: any =
+  const series: BarChartProps<string>["series"] =
     chart_data.length == 0
       ? []
       : [
           {
             type: "bar",
+            title: "",
             data: chart_data,
           },
         ];

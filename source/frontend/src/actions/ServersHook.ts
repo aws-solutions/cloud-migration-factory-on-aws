@@ -5,53 +5,21 @@
 
 import { DataHook, reducer, requestFailed, requestStarted, requestSuccessful } from "../resources/reducer";
 
-import { useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 import UserApiClient from "../api_clients/userApiClient";
 
-export const useGetServers: DataHook = () => {
-  const [state, dispatch] = useReducer(reducer, {
+const user = new UserApiClient();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const useGetServers: DataHook = <T = any>() => {
+  const [state, dispatch] = useReducer(reducer<T>, {
     isLoading: true,
     data: [],
     error: null,
   });
 
-  async function update(app_id?: string) {
-    const myAbortController = new AbortController();
-    dispatch(requestStarted());
-
-    try {
-      const user = new UserApiClient();
-      if (app_id) {
-        let response = [];
-        try {
-          response = await user.getAppServers(app_id);
-          dispatch(requestSuccessful({ data: response }));
-        } catch (e: any) {
-          if (e.response?.data?.errors) {
-            console.log(e.response.data.errors);
-            dispatch(requestFailed({ data: [], error: e.response.data.errors }));
-            return () => {
-              myAbortController.abort();
-            };
-          } else {
-            console.log(e.response);
-            dispatch(requestFailed({ data: [], error: "Error getting data from API." }));
-          }
-        }
-      } else {
-        const response = await user.getServers();
-        dispatch(requestSuccessful({ data: response }));
-      }
-    } catch (e: any) {
-      update_handle_exception(e);
-    }
-
-    return () => {
-      myAbortController.abort();
-    };
-  }
-
-  function update_handle_exception(e: any) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const update_handle_exception = useCallback((e: any) => {
     if (e.message !== "Request aborted") {
       console.error("ServersHook", e);
     } else {
@@ -63,7 +31,23 @@ export const useGetServers: DataHook = () => {
     } else {
       dispatch(requestFailed({ data: [], error: "unknown error" }));
     }
-  }
+  }, []);
+
+  const update = useCallback(async () => {
+    const myAbortController = new AbortController();
+    dispatch(requestStarted());
+
+    try {
+      const response = await user.getServers();
+      dispatch(requestSuccessful({ data: response }));
+    } catch (e) {
+      update_handle_exception(e);
+    }
+
+    return () => {
+      myAbortController.abort();
+    };
+  }, [update_handle_exception]);
 
   useEffect(() => {
     let cancelledRequest;
@@ -76,7 +60,7 @@ export const useGetServers: DataHook = () => {
     return () => {
       cancelledRequest = true;
     };
-  }, []);
+  }, [update]);
 
   return [state, { update }];
 };

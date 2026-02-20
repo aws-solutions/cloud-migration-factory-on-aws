@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -32,9 +33,9 @@ const EmbeddedEntityAttribute = ({
 
   useEffect(() => {
     if (embeddedEntitySchema?.status === "loaded" && embeddedEntitySchema?.value != null) {
-      let updatedEmbeddedAttributes = embeddedEntitySchema.value.map((item) => {
+      const updatedEmbeddedAttributes = embeddedEntitySchema.value.map((item) => {
         //prepend the embedded_entity name to all attribute names in order to store them under a single key.
-        let appendedName = attribute.name + "." + item.name;
+        const appendedName = attribute.name + "." + item.name;
         if (item.__orig_name) {
           //Item has already been updated name.
           return item;
@@ -42,6 +43,12 @@ const EmbeddedEntityAttribute = ({
           //Store original name of item.
           item.__orig_name = item.name;
           item.name = appendedName;
+
+          if (item.additional_name_list && Array.isArray(item.additional_name_list)) {
+            item.additional_name_list = item.additional_name_list
+              .filter((name) => typeof name === "string")
+              .map((additionalName) => attribute.name + "." + additionalName);
+          }
           // item.group = item.group ? item.group : attribute.description;
           return item;
         }

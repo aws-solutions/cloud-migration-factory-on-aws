@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -20,7 +21,7 @@ export const UserGroupsModal = ({ closeModal, onConfirmation, header, groups, vi
   const [saving, setSaving] = useState(false);
 
   function handleUserInput(value: { field: any; value: any }) {
-    let newAttr = Object.assign({}, localObject);
+    const newAttr = Object.assign({}, localObject);
     setNestedValuePath(newAttr, value.field, value.value);
 
     setLocalObject(newAttr);

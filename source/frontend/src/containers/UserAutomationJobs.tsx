@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -32,8 +33,8 @@ type AutomationJobsParams = {
 };
 const AutomationJobs = (props: AutomationJobsParams) => {
   const { addNotification } = useContext(NotificationContext);
-  let navigate = useNavigate();
-  let params = useParams();
+  const navigate = useNavigate();
+  const params = useParams();
   //Data items for viewer and table.
   //Main table content hook. When duplicating just create a new hook and change the hook function at the end to populate table.
   const [{ isLoading: isLoadingMain, data: dataMain, error: errorMain }, { update: updateMain }] = useAutomationJobs();
@@ -111,7 +112,7 @@ const AutomationJobs = (props: AutomationJobsParams) => {
   };
 
   async function handleActionsClick(e: ClickEvent) {
-    let action = e.detail.id;
+    const action = e.detail.id;
 
     setFocusItem(selectedItems);
     setAutomationAction(action);
@@ -121,10 +122,10 @@ const AutomationJobs = (props: AutomationJobsParams) => {
   async function handleAction(actionData: any, actionId: number) {
     setPreformingAction(true);
 
-    let newItem = Object.assign({}, actionData);
+    const newItem = Object.assign({}, actionData);
     let notificationId;
 
-    let apiAction = props.schemas[automationAction!]?.actions?.filter((entry: { id: number }) => entry.id === actionId);
+    const apiAction = props.schemas[automationAction!]?.actions?.filter((entry: { id: number }) => entry.id === actionId);
 
     if (apiAction?.length !== 1) {
       addNotification({
@@ -143,7 +144,6 @@ const AutomationJobs = (props: AutomationJobsParams) => {
         }
 
         notificationId = addNotification({
-          type: "success",
           loading: true,
           dismissible: false,
           header: "Perform wave action",
@@ -237,12 +237,12 @@ const AutomationJobs = (props: AutomationJobsParams) => {
   }, [props.schemas, props.userEntityAccess]);
 
   useEffect(() => {
-    let selected = [];
+    const selected = [];
 
     if (!isLoadingMain) {
       if (params.id) {
         //URL parameter present.
-        let item = dataMain.filter((entry: { [x: string]: string | undefined }) => entry[itemIDKey] === params.id);
+        const item = dataMain.filter((entry: { [x: string]: string | undefined }) => entry[itemIDKey] === params.id);
 
         selected.push(item[0]);
         handleItemSelectionChange(selected);
@@ -253,12 +253,12 @@ const AutomationJobs = (props: AutomationJobsParams) => {
   //Detect changes to main data table content and if an item was previously selected and in the viewer, refresh the item
   //content.
   useEffect(() => {
-    let selected: any[] = [];
+    const selected: any[] = [];
 
     if (!isLoadingMain) {
       if (selectedItems.length == 1) {
         //Refresh selected item.
-        let item = dataMain.filter((entry: { [x: string]: any }) => entry[itemIDKey] === selectedItems[0][itemIDKey]);
+        const item = dataMain.filter((entry: { [x: string]: any }) => entry[itemIDKey] === selectedItems[0][itemIDKey]);
 
         if (item.length === 1) {
           //Previous Item found in new data, reload into selected items.

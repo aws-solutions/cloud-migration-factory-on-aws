@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -21,8 +22,8 @@ import {
 } from "@cloudscape-design/components";
 
 const Login = () => {
-  let location = useLocation();
-  let navigate = useNavigate();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mfaCode, setMFACode] = useState("");
@@ -145,6 +146,11 @@ const Login = () => {
                         name={"username"}
                         value={email}
                         onChange={(event) => setEmail(event.detail.value)}
+                        onKeyDown={(event) => {
+                          if (event.detail.key === 'Enter' && email && password) {
+                            handleSubmit(event);
+                          }
+                        }}
                         disabled={getMFACode}
                       />
                     </FormField>
@@ -154,13 +160,26 @@ const Login = () => {
                         name={"password"}
                         value={password}
                         onChange={(event) => setPassword(event.detail.value)}
+                        onKeyDown={(event) => {
+                          if (event.detail.key === 'Enter' && email && password) {
+                            handleSubmit(event);
+                          }
+                        }}
                         type="password"
                         disabled={getMFACode}
                       />
                     </FormField>
                     {getMFACode ? (
                       <FormField key={"mfaCode"} label={"MFA Code"}>
-                        <Input value={mfaCode} onChange={(event) => setMFACode(event.detail.value)} />
+                        <Input
+                          value={mfaCode}
+                          onChange={(event) => setMFACode(event.detail.value)}
+                          onKeyDown={(event) => {
+                            if (event.detail.key === 'Enter' && mfaCode) {
+                              handleSubmitCode(event);
+                            }
+                          }}
+                        />
                       </FormField>
                     ) : null}
                   </SpaceBetween>

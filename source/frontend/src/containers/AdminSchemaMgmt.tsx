@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -13,31 +14,42 @@ import {
   Container,
   FormField,
   Header,
+  Icon,
   Input,
   SpaceBetween,
+  Spinner,
   StatusIndicator,
   Tabs,
+  TabsProps,
 } from "@cloudscape-design/components";
 
 import SchemaAttributesTable from "../components/SchemaAttributesTable";
 import { capitalize, getNestedValuePath } from "../resources/main";
 import ToolHelp from "../components/ToolHelp";
 import ToolHelpEdit from "../components/ToolHelpEdit";
-import { HelpContent, Tag } from "../models/HelpContent";
 import { NotificationContext } from "../contexts/NotificationContext";
-import { EntitySchema, SchemaMetaData } from "../models/EntitySchema";
+import { Attribute, EntitySchema, SchemaMetaData, HelpContent, Tag, EntityName } from "../models";
 import { ToolsContext } from "../contexts/ToolsContext";
 import SchemaAttributeAmendModal from "../components/SchemaAttributeAmendModal";
 import { CMFModal } from "../components/Modal";
+import { Schemas } from "../utils/Constants";
 
-type AdminSchemaMgmtParams = {
-  reloadSchema: () => any;
+type AdminSchemaMgmtParams = Readonly<{
+  reloadSchema: (refresh?: boolean) => void;
   schemas: Record<string, EntitySchema>;
   schemaMetadata: SchemaMetaData[];
-};
+  enabledModules: string[];
+}>;
+
+const apiAdmin = new AdminApiClient();
+
 const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
   const { addNotification } = useContext(NotificationContext);
   const { setHelpPanelContent } = useContext(ToolsContext);
+
+  // The `schemaIsLoading` prop is intentionally set to false for refresh
+  // So define local state for isReloadingSchema
+  const [isReloadingSchema, setIsReloadingSchema] = useState(false);
 
   //Layout state management.
   const [editingSchemaInfoHelp, setEditingSchemaInfoHelp] = useState(false);
@@ -61,6 +73,21 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
   const [schemaModalVisible, setSchemaModalVisible] = useState(false);
   const [isDeleteConfirmationModalVisible, setDeleteConfirmationModalVisible] = useState(false);
   const [isCancelConfirmationModalVisible, setCancelConfirmationModalVisible] = useState(false);
+  const [isNewSchemaModalVisible, setNewSchemaModalVisible] = useState(false);
+  const [newSchemaName, setNewSchemaName] = useState("");
+  const [newSchemaNameError, setNewSchemaNameError] = useState<string>();
+  const [newSchemaFriendlyName, setNewSchemaFriendlyName] = useState("");
+  const [isSavingSchema, setIsSavingSchema] = useState(false);
+
+  // Custom Assets
+  const customSchemaCreationEnabled = props.enabledModules.includes("WPM");
+
+  const reloadSchema = React.useCallback(() => {
+    setIsReloadingSchema(true);
+    // reloadSchema actually is an async function but defined as sync in TestUtils
+    // Wrap with Promise.resolve() to avoid modifying TestUtils causing extensive impact
+    Promise.resolve(props.reloadSchema(true)).finally(() => setIsReloadingSchema(false));
+  }, [props]);
 
   function handleAddItem() {
     setAction("add");
@@ -83,7 +110,8 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
     key: "header" | "content" | "content_links" | "content_html",
     update: string | Tag[]
   ) {
-    let tempUpdate: HelpContent = Object.assign({}, editingSchemaInfoHelpTemp);
+    const tempUpdate: HelpContent = Object.assign({}, editingSchemaInfoHelpTemp);
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     tempUpdate[key] = update;
     setEditingSchemaInfoHelpTemp(tempUpdate);
@@ -99,7 +127,6 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
 
   async function handleSaveSchemaHelp() {
     try {
-      const apiAdmin = new AdminApiClient();
       await apiAdmin.putSchema(selectedTab, { schema_name: selectedTab, help_content: editingSchemaInfoHelpTemp });
 
       addNotification({
@@ -113,7 +140,7 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
       setEditingSchemaInfoHelpUpdate(false);
       setEditingSchemaInfoHelpTemp(undefined);
 
-      await props.reloadSchema();
+      reloadSchema();
     } catch (e: any) {
       console.log(e);
       addNotification({
@@ -135,7 +162,7 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
   }
 
   function handleUserInputEditSchemaSettings(key: string, update: string) {
-    let tempUpdate: Record<string, any> = Object.assign({}, setEditingSchemaSettingsTemp);
+    const tempUpdate: Record<string, any> = Object.assign({}, setEditingSchemaSettingsTemp);
     tempUpdate[key] = update;
     setEditingSchemaSettingsTemp(tempUpdate);
     setEditingSchemaSettingsUpdate(true);
@@ -151,7 +178,6 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
   async function handleSaveSchemaSettings(e: { preventDefault: () => void }) {
     e.preventDefault();
     try {
-      const apiAdmin = new AdminApiClient();
       await apiAdmin.putSchema(selectedTab, {
         schema_name: selectedTab,
         friendly_name: editingSchemaSettingsTemp.friendly_name,
@@ -168,7 +194,7 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
       setEditingSchemaSettingsUpdate(false);
       setEditingSchemaSettingsTemp({});
 
-      await props.reloadSchema();
+      reloadSchema();
     } catch (e: any) {
       console.log(e);
       addNotification({
@@ -198,8 +224,6 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
   ) => {
     try {
       if (action === "edit") {
-        const apiAdmin = new AdminApiClient();
-
         await apiAdmin.putSchemaAttr(selectedTab, editItem, editItem.name);
 
         setSchemaModalVisible(false);
@@ -210,14 +234,12 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
           content: editItem.name + " updated successfully.",
         });
 
-        await props.reloadSchema();
+        reloadSchema();
 
         //This is needed to ensure the item in selectApps reflects new updates
         setSelectedItems([]);
         setFocusItem({});
       } else {
-        const apiAdmin = new AdminApiClient();
-
         await apiAdmin.postSchemaAttr(selectedTab, editItem);
 
         setSchemaModalVisible(false);
@@ -228,7 +250,7 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
           content: editItem.name + " added successfully.",
         });
 
-        await props.reloadSchema();
+        reloadSchema();
       }
     } catch (e: any) {
       console.log(e);
@@ -244,13 +266,11 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
   };
 
   async function handleDeleteItem() {
-    let currentItem = 0;
+    const currentItem = 0;
 
     setDeleteConfirmationModalVisible(false);
 
     try {
-      const apiAdmin = new AdminApiClient();
-
       await apiAdmin.delSchemaAttr(selectedTab, selectedItems[0].name);
 
       addNotification({
@@ -261,9 +281,7 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
       });
 
       //Unselect applications marked for deletion to clear apps.
-
-      await props.reloadSchema();
-
+      reloadSchema();
       setSelectedItems([]);
     } catch (e: any) {
       console.log(e);
@@ -273,6 +291,60 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
         header: "Attribute deletion failed",
         content: selectedItems[currentItem].name + " failed to delete.",
       });
+    }
+  }
+
+  async function handleCreateNewSchema() {
+    if (newSchemaNameError) {
+      return;
+    }
+
+    try {
+      // Create a new schema with the provided name and friendly name
+      setIsSavingSchema(true);
+      const schemaFriendlyName = newSchemaFriendlyName || capitalize(newSchemaName);
+      await apiAdmin.postSchema({
+        schema_name: newSchemaName,
+        // Assume all the schemas created by user are of type 'custom'
+        schema_type: "custom",
+        friendly_name: schemaFriendlyName,
+        attributes: [],
+      });
+      // Auto create default attributes
+      await Promise.all(
+        fixedAttributesForCustomAssetSchema(newSchemaName, schemaFriendlyName).map(({ schemaName, attribute }) =>
+          apiAdmin.postSchemaAttr(schemaName, attribute)
+        )
+      );
+
+      addNotification({
+        type: "success",
+        dismissible: true,
+        header: "Schema created successfully",
+        content: `Schema "${newSchemaName}" was created successfully.`,
+      });
+
+      // Reset form fields
+      setNewSchemaName("");
+      setNewSchemaFriendlyName("");
+      setNewSchemaModalVisible(false);
+
+      // Reload schemas to show the new one
+      reloadSchema();
+
+      // Select the newly created schema tab
+      setSelectedTab(newSchemaName);
+    } catch (e: any) {
+      console.log(e);
+      addNotification({
+        type: "error",
+        dismissible: true,
+        header: "Schema creation failed",
+        content: e.response?.data?.message || "Failed to create new schema. Please try again.",
+      });
+      setNewSchemaModalVisible(false);
+    } finally {
+      setIsSavingSchema(false);
     }
   }
 
@@ -292,10 +364,25 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
     }
   }
 
-  const getTabs = (schemaName: string, currentSchema: EntitySchema, currentHelpContent: HelpContent | undefined) => {
+  const getTabs = (
+    schemaName: string,
+    currentSchema: EntitySchema,
+    currentHelpContent: HelpContent | undefined
+  ): TabsProps.Tab => {
+    const label = capitalize(schemaName);
     return {
-      label: capitalize(schemaName),
       id: schemaName,
+      label:
+        currentSchema.schema_type === "user" ? (
+          label
+        ) : (
+          <SpaceBetween direction="horizontal" size="xxs">
+            {label}
+            <span title="Custom Schema">
+              <Icon name="star" />
+            </span>
+          </SpaceBetween>
+        ),
       content: (
         <Tabs
           activeTabId={selectedSubTab}
@@ -307,7 +394,7 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
               content: (
                 <SchemaAttributesTable
                   items={currentSchema.attributes}
-                  isLoading={!props.schemas}
+                  isLoading={isReloadingSchema}
                   error={!props.schemas ? "Error reading schema" : undefined}
                   selectedItems={selectedItems}
                   handleSelectionChange={handleItemSelectionChange}
@@ -320,7 +407,9 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
             {
               label: "Info Panel",
               id: "infopanel",
-              content: (
+              content: isReloadingSchema ? (
+                <Spinner />
+              ) : (
                 <Container
                   className="custom-dashboard-container"
                   header={
@@ -372,7 +461,9 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
             {
               label: "Schema Settings",
               id: "schema_settings",
-              content: (
+              content: isReloadingSchema ? (
+                <Spinner />
+              ) : (
                 <Container
                   className="custom-dashboard-container"
                   header={
@@ -438,19 +529,34 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
 
   //On schema metadata change reload tabs.
   useEffect(() => {
-    let tabs = [];
+    const tabs = [];
     if (props.schemas) {
       //Load tabs from schema.
       for (const schema of props.schemaMetadata) {
         const schemaName = schema["schema_name"];
-        if (schema["schema_type"] === "user") {
+        if (["user", "custom"].includes(schema["schema_type"])) {
           const currentSchema = props.schemas[schemaName];
           const currentHelpContent: HelpContent | undefined = getNestedValuePath(currentSchema, "help_content");
           tabs.push(getTabs(schemaName, currentSchema, currentHelpContent));
         }
       }
+
+      // Add a "Create New Tab" button as the last tab
+      if (customSchemaCreationEnabled) {
+        tabs.push({
+          label: (
+            <Button iconName="add-plus" variant="inline-icon" ariaLabel="Add new schema tab">
+              Add New Schema
+            </Button>
+          ),
+          id: "add_new_schema_tab",
+          content: <div></div>,
+        });
+      }
+
       setSchemaTabs(tabs);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     props.schemaMetadata,
     selectedItems,
@@ -468,7 +574,24 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
       header: "Attributes",
       content_text: "From this screen as administrator you can add, update and delete schema attributes.",
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Validate New Schema name
+  useEffect(() => {
+    const schemaNameRegex = /^[a-z][a-z0-9_]{0,39}$/i;
+    if (!newSchemaName) {
+      setNewSchemaNameError("Schema name is required");
+    } else if (!schemaNameRegex.test(newSchemaName)) {
+      setNewSchemaNameError(
+        "Schema name must be 1-40 characters long, start with a letter and contain only letters, numbers, and underscores."
+      );
+    } else if (props.schemas[newSchemaName]) {
+      setNewSchemaNameError(`A schema with name "${newSchemaName}" already exists.`);
+    } else {
+      setNewSchemaNameError(undefined);
+    }
+  }, [newSchemaName, props.schemas]);
 
   const alert =
     editingSchemaInfoHelpUpdate || editingSchemaSettingsUpdate ? (
@@ -484,7 +607,13 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
       ) : (
         <Tabs
           activeTabId={selectedTab}
-          onChange={({ detail }) => setSelectedTab(detail.activeTabId)}
+          onChange={({ detail }) => {
+            if (detail.activeTabId === "add_new_schema_tab") {
+              setNewSchemaModalVisible(true);
+            } else {
+              setSelectedTab(detail.activeTabId);
+            }
+          }}
           tabs={schemaTabs}
         />
       )}
@@ -521,9 +650,37 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
         {alert}
       </CMFModal>
 
+      <CMFModal
+        onDismiss={() => setNewSchemaModalVisible(false)}
+        visible={isNewSchemaModalVisible}
+        onConfirmation={handleCreateNewSchema}
+        header={"Create New Schema"}
+        isLoading={isSavingSchema}
+      >
+        <SpaceBetween size="l">
+          <FormField
+            label="Schema Name"
+            description="Technical name for the schema (lowercase, no spaces)"
+            errorText={newSchemaNameError}
+          >
+            <Input
+              value={newSchemaName}
+              onChange={({ detail }) => setNewSchemaName(detail.value.toLowerCase().replace(/\s+/g, "_"))}
+            />
+          </FormField>
+          <FormField label="Friendly Name" description="Display name for the schema as shown in the UI">
+            <Input value={newSchemaFriendlyName} onChange={({ detail }) => setNewSchemaFriendlyName(detail.value)} />
+          </FormField>
+          <Alert type="info">
+            Creating a new schema will add a new entity type to the system. You will need to define attributes for this
+            schema after creation.
+          </Alert>
+        </SpaceBetween>
+      </CMFModal>
+
       {schemaModalVisible ? (
         <SchemaAttributeAmendModal
-          title={"Amend attribute"}
+          title={`${capitalize(action)} attribute`}
           onConfirmation={handleSave}
           closeModal={() => setSchemaModalVisible(false)}
           attribute={focusItem}
@@ -539,3 +696,71 @@ const AdminSchemaMgmt = (props: AdminSchemaMgmtParams) => {
 };
 
 export default AdminSchemaMgmt;
+
+// Fixed attributes we should auto create when a new custom asset schema is created
+const fixedAttributesForCustomAssetSchema = (
+  schemaName: string,
+  schemaFriendlyName: string
+): { schemaName: string; attribute: Attribute }[] => [
+  {
+    schemaName,
+    attribute: {
+      name: `${schemaName}_id`,
+      description: `${schemaFriendlyName} Id`,
+      hidden: true,
+      required: true,
+      system: true,
+      type: "string",
+    },
+  },
+  {
+    schemaName,
+    attribute: {
+      name: `${schemaName}_name`,
+      description: `${schemaFriendlyName} Name`,
+      required: true,
+      system: true,
+      type: "string",
+      validation_regex: "^(?!\\s*$).{1,255}$",
+      validation_regex_msg: `${schemaFriendlyName} name must be specified, and be a maximum of 255 characters.`,
+    },
+  },
+  {
+    schemaName,
+    attribute: {
+      description: "Related Applications",
+      help_content: {
+        content_html: `Select applications that this ${schemaFriendlyName} is associated with.`,
+        header: "Related Applications",
+      },
+      name: "app_ids",
+      rel_display_attribute: "app_name",
+      rel_entity: "app",
+      rel_key: "app_id",
+      required: false,
+      system: true,
+      type: "multivalue-relationship",
+      listMultiSelect: true,
+    },
+  },
+  {
+    schemaName: Schemas.Application.name,
+    attribute: {
+      description: `Related ${schemaFriendlyName}s`,
+      help_content: {
+        content_html: `${schemaFriendlyName}s related to this application. To modify, edit the ${schemaFriendlyName} instead.`,
+        header: `Related ${schemaFriendlyName}s`,
+      },
+      name: `${schemaName}_ids`,
+      readonly: true,
+      rel_display_attribute: `${schemaName}_name`,
+      // Custom asset entity can have any name
+      rel_entity: schemaName as EntityName,
+      rel_key: `${schemaName}_id`,
+      required: false,
+      system: true,
+      type: "multivalue-relationship",
+      listMultiSelect: true,
+    },
+  },
+];

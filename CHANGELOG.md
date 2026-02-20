@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.1] - 2026-01-21
+
+### Fixed
+
+- Data Import: Fixed notification timing issue where parent component was not properly notified after backend validation completed during import revalidation.
+- Wave Planning: Corrected complexity_score rule sort_order to properly prioritize servers by complexity.
+- TypeScript: Removed unnecessary @ts-nocheck directive from credential-table-config.ts to improve type safety.
+- CloudFormation: Fixed YAML formatting inconsistencies in automation template for better readability and maintainability.
+
+### Changed
+
+- **WAF Upgrade**: Migrated from AWS WAF Classic to AWS WAFv2 with cross-region deployment support via custom Lambda deployer for CloudFront protection.
+- **Security Enhancement**: Updated all REST API endpoints to enforce TLS 1.2 minimum security policy and strict endpoint access mode.
+- Multi-Region Support: Updated CloudFront distribution to use regionalized S3 endpoints, enabling CMF deployment in non-IAD regions.
+- Data Import: Refactored lambda_import_data_from_s3 to invoke Lambda directly instead of through API Gateway, bypassing WAF restrictions for large imports.
+- GenAI Permissions: Added aws-marketplace:ViewSubscriptions permissions to GenAI Lambda roles for marketplace integration support.
+- Event Bus: Added EVENT_BUS_NAME environment variable to SSM output Lambda for improved event-driven architecture.
+- Dependencies: Updated frontend npm dependencies including security patches and minor version updates.
+
+### Removed
+
+- **Migration Hub Integration**: Removed AWS Migration Hub (MGH) and Application Discovery Service (ADS) dependencies, including MGH CloudFormation template, Lambda functions, and related pipeline tasks.
+- **AppRegistry**: Removed AWS Service Catalog AppRegistry integration and related CloudFormation resources.
+- Pipeline Templates: Removed unsupported ADS-dependent pipeline template from default imports.
+
+## [5.0.0] - 2025-10-02
+
+### Added
+
+- Wave Planning Management: Introduced comprehensive wave planning capabilities to organize and schedule migration workloads through prioritization, dependency grouping, and configurable rules.
+- Data Source Management with Enhanced Import: Added a new data source system that enables many-to-many relationships during import, allowing applications to be deployed to multiple servers and servers to support multiple applications. Data sources define where migration data comes from and how input files (XLSX or CSV) map to pre-existing CMF entities, supporting mapping multiple sheets to different entities and automatic creation of new schema attributes.
+- AI-Powered Header Mapping: Implemented Amazon Bedrock integration to automatically map input file headers to entity schema attributes and recommend new attribute names.
+- Custom Asset Support: Enabled creation of custom schemas to map business-specific entities with user-defined attributes.
+- Flexible Wave Planning Rules: Provided configurable prioritization and grouping rules including scoring, sorting, joiner, and splitter rules.
+- AI-Assisted Rule Creation: Added natural language rule generation using Amazon Bedrock for automatic JSON configuration creation.
+- Asynchronous Data Import: Implemented asynchronous import jobs with status tracking and detailed error reporting for large-scale resource imports.
+
+### Changed
+
+- Server Attributes: Made subnet IDs, AWS Region, and AWS Account ID optional during initial wave planning phase while remaining required before pipeline execution.
+
 ## [4.5.1] - 2025-07-11
 
 ### Fixed

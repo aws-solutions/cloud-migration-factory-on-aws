@@ -62,7 +62,7 @@ def extract_numeric(input_str):
 
 
 def process_app(app, body, context, wave_name, generated_template_uris):
-    if 'wave_id' in app and str(app['wave_id']) == body['waveid']:
+    if body['waveid'] in app.get("wave_ids", []):
         app_name = extract_alnum(app['app_name'])
         print('App Name :' + app_name)
 
@@ -208,8 +208,8 @@ def get_servers_for_app(servers, applist, appnumb):
     server_list = []
     # Gather servers for this application that are Replatform.
     for server in servers:
-        if "app_id" in server and "r_type" in server:
-            if applist[appnumb] == server['app_id'] and server['r_type'].upper() == 'REPLATFORM':
+        if "app_ids" in server and "r_type" in server:
+            if applist[appnumb] in server['app_ids'] and server['r_type'].upper() == 'REPLATFORM':
                 server_list.append(server)
 
     return server_list
@@ -217,7 +217,7 @@ def get_servers_for_app(servers, applist, appnumb):
 
 def populate_app_lists(apps, applist, appnamelist, waveid):
     for app in apps:
-        if 'wave_id' in app and str(app['wave_id']) == waveid:
+        if waveid in app.get("wave_ids", []):
             applist.append(app['app_id'])
             appnamelist.append(app['app_name'])
 

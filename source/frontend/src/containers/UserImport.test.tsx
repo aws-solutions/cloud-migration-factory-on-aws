@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -170,7 +171,7 @@ async function assert_valid_file_review_changes_form_common() {
   await waitFor(() => {
     expect(screen.getByText("Your intake form has 0 validation errors.")).toBeVisible();
     expect(screen.getByText("Your intake form has 0 validation warnings.")).toBeVisible();
-    expect(screen.getByText("Your intake form has 2 informational validation messages.")).toBeVisible();
+    expect(screen.getByText("Your intake form has 8 informational validation messages.")).toBeVisible();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Previous" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Next" })).toBeVisible();
@@ -182,20 +183,36 @@ async function assert_valid_file_review_changes_form_scenario1() {
   await assert_valid_file_review_changes_form_common();
   const table = screen.getByRole("table");
   const tbody = within(table).getAllByRole("rowgroup")[1];
-  expect(within(tbody).getAllByRole("row").length).toEqual(1);
-  const row = within(tbody).getByRole("row");
+  expect(within(tbody).getAllByRole("row").length).toEqual(3);
+  // Server Row
+  let row = within(tbody).getAllByRole("row")[0];
   expect(within(row).getByRole("cell", { name: "unittest1-NEW" })).toBeVisible();
-  expect(within(row).getByText("2 Validation Informational")).toBeVisible();
+  // App Row
+  row = within(tbody).getAllByRole("row")[1];
+  expect(within(row).getByRole("cell", { name: "Unit testing App 1-NEW" })).toBeVisible();
+  expect(within(row).getByText("4 Validation Informational")).toBeVisible();
+  // Wave Row
+  row = within(tbody).getAllByRole("row")[2];
+  expect(within(row).getByRole("cell", { name: "Unit testing Wave 1-NEW" })).toBeVisible();
+  expect(within(row).getByText("1 Validation Informational")).toBeVisible();
 }
 
 async function assert_valid_file_review_changes_form_scenario2() {
   await assert_valid_file_review_changes_form_common();
   const table = screen.getByRole("table");
   const tbody = within(table).getAllByRole("rowgroup")[1];
-  expect(within(tbody).getAllByRole("row").length).toEqual(1);
-  const row = within(tbody).getByRole("row");
+  expect(within(tbody).getAllByRole("row").length).toEqual(3);
+  // Server Row
+  let row = within(tbody).getAllByRole("row")[0];
   expect(within(row).getByRole("cell", { name: "unittest1" })).toBeVisible();
-  expect(within(row).getByText("2 Validation Informational")).toBeVisible();
+  // App Row
+  row = within(tbody).getAllByRole("row")[1];
+  expect(within(row).getByRole("cell", { name: "Unit testing App 1" })).toBeVisible();
+  expect(within(row).getByText("4 Validation Informational")).toBeVisible();
+  // Wave Row
+  row = within(tbody).getAllByRole("row")[2];
+  expect(within(row).getByRole("cell", { name: "Unit testing Wave 1" })).toBeVisible();
+  expect(within(row).getByText("1 Validation Informational")).toBeVisible();
 }
 
 async function assert_valid_file_review_changes_form_scenario3() {
@@ -369,7 +386,7 @@ test("Clicking Upload on the overview page, uploads - scenario1", async () => {
               app_name: "Unit testing App 1",
               aws_accountid: "123456789012",
               aws_region: "us-east-1",
-              wave_id: "101",
+              wave_ids: ["101"],
               app_id: "101",
               _history: {
                 createdBy: {
@@ -422,7 +439,7 @@ test("Clicking Upload on the overview page, uploads - scenario1", async () => {
   expect(screen.getAllByText("Intake form upload status.").length).toBeGreaterThan(1);
   expect(screen.getByText("Intake file upload completed successfully.")).toBeVisible();
   await waitFor(() => {
-    expect(addNotification).toHaveBeenCalledTimes(8);
+    expect(addNotification).toHaveBeenCalledTimes(7);
   });
   await waitFor(() => {
     expect(addNotification).toHaveBeenCalledWith({
@@ -443,9 +460,25 @@ test("Clicking Upload on the overview page, uploads - scenario1", async () => {
     expect(addNotification).toHaveBeenCalledWith({
       content: (
         <ProgressBar
-          additionalInfo="Updating any related records with new wave IDs..."
+          additionalInfo="Created application records..."
           label="Importing file 'valid.csv' ..."
-          value={16.666666666666668}
+          value={66.666666666666667}
+          variant="flash"
+        />
+      ),
+      dismissible: false,
+      id: addNotificationId,
+      loading: true,
+      type: "info",
+    });
+  });
+  await waitFor(() => {
+    expect(addNotification).toHaveBeenCalledWith({
+      content: (
+        <ProgressBar
+          additionalInfo="Updating all relationships..."
+          label="Importing file 'valid.csv' ..."
+          value={100}
           variant="flash"
         />
       ),
@@ -652,7 +685,7 @@ test("Clicking Upload on the overview page, uploads - scenario3", async () => {
       expect.objectContaining({
         content: (
           <ProgressBar
-            additionalInfo="Update wave records..."
+            additionalInfo="Updated wave records..."
             label="Importing file 'valid.csv' ..."
             value={33.333333333333336}
             variant="flash"
@@ -725,7 +758,7 @@ test("Clicking Upload on the overview page, uploads api errors - scenario3", asy
       expect.objectContaining({
         content: (
           <ProgressBar
-            additionalInfo="Update wave records..."
+            additionalInfo="Updated wave records..."
             label="Importing file 'valid.csv' ..."
             value={33.333333333333336}
             variant="flash"
@@ -759,18 +792,26 @@ async function select_valid_file_warnings_upload() {
 async function assert_valid_file_warnings_review_changes_form() {
   expect(screen.getByText("Your intake form has 0 validation errors.")).toBeVisible();
   expect(screen.getByText("Your intake form has 1 validation warnings.")).toBeVisible();
-  expect(screen.getByText("Your intake form has 2 informational validation messages.")).toBeVisible();
+  expect(screen.getByText("Your intake form has 8 informational validation messages.")).toBeVisible();
   expect(screen.getByRole("button", { name: "Cancel" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Previous" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Next" })).toBeVisible();
   expect(screen.getByPlaceholderText("Search data")).toBeInTheDocument();
   const table = screen.getByRole("table");
   const tbody = within(table).getAllByRole("rowgroup")[1];
-  expect(within(tbody).getAllByRole("row").length).toEqual(1);
-  const row = within(tbody).getByRole("row");
+  expect(within(tbody).getAllByRole("row").length).toEqual(3);
+  // Server Row
+  let row = within(tbody).getAllByRole("row")[0];
   expect(within(row).getByRole("cell", { name: "unittest1" })).toBeVisible();
-  expect(within(row).getByText("2 Validation Informational")).toBeVisible();
   expect(within(row).getByText("1 Validation Warnings")).toBeVisible();
+  // App Row
+  row = within(tbody).getAllByRole("row")[1];
+  expect(within(row).getByRole("cell", { name: "Unit testing App 1" })).toBeVisible();
+  expect(within(row).getByText("4 Validation Informational")).toBeVisible();
+  // Wave Row
+  row = within(tbody).getAllByRole("row")[2];
+  expect(within(row).getByRole("cell", { name: "Unit testing Wave 1" })).toBeVisible();
+  expect(within(row).getByText("1 Validation Informational")).toBeVisible();
 }
 test("should show next page with cancel, previous and next buttons and data table, after valid intake file with warnings", async () => {
   setup_all_get_handlers();
@@ -788,17 +829,25 @@ async function select_invalid_file_upload() {
 
 async function assert_invalid_file_review_changes_form() {
   expect(screen.getByText("Your intake form has 1 validation errors.")).toBeVisible();
-  expect(screen.getByText("Your intake form has 2 informational validation messages.")).toBeVisible();
+  expect(screen.getByText("Your intake form has 8 informational validation messages.")).toBeVisible();
   expect(screen.getByRole("button", { name: "Cancel" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Previous" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Next" })).toBeVisible();
   expect(screen.getByPlaceholderText("Search data")).toBeInTheDocument();
   const table = screen.getByRole("table");
   const tbody = within(table).getAllByRole("rowgroup")[1];
-  expect(within(tbody).getAllByRole("row").length).toEqual(1);
-  const row = within(tbody).getByRole("row");
+  expect(within(tbody).getAllByRole("row").length).toEqual(3);
+  // Server Row
+  let row = within(tbody).getAllByRole("row")[0];
   expect(within(row).getByRole("cell", { name: "unittest1" })).toBeVisible();
-  expect(within(row).getByText("2 Validation Informational")).toBeVisible();
+  // App Row
+  row = within(tbody).getAllByRole("row")[1];
+  expect(within(row).getByRole("cell", { name: "Unit testing App 1" })).toBeVisible();
+  expect(within(row).getByText("4 Validation Informational")).toBeVisible();
+  // Wave Row
+  row = within(tbody).getAllByRole("row")[2];
+  expect(within(row).getByRole("cell", { name: "Unit testing Wave 1" })).toBeVisible();
+  expect(within(row).getByText("1 Validation Informational")).toBeVisible();
   expect(within(row).getByText("1 Validation Errors")).toBeVisible();
 }
 test("should show next page with cancel, previous and next buttons and data table, after invalid intake file", async () => {

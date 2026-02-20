@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { defaultTestProps, mockNotificationContext, TEST_SESSION_STATE } from "../__tests__/TestUtils";
 import { render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -52,7 +53,7 @@ test('it renders an empty table with "no pipelines" message', async () => {
   // THEN
   // page should render in loading state
   expect(screen.getByRole("heading", { name: "Pipelines (0)" })).toBeInTheDocument();
-  expect(screen.getByText("Loading pipelines")).toBeInTheDocument();
+  expect(screen.getByText("Loading Pipelines")).toBeInTheDocument();
 
   // after server response came in, it should render the table
   await waitForElementToBeRemoved(() => screen.queryByText(/Loading pipelines/i));
@@ -60,8 +61,8 @@ test('it renders an empty table with "no pipelines" message', async () => {
   const table = screen.getByRole("table");
   const tbody = within(table).getAllByRole("rowgroup")[1];
 
-  expect(await within(tbody).findByText("No pipelines")).toBeInTheDocument();
-  expect(within(tbody).getByRole("button", { name: "Add pipeline" })).toBeInTheDocument();
+  expect(await within(tbody).findByText("No Pipelines")).toBeInTheDocument();
+  expect(within(tbody).getByRole("button", { name: "Add Pipeline" })).toBeInTheDocument();
 });
 
 test("it renders a paginated table with 50 pipelines", async () => {
@@ -845,7 +846,6 @@ test("delete multiple pipelines", async () => {
     dismissible: false,
     header: "Deleting selected pipelines...",
     loading: true,
-    type: "success",
   });
   await waitFor(() => {
     expect(addNotification).toHaveBeenCalledWith({

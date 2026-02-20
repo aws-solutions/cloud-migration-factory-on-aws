@@ -13,6 +13,10 @@ Metadata:
           - Application
           - Environment
           - Tracker
+          - WPM
+          - DeployBedrockGuardrail
+          - WPM
+          - DeployBedrockGuardrail
           - ReplatformEC2          
           - ServiceAccountEmail
           - DeploymentType
@@ -35,6 +39,10 @@ Metadata:
         default: Environment name
       Tracker:
         default: Migration Tracker
+      WPM:
+        default: WPM (Wave Planning Manager)
+      DeployBedrockGuardrail:
+        default: Deploy Bedrock Guardrail
       ReplatformEC2:
         default: Replatform EC2        
       ServiceAccountEmail:
@@ -77,6 +85,12 @@ Parameters:
     Default: true
     AllowedValues: [true, false]
 
+  WPM:
+    Type: String
+    Description: Deploy WPM (Wave Planning Manager)?
+    Default: true
+    AllowedValues: [true, false]
+
   ReplatformEC2:
     Type: String
     Description: Deploy Replatform EC2 Feature?
@@ -105,6 +119,7 @@ Parameters:
       Comma delimited list of IP CIDRs from which your users and automation server will be connecting from over the public internet (this will be your external public address range). Two CIDRs must be entered, otherwise the stack will fail to deploy. You can add
       rules later by modifying the created WAF rule if required. Example 192.1.0.0/16, 192.2.0.0/16.
     Type: CommaDelimitedList
+    Default: ''
 
   EndpointVPCId:
     Type: String
@@ -124,6 +139,12 @@ Parameters:
     Default: false
     AllowedValues: [ true, false ]
 
+  DeployBedrockGuardrail:
+    Type: String
+    Description: Deploy Bedrock guardrail for AI features?
+    Default: true
+    AllowedValues: [ true, false ]
+
 Mappings:
   Send:
     AnonymousUsage:
@@ -136,8 +157,6 @@ Mappings:
     Data:
       SolutionID: '%%SOLUTION_ID%%'
       SolutionVersion: '%%VERSION%%'
-    AppRegistry:
-      SolutionName: 'Cloud Migration Factory on AWS'
     LambdaRuntime:
       Python: python3.11
   API:
@@ -147,12 +166,17 @@ Mappings:
 
 Conditions:
   DeployTracker: !Equals [!Ref Tracker, true]
+  DeployWPM: !Equals [!Ref WPM, true]
   ReplatformEC2: !Equals [!Ref ReplatformEC2, true]
   DeployWAF: !Equals [!Ref DeploymentType, 'Public with WAF']
   DeploymentTypePublic: !Equals [!Ref DeploymentType, 'Default (Public)']
   DeployCloudFront: !Or [ !Condition DeploymentTypePublic, !Condition DeployWAF]
   DeploymentPrivate: !Equals [!Ref DeploymentType, 'Private']
   DeployFederation: !Equals [!Ref CognitoFederation, true]
+  DeployWPMAndPublic: !And 
+    - !Condition DeployWPM
+    - !Not
+      - !Condition DeploymentPrivate
 
 Resources:
   AccessLoggingBucket:
@@ -299,7 +323,7 @@ Resources:
         WebACLId:
           !If
           - DeployWAF
-          - !GetAtt WAFFEStack.Outputs.WAFFEACLArn
+          - !GetAtt CrossRegionWAFDeployer.WAFFEACLArn
           - !Ref 'AWS::NoValue'
         Enabled: true
         PriceClass: 'PriceClass_100'
@@ -333,7 +357,7 @@ Resources:
         Logging:
           Bucket: !GetAtt AccessLoggingBucket.DomainName
         Origins:
-          - DomainName: !GetAtt FrontEndBucket.DomainName
+          - DomainName: !Sub "${FrontEndBucket}.s3.${AWS::Region}.amazonaws.com"
             Id: !Sub S3-${FrontEndBucket}
             OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
             S3OriginConfig:
@@ -369,6 +393,96 @@ Resources:
         Comment: !Sub Append HTTP security headers to responses. NOTE-index.html also contains CSP in meta.
         Runtime: cloudfront-js-1.0
 
+  CloudFrontInvalidationLambdaRole:
+    Condition: DeployCloudFront
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-cloudfront-invalidation-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CloudFrontInvalidationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                Resource: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudfrontDistribution.Id}'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  CloudFrontInvalidationLambda:
+    Condition: DeployCloudFront
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Application}-${Environment}-cloudfront-invalidation
+      Runtime: python3.11
+      Handler: index.lambda_handler
+      Role: !GetAtt CloudFrontInvalidationLambdaRole.Arn
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          import cfnresponse
+          import time
+          
+          def lambda_handler(event, context):
+              try:
+                  distribution_id = event['ResourceProperties']['DistributionId']
+                  cloudfront = boto3.client('cloudfront')
+                  
+                  if event['RequestType'] in ['Create', 'Update']:
+                      response = cloudfront.create_invalidation(
+                          DistributionId=distribution_id,
+                          InvalidationBatch={
+                              'Paths': {
+                                  'Quantity': 1,
+                                  'Items': ['/*']
+                              },
+                              'CallerReference': str(int(time.time()))
+                          }
+                      )
+                      print(f"Invalidation created: {response['Invalidation']['Id']}")
+                  
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {})
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  CloudFrontInvalidationCustomResource:
+    Condition: DeployCloudFront
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: CloudfrontDistribution
+    Properties:
+      ServiceToken: !GetAtt CloudFrontInvalidationLambda.Arn
+      DistributionId: !Ref CloudfrontDistribution
+      # This property changes on every deployment to trigger invalidation
+      Version: '%%VERSION%%'
+
   RoleDynamoDBTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -376,10 +490,20 @@ Resources:
         -
           AttributeName: "role_id"
           AttributeType: "S"
+        -
+          AttributeName: "role_name"
+          AttributeType: "S"
       KeySchema:
         -
           AttributeName: "role_id"
           KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        - IndexName: "NameIndex"
+          KeySchema:
+            - AttributeName: "role_name"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "KEYS_ONLY"
       BillingMode: "PAY_PER_REQUEST"
       TableName: !Sub ${Application}-${Environment}-roles
       PointInTimeRecoverySpecification:
@@ -442,10 +566,20 @@ Resources:
         -
           AttributeName: "policy_id"
           AttributeType: "S"
+        -
+          AttributeName: "policy_name"
+          AttributeType: "S"
       KeySchema:
         -
           AttributeName: "policy_id"
           KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        - IndexName: "NameIndex"
+          KeySchema:
+            - AttributeName: "policy_name"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "KEYS_ONLY"
       BillingMode: "PAY_PER_REQUEST"
       TableName: !Sub ${Application}-${Environment}-policies
       PointInTimeRecoverySpecification:
@@ -478,21 +612,20 @@ Resources:
           AttributeName: "server_id"
           AttributeType: "S"
         -
-          AttributeName: "app_id"
+          AttributeName: "server_name"
           AttributeType: "S"
       KeySchema:
         -
           AttributeName: "server_id"
           KeyType: "HASH"
       GlobalSecondaryIndexes:
-        -
-          IndexName: app_id-index
+        - 
+          IndexName: "NameIndex"
           KeySchema:
-            -
-              AttributeName: "app_id"
+            - AttributeName: "server_name"
               KeyType: "HASH"
           Projection:
-            ProjectionType: ALL
+            ProjectionType: "KEYS_ONLY"
       BillingMode: "PAY_PER_REQUEST"
       TableName: !Sub ${Application}-${Environment}-servers
       PointInTimeRecoverySpecification:
@@ -515,105 +648,6 @@ Resources:
           - id: W74
             reason: "Default encryption is enabled with no additional charge"
 
-  LambdaFunctionServerTableStream:
-    Type: AWS::Lambda::Function
-    Properties:
-      Environment:
-        Variables:
-          application: !Sub ${Application}
-          environment: !Sub ${Environment}
-          region: !Ref "AWS::Region"
-          AWS_ACCOUNT_ID: !Ref "AWS::AccountId"
-      Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_server_stream.zip"]]
-      Description: This is the lambda function for processing DynamoDB server item changes
-      FunctionName: !Sub ${Application}-${Environment}-server-table-stream
-      Handler: "lambda_server_stream.lambda_handler"
-      Role: !GetAtt ServerTableStreamLambdaRole.Arn
-      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
-      MemorySize: 2048
-      Timeout: 720
-      Tags:
-        -
-          Key: application
-          Value: !Ref Application
-        -
-          Key: environment
-          Value: !Ref Environment
-      Layers:
-        - !Ref LambdaLayerStdPythonLibs
-        - !Ref LambdaLayerMFPolicyLib
-        - !Ref LambdaLayerMFUtilsLib
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W89
-            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
-          - id: W92
-            reason: "Reserve Concurrent Execution is not needed for this solution"
-
-  ServerTableStreamLambdaRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub ${Application}-${Environment}-ServerTableStreamLambdaRole
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-            Action:
-              - "sts:AssumeRole"
-      Path: /
-      Policies:
-        - PolicyName: !Sub ${Application}-${Environment}-ServerTableStreamLambdaRole
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              -
-                Effect: Allow
-                Action:
-                  - 'discovery:DescribeConfigurations'
-                  - 'mgh:AssociateDiscoveredResource'
-                  - 'mgh:CreateProgressUpdateStream'
-                  - 'mgh:GetHomeRegion'
-                  - 'mgh:ImportMigrationTask'
-                  - 'mgh:NotifyMigrationTaskState'
-                Resource: '*'
-              - Action:
-                  - 'dynamodb:DescribeStream'
-                  - 'dynamodb:GetRecords'
-                  - 'dynamodb:GetShardIterator'
-                  - 'dynamodb:ListStreams'
-                Effect: Allow
-                Resource:
-                  - !GetAtt ServersDynamoDBTable.StreamArn
-              -
-                Effect: Allow
-                Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
-                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W11
-            reason: "The resources ARN is unknown, because it is based on user's input"
-          - id: F38
-            reason: "The resources ARN is unknown, because it is based on user's input"
-          - id: W28
-            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
-
-  ServerTableStreamStreamMapping:
-    Type: AWS::Lambda::EventSourceMapping
-    Properties:
-      EventSourceArn: !GetAtt ServersDynamoDBTable.StreamArn
-      FunctionName: !GetAtt LambdaFunctionServerTableStream.Arn
-      StartingPosition: LATEST
-
   AppsDynamoDBTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -621,10 +655,20 @@ Resources:
         -
           AttributeName: "app_id"
           AttributeType: "S"
+        -
+          AttributeName: "app_name"
+          AttributeType: "S"
       KeySchema:
         -
           AttributeName: "app_id"
           KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        - IndexName: "NameIndex"
+          KeySchema:
+            - AttributeName: "app_name"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "KEYS_ONLY"
       BillingMode: "PAY_PER_REQUEST"
       TableName: !Sub ${Application}-${Environment}-apps
       PointInTimeRecoverySpecification:
@@ -647,107 +691,6 @@ Resources:
           - id: W74
             reason: "Default encryption is enabled with no additional charge"
 
-  LambdaFunctionWaveTableStream:
-    Type: AWS::Lambda::Function
-    Properties:
-      Environment:
-        Variables:
-          application: !Sub ${Application}
-          environment: !Sub ${Environment}
-          region: !Ref "AWS::Region"
-          AWS_ACCOUNT_ID: !Ref "AWS::AccountId"
-      Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "lambda_wave_stream.zip"]]
-      Description: This is the lambda function for processing DynamoDB wave item changes
-      FunctionName: !Sub ${Application}-${Environment}-wave-table-stream
-      Handler: "lambda_wave_stream.lambda_handler"
-      Role: !GetAtt WaveTableStreamLambdaRole.Arn
-      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
-      MemorySize: 2048
-      Timeout: 720
-      Tags:
-        -
-          Key: application
-          Value: !Ref Application
-        -
-          Key: environment
-          Value: !Ref Environment
-      Layers:
-        - !Ref LambdaLayerStdPythonLibs
-        - !Ref LambdaLayerMFPolicyLib
-        - !Ref LambdaLayerMFUtilsLib
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W89
-            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
-          - id: W92
-            reason: "Reserve Concurrent Execution is not needed for this solution"
-
-  WaveTableStreamLambdaRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub ${Application}-${Environment}-WaveTableStreamLambdaRole
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-            Action:
-              - "sts:AssumeRole"
-      Path: /
-      Policies:
-        - PolicyName: !Sub ${Application}-${Environment}-WaveTableStreamLambdaRole
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              -
-                Effect: Allow
-                Action:
-                  - 'discovery:ListConfigurations'
-                  - 'mgh:GetHomeRegion'
-                  - 'mgh:NotifyApplicationState'
-                Resource: '*'
-              - Action:
-                  - 'dynamodb:DescribeStream'
-                  - 'dynamodb:GetRecords'
-                  - 'dynamodb:GetShardIterator'
-                  - 'dynamodb:ListStreams'
-                Effect: Allow
-                Resource:
-                  - {Fn::GetAtt: 'WavesDynamoDBTable.StreamArn'}
-              - Effect: Allow
-                Action:
-                  - 'dynamodb:Scan'
-                Resource:
-                  - !Join [ '', [ !GetAtt AppsDynamoDBTable.Arn, '*' ] ]
-              -
-                Effect: Allow
-                Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
-                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W11
-            reason: "The resources ARN is unknown, because it is based on user's input"
-          - id: F38
-            reason: "The resources ARN is unknown, because it is based on user's input"
-          - id: W28
-            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
-
-  WaveTableStreamStreamMapping:
-    Type: AWS::Lambda::EventSourceMapping
-    Properties:
-      EventSourceArn: !GetAtt WavesDynamoDBTable.StreamArn
-      FunctionName: !GetAtt LambdaFunctionWaveTableStream.Arn
-      StartingPosition: LATEST
-
   WavesDynamoDBTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -757,10 +700,20 @@ Resources:
         -
           AttributeName: "wave_id"
           AttributeType: "S"
+        -
+          AttributeName: "wave_name"
+          AttributeType: "S"
       KeySchema:
         -
           AttributeName: "wave_id"
           KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        - IndexName: "NameIndex"
+          KeySchema:
+            - AttributeName: "wave_name"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "KEYS_ONLY"
       BillingMode: "PAY_PER_REQUEST"
       TableName: !Sub ${Application}-${Environment}-waves
       PointInTimeRecoverySpecification:
@@ -791,21 +744,20 @@ Resources:
           AttributeName: "database_id"
           AttributeType: "S"
         -
-          AttributeName: "app_id"
+          AttributeName: "database_name"
           AttributeType: "S"
       KeySchema:
         -
           AttributeName: "database_id"
           KeyType: "HASH"
       GlobalSecondaryIndexes:
-        -
-          IndexName: database_id-index
+        - 
+          IndexName: "NameIndex"
           KeySchema:
-            -
-              AttributeName: "app_id"
+            - AttributeName: "database_name"
               KeyType: "HASH"
           Projection:
-            ProjectionType: ALL
+            ProjectionType: "KEYS_ONLY"
       BillingMode: "PAY_PER_REQUEST"
       TableName: !Sub ${Application}-${Environment}-databases
       PointInTimeRecoverySpecification:
@@ -1354,7 +1306,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub ${Application}-${Environment}-API-Gateway-Access-Logs
-      RetentionInDays: 90
+      RetentionInDays: 3653
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -1428,6 +1380,8 @@ Resources:
         -
           Types:
             - EDGE
+      SecurityPolicy: SecurityPolicy_TLS12_PFS_2025_EDGE
+      EndpointAccessMode: STRICT
       Policy:
         !If
         - DeploymentPrivate
@@ -1538,6 +1492,8 @@ Resources:
       - APIMethodSSMJobsPOST
       - APIMethodSSMJobsIdOPTIONS
       - APIMethodSSMJobsIdDelete
+      - APIMethodManageEntitiesOPTIONS
+      - APIMethodManageEntitiesPost
     Properties:
       RestApiId: !Ref ToolsAPI
       StageName: prod
@@ -1554,6 +1510,23 @@ Resources:
             reason: "As this is for internal use only tool, and very low number of API calls, no usage plan is required"
           - id: W45
             reason: "StageDescription cannot be specified when stage referenced by StageName already exists"
+
+  WpmToolsAPIDeploy:
+    Condition: DeployWPM
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - APIMethodImportFromS3Post
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      StageName: prod
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W68
+            reason: As this is for internal use only tool, and very low number of
+              API calls, no usage plan is required
+          - id: W45
+            reason: StageDescription already exists for this Deployment. Re-deploying so that new resource is deployed to API.
 
   APIResourceToolsPipelines:
     Type: 'AWS::ApiGateway::Resource'
@@ -2189,6 +2162,65 @@ Resources:
             ResponseParameters:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AutomationService.Outputs.LambdaFunctionSSMJobsArn}/invocations'
+
+  APIResourceManageEntities:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !GetAtt ToolsAPI.RootResourceId
+      PathPart: "manage-entities"
+
+  APIMethodManageEntitiesOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceManageEntities
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodManageEntitiesPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceManageEntities
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionManageEntities.Arn}/invocations'
 
   # Login API
   LoginAPI:
@@ -3478,9 +3510,6 @@ Resources:
           id:
             type: 'string'
             pattern: '^[A-Za-z0-9_\-\.]+$'
-          appid:
-            type: 'string'
-            pattern: '^[A-Za-z0-9_\-\.]+$'
 
   UserAPIGatewayResponses4xx:
     Type: AWS::ApiGateway::GatewayResponse
@@ -3518,8 +3547,6 @@ Resources:
       - APIMethodItemPut
       - APIMethodItemDelete
       - APIMethodItemOPTIONS
-      - APIMethodItemAppidGet
-      - APIMethodItemAppidOPTIONS
       - APIMethodNotificationsGet
       - APIMethodNotificationsOPTIONS
     Properties:
@@ -3744,74 +3771,6 @@ Resources:
               "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItem.Arn}/invocations'
 
-  APIResourceUserItemAppid:
-    Type: 'AWS::ApiGateway::Resource'
-    Properties:
-      RestApiId: !Ref UserAPI
-      ParentId: !Ref APIResourceUserItems
-      PathPart: "appid"
-
-  APIResourceUserItemAppidAppid:
-    Type: 'AWS::ApiGateway::Resource'
-    Properties:
-      RestApiId: !Ref UserAPI
-      ParentId: !Ref APIResourceUserItemAppid
-      PathPart: "{appid}"
-
-  APIMethodItemAppidOPTIONS:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref UserAPI
-      ResourceId: !Ref APIResourceUserItemAppidAppid
-      HttpMethod: "OPTIONS"
-      AuthorizationType: "NONE"
-      MethodResponses:
-        - StatusCode: '200'
-          ResponseModels:
-            'application/json': 'Empty'
-          ResponseParameters:
-            'method.response.header.Access-Control-Allow-Origin': false
-            'method.response.header.Access-Control-Allow-Methods': false
-            'method.response.header.Access-Control-Allow-Headers': false
-      Integration:
-        Type: MOCK
-        IntegrationResponses:
-          - StatusCode: '200'
-            ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
-              "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
-              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
-            ResponseTemplates:
-              'application/json': ''
-        RequestTemplates:
-          "application/json": "{\"statusCode\": 200}"
-
-  APIMethodItemAppidGet:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref UserAPI
-      ResourceId: !Ref APIResourceUserItemAppidAppid
-      HttpMethod: "GET"
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref UserAuthorizer
-      RequestValidatorId: !Ref UserAPIRequestValidator
-      RequestModels:
-        application/json: !Ref UserAPIReqValidationModel
-      MethodResponses:
-        - StatusCode: '200'
-          ResponseModels:
-            'application/json': 'Empty'
-          ResponseParameters:
-            'method.response.header.Access-Control-Allow-Origin': false
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        IntegrationResponses:
-          - StatusCode: '200'
-            ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItem.Arn}/invocations'
-
   APIResourceUserNotifications:
     Type: 'AWS::ApiGateway::Resource'
     Properties:
@@ -3871,6 +3830,90 @@ Resources:
         RequestTemplates:
           "application/json": "{\"statusCode\": 200}"
 
+  # API Gateway Resource for import-from-s3
+  APIResourceImportFromS3:
+    Type: 'AWS::ApiGateway::Resource'
+    Condition: DeployWPM
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !GetAtt ToolsAPI.RootResourceId
+      PathPart: "import-from-s3"
+
+  # API Gateway Resource for schema parameter
+  APIResourceImportFromS3Schema:
+    Type: 'AWS::ApiGateway::Resource'
+    Condition: DeployWPM
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref APIResourceImportFromS3
+      PathPart: "{schema}"
+
+  # API Gateway Method for import-from-s3/{schema} POST
+  APIMethodImportFromS3Post:
+    Type: AWS::ApiGateway::Method
+    Condition: DeployWPM
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceImportFromS3Schema
+      HttpMethod: "POST"
+      AuthorizationType: "AWS_IAM"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItems.Arn}/invocations'
+
+  # API Gateway Method for import-from-s3/{schema} PUT
+  APIMethodImportFromS3Put:
+    Type: AWS::ApiGateway::Method
+    Condition: DeployWPM
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceImportFromS3Schema
+      HttpMethod: "PUT"
+      AuthorizationType: "AWS_IAM"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !If [ DeployCloudFront, !Sub "'https://${CloudfrontDistribution.DomainName}'", !Sub "'${WebURL}'" ]
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionItem.Arn}/invocations'
+
+  # Lambda Permission for ToolsAPI to invoke Items Lambda for import-from-s3
+  LambdaPermissionToolsAPIItemsImport:
+    Type: 'AWS::Lambda::Permission'
+    Condition: DeployWPM
+    Properties:
+      FunctionName: !Ref LambdaFunctionItems
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*/POST/import-from-s3/*"
+
+  # Lambda Permission for ToolsAPI to invoke Item Lambda for import-from-s3
+  LambdaPermissionToolsAPIItemImport:
+    Type: 'AWS::Lambda::Permission'
+    Condition: DeployWPM
+    Properties:
+      FunctionName: !Ref LambdaFunctionItem
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*/PUT/import-from-s3/*"
+
   # Lambda IAM Roles
   ItemsLambdaRole:
     Type: 'AWS::IAM::Role'
@@ -3896,6 +3939,7 @@ Resources:
                   - 'dynamodb:DeleteItem'
                   - 'dynamodb:GetItem'
                   - 'dynamodb:PutItem'
+                  - 'dynamodb:BatchGetItem'
                   - 'dynamodb:BatchWriteItem'
                   - 'dynamodb:Query'
                   - 'dynamodb:Scan'
@@ -3911,6 +3955,12 @@ Resources:
                   - !Join [ '', [!GetAtt AutomationService.Outputs.PipelineTemplatesTableArn, '*' ] ]
                   - !Join [ '', [!GetAtt AutomationService.Outputs.PipelineTemplateTasksTableArn, '*' ] ]
                   - !Join [ '', [!GetAtt AutomationService.Outputs.TaskExecutionsTableArn, '*' ] ]
+                  - !If [ DeployWPM, !Join [ '', [!GetAtt WPMStack.Outputs.DataSourcesDynamoDBTableArn, '*' ] ], !Ref 'AWS::NoValue' ]
+                  - !If [ DeployWPM, !Join [ '', [!GetAtt WPMStack.Outputs.JobsDynamoDBTableArn, '*' ] ], !Ref 'AWS::NoValue' ]
+                  - !If [ DeployWPM, !Join [ '', [!GetAtt WPMStack.Outputs.RulesDynamoDBTableArn, '*' ] ], !Ref 'AWS::NoValue' ]
+                  - !If [ DeployWPM, !Join [ '', [!GetAtt WPMStack.Outputs.MoveGroupsDynamoDBTableArn, '*' ] ], !Ref 'AWS::NoValue' ]
+                  - !If [ DeployWPM, !Join [ '', [!GetAtt WPMStack.Outputs.MoveGroupRequestsDynamoDBTableArn, '*' ] ], !Ref 'AWS::NoValue' ]
+                  - !If [ DeployWPM, !Join [ '', [!GetAtt WPMStack.Outputs.CustomAssetsDynamoDBTableArn, '*' ] ], !Ref 'AWS::NoValue' ]
               - Effect: Allow
                 Action:
                   - 'dynamodb:GetItem'
@@ -4230,6 +4280,7 @@ Resources:
                   - !Join ['', [!GetAtt AutomationService.Outputs.PipelineTemplatesTableArn, '*']]
                   - !Join ['', [!GetAtt AutomationService.Outputs.ScriptsTableArn, '*']]
                   - !Join ['', [!GetAtt AutomationService.Outputs.PipelineTemplateTasksTableArn, '*']]
+                  - !If [ DeployWPM, !Join ['', [!GetAtt WPMStack.Outputs.RulesDynamoDBTableArn, '*']], !Ref 'AWS::NoValue' ]
               -
                 Effect: Allow
                 Action:
@@ -5187,6 +5238,8 @@ Resources:
           PipelineTemplateTaskDynamoDBTable: !GetAtt AutomationService.Outputs.PipelineTemplateTasksTable
           SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
           SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          WPM: !Ref WPM
+          RuleDynamoDBTable: !If [ DeployWPM, !GetAtt WPMStack.Outputs.RulesDynamoDBTable, "" ]
       Tags:
         -
           Key: application
@@ -5448,9 +5501,11 @@ Resources:
           TOOLS_API: !Ref ToolsAPI
           VPCE_API_ID: !If [ DeploymentPrivate, !GetAtt APIGatewayEndpoint.Id, ""]
           SSM_WS_API: !Sub '${AutomationService.Outputs.SSMSocketAPI}'
+          GENAI_WS_API: !If [DeployWPMAndPublic, !Sub '${WPMStack.Outputs.GenAiWS}', ""]
           USER_POOL_ID: !Ref CognitoUserPool
           APP_CLIENT_ID: !Ref CognitoAppClient
           COGNITO_HOSTED_UI_URL: !If [ DeployFederation, !Sub "${CognitoUserPoolDomain}.auth.${AWS::Region}.amazoncognito.com", ""]
+          DATA_UPLOADS_BUCKET: !If [ DeployWPM, !Sub '${WPMStack.Outputs.BucketDataUploads}', ""]
           FRONTEND_BUCKET: !Ref FrontEndBucket
           SOURCE_BUCKET: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
           SOURCE_KEY: !Join
@@ -5462,6 +5517,15 @@ Resources:
               - 'fe-%%VERSION%%.zip'
           SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
           SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          GENAI_SUPPORTED: !If [DeployWPM, !Sub '${WPMStack.Outputs.GenAiSupported}', 'false']
+          ENABLED_MODULES: !Join
+            - ""
+            - - "["
+              - !If
+                - DeployWPM
+                - '\"WPM\"'
+                - ''
+              - "]"
       Tags:
         -
           Key: application
@@ -5573,6 +5637,227 @@ Resources:
           - id: W28
             reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
 
+  # Manage Entities Function
+  LambdaFunctionManageEntities:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_manage_entities.lambda_handler
+      Runtime: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+      FunctionName: !Sub ${Application}-${Environment}-manage_entities
+      Timeout: 120
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "lambda_manage_entities.zip" ]]
+      Role: !GetAtt ManageEntitiesLambdaRole.Arn
+      Environment:
+        Variables:
+          region: !Ref "AWS::Region"
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+          userpool: !Ref CognitoUserPool
+          clientid: !Ref CognitoAppClient
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          WPM_JOBS_TABLE_NAME: !If [ DeployWPM, !Sub '${Application}-${Environment}-wpm_jobs', !Ref 'AWS::NoValue' ]
+          WAVES_TABLE_NAME: !Ref WavesDynamoDBTable
+          MOVE_GROUPS_TABLE_NAME: !If [ DeployWPM, !Sub '${Application}-${Environment}-move_groups', !Ref 'AWS::NoValue' ]
+          MOVE_GROUP_REQUESTS_TABLE_NAME: !If [ DeployWPM, !Sub '${Application}-${Environment}-move_group_requests', !Ref 'AWS::NoValue' ]
+          APPS_TABLE_NAME: !Ref AppsDynamoDBTable
+          SERVERS_TABLE_NAME: !Ref ServersDynamoDBTable
+          DATABASES_TABLE_NAME: !Ref DBsDynamoDBTable
+          CUSTOM_ASSETS_TABLE_NAME: !If [ DeployWPM, !Sub '${Application}-${Environment}-custom-assets', !Ref 'AWS::NoValue' ]
+          SCHEMA_TABLE_NAME: !Ref SchemaDynamoDBTable
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-manage-entities
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFItemsLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionManageEntities:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionManageEntities.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
+
+  ManageEntitiesLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-manage-entities-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Read-only permissions for schema table
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !GetAtt SchemaDynamoDBTable.Arn
+              # Read-write permissions for jobs table
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:BatchGetItem'
+                  - 'dynamodb:BatchWriteItem'
+                  - 'dynamodb:TransactWriteItems'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-*"
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  # Cross-Region WAF Deployer
+  CrossRegionWAFDeployerRole:
+    Condition: DeployWAF
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-waf-deployer-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CrossRegionWAFDeployerPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'cloudformation:CreateStack'
+                  - 'cloudformation:UpdateStack'
+                  - 'cloudformation:DeleteStack'
+                  - 'cloudformation:DescribeStacks'
+                  - 'cloudformation:DescribeStackEvents'
+                Resource: !Sub 'arn:aws:cloudformation:us-east-1:${AWS::AccountId}:stack/${Application}-${Environment}-waf-fe/*'
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                Resource: 
+                  - !Sub 
+                    - 'arn:aws:s3:::${S3Bucket}-reference'
+                    - S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+                  - !Sub 
+                    - 'arn:aws:s3:::${S3Bucket}-reference/*'
+                    - S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+              - Effect: Allow
+                Action:
+                  - 'wafv2:CreateIPSet'
+                  - 'wafv2:UpdateIPSet'
+                  - 'wafv2:DeleteIPSet'
+                  - 'wafv2:GetIPSet'
+                  - 'wafv2:ListIPSets'
+                  - 'wafv2:CreateWebACL'
+                  - 'wafv2:UpdateWebACL'
+                  - 'wafv2:DeleteWebACL'
+                  - 'wafv2:GetWebACL'
+                  - 'wafv2:ListWebACLs'
+                  - 'wafv2:TagResource'
+                  - 'wafv2:UntagResource'
+                  - 'wafv2:ListTagsForResource'
+                Resource: 
+                  - !Sub 'arn:aws:wafv2:us-east-1:${AWS::AccountId}:global/ipset/${Application}-${Environment}-${AWS::AccountId}-FE-Ruleset/*'
+                  - !Sub 'arn:aws:wafv2:us-east-1:${AWS::AccountId}:global/webacl/${Application}-${Environment}-${AWS::AccountId}-FE-ACL/*'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  CrossRegionWAFDeployerLambda:
+    Condition: DeployWAF
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Application}-${Environment}-waf-deployer
+      Runtime: python3.11
+      Handler: waf-cross-region-deployer.lambda_handler
+      Role: !GetAtt CrossRegionWAFDeployerRole.Arn
+      Timeout: 900
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "waf-cross-region-deployer.zip"]]
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  CrossRegionWAFDeployer:
+    Condition: DeployWAF
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt CrossRegionWAFDeployerLambda.Arn
+      StackName: !Sub ${Application}-${Environment}-waf-fe
+      TemplateURL: !Sub 
+        - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-waf-fe.template'
+        - S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+          KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+      Parameters:
+        Application: !Ref Application
+        Environment: !Ref Environment
+        SourceCIDR: !Join [',', !Ref SourceCIDR]
+        CloudFrontDeployed: !If [DeployCloudFront, 'true', 'false']
+
 # Nested stacks.
 
   MigrationTracker:
@@ -5593,6 +5878,51 @@ Resources:
         LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
         AccessLoggingBucket: !Ref AccessLoggingBucket
 
+  WPMStack:
+    Condition: DeployWPM
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - ToolsAPIDeploy
+    Properties:
+      TemplateURL: !Sub
+       - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-wpm.template'
+       -  S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+          KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+      Parameters:
+        Application: !Ref Application
+        Environment: !Ref Environment
+        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
+        LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
+        LambdaLayerMFUtilsLib: !Ref LambdaLayerMFUtilsLib
+        CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
+        CognitoUserPoolId: !Ref CognitoUserPool
+        CognitoAppClientId: !Ref CognitoAppClient
+        LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
+        LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
+        LambdaLayerMFItemsLib: !Ref LambdaLayerMFItemsLib
+        AccessLoggingBucket: !Ref AccessLoggingBucket
+        RoleDynamoDBTableArn: !GetAtt RoleDynamoDBTable.Arn
+        PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
+        ServersDynamoDBTableArn: !GetAtt ServersDynamoDBTable.Arn
+        AppsDynamoDBTableArn: !GetAtt AppsDynamoDBTable.Arn
+        DBsDynamoDBTableArn: !GetAtt DBsDynamoDBTable.Arn
+        ServersDynamoDBTableName: !Ref ServersDynamoDBTable
+        AppsDynamoDBTableName: !Ref AppsDynamoDBTable
+        DBsDynamoDBTableName: !Ref DBsDynamoDBTable
+        WavesDynamoDBTableName: !Ref WavesDynamoDBTable
+        WavesDynamoDBTableArn: !GetAtt WavesDynamoDBTable.Arn
+        SchemaDynamoDBTableName: !Ref SchemaDynamoDBTable
+        SchemaDynamoDBTableArn: !GetAtt SchemaDynamoDBTable.Arn
+        UserAPI: !Ref UserAPI
+        ToolsAPI: !Ref ToolsAPI
+        ToolsAPIRootResourceId: !GetAtt ToolsAPI.RootResourceId
+        ToolsAuthorizer: !Ref ToolsAuthorizer
+        ToolsApiRequestValidator: !Ref ToolsApiRequestValidator
+        DeployBedrockGuardrail: !Ref DeployBedrockGuardrail
+        DeploySocketApi: !If [ DeployCloudFront, 'true', 'false']
+        solutionUUID: !GetAtt CreateUniqueID.UUID
+        AnonymousUsageData: !FindInMap ["Send", "AnonymousUsage", "Data"]
   AppMigService:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -5627,35 +5957,6 @@ Resources:
         LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
         PipelineTaskExecutionOutputLambdaARN: !GetAtt LambdaFunctionPipelineTaskExecutionOutput.Arn
         ToolsApiRequestValidatorId: !Ref ToolsApiRequestValidator
-
-  MGHService:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      TemplateURL: !Sub
-       - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-mgh.template'
-       -  S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
-          KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
-      Parameters:
-        Application: !Ref Application
-        Environment: !Ref Environment
-        CodeBucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
-        KeyPrefix: !FindInMap ["SourceCode", "General", "KeyPrefix"]
-        CognitoUserPool: !Ref CognitoUserPool
-        CognitoUserPoolArn: !GetAtt CognitoUserPool.Arn
-        solutionUUID: !GetAtt CreateUniqueID.UUID
-        RoleDynamoDBTableArn: !GetAtt RoleDynamoDBTable.Arn
-        PolicyDynamoDBTableArn: !GetAtt PolicyDynamoDBTable.Arn
-        LambdaLayerStdPythonLibs: !Ref LambdaLayerStdPythonLibs
-        LambdaLayerMFPolicyLib: !Ref LambdaLayerMFPolicyLib
-        LambdaLayerMFUtilsLib: !Ref LambdaLayerMFUtilsLib
-        CORS: !If [ DeployCloudFront, !Sub 'https://${CloudfrontDistribution.DomainName}', !Ref WebURL ]
-        LambdaRuntimePython: !FindInMap ["Solution", "LambdaRuntime", "Python"]
-        UserAPI: !Ref UserAPI
-        CognitoUserPoolId: !Ref CognitoUserPool
-        LoginAPI: !Ref LoginAPI
-        CognitoUserPoolClientId: !Ref CognitoAppClient
-        AdminAPI: !Ref AdminAPI
-        PipelineTaskExecutionOutputLambdaARN: !GetAtt LambdaFunctionPipelineTaskExecutionOutput.Arn
 
   CredentialManager:
     Type: AWS::CloudFormation::Stack
@@ -5787,22 +6088,7 @@ Resources:
         CMFAPIAdminID: !Ref AdminAPI
         CMFCognitoArn: !GetAtt CognitoUserPool.Arn
         CloudFrontDeployed: !If [ DeployCloudFront, true, false ]
-
-  WAFFEStack:
-    Type: AWS::CloudFormation::Stack
-    Condition: DeployWAF
-    Properties:
-      TemplateURL: !Sub
-        - 'https://${S3Bucket}-reference.s3.amazonaws.com/${KeyPrefix}/aws-cloud-migration-factory-solution-waf-fe.template'
-        - S3Bucket: !FindInMap [ "SourceCode", "General", "S3Bucket" ]
-          KeyPrefix: !FindInMap [ "SourceCode", "General", "KeyPrefix" ]
-      Parameters:
-        Application: !Ref Application
-        Environment: !Ref Environment
-        SourceCIDR: !Join
-          - ','
-          - !Ref SourceCIDR
-        CloudFrontDeployed: !If [ DeployCloudFront, true, false ]
+        
 
 # Create default service account for initial login and automation.
   ServiceAccount:
@@ -5931,113 +6217,6 @@ Resources:
             reason: "The resources ARN is unknown, because it is based on user's input"
           - id: W28
             reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
-
-
-  # AppRegistry Application
-  AppRegistryApplication:
-    Type: AWS::ServiceCatalogAppRegistry::Application
-    Properties:
-      Description: "Service Catalog application to track and manage all your resources for the solution Cloud Migration Factory on AWS. The SolutionID is %%SOLUTION_ID%% and SolutionVersion is %%VERSION%%."
-      Name:
-        !Join
-        - "-"
-        - - !Ref Application
-          - !Ref Environment
-          - !Ref AWS::Region
-          - !Ref AWS::AccountId
-          - !Ref AWS::StackName
-      Tags: {
-        'Solutions:SolutionID': !FindInMap [Solution, Data, "SolutionID"],
-        'Solutions:SolutionVersion': "%%VERSION%%",
-        'Solutions:SolutionName': "%%SOLUTION_NAME%%",
-        'Solutions:ApplicationType': 'AWS-Solutions',
-      }
-
-  AppRegistryApplicationStackAssociation:
-    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
-    Properties:
-      Application: !GetAtt AppRegistryApplication.Id
-      Resource:
-        !Ref AWS::StackId
-      ResourceType: CFN_STACK
-
-  AppRegistryApplicationStackAssociationNestedStackMigrationTracker:
-    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
-    Condition: DeployTracker
-    Properties:
-      Application: !GetAtt AppRegistryApplication.Id
-      Resource:
-        !Ref MigrationTracker
-      ResourceType: CFN_STACK
-
-  AppRegistryApplicationStackAssociationNestedStackAppMigService:
-    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
-    Properties:
-      Application: !GetAtt AppRegistryApplication.Id
-      Resource:
-        !Ref AppMigService
-      ResourceType: CFN_STACK
-
-  AppRegistryApplicationStackAssociationNestedStackCredentialManager:
-    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
-    Properties:
-      Application: !GetAtt AppRegistryApplication.Id
-      Resource:
-        !Ref CredentialManager
-      ResourceType: CFN_STACK
-
-  AppRegistryApplicationStackAssociationNestedStackAutomationService:
-    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
-    Properties:
-      Application: !GetAtt AppRegistryApplication.Id
-      Resource:
-        !Ref AutomationService
-      ResourceType: CFN_STACK
-
-  AppRegistryApplicationStackAssociationNestedStackReplatformService:
-    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
-    Condition: ReplatformEC2
-    Properties:
-      Application: !GetAtt AppRegistryApplication.Id
-      Resource:
-        !Ref ReplatformService
-      ResourceType: CFN_STACK
-
-  AppRegistryApplicationStackAssociationNestedStackWAFBEStack:
-    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
-    Condition: DeployWAF
-    Properties:
-      Application: !GetAtt AppRegistryApplication.Id
-      Resource:
-        !Ref WAFBEStack
-      ResourceType: CFN_STACK
-
-  AppRegistryApplicationStackAssociationNestedStackWAFFEStack:
-    Type: AWS::ServiceCatalogAppRegistry::ResourceAssociation
-    Condition: DeployWAF
-    Properties:
-      Application: !GetAtt AppRegistryApplication.Id
-      Resource:
-        !Ref WAFFEStack
-      ResourceType: CFN_STACK
-
-  DefaultApplicationAttributeGroup:
-    Type: AWS::ServiceCatalogAppRegistry::AttributeGroup
-    Properties:
-      Name: !Sub 'AttrGrp-${AWS::Region}-${AWS::StackName}'
-      Description: Attribute group for solution information.
-      Attributes:
-        { "ApplicationType" : 'AWS-Solutions',
-          "Version": "%%VERSION%%",
-          "SolutionID": !FindInMap [Solution, Data, "SolutionID"],
-          "SolutionName": "%%SOLUTION_NAME%%"
-        }
-
-  AppRegistryApplicationAttributeAssociation:
-    Type: AWS::ServiceCatalogAppRegistry::AttributeGroupAssociation
-    Properties:
-      Application: !GetAtt AppRegistryApplication.Id
-      AttributeGroup: !GetAtt DefaultApplicationAttributeGroup.Id
 
 Outputs:
   MigrationFactoryURL:

@@ -13,6 +13,7 @@ import time
 import subprocess
 import csv
 import logging
+from collections import namedtuple
 
 ts = calendar.timegm(time.gmtime())
 # Constants referenced from other modules.
@@ -39,7 +40,6 @@ try:
         mf_config = json.load(json_file)
 except FileNotFoundError:
     mf_config = None
-
 
 # start of the external interface / functions to be called by clients ###############
 
@@ -209,63 +209,193 @@ def get_credentials(secret_name, no_user_prompts=True, not_found_response=None):
     return not_found_response
 
 
-def filter_items(items, key, item_ids=None):
-    if item_ids:
-        return [item for item in items if item[key] in item_ids]
-    else:
+def filter_items(items, key, filter=None):
+    """Filter items by key value or array intersection.
+    
+    Args:
+        items: List of dictionaries to filter
+        key: Dictionary key to filter on
+        filter: Value or list to filter by. If both filter and item[key] are lists, 
+               keeps items with intersecting values
+    
+    Returns:
+        Filtered list of items
+    """
+    if not filter:
         return items
+    
+    filtered_items = []
+    for item in items:
+        if key not in item or item[key] is None:
+            continue
+            
+        item_value = item[key]
+        
+        if isinstance(filter, list):
+            # Check if item value matches any value in filter list
+            if isinstance(item_value, list):
+                if bool(set(item_value) & set(filter)):
+                    filtered_items.append(item)
+            elif item_value in filter:
+                filtered_items.append(item)
+        else:
+            # Check if item value matches filter value
+            if isinstance(item_value, list):
+                if filter in item_value:
+                    filtered_items.append(item)
+            elif item_value == filter:
+                filtered_items.append(item)
+    
+    return filtered_items
 
 
-# Function is used to get servers based on the AWS account they are targeted to.
+ServerGroupResult = namedtuple('ServerGroupResult', ['aws_accounts', 'linux_exist', 'windows_exist', 'errors'])
+
+def group_servers_by_account(servers, os_split, waveid, log_error = print):
+    """Group servers by AWS account and region with OS validation.
+    
+    Args:
+        servers: List of server dictionaries
+        os_split: Boolean to split servers by OS type
+        waveid: Wave ID for logging purposes
+        log_error: Function to call for error logging (default: print)
+    
+    Returns:
+        ServerGroupResult: Named tuple with aws_accounts, linux_exist, windows_exist, errors
+    """
+    accounts_dict = {}
+    linux_exist = False
+    windows_exist = False
+    
+    errors = []
+    
+    for server in servers:
+        if 'aws_accountid' not in server or 'aws_region' not in server:
+            continue
+            
+        if len(str(server['aws_accountid']).strip()) != 12 or not str(server['aws_accountid']).strip().isdigit():
+            msg = f"{ERROR_MSG_PREFIX} Incorrect AWS Account Id for server: {server['server_name']}. Must be 12 digits."
+            log_error(msg)
+            errors.append(msg)
+            continue
+            
+        if 'server_fqdn' not in server:
+            msg = f"{ERROR_MSG_PREFIX} server_fqdn for server: {server['server_name']} doesn't exist"
+            log_error(msg)
+            errors.append(msg)
+            continue            
+            
+        account_key = (str(server['aws_accountid']).strip(), server['aws_region'].lower().strip())
+        
+        if account_key not in accounts_dict:
+            account = {
+                'aws_accountid': account_key[0],
+                'aws_region': account_key[1]
+            }
+            if os_split:
+                account['servers_windows'] = []
+                account['servers_linux'] = []
+            else:
+                account['servers'] = []
+            accounts_dict[account_key] = account
+            
+        account = accounts_dict[account_key]
+        
+        if os_split:
+            if 'server_os_family' not in server:
+                msg = f"{ERROR_MSG_PREFIX} server_os_family does not exist for: {server['server_name']}"
+                log_error(msg)
+                errors.append(msg)
+                continue
+            
+            if server['server_os_family'].lower() == 'windows':
+                account['servers_windows'].append(server)
+                windows_exist = True
+            elif server['server_os_family'].lower() == 'linux':
+                account['servers_linux'].append(server)
+                linux_exist = True
+            else:
+                msg = f"{ERROR_MSG_PREFIX} Invalid server_os_family for: {server['server_name']}, please select either Windows or Linux"
+                log_error(msg)
+                errors.append(msg)
+                continue            
+        else:
+            account['servers'].append(server)
+            
+    aws_accounts = list(accounts_dict.values())
+    
+    if len(aws_accounts) == 0:
+        msg = f"{ERROR_MSG_PREFIX} server list for wave_id {waveid} is empty"
+        log_error(msg)
+        errors.append(msg)
+        
+    if len(errors) > 0:
+        return ServerGroupResult([], False, False, errors)
+    
+    for account in aws_accounts:
+        print(f"### Servers in Target Account: {account['aws_accountid']}, "
+              f"region: {account['aws_region']} ###")
+        
+        if os_split:
+            for server in account['servers_windows'] + account['servers_linux']:
+                print(server['server_fqdn'])
+            if len(account['servers_windows']) == 0 and len(account['servers_linux']) == 0:
+                print(f"INFORMATIONAL: Server list for wave {waveid} and account: {account['aws_accountid']} "
+                      f"region: {account['aws_region']} is empty....")
+        else:
+            for server in account['servers']:
+                print(server['server_fqdn'])
+            if len(account['servers']) == 0:
+                print(f"INFORMATIONAL: Server list for wave {waveid} and account: {account['aws_accountid']} "
+                      f"region: {account['aws_region']} is empty....")
+        print("")
+    
+    return ServerGroupResult(aws_accounts, linux_exist, windows_exist, [])
+
+
 def get_factory_servers(waveid, token, app_ids=None, server_ids=None, os_split=True, rtype=None):
+    """Retrieve and group servers from Migration Factory by criteria from UI where user can specify
+    
+    Args:
+        waveid: Wave ID to filter servers
+        token: Authentication token for API access
+        app_ids: Optional application IDs to filter servers
+        server_ids: Optional server IDs to filter servers
+        os_split: Boolean to split servers by OS type (default: True)
+        rtype: Optional migration type filter
+    
+    Returns:
+        If os_split=True: tuple of (aws_accounts, linux_exist, windows_exist)
+        If os_split=False: aws_accounts list
+    """
     try:
-        linux_exist = False
-        windows_exist = False
-        # Get all Apps and servers from migration factory
-
+        # Get allservers from migration factory
         servers_api_response = get_data_from_api(token, get_mf_config_user_api_id(), serverendpoint)
-
         cmf_servers = json.loads(servers_api_response.text)
 
+        # As server schema has all the related attributes
+        # we can simply filter the list by each criterion  in a row 
+        cmf_servers = filter_items(cmf_servers, 'wave_id', waveid)
+        cmf_servers = filter_items(cmf_servers, 'app_ids', app_ids)
         cmf_servers = filter_items(cmf_servers, 'server_id', server_ids)
-
-        apps_api_response = get_data_from_api(token, get_mf_config_user_api_id(), appendpoint)
-
-        cmf_apps = json.loads(apps_api_response.text)
-
-        cmf_apps = filter_items(cmf_apps, 'app_id', app_ids)
+        cmf_servers = filter_items(cmf_servers, 'r_type', rtype)
 
         servers = sorted(cmf_servers, key=lambda i: i['server_name'])
-        apps = sorted(cmf_apps, key=lambda i: i['app_name'])
-
-        # Get Unique target AWS account and region
-        aws_accounts, sys_exit = \
-            get_aws_account_region(apps, waveid, os_split)
-        if sys_exit:
+        
+        result = group_servers_by_account(servers, os_split, waveid)
+        
+        if len(result.errors) > 0:
+            print('\n'.join(result.errors))
             sys.exit()
 
-        # Get server list
-        for account in aws_accounts:
-            print(f"### Servers in Target Account: {account['aws_accountid']}, "
-                  f"region: {account['aws_region']} ###")
-            account, sys_exit = iterate_app_list(
-                apps, servers, account, waveid, os_split, rtype)
-            if sys_exit:
-                sys.exit()
-
-            print("")
-            linux_exist, windows_exist = \
-                verify_windows_and_linux_server(
-                    os_split, account, waveid)
-
         if os_split:
-            return aws_accounts, linux_exist, windows_exist
+            return result.aws_accounts, result.linux_exist, result.windows_exist
         else:
-            return aws_accounts
+            return result.aws_accounts
     except botocore.exceptions.ClientError as error:
         sys_exit = handle_client_error(error)
         if sys_exit:
-            sys.exit()
+             sys.exit()
 
 
 def clean_value(value):
@@ -493,6 +623,7 @@ def get_factory_databases(waveid, token, app_ids=None, database_ids=None, rtype=
         databases = json.loads(databases_api_response.text)
 
         databases = filter_items(databases, 'database_id', database_ids)
+        databases = filter_items(databases, 'wave_id', waveid)
 
         apps_api_response = get_data_from_api(token, get_mf_config_user_api_id(), appendpoint)
 
@@ -526,9 +657,8 @@ def get_factory_databases(waveid, token, app_ids=None, database_ids=None, rtype=
 def factory_database_accounts_from_apps(apps, waveid):
     aws_accounts = []
     for app in apps:
-        if 'wave_id' in app and 'aws_accountid' in app and 'aws_region' in app:
-            if str(app['wave_id']) == str(waveid):
-                factory_database_update_accounts(app, aws_accounts)
+        if is_app_associated_with_wave(app, waveid) and 'aws_accountid' in app and 'aws_region' in app:
+            factory_database_update_accounts(app, aws_accounts)
     if len(aws_accounts) == 0:
         msg = f"{ERROR_MSG_PREFIX} Target accounts for wave {waveid} is empty...."
         print(msg)
@@ -556,7 +686,7 @@ def factory_database_extract_databases(aws_accounts, databases, apps, waveid, rt
         print("### Databases in Target Account: " + account['aws_accountid'] + " , region: " + account[
             'aws_region'] + " ###")
         for app in apps:
-            if 'wave_id' in app and 'aws_accountid' in app and 'aws_region' in app:
+            if 'aws_accountid' in app and 'aws_region' in app:
                 factory_database_match_databases_apps(app, waveid, account, rtype, databases)
         print("")
         if len(account['databases']) == 0:
@@ -566,19 +696,24 @@ def factory_database_extract_databases(aws_accounts, databases, apps, waveid, rt
 
 
 def factory_database_match_databases_apps(app, waveid, account ,rtype, databases):
-    if str(app['wave_id']) == str(waveid):
+    if '_processed_databases' not in account:
+        account['_processed_databases'] = set()
+    
+    if is_app_associated_with_wave(app, waveid):
         if str(app['aws_accountid']).strip() == str(account['aws_accountid']):
             if app['aws_region'].lower().strip() == account['aws_region']:
                 for database in databases:
-                    factory_database_update_db_attrs(database, account, app, rtype)
+                    if is_asset_associated_with_app(database, app['app_id']):
+                        database_id = database.get('database_id', database.get('database_name'))
+                        if database_id not in account['_processed_databases']:
+                            account['_processed_databases'].add(database_id)
+                            factory_database_update_db_attrs(database, account, app, rtype)
 
 
 def factory_database_update_db_attrs(database, account, app, rtype):
     if (rtype is None) or ('r_type' in database and database['r_type'] == rtype):
-        if 'app_id' in database:
-            if database['app_id'] == app['app_id']:
-                account['databases'].append(database)
-                print(database['database_name'])
+        account['databases'].append(database)
+        print(database['database_name'])
 
 
 # end of the external interface / functions to be called by clients ###############
@@ -798,120 +933,14 @@ def get_input_message_for_credentials(server_type):
 
 # start of get servers functions ###############
 
-def get_aws_account_region(apps, waveid, os_split):
-    aws_accounts = []
-    for app in apps:
-        if app.get('wave_id') == str(waveid) and \
-            'aws_accountid' in app and 'aws_region' in app:
-            aws_accounts, sys_exit = \
-                extract_aws_account_region(
-                    app, os_split, aws_accounts)
-            if sys_exit:
-                return aws_accounts, sys_exit
-
-    if len(aws_accounts) == 0:
-        msg = f"{ERROR_MSG_PREFIX} AWS Account list for wave_id {waveid} is empty...."
-        print(msg)
-        sys_exit = True
-
-    return aws_accounts, sys_exit
+def is_asset_associated_with_app(asset, app_id):
+    return ('app_id' in asset and asset['app_id'] == app_id) or \
+           ('app_ids' in asset and isinstance(asset['app_ids'], list) and app_id in asset['app_ids'])
 
 
-def extract_aws_account_region(app, os_split, aws_accounts):
-    sys_exit = False
-    if len(str(app['aws_accountid']).strip()) == 12:
-        target_account = {}
-        target_account['aws_accountid'] = str(app['aws_accountid']).strip()
-        target_account['aws_region'] = app['aws_region'].lower().strip()
-        if os_split:
-            target_account['servers_windows'] = []
-            target_account['servers_linux'] = []
-        else:
-            target_account['servers'] = []
-        if target_account not in aws_accounts:
-            aws_accounts.append(target_account)
-    else:
-        msg = f"{ERROR_MSG_PREFIX} Incorrect AWS Account Id Length for app: {app['app_name']}"
-        print(msg)
-        sys_exit = True
-
-    return aws_accounts, sys_exit
-
-
-def iterate_app_list(apps, servers, account, waveid, os_split, rtype):
-    for app in apps:
-        if app.get('wave_id') == str(waveid) and \
-            'aws_accountid' in app and 'aws_region' in app and \
-            str(app['aws_accountid']).strip() == str(account['aws_accountid']) and \
-            app['aws_region'].lower().strip() == account['aws_region']:
-            account, sys_exit = iterate_server_list(
-                app, servers, account, os_split, rtype)
-            if sys_exit:
-                return account, sys_exit
-
-    return account, sys_exit
-
-
-def iterate_server_list(app, servers, account, os_split, rtype):
-    sys_exit = False
-    for server in servers:
-        if ((rtype is None) or (server.get('r_type') == rtype)) and \
-            server.get('app_id') == app['app_id']:
-            account, sys_exit = verify_server_os_and_fqdn(
-                server, os_split, account)
-            if sys_exit:
-                return account, sys_exit
-    return account, sys_exit
-
-
-def verify_server_os_and_fqdn(server, os_split, account):
-    sys_exit = False
-    # verify server_os_family attribute, only accepts Windows or Linux
-    if 'server_os_family' in server:
-        # Verify server_fqdn, this is mandatory attribute
-        if 'server_fqdn' in server:
-            if os_split:
-                if server['server_os_family'].lower() == 'windows':
-                    account['servers_windows'].append(server)
-                elif server['server_os_family'].lower() == 'linux':
-                    account['servers_linux'].append(server)
-                else:
-                    print(f"{ERROR_MSG_PREFIX} Invalid server_os_family for: {server['server_name']}, "
-                          f"please select either Windows or Linux")
-                    sys_exit = True
-                    return account, sys_exit
-            else:
-                account['servers'].append(server)
-            print(server['server_fqdn'])
-        else:
-            print(f"{ERROR_MSG_PREFIX} server_fqdn for server: {server['server_name']} doesn't exist")
-            sys_exit = True
-    else:
-        print(f"{ERROR_MSG_PREFIX} server_os_family does not exist for: {server['server_name']}")
-        sys_exit = True
-
-    return account, sys_exit
-
-
-def verify_windows_and_linux_server(os_split, account, waveid):
-    linux_exist = False
-    windows_exist = False
-    msg = (f"INFORMATIONAL: Server list for wave {waveid} and account: {account['aws_accountid']} "
-           f"region: {account['aws_region']} is empty....")
-    if os_split:
-        # Check if the server list is empty for both Windows and Linux
-        if len(account['servers_windows']) == 0 and len(account['servers_linux']) == 0:
-            print(msg)
-        if len(account['servers_linux']) > 0:
-            linux_exist = True
-        if len(account['servers_windows']) > 0:
-            windows_exist = True
-    else:
-        if len(account['servers']) == 0:
-            print(msg)
-
-    return linux_exist, windows_exist
-
+def is_app_associated_with_wave(app, wave_id):
+    return ('wave_id' in app and app['wave_id'] == wave_id) or \
+           ('wave_ids' in app and isinstance(app['wave_ids'], list) and wave_id in app['wave_ids'])
 
 def handle_client_error(error):
     sys_exit = False

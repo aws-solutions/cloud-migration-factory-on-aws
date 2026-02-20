@@ -1,11 +1,12 @@
 [tool.poetry]
+version = "0.1.0"
 name = "cloud-migration-factory-on-aws"
 package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-urllib3 = ">=2.3.0"
-requests = "==2.32.3"
+urllib3 = ">=2.6.3"
+requests = "==2.32.4"
 PyJWT = {extras = ["crypto"], version = "2.10.1"}
 simplejson = "==3.20.1"
 

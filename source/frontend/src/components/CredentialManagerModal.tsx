@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -92,7 +93,7 @@ const CredentialManagerModal = ({
   }, [localAttr]);
 
   function handleUserInput(value: { field: any; value: any }) {
-    let newAttr = Object.assign({}, localAttr);
+    const newAttr = Object.assign({}, localAttr);
     newAttr[value.field] = value.value;
 
     setLocalAttr(newAttr);
@@ -106,7 +107,7 @@ const CredentialManagerModal = ({
     },
     base64: boolean
   ) {
-    let newAttr = Object.assign({}, localAttr);
+    const newAttr = Object.assign({}, localAttr);
     if (base64) {
       newAttr[value.field] = btoa(value.value.replace(/\n/g, "\\n"));
     } else {

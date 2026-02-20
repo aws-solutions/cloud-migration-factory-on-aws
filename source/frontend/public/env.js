@@ -10,6 +10,7 @@ window.env = {
   API_LOGIN: "{{login-api}}",
   API_TOOLS: "{{tools-api}}",
   API_SSMSocket: "{{ssm-ws-api}}",
+  API_GENAISocket: "{{genai-ws-api}}",
   API_VPCE_ID: "{{vpce-id}}",
   COGNITO_REGION: "{{region}}",
   COGNITO_USER_POOL_ID: "{{user-pool-id}}",
@@ -17,4 +18,6 @@ window.env = {
   COGNITO_HOSTED_UI_URL: "{{cognito-hosted_ui_url}}",
   VERSION_UI: "{{version}}",
   AUTO_LOGOUT_MINUTES: 30,
+  GENAI_SUPPORTED: "{{genai-supported}}",
+  ENABLED_MODULES: "{{enabled-modules}}",
 };

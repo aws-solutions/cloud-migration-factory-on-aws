@@ -1,20 +1,27 @@
-import { defaultTestProps, mockNotificationContext, TEST_SESSION_STATE } from "../__tests__/TestUtils";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { wpmTestProps, mockNotificationContext, TEST_SESSION_STATE } from "../__tests__/TestUtils";
 import { render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { SessionContext } from "../contexts/SessionContext";
-import React from "react";
 import UserTableWaves from "./UserTableWaves";
 import { server } from "../setupTests";
 import { rest } from "msw";
-import { generateTestApps, generateTestWaves } from "../__tests__/mocks/user_api";
+import {
+  generateTestApps,
+  generateTestDatabases,
+  generateTestMoveGroups,
+  generateTestWaves,
+  generateTestWpmJobs,
+  generateTestAppsWithWaveIds,
+} from "../__tests__/mocks/user_api";
 import userEvent from "@testing-library/user-event";
 import * as XLSX from "xlsx";
 import { NotificationContext } from "../contexts/NotificationContext";
-import { defaultSchemas } from "../../test_data/default_schema";
 import { ToolsContext } from "../contexts/ToolsContext";
 import AuthenticatedRoutes from "../AuthenticatedRoutes";
+import { Wave } from "../models";
 
-function renderUserWavesTable(props = defaultTestProps) {
+function renderUserWavesTable(props = wpmTestProps) {
   return {
     ...mockNotificationContext,
     renderResult: render(
@@ -30,14 +37,70 @@ function renderUserWavesTable(props = defaultTestProps) {
   };
 }
 
+function setupApiCallsForLoad(...waves: Wave[][]) {
+  let mainGetCallCount = 0;
+  server.use(
+    rest.get("/user/wave", (request, response, context) => {
+      const index = Math.min(mainGetCallCount++, waves.length - 1);
+      return response(context.status(200), context.json(waves[index]));
+    }),
+    rest.get("/user/server", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestDatabases(2)));
+    }),
+    rest.get("/user/app", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestApps(2)));
+    }),
+    rest.get("/user/move_group", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestMoveGroups(2)));
+    }),
+    rest.get("/user/wpm_job", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestWpmJobs(1)));
+    })
+  );
+}
+
+function setupApiCallsForSave(operation: "post" | "put" | "delete", newItemForPost?: Wave) {
+  const saveRequestBodies: any[] = [];
+  const manageEntityRequestBodies: any[] = [];
+
+  if (operation === "post") {
+    server.use(
+      rest.post(`/user/wave`, async (request, response, context) => {
+        request.json().then((body) => saveRequestBodies.push(body));
+        return response(context.status(200), context.json({ newItems: [newItemForPost] }));
+      })
+    );
+  } else if (operation === "put") {
+    server.use(
+      rest.put(`/user/wave/:id`, async (request, response, context) => {
+        request.json().then((body) => saveRequestBodies.push(body));
+        return response(context.status(200));
+      })
+    );
+  }
+
+  server.use(
+    rest.post("/manage-entities", (request, response, context) => {
+      request.json().then((body) => manageEntityRequestBodies.push(body));
+      return response(context.status(200), context.json({}));
+    })
+  );
+
+  return {
+    saveRequestBodies,
+    manageEntityRequestBodies,
+  };
+}
+
 test('it renders an empty table with "no waves" message', async () => {
   // WHEN
+  setupApiCallsForLoad([]);
   renderUserWavesTable();
 
   // THEN
   // page should render in loading state
   expect(screen.getByRole("heading", { name: "Waves (0)" })).toBeInTheDocument();
-  expect(screen.getByText("Loading waves")).toBeInTheDocument();
+  expect(screen.getByText("Loading Waves")).toBeInTheDocument();
 
   // after server response came in, it should render the table
   await waitForElementToBeRemoved(() => screen.queryByText(/Loading waves/i));
@@ -45,12 +108,13 @@ test('it renders an empty table with "no waves" message', async () => {
   const table = screen.getByRole("table");
   const tbody = within(table).getAllByRole("rowgroup")[1];
 
-  expect(await within(tbody).findByText("No waves")).toBeInTheDocument();
-  expect(within(tbody).getByRole("button", { name: "Add wave" })).toBeInTheDocument();
+  expect(await within(tbody).findByText("No Waves")).toBeInTheDocument();
+  expect(within(tbody).getByRole("button", { name: "Add Wave" })).toBeInTheDocument();
 });
 
 test("it updates the help tools panel", async () => {
   // GIVEN
+  setupApiCallsForLoad([]);
   const { renderResult } = renderUserWavesTable();
 
   const mockToolsContext = {
@@ -68,23 +132,19 @@ test("it updates the help tools panel", async () => {
     <MemoryRouter initialEntries={["/waves"]}>
       <NotificationContext.Provider value={mockNotificationContext}>
         <ToolsContext.Provider value={mockToolsContext}>
-          <UserTableWaves {...defaultTestProps}></UserTableWaves>
+          <UserTableWaves {...wpmTestProps}></UserTableWaves>
         </ToolsContext.Provider>
       </NotificationContext.Provider>
     </MemoryRouter>
   );
 
   // THEN
-  expect(mockToolsContext.setHelpPanelContentFromSchema).toHaveBeenCalledWith(defaultSchemas, "wave");
+  expect(mockToolsContext.setHelpPanelContentFromSchema).toHaveBeenCalledWith(wpmTestProps.schemas, "wave");
 });
 
 test("it renders a paginated table with 50 waves", async () => {
   // GIVEN
-  server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestWaves(50)));
-    })
-  );
+  setupApiCallsForLoad(generateTestWaves(50));
 
   // WHEN
   renderUserWavesTable();
@@ -102,15 +162,7 @@ test("it renders a paginated table with 50 waves", async () => {
 
 test("click on refresh button refreshes the table", async () => {
   // GIVEN
-  server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response.once(context.status(200), context.json(generateTestWaves(1)));
-    }),
-    // second request to same endpoint gives a different response
-    rest.get("/user/wave", (request, response, context) => {
-      return response.once(context.status(200), context.json(generateTestWaves(5)));
-    })
-  );
+  setupApiCallsForLoad(generateTestWaves(1), generateTestWaves(5));
 
   renderUserWavesTable();
   await waitForElementToBeRemoved(() => screen.queryByText(/Loading waves/i));
@@ -127,6 +179,7 @@ test("click on refresh button refreshes the table", async () => {
 
 test('click on add button opens "Add wave" form', async () => {
   // GIVEN
+  setupApiCallsForLoad([]);
   renderUserWavesTable();
 
   const addButton = screen.getByRole("button", { name: "Add" });
@@ -146,19 +199,9 @@ test('click on add button opens "Add wave" form', async () => {
 
 test("submitting the add form saves a new wave to API", async () => {
   // GIVEN
-  let captureRequest: any;
-  server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestWaves(2)));
-    }),
-    rest.post(`/user/wave`, async (request, response, context) => {
-      request.json().then((body) => (captureRequest = body));
-      return response(context.status(201));
-    }),
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
-    })
-  );
+  const [wave0, wave1] = generateTestWaves(2);
+  setupApiCallsForLoad([wave0], [wave0, wave1]);
+  const { saveRequestBodies, manageEntityRequestBodies } = setupApiCallsForSave("post", wave1);
 
   renderUserWavesTable();
   const addButton = screen.getByRole("button", { name: "Add" });
@@ -184,7 +227,8 @@ test("submitting the add form saves a new wave to API", async () => {
 
   // THEN verify the API has received the expected update request
   await waitFor(() => {
-    expect(captureRequest.wave_name).toEqual("my-test-wave");
+    expect(saveRequestBodies).toEqual([{ wave_name: "my-test-wave", wave_status: "Not started" }]);
+    expect(manageEntityRequestBodies).toEqual([]);
   });
   await screen.findByRole("heading", { name: "Waves (2)" });
 });
@@ -192,14 +236,8 @@ test("submitting the add form saves a new wave to API", async () => {
 test('click on row enables "Edit" button and shows "Details" tab', async () => {
   // GIVEN
   const waves = generateTestWaves(1);
-  server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(waves));
-    }),
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
-    })
-  );
+  setupApiCallsForLoad(waves);
+  const { saveRequestBodies, manageEntityRequestBodies } = setupApiCallsForSave("put");
 
   const { addNotification } = renderUserWavesTable();
   const editButton = screen.getByRole("button", { name: "Edit" });
@@ -233,10 +271,13 @@ test('click on row enables "Edit" button and shows "Details" tab', async () => {
 
   // THEN
   await waitFor(() => {
+    expect(saveRequestBodies).toEqual([]);
+    expect(manageEntityRequestBodies).toEqual([]);
+
     expect(addNotification).toHaveBeenCalledWith({
       content: "No updates to save.",
       dismissible: true,
-      header: "Save wave",
+      header: "Edit wave",
       type: "warning",
     });
   });
@@ -244,17 +285,9 @@ test('click on row enables "Edit" button and shows "Details" tab', async () => {
 
 test("submitting the edit form saves the wave to API", async () => {
   // GIVEN
-  let captureRequest: any;
   const waves = generateTestWaves(1);
-  server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(waves));
-    }),
-    rest.put(`/user/wave/${waves[0].wave_id}`, async (request, response, context) => {
-      request.json().then((body) => (captureRequest = body));
-      return response(context.status(200));
-    })
-  );
+  setupApiCallsForLoad(waves);
+  const { saveRequestBodies, manageEntityRequestBodies } = setupApiCallsForSave("put");
 
   renderUserWavesTable();
   const editButton = screen.getByRole("button", { name: "Edit" });
@@ -277,25 +310,20 @@ test("submitting the edit form saves the wave to API", async () => {
 
   // THEN verify the API has received the expected update request
   await waitFor(() => {
-    expect(captureRequest.wave_name).toEqual("Unit testing Wave 0-some-name");
+    expect(saveRequestBodies).toEqual([{ wave_name: "Unit testing Wave 0-some-name" }]);
+    expect(manageEntityRequestBodies).toEqual([]);
   });
   await screen.findByRole("heading", { name: "Waves (1)" });
 });
 
 test("when update fails with server error, display notification", async () => {
   // GIVEN
-  let captureRequest: any;
   const waves = generateTestWaves(1);
+  setupApiCallsForLoad(waves);
   server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(waves));
-    }),
     rest.put(`/user/wave/${waves[0].wave_id}`, async (request, response, context) => {
-      request.json().then((body) => (captureRequest = body));
+      request.json().then(() => {});
       return response(context.status(502));
-    }),
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
     })
   );
 
@@ -310,7 +338,7 @@ test("when update fails with server error, display notification", async () => {
 
   // THEN
   expect(await screen.findByRole("heading", { name: "Edit wave" })).toBeInTheDocument();
-  const saveButton = await screen.findByRole("button", { name: /Save/i });
+  await screen.findByRole("button", { name: /Save/i });
 
   // AND WHEN we edit some data and hit 'save'
   const waveNameInput = screen.getByRole("textbox", { name: "wave_name" });
@@ -330,14 +358,10 @@ test("when update fails with server error, display notification", async () => {
 
 test("when update fails with 200 success response, parse error", async () => {
   // GIVEN
-  let captureRequest: any;
   const waves = generateTestWaves(1);
+  setupApiCallsForLoad(waves);
   server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(waves));
-    }),
     rest.put(`/user/wave/${waves[0].wave_id}`, async (request, response, context) => {
-      request.json().then((body) => (captureRequest = body));
       return response(
         context.status(200),
         context.json({
@@ -355,9 +379,6 @@ test("when update fails with 200 success response, parse error", async () => {
           },
         })
       );
-    }),
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
     })
   );
 
@@ -384,7 +405,7 @@ test("when update fails with 200 success response, parse error", async () => {
     expect(addNotification).toHaveBeenCalledWith({
       content: "prop1 : message" + "," + "prop2 already exists.",
       dismissible: true,
-      header: "Update wave",
+      header: "Edit wave",
       type: "error",
     });
   });
@@ -392,11 +413,7 @@ test("when update fails with 200 success response, parse error", async () => {
 
 test('click on row enables "Delete" button, shows "Delete" modal', async () => {
   // GIVEN
-  server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestWaves(1)));
-    })
-  );
+  setupApiCallsForLoad(generateTestWaves(1));
 
   renderUserWavesTable();
   const deleteButton = screen.getByRole("button", { name: "Delete" });
@@ -416,7 +433,7 @@ test('click on row enables "Delete" button, shows "Delete" modal', async () => {
 
   // THEN
   const deleteModal = await screen.findByRole("dialog", { name: "Delete waves" });
-  expect(within(deleteModal).getByText("Are you sure you wish to delete the 1 selected waves?")).toBeInTheDocument();
+  expect(within(deleteModal).getByText("Are you sure you wish to delete the 1 selected wave?")).toBeInTheDocument();
 
   // AND WHEN
   await userEvent.click(within(deleteModal).getByRole("button", { name: /Cancel/i }));
@@ -427,15 +444,8 @@ test('click on row enables "Delete" button, shows "Delete" modal', async () => {
 
 test("confirming the deletion successfully deletes a wave", async () => {
   // GIVEN
-  const waves = generateTestWaves(1);
-  server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response.once(context.status(200), context.json(waves));
-    }),
-    rest.delete(`/user/wave/:id`, (request, response, context) => {
-      return response(context.status(204));
-    })
-  );
+  setupApiCallsForLoad(generateTestWaves(1), []);
+  const { saveRequestBodies, manageEntityRequestBodies } = setupApiCallsForSave("delete");
 
   const { addNotification } = renderUserWavesTable();
   const deleteButton = screen.getByRole("button", { name: "Delete" });
@@ -449,10 +459,18 @@ test("confirming the deletion successfully deletes a wave", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Ok" }));
 
   // THEN
+  expect(saveRequestBodies).toEqual([]);
+  expect(manageEntityRequestBodies).toEqual([{ entity_ids: ["0"], entity_type: "wave", operation: "cleanup" }]);
+
+  expect(addNotification).toHaveBeenCalledWith({
+    header: "Deleting selected wave...",
+    dismissible: false,
+    loading: true,
+  });
   expect(addNotification).toHaveBeenCalledWith({
     content: "Unit testing Wave 0 was deleted.",
     dismissible: true,
-    header: "Wave deleted successfully",
+    header: "Delete wave",
     type: "success",
   });
   expect(await screen.findByRole("heading", { name: "Waves (0)" })).toBeInTheDocument();
@@ -460,15 +478,8 @@ test("confirming the deletion successfully deletes a wave", async () => {
 
 test("delete multiple waves", async () => {
   // GIVEN
-  const waves = generateTestWaves(2);
-  server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response.once(context.status(200), context.json(waves));
-    }),
-    rest.delete(`/user/wave/:id`, (request, response, context) => {
-      return response(context.status(204));
-    })
-  );
+  setupApiCallsForLoad(generateTestWaves(2), []);
+  const { saveRequestBodies, manageEntityRequestBodies } = setupApiCallsForSave("delete");
 
   const { addNotification } = renderUserWavesTable();
   const deleteButton = screen.getByRole("button", { name: "Delete" });
@@ -494,33 +505,28 @@ test("delete multiple waves", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Ok" }));
 
   // THEN
+  expect(saveRequestBodies).toEqual([]);
+  expect(manageEntityRequestBodies).toEqual([{ entity_ids: ["0", "1"], entity_type: "wave", operation: "cleanup" }]);
+
   expect(addNotification).toHaveBeenCalledWith({
-    dismissible: false,
     header: "Deleting selected waves...",
+    dismissible: false,
     loading: true,
+  });
+  expect(addNotification).toHaveBeenCalledWith({
+    content: "Unit testing Wave 0, Unit testing Wave 1 were deleted.",
+    dismissible: true,
+    header: "Delete waves",
     type: "success",
   });
-  await waitFor(() => {
-    expect(addNotification).toHaveBeenCalledWith({
-      id: undefined,
-      content: "Unit testing Wave 0, Unit testing Wave 1 were deleted.",
-      dismissible: true,
-      header: "Waves deleted successfully",
-      type: "success",
-    });
-  });
+  expect(await screen.findByRole("heading", { name: "Waves (0)" })).toBeInTheDocument();
 });
 
 test("click on export downloads an xlsx file", async () => {
   // GIVEN
+  setupApiCallsForLoad(generateTestWaves(2));
   jest.spyOn(XLSX.utils, "json_to_sheet");
 
-  const testWaves = generateTestWaves(2);
-  server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(testWaves));
-    })
-  );
   renderUserWavesTable();
   await waitForElementToBeRemoved(() => screen.queryByText(/Loading waves/i));
 
@@ -536,14 +542,9 @@ test("click on export downloads an xlsx file", async () => {
 
 test("selecting a row and click on export downloads an xlsx file", async () => {
   // GIVEN
+  setupApiCallsForLoad(generateTestWaves(2));
   jest.spyOn(XLSX.utils, "json_to_sheet");
 
-  const testWaves = generateTestWaves(2);
-  server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(testWaves));
-    })
-  );
   renderUserWavesTable();
   await waitForElementToBeRemoved(() => screen.queryByText(/Loading waves/i));
 
@@ -560,16 +561,12 @@ test("selecting a row and click on export downloads an xlsx file", async () => {
 
 test("buttons are disabled based on user permissions", async () => {
   // GIVEN
-  server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestWaves(2)));
-    })
-  );
+  setupApiCallsForLoad(generateTestWaves(2));
 
   renderUserWavesTable({
-    ...defaultTestProps,
+    ...wpmTestProps,
     userEntityAccess: {
-      ...defaultTestProps.userEntityAccess,
+      ...wpmTestProps.userEntityAccess,
       wave: {
         delete: false,
         create: false,
@@ -591,12 +588,7 @@ test("buttons are disabled based on user permissions", async () => {
 
 test("Run Automation", async () => {
   // GIVEN
-  const waves = generateTestWaves(1);
-  server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(waves));
-    })
-  );
+  setupApiCallsForLoad(generateTestWaves(1));
 
   renderUserWavesTable();
   const actionsButton = screen.getByRole("button", { name: "Actions" });
@@ -624,11 +616,10 @@ test("MGN server migration", async () => {
   // GIVEN
   let captureRequest: any;
   const waves = generateTestWaves(1);
-  const applications = generateTestApps(2, { waveId: waves[0].wave_id });
+  setupApiCallsForLoad(waves);
+
+  const applications = generateTestAppsWithWaveIds(2, { waveId: waves[0].wave_id });
   server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(waves));
-    }),
     rest.get("/user/app", (request, response, context) => {
       return response(context.status(200), context.json(applications));
     }),
@@ -674,6 +665,7 @@ test("MGN server migration", async () => {
 test("it deep links to Add form", async () => {
   // GIVEN
   const addWaveRoute = "/waves/add";
+  setupApiCallsForLoad([]);
 
   // WHEN
   render(
@@ -681,7 +673,7 @@ test("it deep links to Add form", async () => {
       <NotificationContext.Provider value={mockNotificationContext}>
         <SessionContext.Provider value={TEST_SESSION_STATE}>
           <div id="modal-root" />
-          <AuthenticatedRoutes childProps={defaultTestProps}></AuthenticatedRoutes>
+          <AuthenticatedRoutes childProps={wpmTestProps}></AuthenticatedRoutes>
         </SessionContext.Provider>
       </NotificationContext.Provider>
     </MemoryRouter>
@@ -694,11 +686,7 @@ test("it deep links to Add form", async () => {
 test("it deep links to Edit form", async () => {
   // GIVEN
   const waves = generateTestWaves(1);
-  server.use(
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(waves));
-    })
-  );
+  setupApiCallsForLoad(waves);
 
   const editWaveRoute = `/waves/edit/${waves[0].wave_id}`;
 
@@ -708,7 +696,7 @@ test("it deep links to Edit form", async () => {
       <NotificationContext.Provider value={mockNotificationContext}>
         <SessionContext.Provider value={TEST_SESSION_STATE}>
           <div id="modal-root" />
-          <AuthenticatedRoutes childProps={defaultTestProps}></AuthenticatedRoutes>
+          <AuthenticatedRoutes childProps={wpmTestProps}></AuthenticatedRoutes>
         </SessionContext.Provider>
       </NotificationContext.Provider>
     </MemoryRouter>

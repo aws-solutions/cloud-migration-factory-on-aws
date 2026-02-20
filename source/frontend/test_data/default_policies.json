@@ -16,8 +16,32 @@
           },
           {
             "attr_type": "application",
-            "attr_name": "wave_id"
+            "attr_name": "wave_ids"
           },
+          {
+            "attr_type": "application",
+            "attr_name": "server_ids"
+          },
+          {
+            "attr_type": "application",
+            "attr_name": "database_ids"
+          },
+          {
+            "attr_type": "application",
+            "attr_name": "wpm_job_ids"
+          },
+          {
+            "attr_type": "application",
+            "attr_name": "move_group_ids"
+          },          
+          {
+            "attr_type": "application",
+            "attr_name": "rank"
+          },          
+          {
+            "attr_type": "application",
+            "attr_name": "complexity_score"
+          },          
           {
             "attr_type": "application",
             "attr_name": "aws_accountid"
@@ -54,6 +78,38 @@
           {
             "attr_type": "wave",
             "attr_name": "wave_end_time"
+          },
+          {
+            "attr_type": "wave",
+            "attr_name": "server_count"
+          },
+          {
+            "attr_type": "wave",
+            "attr_name": "total_server_storage"
+          },
+          {
+            "attr_type": "wave",
+            "attr_name": "complexity_score"
+          },
+          {
+            "attr_type": "wave",
+            "attr_name": "wpm_job_id"
+          },
+          {
+            "attr_type": "wave",
+            "attr_name": "move_group_ids"
+          },
+          {
+            "attr_type": "wave",
+            "attr_name": "app_ids"
+          },
+          {
+            "attr_type": "wave",
+            "attr_name": "server_ids"
+          },
+          {
+            "attr_type": "wave",
+            "attr_name": "database_ids"
           }
         ],
         "schema_name": "wave",
@@ -70,7 +126,19 @@
           },
           {
             "attr_type": "server",
-            "attr_name": "app_id"
+            "attr_name": "app_ids"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "move_group_id"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "wave_id"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "wpm_job_id"
           },
           {
             "attr_type": "server",
@@ -91,6 +159,14 @@
           {
             "attr_type": "server",
             "attr_name": "server_tier"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "aws_accountid"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "aws_region"
           },
           {
             "attr_type": "server",
@@ -171,7 +247,19 @@
           },
           {
             "attr_type": "database",
-            "attr_name": "app_id"
+            "attr_name": "app_ids"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "move_group_id"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "wave_id"
+          },
+          {
+            "attr_type": "server",
+            "attr_name": "wpm_job_id"
           },
           {
             "attr_type": "database",
@@ -289,10 +377,6 @@
       {
         "create": true,
         "schema_name": "mgn"
-      },
-      {
-        "create": true,
-        "schema_name": "mgh"
       },
       {
         "create": true,

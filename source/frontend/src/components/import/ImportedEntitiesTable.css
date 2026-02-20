@@ -1,0 +1,39 @@
+/* Styles for the scrollable table container */
+.scrollable-table-container {
+  scrollbar-width: thin;
+  scrollbar-color: #0972d3 #f1f1f1;
+}
+
+.scrollable-table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.scrollable-table-container::-webkit-scrollbar-thumb {
+  background: #0972d3;
+  border-radius: 4px;
+}
+
+.scrollable-table-container::-webkit-scrollbar-thumb:hover {
+  background: #075da9;
+}
+
+/* Additional styles for the table */
+.scrollable-table-container {
+  overflow: auto;
+  max-width: 100%;
+  position: relative;
+  border-radius: 4px;
+}
+
+/* Styles for reference fields */
+.reference-field {
+  color: #0972d3;
+}
+
+/* Styles for required field indicators */
+.required-field-indicator {
+  color: #d91515;
+  display: inline;
+  margin-left: 4px;
+}

@@ -334,7 +334,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${Application}-${Environment}-MGN-Log
-      RetentionInDays: 180
+      RetentionInDays: 3653
     Metadata:
       cfn_nag:
         rules_to_suppress:

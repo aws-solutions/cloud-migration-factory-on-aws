@@ -12,8 +12,8 @@
     "aws_region": {
       "S": "us-east-1"
     },
-    "wave_id": {
-      "S": "1"
+    "wave_ids": {
+      "L": [{ "S": "1" }]
     },
     "tags": {
       "L": [
@@ -42,8 +42,8 @@
     "aws_region": {
       "S": "us-east-1"
     },
-    "wave_id": {
-      "S": "1"
+    "wave_ids": {
+      "L": [{ "S": "1" }]
     }
   }
 ]

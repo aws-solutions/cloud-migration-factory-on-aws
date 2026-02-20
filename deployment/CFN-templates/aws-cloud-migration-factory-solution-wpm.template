@@ -1,0 +1,2489 @@
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "(%%SOLUTION_ID%%-wpm) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution - Wave Planning Manager (WPM). Version:%%VERSION%%"
+
+Parameters:
+  CodeBucket: # Upload Code in this bucket
+    Description: S3 bucket where all the code reside
+    Type: String
+ 
+  KeyPrefix:
+    Description: S3 key Prefix where all the code reside
+    Type: String
+
+  Application:
+    Type: String
+    Description: Application name, used to name all AWS resources.
+    Default: migration-factory
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+  Environment:
+    Type: String
+    Description: Environment name, used to name all AWS resources (.i.e dev, test, prod)
+    Default: test
+    AllowedPattern: "[-a-z0-9]*"
+    ConstraintDescription: Application parameter must be all lower case characters
+
+  LambdaLayerStdPythonLibs:
+    Type: String
+
+  LambdaLayerMFUtilsLib:
+    Type: String
+
+  LambdaRuntimePython:
+    Type: String
+    Default: python3.11
+
+  LambdaLayerMFPolicyLib:
+    Type: String
+
+  LambdaLayerMFItemsLib:
+    Type: String
+
+  CORS:
+    Type: String
+
+  CognitoAppClientId:
+    Type: String
+
+  CognitoUserPoolId:
+    Type: String
+
+  AccessLoggingBucket:
+    Type: String
+
+  RoleDynamoDBTableArn:
+    Type: String
+
+  PolicyDynamoDBTableArn:
+    Type: String
+
+  ServersDynamoDBTableArn:
+    Type: String
+
+  AppsDynamoDBTableArn:
+    Type: String
+
+  DBsDynamoDBTableArn:
+    Type: String
+
+  ServersDynamoDBTableName:
+    Type: String
+
+  AppsDynamoDBTableName:
+    Type: String
+
+  DBsDynamoDBTableName:
+    Type: String
+
+  WavesDynamoDBTableArn:
+    Type: String
+
+  WavesDynamoDBTableName:
+    Type: String
+
+  SchemaDynamoDBTableName:
+    Type: String
+
+  SchemaDynamoDBTableArn:
+    Type: String
+
+  UserAPI:
+    Type: String
+
+  ToolsAPI:
+    Type: String
+
+  ToolsAuthorizer:
+    Type: String
+
+  ToolsAPIRootResourceId:
+    Type: String
+
+  ToolsApiRequestValidator:
+    Type: String
+
+  DeployBedrockGuardrail:
+    Type: String
+    Description: Deploy Bedrock guardrail for AI features?
+    Default: true
+    AllowedValues: [ true, false ]
+
+  DeploySocketApi:
+    Type: String
+    Description: Deploy GenAI Socket API?
+    Default: true
+    AllowedValues: [ true, false ]
+
+  solutionUUID:
+    Type: String
+    Description: Unique identifier for this solution deployment
+
+  AnonymousUsageData:
+    Type: String
+    Description: Send anonymous usage data to AWS
+    Default: "Yes"
+    AllowedValues: ["Yes", "No"]
+
+Mappings:
+  Solution:
+    Data:
+      SolutionID: '%%SOLUTION_ID%%'
+      SolutionVersion: '%%VERSION%%'
+
+Conditions:
+  DeployBedrockGuardrail: !Equals [!Ref DeployBedrockGuardrail, true]
+  DeploySocketApi: !Equals [!Ref DeploySocketApi, true]
+
+Resources:
+  # Bedrock Guardrail for AI safety
+  BedrockGuardrail:
+    Type: AWS::Bedrock::Guardrail
+    Condition: DeployBedrockGuardrail
+    Properties:
+      Name: !Sub ${Application}-${Environment}-wpm-guardrail
+      Description: "Guardrail for WPM AI features to ensure safe and appropriate responses"
+      BlockedInputMessaging: "This input is not allowed. Please provide appropriate content."
+      BlockedOutputsMessaging: "This response was blocked for safety reasons."
+      ContentPolicyConfig:
+        FiltersConfig:
+          - Type: SEXUAL
+            InputStrength: HIGH
+            OutputStrength: HIGH
+          - Type: VIOLENCE
+            InputStrength: HIGH
+            OutputStrength: HIGH
+          - Type: HATE
+            InputStrength: HIGH
+            OutputStrength: HIGH
+          - Type: INSULTS
+            InputStrength: MEDIUM
+            OutputStrength: MEDIUM
+          - Type: MISCONDUCT
+            InputStrength: MEDIUM
+            OutputStrength: MEDIUM
+          - Type: PROMPT_ATTACK
+            InputStrength: HIGH
+            OutputStrength: NONE
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+
+  BedrockGuardrailVersion:
+    Type: AWS::Bedrock::GuardrailVersion
+    Condition: DeployBedrockGuardrail
+    Properties:
+      GuardrailIdentifier: !Ref BedrockGuardrail
+      Description: "Version 1 of the WPM guardrail"
+
+  APIResourceToolsWPM:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref ToolsAPIRootResourceId
+      PathPart: "wpm"
+  
+  APIResourceWPMCreateWaves:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref APIResourceToolsWPM
+      PathPart: "create-waves"
+
+  APIMethodWpmCreateWavesOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceWPMCreateWaves
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodWpmCreateWavesPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceWPMCreateWaves
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionCreateWaves.Arn}/invocations'
+  
+  APIResourceWPMCalculateAppRanks:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref APIResourceToolsWPM
+      PathPart: "calculate-app-ranks"
+
+  APIMethodWpmCalculateAppRanksOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceWPMCalculateAppRanks
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodWpmCalculateAppRanksPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceWPMCalculateAppRanks
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionCalculateAppRanks.Arn}/invocations'
+      
+  APIResourceWPMCreateMoveGroups:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref APIResourceToolsWPM
+      PathPart: "create-move-groups"
+
+  APIMethodWpmCreateMoveGroupsOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceWPMCreateMoveGroups
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodWpmCreateMoveGroupsPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceWPMCreateMoveGroups
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionCreateMoveGroups.Arn}/invocations'
+
+  APIResourceWPMUploadDataEntities:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref APIResourceToolsWPM
+      PathPart: "upload-data-entities"
+
+  APIResourceWPMUploadDataEntitiesGet:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref APIResourceWPMUploadDataEntities
+      PathPart: "{id}"
+
+  APIMethodWpmUploadDataEntitiesOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceWPMUploadDataEntities
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodWpmUploadDataEntitiesPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceWPMUploadDataEntities
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionUploadDataEntities.Arn}/invocations'
+
+  APIMethodWpmUploadDataEntitiesGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceWPMUploadDataEntitiesGet
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionUploadDataEntities.Arn}/invocations'
+
+  APIMethodWpmUploadDataEntitiesGetOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceWPMUploadDataEntitiesGet
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+              "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodWpmUploadDataEntitiesList:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceWPMUploadDataEntities
+      HttpMethod: "GET"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionUploadDataEntities.Arn}/invocations'
+
+  APIResourceHeaderMap:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref ToolsAPIRootResourceId
+      PathPart: "header-map"
+
+  APIMethodWpmHeaderMapOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceHeaderMap
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodWpmHeaderMapPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceHeaderMap
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionHeaderMap.Arn}/invocations'
+
+  APIResourceGenerateRule:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ParentId: !Ref ToolsAPIRootResourceId
+      PathPart: "generate-rule"
+
+  APIMethodWpmGenerateRuleOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceGenerateRule
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+            'method.response.header.Access-Control-Allow-Methods': false
+            'method.response.header.Access-Control-Allow-Headers': false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CORS}'"
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,Authorization-Access,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              'application/json': ''
+        RequestTemplates:
+          "application/json": "{\"statusCode\": 200}"
+
+  APIMethodWpmGenerateRulePost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      ResourceId: !Ref APIResourceGenerateRule
+      HttpMethod: "POST"
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref ToolsAuthorizer
+      RequestValidatorId: !Ref ToolsApiRequestValidator
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            'method.response.header.Access-Control-Allow-Origin': false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionRuleGenerator.Arn}/invocations'
+
+  ToolsAPIDeploy:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - APIMethodWpmCreateWavesOPTIONS
+      - APIMethodWpmCreateWavesPost
+      - APIMethodWpmCalculateAppRanksOPTIONS
+      - APIMethodWpmCalculateAppRanksPost
+      - APIMethodWpmGenerateRuleOPTIONS
+      - APIMethodWpmGenerateRulePost
+      - APIMethodWpmHeaderMapOPTIONS
+      - APIMethodWpmHeaderMapPost
+      - APIMethodWpmCreateMoveGroupsOPTIONS
+      - APIMethodWpmCreateMoveGroupsPost
+      - APIMethodWpmUploadDataEntitiesGet
+      - APIMethodWpmUploadDataEntitiesList
+      - APIMethodWpmUploadDataEntitiesGetOPTIONS
+      - APIMethodWpmUploadDataEntitiesPost
+      - APIMethodWpmUploadDataEntitiesOPTIONS
+    Properties:
+      RestApiId: !Ref ToolsAPI
+      StageName: prod
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W68
+            reason: As this is for internal use only tool, and very low number of
+              API calls, no usage plan is required
+          - id: W45
+            reason: StageDescription already exists for this Deployment. Re-deploying so that new resource is deployed to API.
+             
+  # DynamoDB - GenAI Socket Connections
+  GenAISocketConnectionsTable:
+    Condition: DeploySocketApi
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Application}-${Environment}-genai_socket_connections
+      AttributeDefinitions:
+        - AttributeName: "connection_id"
+          AttributeType: "S"
+        - AttributeName: "user_id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "connection_id"
+          KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        - IndexName: "UserIdIndex"
+          KeySchema:
+            - AttributeName: "user_id"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "ALL"
+      BillingMode: "PAY_PER_REQUEST"
+      TimeToLiveSpecification:
+        AttributeName: "ttl"
+        Enabled: true
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-genai_socket_connections
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge" 
+
+  # DynamoDB - Jobs
+  JobsDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "wpm_job_id"
+          AttributeType: "S"
+        - AttributeName: "wpm_job_name"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "wpm_job_id"
+          KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        - IndexName: "NameIndex"
+          KeySchema:
+            - AttributeName: "wpm_job_name"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "KEYS_ONLY"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-wpm_jobs
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-wpm_jobs
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  # DynamoDB - Rules
+  RulesDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "rule_id"
+          AttributeType: "S"
+        -
+          AttributeName: "rule_type"
+          AttributeType: "S"
+        -
+          AttributeName: "rule_name"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "rule_type"
+          KeyType: "HASH"
+        -
+          AttributeName: "rule_id"
+          KeyType: "RANGE"
+      GlobalSecondaryIndexes:
+        - IndexName: "NameIndex"
+          KeySchema:
+            - AttributeName: "rule_name"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "KEYS_ONLY"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-rules
+      PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-rules
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  # DynamoDB - MoveGroups
+  MoveGroupsDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "move_group_id"
+          AttributeType: "S"
+        -
+          AttributeName: "move_group_name"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "move_group_id"
+          KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        - IndexName: "NameIndex"
+          KeySchema:
+            - AttributeName: "move_group_name"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "KEYS_ONLY"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-move_groups
+      PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-move_groups
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+            
+  # DynamoDB - Custom Assets
+  CustomAssetsDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "asset_type#shard"
+          AttributeType: "S"
+        -
+          AttributeName: "asset_id"
+          AttributeType: "S"
+        -
+          AttributeName: "asset_name"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "asset_type#shard"
+          KeyType: "HASH"
+        -
+          AttributeName: "asset_id"
+          KeyType: "RANGE"
+      GlobalSecondaryIndexes:
+        - IndexName: "NameIndex"
+          KeySchema:
+            - AttributeName: "asset_name"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "KEYS_ONLY"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-custom-assets
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-custom-assets
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  # Rule Generator Function
+  LambdaFunctionRuleGenerator:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_rule_generator.lambda_handler
+      Runtime: !Ref LambdaRuntimePython
+      FunctionName: !Sub ${Application}-${Environment}-wpm_rule_generator
+      Timeout: 120
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_rule_generator.zip"]]
+      Role: !GetAtt RuleGeneratorLambdaRole.Arn
+      Environment:
+        Variables:
+          region: !Ref "AWS::Region"
+          model: !GetAtt BedrockModelSelector.modelArn
+          SCHEMA_TABLE_NAME: !Ref SchemaDynamoDBTableName
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Ref CORS
+          userpool: !Ref CognitoUserPoolId
+          clientid: !Ref CognitoAppClientId
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          solutionUUID: !Ref solutionUUID
+          AnonymousUsageData: !Ref AnonymousUsageData
+          BEDROCK_GUARDRAIL_ID: !If [DeployBedrockGuardrail, !Ref BedrockGuardrail, ""]
+          BEDROCK_GUARDRAIL_VERSION: !If [DeployBedrockGuardrail, !GetAtt BedrockGuardrailVersion.Version, ""]
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-rulegenerator
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFItemsLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+  
+  LambdaPermissionRuleGenerator:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionRuleGenerator.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
+ 
+  RuleGeneratorLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-rule-generator-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              - Effect: Allow
+                Action:
+                  - 'bedrock:InvokeModel'
+                  - 'bedrock:InvokeModelWithResponseStream'
+                Resource: 
+                  - "arn:aws:bedrock:*::foundation-model/*"
+                Condition:
+                  StringLike:
+                    bedrock:InferenceProfileArn: !GetAtt BedrockModelSelector.modelArn
+              - Effect: Allow
+                Action:
+                  - 'bedrock:InvokeModel'
+                  - 'bedrock:InvokeModelWithResponseStream'
+                Resource: !GetAtt BedrockModelSelector.modelArn
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:DescribeTable'
+                Resource: !Ref SchemaDynamoDBTableArn
+              - !If
+                - DeployBedrockGuardrail
+                - Effect: Allow
+                  Action:
+                    - 'bedrock:ApplyGuardrail'
+                  Resource: !Ref BedrockGuardrail
+                - !Ref 'AWS::NoValue'
+              - Effect: Allow
+                Action:
+                  - 'aws-marketplace:ViewSubscriptions'
+                  - 'aws-marketplace:Subscribe'
+                Resource: '*'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  # Header Map Function
+  LambdaFunctionHeaderMap:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_header_map.lambda_handler
+      Runtime: !Ref LambdaRuntimePython
+      FunctionName: !Sub ${Application}-${Environment}-wpm_header_map
+      Timeout: 120
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_header_map.zip"]]
+      Role: !GetAtt HeaderMapLambdaRole.Arn
+      Environment:
+        Variables:
+          region: !Ref "AWS::Region"
+          model: !GetAtt BedrockModelSelector.modelArn
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Ref CORS
+          userpool: !Ref CognitoUserPoolId
+          clientid: !Ref CognitoAppClientId
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          solutionUUID: !Ref solutionUUID
+          AnonymousUsageData: !Ref AnonymousUsageData
+          BEDROCK_GUARDRAIL_ID: !If [DeployBedrockGuardrail, !Ref BedrockGuardrail, ""]
+          BEDROCK_GUARDRAIL_VERSION: !If [DeployBedrockGuardrail, !GetAtt BedrockGuardrailVersion.Version, ""]
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-headermap
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFItemsLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionHeaderMap:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionHeaderMap.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
+
+  HeaderMapLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-header-map-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              - Effect: Allow
+                Action:
+                  - 'bedrock:InvokeModel'
+                  - 'bedrock:InvokeModelWithResponseStream'
+                Resource: 
+                  - "arn:aws:bedrock:*::foundation-model/*"
+                Condition:
+                  StringLike:
+                    bedrock:InferenceProfileArn: !GetAtt BedrockModelSelector.modelArn
+              - Effect: Allow
+                Action:
+                  - 'bedrock:InvokeModel'
+                  - 'bedrock:InvokeModelWithResponseStream'
+                Resource: !GetAtt BedrockModelSelector.modelArn
+              - !If
+                - DeployBedrockGuardrail
+                - Effect: Allow
+                  Action:
+                    - 'bedrock:ApplyGuardrail'
+                  Resource: !Ref BedrockGuardrail
+                - !Ref 'AWS::NoValue'
+              - Effect: Allow
+                Action:
+                  - 'aws-marketplace:ViewSubscriptions'
+                  - 'aws-marketplace:Subscribe'
+                Resource: '*'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+
+  # Web Sockets API Gateway
+  GenAISocketsAPI:
+    Condition: DeploySocketApi
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub ${Application}-${Environment}-genai_sockets_api
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+      Tags:
+        application: !Ref Application
+        environment: !Ref Environment
+  
+  # WebSocket API Authorizer
+  GenAIWebSocketAuthorizer:
+    Condition: DeploySocketApi
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref GenAISocketsAPI
+      AuthorizerType: REQUEST
+      AuthorizerUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionGenAISocketsAuth.Arn}/invocations
+      IdentitySource:
+        - route.request.header.Sec-WebSocket-Protocol
+      Name: GenAIWebSocketAuthorizer
+      
+  # Bedrock Model Selector Custom Resource
+  BedrockModelSelectorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-bedrock-model-selector-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: BedrockAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:ListFoundationModels
+                  - bedrock:ListInferenceProfiles
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'aws-marketplace:ViewSubscriptions'
+                  - 'aws-marketplace:Subscribe'
+                Resource: '*'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  BedrockModelSelectorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Application}-${Environment}-bedrock-model-selector
+      Runtime: !Ref LambdaRuntimePython
+      Handler: lambda_bedrock_model_selector.lambda_handler
+      Role: !GetAtt BedrockModelSelectorRole.Arn
+      Timeout: 120
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_bedrock_model_selector.zip"]]
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
+      Environment:
+        Variables:
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  BedrockModelSelector:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt BedrockModelSelectorFunction.Arn
+      ServiceTimeout: 180
+      Version: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+
+  GenAISocketsDeployment:
+    Condition: DeploySocketApi
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+      - GenAIConnectRoute
+      - GenAIDisconnectRoute
+      - GenAIMapHeadersRoute
+    Properties:
+      ApiId: !Ref GenAISocketsAPI
+      
+  GenAISocketsStage:
+    Condition: DeploySocketApi
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref GenAISocketsAPI
+      DeploymentId: !Ref GenAISocketsDeployment
+      StageName: prod
+      AutoDeploy: true
+
+  GenAIConnectRoute:
+    Condition: DeploySocketApi
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref GenAISocketsAPI
+      RouteKey: $connect
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref GenAIWebSocketAuthorizer
+      RouteResponseSelectionExpression: $default
+      OperationName: ConnectRoute
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref ConnectInteg
+
+  GenAIDisconnectRoute:
+    Condition: DeploySocketApi
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref GenAISocketsAPI
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      RouteResponseSelectionExpression: $default
+      OperationName: DisconnectRoute
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref DisconnectInteg
+
+  GenAIMapHeadersRoute:
+    Condition: DeploySocketApi
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref GenAISocketsAPI
+      RouteKey: MAP_HEADERS
+      AuthorizationType: NONE
+      RouteResponseSelectionExpression: $default
+      OperationName: MapHeadersRoute
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref MapHeadersInteg
+
+  ConnectInteg:
+    Condition: DeploySocketApi
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref GenAISocketsAPI
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionGenAISockets.Arn}/invocations
+      
+  DisconnectInteg:
+    Condition: DeploySocketApi
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref GenAISocketsAPI
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionGenAISockets.Arn}/invocations
+      
+  MapHeadersInteg:
+    Condition: DeploySocketApi
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref GenAISocketsAPI
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionGenAISockets.Arn}/invocations
+
+  # Lambda GenAI Authorizer Function
+  LambdaFunctionGenAISocketsAuth:
+    Condition: DeploySocketApi
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_genai_sockets_auth.lambda_handler
+      Runtime: !Ref LambdaRuntimePython
+      FunctionName: !Sub ${Application}-${Environment}-genai_sockets_auth
+      Timeout: 10
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_genai_sockets_auth.zip"]]
+      Role: !GetAtt GenAISocketsAuthLambdaRole.Arn
+      Environment:
+        Variables:
+          user_pool_id: !Ref CognitoUserPoolId
+          app_client_id: !Ref CognitoAppClientId
+          aws_region: !Ref "AWS::Region"
+          application: !Ref Application
+          environment: !Ref Environment
+          solutionUUID: !Ref solutionUUID
+          AnonymousUsageData: !Ref AnonymousUsageData
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-genai_sockets_auth
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFUtilsLib
+
+  # Permission for API Gateway to invoke Auth Lambda
+  LambdaPermissionForWebSocketAuthorizer:
+    Condition: DeploySocketApi
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaFunctionGenAISocketsAuth
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GenAISocketsAPI}/*
+
+  # IAM Role for the Gen AI Authorizer Lambda
+  GenAISocketsAuthLambdaRole:
+    Condition: DeploySocketApi
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Path: /
+      Policies:
+        - PolicyName: CognitoAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:GetUser
+                Resource: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
+        
+  # GenAI Sockets Function
+  LambdaFunctionGenAISockets:
+    Condition: DeploySocketApi
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_genai_sockets.lambda_handler
+      Runtime: !Ref LambdaRuntimePython
+      FunctionName: !Sub ${Application}-${Environment}-genai_sockets
+      Timeout: 120
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_genai_sockets.zip"]]
+      Role: !GetAtt GenAISocketsLambdaRole.Arn
+      Environment:
+        Variables:
+          region: !Ref "AWS::Region"
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Ref CORS
+          userpool: !Ref CognitoUserPoolId
+          clientid: !Ref CognitoAppClientId
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          solutionUUID: !Ref solutionUUID
+          AnonymousUsageData: !Ref AnonymousUsageData
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-genai-sockets
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFItemsLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+        
+  LambdaPermissionGenAISockets:
+    Condition: DeploySocketApi
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionGenAISockets.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GenAISocketsAPI}/*"
+                 
+  GenAISocketsLambdaRole:
+    Condition: DeploySocketApi
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-genai_socket_lambda_role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:DeleteItem'
+                Resource: !GetAtt GenAISocketConnectionsTable.Arn
+              - Effect: Allow
+                Action:
+                  - 'sqs:SendMessage'
+                  - 'sqs:GetQueueUrl'
+                Resource: !GetAtt GenAISocketsQueue.Arn
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+# SQS Queue for GenAI Async Operations
+  GenAISocketsQueue:
+    Condition: DeploySocketApi
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${Application}-${Environment}-genai_socket_queue
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+
+  # GenAI Async Processor Lambda Function
+  LambdaFunctionGenAISocketsHandler:
+    Condition: DeploySocketApi
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_genai_sockets_handler.lambda_handler
+      Runtime: !Ref LambdaRuntimePython
+      FunctionName: !Sub ${Application}-${Environment}-lambda_genai_sockets_handler
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_genai_sockets_handler.zip"]]
+      Role: !GetAtt GenAISocketsLambdaHandlerRole.Arn
+      Environment:
+        Variables:
+          region: !Ref "AWS::Region"
+          application: !Ref Application
+          environment: !Ref Environment
+          model: !GetAtt BedrockModelSelector.modelArn
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          solutionUUID: !Ref solutionUUID
+          AnonymousUsageData: !Ref AnonymousUsageData
+          BEDROCK_GUARDRAIL_ID: !If [DeployBedrockGuardrail, !Ref BedrockGuardrail, ""]
+          BEDROCK_GUARDRAIL_VERSION: !If [DeployBedrockGuardrail, !GetAtt BedrockGuardrailVersion.Version, ""]
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-lambda_genai_sockets_handler
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFItemsLib
+        - !Ref LambdaLayerMFUtilsLib
+
+  # Event Source Mapping for SQS to Lambda
+  GenAISocketsEventSourceMapping:
+    Condition: DeploySocketApi
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 10
+      Enabled: true
+      EventSourceArn: !GetAtt GenAISocketsQueue.Arn
+      FunctionName: !Ref LambdaFunctionGenAISocketsHandler
+      ScalingConfig:
+        MaximumConcurrency: 3
+
+  # IAM Role for the GenAI Async Lambda
+  GenAISocketsLambdaHandlerRole:
+    Condition: DeploySocketApi
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-genai_sockets_lambda_role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              - Effect: Allow
+                Action:
+                  - 'sqs:ReceiveMessage'
+                  - 'sqs:DeleteMessage'
+                  - 'sqs:GetQueueAttributes'
+                Resource: !GetAtt GenAISocketsQueue.Arn
+              - Effect: Allow
+                Action:
+                  - 'execute-api:ManageConnections'
+                Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/@connections/*"
+              - Effect: Allow
+                Action:
+                  - 'bedrock:InvokeModel'
+                  - 'bedrock:InvokeModelWithResponseStream'
+                Resource: 
+                  - "arn:aws:bedrock:*::foundation-model/*"
+                Condition:
+                  StringLike:
+                    bedrock:InferenceProfileArn: !GetAtt BedrockModelSelector.modelArn
+              - Effect: Allow
+                Action:
+                  - 'bedrock:InvokeModel'
+                  - 'bedrock:InvokeModelWithResponseStream'
+                Resource: !GetAtt BedrockModelSelector.modelArn
+              - !If
+                - DeployBedrockGuardrail
+                - Effect: Allow
+                  Action:
+                    - 'bedrock:ApplyGuardrail'
+                  Resource: !Ref BedrockGuardrail
+                - !Ref 'AWS::NoValue'
+              - Effect: Allow
+                Action:
+                  - 'aws-marketplace:ViewSubscriptions'
+                  - 'aws-marketplace:Subscribe'
+                Resource: '*'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  LambdaFunctionCreateMoveGroups:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_create_move_groups.lambda_handler
+      Runtime: !Ref LambdaRuntimePython
+      FunctionName: !Sub ${Application}-${Environment}-wpm_create_move_groups
+      Timeout: 120
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_create_move_groups.zip"]]
+      Role: !GetAtt CreateMoveGroupsLambdaRole.Arn
+      Environment:
+        Variables:
+          region: !Ref "AWS::Region"
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Ref CORS
+          userpool: !Ref CognitoUserPoolId
+          clientid: !Ref CognitoAppClientId
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          solutionUUID: !Ref solutionUUID
+          AnonymousUsageData: !Ref AnonymousUsageData
+          RULES_TABLE_NAME: !Ref RulesDynamoDBTable
+          APPS_TABLE_NAME: !Ref AppsDynamoDBTableName
+          SERVERS_TABLE_NAME: !Ref ServersDynamoDBTableName
+          DATABASES_TABLE_NAME: !Ref DBsDynamoDBTableName
+          MOVE_GROUPS_TABLE_NAME: !Ref MoveGroupsDynamoDBTable
+          MOVE_GROUP_REQUESTS_TABLE_NAME: !Ref MoveGroupRequestsDynamoDBTable
+          CUSTOM_ASSETS_TABLE_NAME: !Ref CustomAssetsDynamoDBTable
+          SCHEMA_TABLE_NAME: !Ref SchemaDynamoDBTableName
+          WPM_JOBS_TABLE_NAME: !Ref JobsDynamoDBTable
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-items
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFItemsLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionCreateMoveGroups:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionCreateMoveGroups.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserAPI}/*"
+      
+  # Permission for API Gateway ToolsAPI to invoke CreateMoveGroups Lambda
+  LambdaPermissionToolsAPICreateMoveGroups:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionCreateMoveGroups.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
+
+  # Lambda IAM Roles
+  CreateMoveGroupsLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-create-move-groups-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:BatchWriteItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !GetAtt MoveGroupsDynamoDBTable.Arn
+                  - !GetAtt MoveGroupRequestsDynamoDBTable.Arn
+                  - !GetAtt JobsDynamoDBTable.Arn
+                  - !Ref AppsDynamoDBTableArn
+                  - !Ref ServersDynamoDBTableArn
+                  - !Ref DBsDynamoDBTableArn
+                  - !GetAtt CustomAssetsDynamoDBTable.Arn
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:DescribeStream'
+                  - 'dynamodb:GetRecords'
+                  - 'dynamodb:GetShardIterator'
+                  - 'dynamodb:ListStreams'
+                Resource:
+                  - !GetAtt MoveGroupRequestsDynamoDBTable.StreamArn
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Ref RoleDynamoDBTableArn
+                  - !Ref PolicyDynamoDBTableArn
+                  - !Ref ServersDynamoDBTableArn
+                  - !Ref AppsDynamoDBTableArn
+                  - !Ref DBsDynamoDBTableArn
+                  - !GetAtt CustomAssetsDynamoDBTable.Arn
+                  - !Ref SchemaDynamoDBTableArn
+                  - !GetAtt RulesDynamoDBTable.Arn
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "The resources ARN is unknown, because it is a random value"
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+          - id: W76
+            reason: "Lambda has to access a number of tables to perform functionality."
+
+  # DynamoDB - MoveGroupRequests
+  MoveGroupRequestsDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      AttributeDefinitions:
+        -
+          AttributeName: "move_group_request_id"
+          AttributeType: "S"
+        - 
+          AttributeName: "move_group_request_name"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "move_group_request_id"
+          KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        - IndexName: "NameIndex"
+          KeySchema:
+            - AttributeName: "move_group_request_name"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "KEYS_ONLY"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-move_group_requests
+      PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-move_group_requests
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  MoveGroupRequestsTableStreamMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt MoveGroupRequestsDynamoDBTable.StreamArn
+      FunctionName: !GetAtt LambdaFunctionCreateMoveGroups.Arn
+      StartingPosition: LATEST
+
+  # Create Waves Function
+  LambdaFunctionCreateWaves:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_create_waves.lambda_handler
+      Runtime: !Ref LambdaRuntimePython
+      FunctionName: !Sub ${Application}-${Environment}-wpm_create_waves
+      Timeout: 120
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_create_waves.zip"]]
+      Role: !GetAtt CreateWavesLambdaRole.Arn
+      Environment:
+        Variables:
+          region: !Ref "AWS::Region"
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Ref CORS
+          userpool: !Ref CognitoUserPoolId
+          clientid: !Ref CognitoAppClientId
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          solutionUUID: !Ref solutionUUID
+          AnonymousUsageData: !Ref AnonymousUsageData
+          WPM_JOBS_TABLE_NAME: !Ref JobsDynamoDBTable
+          MOVE_GROUPS_TABLE_NAME: !Ref MoveGroupsDynamoDBTable
+          WAVES_TABLE_NAME: !Ref WavesDynamoDBTableName
+          APPS_TABLE_NAME: !Ref AppsDynamoDBTableName
+          SERVERS_TABLE_NAME: !Ref ServersDynamoDBTableName
+          DATABASES_TABLE_NAME: !Ref DBsDynamoDBTableName
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-createwaves
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFItemsLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionCreateWaves:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionCreateWaves.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
+
+  CreateWavesLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-create-waves-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:BatchGetItem'
+                  - 'dynamodb:BatchWriteItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !GetAtt MoveGroupsDynamoDBTable.Arn
+                  - !Ref WavesDynamoDBTableArn
+                  - !GetAtt JobsDynamoDBTable.Arn
+                  - !Ref AppsDynamoDBTableArn
+                  - !Ref ServersDynamoDBTableArn
+                  - !Ref DBsDynamoDBTableArn
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Ref RoleDynamoDBTableArn
+                  - !Ref PolicyDynamoDBTableArn
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+    
+  # Calculate Apps Ranks Function
+  LambdaFunctionCalculateAppRanks:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_calculate_app_ranks.lambda_handler
+      Runtime: !Ref LambdaRuntimePython
+      FunctionName: !Sub ${Application}-${Environment}-calculate-app-ranks
+      Timeout: 120
+      MemorySize: 2048
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_calculate_app_ranks.zip"]]
+      Role: !GetAtt CalculateAppRanksLambdaRole.Arn
+      Environment:
+        Variables:
+          region: !Ref "AWS::Region"
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Ref CORS
+          userpool: !Ref CognitoUserPoolId
+          clientid: !Ref CognitoAppClientId
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          solutionUUID: !Ref solutionUUID
+          AnonymousUsageData: !Ref AnonymousUsageData
+          APPS_TABLE_NAME: !Ref AppsDynamoDBTableName
+          SERVERS_TABLE_NAME: !Ref ServersDynamoDBTableName
+          RULES_TABLE_NAME: !Ref RulesDynamoDBTable
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-calculate-app-ranks
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFItemsLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionCalculateAppRanks:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionCalculateAppRanks.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
+
+  CalculateAppRanksLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-calculate-app-ranks-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !GetAtt RulesDynamoDBTable.Arn
+                  - !Ref AppsDynamoDBTableArn
+                  - !Ref ServersDynamoDBTableArn
+                  - !Ref DBsDynamoDBTableArn
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Ref RoleDynamoDBTableArn
+                  - !Ref PolicyDynamoDBTableArn
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${Application}-${Environment}-calculate-app-ranks:*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  # Upload Data Entities Function
+  LambdaFunctionUploadDataEntities:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_upload_data_entities.lambda_handler
+      Runtime: !Ref LambdaRuntimePython
+      FunctionName: !Sub ${Application}-${Environment}-wpm-upload-data-entities
+      Timeout: 120
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_upload_data_entities.zip"]]
+      Role: !GetAtt UploadDataEntitiesLambdaRole.Arn
+      Environment:
+        Variables:
+          region: !Ref "AWS::Region"
+          application: !Ref Application
+          environment: !Ref Environment
+          cors: !Ref CORS
+          userpool: !Ref CognitoUserPoolId
+          clientid: !Ref CognitoAppClientId
+          UPLOAD_ENTITIES_METADATA_TABLE_NAME: !Ref UploadEntitiesMetadataTable
+          UPLOAD_ENTITIES_BUCKET_NAME: !Ref UploadEntitiesBucket
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          solutionUUID: !Ref solutionUUID
+          AnonymousUsageData: !Ref AnonymousUsageData
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-upload-data-entities
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFPolicyLib
+        - !Ref LambdaLayerMFItemsLib
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  LambdaPermissionUploadDataEntities:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionUploadDataEntities.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ToolsAPI}/*"
+
+  UploadDataEntitiesLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-upload-data-entities-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${Application}-${Environment}-wpm-upload-data-entities:*"
+              - Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:DeleteObject'
+                  - 's3:HeadObject'
+                Resource: !Sub "arn:aws:s3:::${Application}-${Environment}-${AWS::AccountId}-upload-entities/*"
+              - Effect: Allow
+                Action:
+                  - 's3:ListBucket'
+                Resource: !Sub "arn:aws:s3:::${Application}-${Environment}-${AWS::AccountId}-upload-entities"
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                Resource:
+                  - !Ref RoleDynamoDBTableArn
+                  - !Ref PolicyDynamoDBTableArn
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                Resource:
+                  - !GetAtt UploadEntitiesMetadataTable.Arn
+                  - !Join [ "/", [!GetAtt UploadEntitiesMetadataTable.Arn, "*"] ]
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  # Import Data from S3 Function
+  LambdaFunctionImportDataFromS3:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: lambda_import_data_from_s3.lambda_handler
+      Runtime: !Ref LambdaRuntimePython
+      FunctionName: !Sub ${Application}-${Environment}-import-data-from-s3
+      Timeout: 900
+      MemorySize: 2048
+      EphemeralStorage:
+        Size: 2048
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Join ["/", [!Ref KeyPrefix, "lambda_import_data_from_s3.zip"]]
+      Role: !GetAtt ImportDataFromS3LambdaRole.Arn
+      Environment:
+        Variables:
+          region: !Ref "AWS::Region"
+          application: !Ref Application
+          environment: !Ref Environment
+          SOLUTION_ID: !FindInMap [ "Solution", "Data", "SolutionID" ]
+          SOLUTION_VERSION: !FindInMap [ "Solution", "Data", "SolutionVersion" ]
+          solutionUUID: !Ref solutionUUID
+          AnonymousUsageData: !Ref AnonymousUsageData
+          TOOLS_API_ID: !Ref ToolsAPI
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-import-data-from-s3
+      Layers:
+        - !Ref LambdaLayerStdPythonLibs
+        - !Ref LambdaLayerMFUtilsLib
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Deploy in AWS managed environment provides more flexibility for this solution"
+          - id: W92
+            reason: "Reserve Concurrent Execution is not needed for this solution"
+
+  ImportDataFromS3LambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${Application}-${Environment}-import-data-from-s3-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: LambdaRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${Application}-${Environment}-import-data-from-s3:*"
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:HeadObject'
+                Resource: !Sub "arn:aws:s3:::${Application}-${Environment}-${AWS::AccountId}-upload-entities/*"
+              - Effect: Allow
+                Action:
+                  - 'lambda:InvokeFunction'
+                Resource: 
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${Application}-${Environment}-items"
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${Application}-${Environment}-item"
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:UpdateItem'
+                Resource:
+                  - !GetAtt UploadEntitiesMetadataTable.Arn
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:Query'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:DescribeTable'
+                  - 'dynamodb:BatchGetItem'
+                  - 'dynamodb:BatchWriteItem'
+                  - 'dynamodb:UpdateItem'
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-*"
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:Query'
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Application}-${Environment}-*/index/*"
+              - Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                Resource: !Sub "arn:aws:s3:::${Application}-${Environment}-${AWS::AccountId}-upload-entities/*"
+
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify"
+
+  # S3 Lambda Permission
+  # Using constructed ARN instead of !GetAtt to break circular dependency:
+  # Bucket NotificationConfiguration -> Lambda Function -> Permission -> Bucket (GetAtt)
+  LambdaPermissionS3Invoke:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaFunctionImportDataFromS3
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::${Application}-${Environment}-${AWS::AccountId}-upload-entities"
+
+  # S3 Bucket for Upload Entities
+  UploadEntitiesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Application}-${Environment}-${AWS::AccountId}-upload-entities
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionToGlacierAndExpire
+            Status: Enabled
+            NoncurrentVersionTransitions:
+              - TransitionInDays: 60
+                StorageClass: INTELLIGENT_TIERING
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 90
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - PUT
+              - GET
+            AllowedOrigins:
+              - !Ref CORS
+            MaxAge: 3000
+      LoggingConfiguration:
+        DestinationBucketName: !Ref AccessLoggingBucket
+        LogFilePrefix: upload-entities-logs/
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt LambdaFunctionImportDataFromS3.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: uploads/
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-${AWS::AccountId}-upload-entities
+
+  UploadEntitiesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref UploadEntitiesBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyNonSecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !Sub "arn:aws:s3:::${Application}-${Environment}-${AWS::AccountId}-upload-entities"
+              - !Sub "arn:aws:s3:::${Application}-${Environment}-${AWS::AccountId}-upload-entities/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+
+  # DynamoDB Table for Upload Entities Metadata
+  UploadEntitiesMetadataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Application}-${Environment}-upload-entities-metadata
+      AttributeDefinitions:
+        - AttributeName: "upload_id"
+          AttributeType: "S"
+        - AttributeName: "uploaded_by"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "upload_id"
+          KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        - IndexName: "uploaded_by_upload_id-index"
+          KeySchema:
+            - AttributeName: "uploaded_by"
+              KeyType: "HASH"
+            - AttributeName: "upload_id"
+              KeyType: "RANGE"
+          Projection:
+            ProjectionType: "ALL"
+      BillingMode: "PAY_PER_REQUEST"
+      TimeToLiveSpecification:
+        AttributeName: "record_ttl"
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: application
+          Value: !Ref Application
+        - Key: environment
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub ${Application}-${Environment}-upload-entities-metadata
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+  # DynamoDB Table for Data Sources
+  DataSourcesDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "data_source_id"
+          AttributeType: "S"
+        -
+          AttributeName: "data_source_name"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "data_source_id"
+          KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        - IndexName: "NameIndex"
+          KeySchema:
+            - AttributeName: "data_source_name"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "KEYS_ONLY"
+      BillingMode: "PAY_PER_REQUEST"
+      TableName: !Sub ${Application}-${Environment}-data_sources
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: environment
+          Value: !Ref Environment
+        -
+          Key: Name
+          Value: !Sub ${Application}-${Environment}-data_sources
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Replacement of this resource is not required, and explicit name of this resource is easy for user to identify the table"
+          - id: W74
+            reason: "Default encryption is enabled with no additional charge"
+
+Outputs:
+  GenAiWS:
+    Condition: DeploySocketApi
+    Value: !Ref GenAISocketsAPI
+    
+  GenAISocketConnectionsTable:
+    Condition: DeploySocketApi
+    Value: !Ref GenAISocketConnectionsTable
+    
+  JobsDynamoDBTable:
+    Value: !Ref JobsDynamoDBTable
+
+  JobsDynamoDBTableArn:
+    Value: !GetAtt JobsDynamoDBTable.Arn
+
+  RulesDynamoDBTable:
+    Value: !Ref RulesDynamoDBTable
+
+  RulesDynamoDBTableArn:
+    Value: !GetAtt RulesDynamoDBTable.Arn
+
+  MoveGroupsDynamoDBTable:
+    Value: !Ref MoveGroupsDynamoDBTable
+
+  MoveGroupsDynamoDBTableArn:
+    Value: !GetAtt MoveGroupsDynamoDBTable.Arn
+
+  MoveGroupRequestsDynamoDBTable:
+    Value: !Ref MoveGroupRequestsDynamoDBTable
+
+  MoveGroupRequestsDynamoDBTableArn:
+    Value: !GetAtt MoveGroupRequestsDynamoDBTable.Arn
+
+  MoveGroupRequestsTableStreamArn:
+    Value: !GetAtt MoveGroupRequestsDynamoDBTable.StreamArn
+    
+  CustomAssetsDynamoDBTable:
+    Value: !Ref CustomAssetsDynamoDBTable
+
+  CustomAssetsDynamoDBTableArn:
+    Value: !GetAtt CustomAssetsDynamoDBTable.Arn
+  
+  BucketDataUploads:
+    Value: !Ref UploadEntitiesBucket
+
+  DataSourcesDynamoDBTableArn:
+    Value: !GetAtt DataSourcesDynamoDBTable.Arn
+
+  GenAISelectedModelArn:
+    Description: The ARN of the best available GenAI model. Set to "Not Supported" if no available model or Bedrock is not supported in the deployed Region.
+    Value: !GetAtt BedrockModelSelector.modelArn
+
+  GenAiSupported:
+    Description: A value indicating if a preferred Bedrock model is available is this account and region.
+    Value: !GetAtt BedrockModelSelector.supported
+

@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -60,7 +61,7 @@ const InformationalCell = (props) => {
 function status(value) {
   let component = undefined;
 
-  let new_value = value.toLowerCase();
+  const new_value = value.toLowerCase();
 
   switch (new_value) {
     case "failed":
@@ -120,9 +121,9 @@ function getColumnDefinitionsForPassword(attr, lattr) {
 
 function getColumnDefinitionsForRelationship(lattr, attr) {
   //Update last element in key name with __.
-  let arrName = lattr.import_raw_header.split(".");
+  const arrName = lattr.import_raw_header.split(".");
   arrName[arrName.length - 1] = "__" + arrName[arrName.length - 1];
-  let newName = arrName.join(".");
+  const newName = arrName.join(".");
   return {
     id: newName,
     header: attr.description,
@@ -147,9 +148,9 @@ function getColumnDefinitionsForTag(attr, lattr) {
 
 function getColumnDefinitionsForPolicies(lattr, attr) {
   //Update last element in key name with __.
-  let arrName1 = lattr.import_raw_header.split(".");
+  const arrName1 = lattr.import_raw_header.split(".");
   arrName1[arrName1.length - 1] = "__" + arrName1[arrName1.length - 1];
-  let newName1 = arrName1.join(".");
+  const newName1 = arrName1.join(".");
   return {
     id: attr.name,
     header: attr.description,
@@ -163,7 +164,7 @@ function getColumnDefinitionsForPolicies(lattr, attr) {
 }
 
 function mapPolicy(policy) {
-  let finalMsg = [];
+  const finalMsg = [];
 
   if (policy.create) {
     finalMsg.push("C");
@@ -194,7 +195,7 @@ function getColumnDefinitionsForPolicy(attr, lattr) {
     header: attr.description,
     cell: (item) =>
       getNestedValuePath(item, lattr.import_raw_header)
-        ? getNestedValuePath(item, lattr.import_raw_header).map((policy, index) => {
+        ? getNestedValuePath(item, lattr.import_raw_header).map((policy) => {
             return mapPolicy(policy);
           })
         : getNestedValuePath(item, lattr.import_raw_header),
@@ -210,7 +211,7 @@ function getColumnDefinitionsForGroups(attr, lattr) {
     cell: (item) =>
       getNestedValuePath(item, lattr.import_raw_header)
         ? getNestedValuePath(item, lattr.import_raw_header)
-            .map((group, index) => {
+            .map((group) => {
               return group.group_name;
             })
             .join(", ")
@@ -255,7 +256,7 @@ export function getColumnDefinitions(schemaName, schema) {
 
   defaultColumns(columnDefinitions);
 
-  let lcolumnDefinitions = schema.map((lattr, index) => {
+  const lcolumnDefinitions = schema.map((lattr) => {
     const attr = lattr.attribute;
 
     if (!attr) {
@@ -327,9 +328,9 @@ function mapAttributeToOption(lattr) {
   let option = {};
   if (attr.type === "relationship") {
     //Update last element in key name with __.
-    let arrName = attr.name.split(".");
+    const arrName = attr.name.split(".");
     arrName[arrName.length - 1] = "__" + arrName[arrName.length - 1];
-    let newName = arrName.join(".");
+    const newName = arrName.join(".");
 
     option = {
       id: newName,
@@ -360,7 +361,7 @@ export function getContentSelectorOptions(schema) {
   //Remove any dynamic embedded_entity attributes as currently not supported in table.
   //ATTN: add support for embedded_entity in table column.
 
-  let cleansedSchema = schema.filter((filterAttribute) => {
+  const cleansedSchema = schema.filter((filterAttribute) => {
     if (filterAttribute.attribute) {
       return (
         filterAttribute.attribute.type !== "embedded_entity" ||
@@ -373,7 +374,7 @@ export function getContentSelectorOptions(schema) {
     }
   });
 
-  let options = cleansedSchema.map((lattr, index) => {
+  const options = cleansedSchema.map((lattr) => {
     return mapAttributeToOption(lattr);
   });
 

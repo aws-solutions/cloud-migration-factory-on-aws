@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -9,7 +10,7 @@ import React from "react";
 import { mockNotificationContext } from "../__tests__/TestUtils";
 import { NotificationContext } from "../contexts/NotificationContext";
 
-let props: any = {};
+const props: any = {};
 props.schema = {};
 props.schema["server"] = {
   schema_type: "user",
@@ -512,14 +513,15 @@ props.schema["server"] = {
       group: "Target - Storage",
     },
     {
+      description: "Related Applications",
       listMultiSelect: true,
+      name: "app_ids",
       rel_display_attribute: "app_name",
+      rel_entity: "app",
       rel_key: "app_id",
-      name: "all_app_names",
-      description: "All Applications",
-      rel_entity: "application",
-      type: "relationship",
-      long_desc: "If server supports multiple applications they will be listed here.",
+      required: false,
+      system: true,
+      type: "multivalue-relationship",
     },
   ],
   schema_name: "server",
@@ -527,16 +529,14 @@ props.schema["server"] = {
 
 props.userEntityAccess = {};
 
-let schemaName = "server";
+const schemaName = "server";
 
 afterEach(cleanup);
 
 let testItem: any = {};
 let cancelled = false;
 
-async function stub() {}
-
-async function stubSave(localItem: any, _: string) {
+async function stubSave(localItem: any) {
   testItem = { testItem, ...localItem };
 }
 

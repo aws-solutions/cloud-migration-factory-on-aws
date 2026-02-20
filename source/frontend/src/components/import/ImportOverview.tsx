@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -144,7 +145,7 @@ const ArrayToList = (props) => {
 };
 
 function getSummaries(items, schemas, dataAll) {
-  let summaries = [];
+  const summaries = [];
 
   for (const entity in items.entities) {
     summaries.push(

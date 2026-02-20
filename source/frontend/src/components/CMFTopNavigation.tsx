@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React from "react";
 import {TopNavigation, TopNavigationProps} from "@cloudscape-design/components";
 

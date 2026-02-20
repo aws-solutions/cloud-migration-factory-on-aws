@@ -51,7 +51,7 @@ const permissionsData = {
             },
             {
               attr_type: "application",
-              attr_name: "wave_id",
+              attr_name: "wave_ids",
             },
             {
               attr_type: "application",
@@ -105,7 +105,7 @@ const permissionsData = {
             },
             {
               attr_type: "server",
-              attr_name: "app_id",
+              attr_name: "app_ids",
             },
             {
               attr_type: "server",
@@ -126,6 +126,14 @@ const permissionsData = {
             {
               attr_type: "server",
               attr_name: "server_tier",
+            },
+            {
+              attr_type: "server",
+              attr_name: "aws_accountid",
+            },
+            {
+              attr_type: "server",
+              attr_name: "aws_region",
             },
             {
               attr_type: "server",
@@ -206,7 +214,7 @@ const permissionsData = {
             },
             {
               attr_type: "database",
-              attr_name: "app_id",
+              attr_name: "app_ids",
             },
             {
               attr_type: "database",
@@ -346,7 +354,7 @@ test("it builds the entity access record", () => {
         },
         {
           attr_type: "application",
-          attr_name: "wave_id",
+          attr_name: "wave_ids",
         },
         {
           attr_type: "application",
@@ -398,7 +406,7 @@ test("it builds the entity access record", () => {
         },
         {
           attr_type: "server",
-          attr_name: "app_id",
+          attr_name: "app_ids",
         },
         {
           attr_type: "server",
@@ -419,6 +427,14 @@ test("it builds the entity access record", () => {
         {
           attr_type: "server",
           attr_name: "server_tier",
+        },
+        {
+          attr_type: "server",
+          attr_name: "aws_accountid",
+        },
+        {
+          attr_type: "server",
+          attr_name: "aws_region",
         },
         {
           attr_type: "server",
@@ -498,7 +514,7 @@ test("it builds the entity access record", () => {
         },
         {
           attr_type: "database",
-          attr_name: "app_id",
+          attr_name: "app_ids",
         },
         {
           attr_type: "database",
@@ -584,7 +600,7 @@ test("it merges the permissions of 2 groups", () => {
         },
         {
           attr_type: "application",
-          attr_name: "wave_id",
+          attr_name: "wave_ids",
         },
         {
           attr_type: "application",
@@ -636,7 +652,7 @@ test("it merges the permissions of 2 groups", () => {
         },
         {
           attr_type: "server",
-          attr_name: "app_id",
+          attr_name: "app_ids",
         },
         {
           attr_type: "server",
@@ -657,6 +673,14 @@ test("it merges the permissions of 2 groups", () => {
         {
           attr_type: "server",
           attr_name: "server_tier",
+        },
+        {
+          attr_type: "server",
+          attr_name: "aws_accountid",
+        },
+        {
+          attr_type: "server",
+          attr_name: "aws_region",
         },
         {
           attr_type: "server",
@@ -736,7 +760,7 @@ test("it merges the permissions of 2 groups", () => {
         },
         {
           attr_type: "database",
-          attr_name: "app_id",
+          attr_name: "app_ids",
         },
         {
           attr_type: "database",

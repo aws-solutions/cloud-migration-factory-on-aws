@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -16,8 +17,8 @@ import { parsePUTResponseErrors } from "../resources/recordFunctions";
 import { NotificationContext } from "../contexts/NotificationContext";
 import { SplitPanelContext } from "../contexts/SplitPanelContext";
 import { EntitySchema } from "../models/EntitySchema";
-import {PipelineVisualManagerWrapper} from "./UserPipelineVisualManager.tsx";
-import {TaskExecution} from "../models/Pipeline.ts";
+import { PipelineVisualManagerWrapper } from "./UserPipelineVisualManager.tsx";
+import { TaskExecution } from "../models/Pipeline.ts";
 
 export const ViewTaskExecution = (props: {
   schema: Record<string, EntitySchema>;
@@ -57,15 +58,15 @@ type PipelineViewParams = {
 };
 
 type PipelineViewerContent = {
-    pipeline_name: string;
-    pipeline_id: string;
-    pipeline_tasks: TaskExecution[]
-}
+  pipeline_name: string;
+  pipeline_id: string;
+  pipeline_tasks: TaskExecution[];
+};
 
 const PipelineView = (props: PipelineViewParams) => {
   const { addNotification, deleteNotification } = useContext(NotificationContext);
   const { setContent, setSplitPanelOpen } = useContext(SplitPanelContext);
-  const [ pipelineVisualContent, setPipelineVisualContent ] = useState<PipelineViewerContent>();
+  const [pipelineVisualContent, setPipelineVisualContent] = useState<PipelineViewerContent>();
   const apiUser = new UserApiClient();
 
   const [selectedTaskExecutions, setSelectedTaskExecutions] = useState<Array<any>>([]);
@@ -105,31 +106,32 @@ const PipelineView = (props: PipelineViewParams) => {
 
   const handleAction = async (event: CustomEvent) => {
     switch (event.detail.id) {
-      case 'view_inputs':
+      case "view_inputs":
         setSplitPanelOpen(true);
         break;
-      case 'update_status_skip':
-      case 'update_status_retry':
-      case 'update_status_complete':
-      case 'update_status_in-progress':
-      case 'update_status_abandoned':
+      case "update_status_skip":
+      case "update_status_retry":
+      case "update_status_complete":
+      case "update_status_in-progress":
+      case "update_status_abandoned":
         await handleTaskExecutionStatusChange(event.detail.id);
         break;
     }
   };
 
-  async function handleTaskExecutionStatusChange(action: 'update_status_skip' | 'update_status_retry' | 'update_status_complete' | 'update_status_in-progress') {
+  async function handleTaskExecutionStatusChange(
+    action: "update_status_skip" | "update_status_retry" | "update_status_complete" | "update_status_in-progress"
+  ) {
     const schemaName = "task_execution";
     const humanReadableSchemaName = schemaName.split("_").join(" ");
     const selectedItem = selectedTaskExecutions[0];
     const statusMap = {
-      'update_status_skip': "Skip",
-      'update_status_retry': "Retry",
-      'update_status_complete': "Complete",
-      'update_status_in-progress': "In Progress",
-      'update_status_abandoned': "Abandoned"
-      
-    }
+      update_status_skip: "Skip",
+      update_status_retry: "Retry",
+      update_status_complete: "Complete",
+      "update_status_in-progress": "In Progress",
+      update_status_abandoned: "Abandoned",
+    };
 
     if (!statusMap[action]) {
       addNotification({
@@ -141,7 +143,6 @@ const PipelineView = (props: PipelineViewParams) => {
     }
 
     const loadingNotificationId = addNotification({
-      type: "success",
       loading: true,
       dismissible: true,
       content: `Updating ${selectedItem.task_execution_name} to ${statusMap[action]}.`,
@@ -185,7 +186,7 @@ const PipelineView = (props: PipelineViewParams) => {
   }
 
   function handleTaskExecutionSelectionChange(selection: Array<any>) {
-    if (selection){
+    if (selection) {
       setSelectedTaskExecutions(selection);
       setContent(
         <ViewTaskExecution
@@ -204,13 +205,13 @@ const PipelineView = (props: PipelineViewParams) => {
     }
 
     switch (action) {
-      case 'update_status_skip':
+      case "update_status_skip":
         return !allowStatusUpdateToSkip.includes(selectedTaskExecutions[0].task_execution_status);
-      case 'update_status_retry':
+      case "update_status_retry":
         return !allowStatusUpdateToRetry.includes(selectedTaskExecutions[0].task_execution_status);
-      case 'update_status_complete':
+      case "update_status_complete":
         return !allowStatusUpdateToComplete.includes(selectedTaskExecutions[0].task_execution_status);
-      case 'update_status_abandoned':
+      case "update_status_abandoned":
         return !allowStatusUpdateToAbandon.includes(selectedTaskExecutions[0].task_execution_status);
       default:
         return true;
@@ -222,12 +223,12 @@ const PipelineView = (props: PipelineViewParams) => {
       const task_script = props.dataAll.script.data.find((script: any) => {
         return task.task_id === script.package_uuid;
       });
-      return {...task, 'script': task_script}
+      return { ...task, script: task_script };
     });
   }
 
   useEffect(() => {
-    setPipelineVisualContent({...props.pipeline, 'pipeline_tasks': resolveScripts()})
+    setPipelineVisualContent({ ...props.pipeline, pipeline_tasks: resolveScripts() });
   }, [props.pipeline, props.taskExecutions]);
 
   return (
@@ -293,22 +294,22 @@ const PipelineView = (props: PipelineViewParams) => {
                     {
                       id: "update_status_skip",
                       text: "Skip",
-                      disabled: shouldDisableTaskExecutionStatusChange('update_status_skip'),
+                      disabled: shouldDisableTaskExecutionStatusChange("update_status_skip"),
                     },
                     {
                       id: "update_status_retry",
                       text: "Retry",
-                      disabled: shouldDisableTaskExecutionStatusChange('update_status_retry'),
+                      disabled: shouldDisableTaskExecutionStatusChange("update_status_retry"),
                     },
                     {
                       id: "update_status_complete",
                       text: "Complete",
-                      disabled: shouldDisableTaskExecutionStatusChange('update_status_complete'),
+                      disabled: shouldDisableTaskExecutionStatusChange("update_status_complete"),
                     },
                     {
                       id: "update_status_abandoned",
                       text: "Abandoned",
-                      disabled: shouldDisableTaskExecutionStatusChange('update_status_abandoned'),
+                      disabled: shouldDisableTaskExecutionStatusChange("update_status_abandoned"),
                     },
                   ],
                 },

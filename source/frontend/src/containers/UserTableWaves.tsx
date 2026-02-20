@@ -1,379 +1,407 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useContext, useEffect, useState } from "react";
-import UserApiClient from "../api_clients/userApiClient";
+import React from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { getChanges, userAutomationActionsMenuItems } from "../resources/main";
-import { exportTable } from "../utils/xlsx-export";
-
 import { ButtonDropdownProps, SpaceBetween } from "@cloudscape-design/components";
 
 import ItemAmend from "../components/ItemAmend";
-import { WaveDetailsView } from "../components/WaveView";
-import AutomationTools from "../components/AutomationTools";
 import ItemTable from "../components/ItemTable";
+import { CMFModal } from "../components/Modal";
+import { WaveDetailsView } from "../components/WaveView";
 
-import ToolsApiClient from "../api_clients/toolsApiClient";
-
-import { useAutomationJobs } from "../actions/AutomationJobsHook";
+import { NotificationContext } from "../contexts/NotificationContext";
+import { ToolsContext } from "../contexts/ToolsContext";
 import { useMFApps } from "../actions/ApplicationsHook";
+import { useAutomationJobs } from "../actions/AutomationJobsHook";
 import { useGetServers } from "../actions/ServersHook";
 import { useMFWaves } from "../actions/WavesHook";
-import { apiActionErrorHandler, parsePUTResponseErrors } from "../resources/recordFunctions";
-import { ClickEvent } from "../models/Events";
-import { NotificationContext } from "../contexts/NotificationContext";
-import { EntitySchema } from "../models/EntitySchema";
-import { ToolsContext } from "../contexts/ToolsContext";
-import { CMFModal } from "../components/Modal";
+import {
+  Application,
+  Database,
+  DataLoadingState,
+  EntitySchema,
+  Job,
+  MoveGroup,
+  Server,
+  UserAccess,
+  Wave,
+  WPMJob,
+} from "../models";
+import { getChanges, userAutomationActionsMenuItems } from "../resources/main";
+import { apiActionErrorHandler, parsePUTResponseErrors, UNEXPECTED_ERROR } from "../resources/recordFunctions";
+import { Schemas } from "../utils/Constants";
+import { exportTable } from "../utils/xlsx-export";
+import ToolsApiClient from "../api_clients/toolsApiClient";
+import UserApiClient from "../api_clients/userApiClient";
+import { ErrorWithType, useErrorHandler } from "../actions/ErrorHandlerHook";
+import { useGetItems } from "../actions/ItemsHook";
+import AutomationTools from "../components/AutomationTools";
+import { useGetDatabases } from "../actions/DatabasesHook";
 
 type UserWaveTableParams = {
-  userEntityAccess: any;
-  schemas: Record<string, EntitySchema>;
+  readonly userEntityAccess: UserAccess;
+  readonly schemas: Record<string, EntitySchema>;
 };
-const UserWaveTable = ({ schemas, userEntityAccess }: UserWaveTableParams) => {
-  const { addNotification } = useContext(NotificationContext);
-  const { setHelpPanelContentFromSchema } = useContext(ToolsContext);
 
-  let location = useLocation();
-  let navigate = useNavigate();
-  let params = useParams();
+type DataAll = {
+  readonly app: DataLoadingState<Application>;
+  readonly database: DataLoadingState<Database>;
+  readonly server: DataLoadingState<Server>;
+  readonly move_group: DataLoadingState<MoveGroup>;
+  readonly wave: DataLoadingState<Wave>;
+  readonly wpm_job: DataLoadingState<WPMJob>;
+  readonly job: DataLoadingState<Job>;
+};
+
+const schemaName = Schemas.Wave.name;
+const apiUser = new UserApiClient();
+const apiTools = new ToolsApiClient();
+
+const handlePutErrors = (result: any) => {
+  if (result?.errors) {
+    const errorsReturned = parsePUTResponseErrors(result.errors).join(",");
+    throw new ErrorWithType(errorsReturned, "error");
+  }
+};
+
+const UserWaveTable = ({ schemas, userEntityAccess }: UserWaveTableParams) => {
+  const { addNotification } = React.useContext(NotificationContext);
+  const { setHelpPanelContentFromSchema } = React.useContext(ToolsContext);
+  const handleError = useErrorHandler();
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = useParams();
 
   //Data items for viewer and table.
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }, { update: updateWaves }] = useMFWaves();
-  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }] = useMFApps();
-  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }] = useGetServers();
-  const [{ isLoading: isLoadingJobs, data: dataJobs, error: errorJobs }] = useAutomationJobs();
+  //Data items for viewer and table.
+  const [appLoadingState, { update: updateApps }] = useMFApps<Application>();
+  const [databaseLoadingState, { update: refreshDatabases }] = useGetDatabases<Database>();
+  const [serverLoadingState, { update: refreshServers }] = useGetServers<Server>();
+  const [moveGroupLoadingState, { update: updateMoveGroups }] = useGetItems<MoveGroup>(Schemas.MoveGroup.name);
+  const [waveLoadingState, { update: updateWaves }] = useMFWaves<Wave>();
+  const [wpmJobLoadingState] = useGetItems<WPMJob>(Schemas.WPMJob.name);
+  const [autoJobLoadingState] = useAutomationJobs();
 
-  const dataAll = {
-    job: { data: dataJobs, isLoading: isLoadingJobs, error: errorJobs },
-    application: { data: dataApps, isLoading: isLoadingApps, error: errorApps },
-    server: { data: dataServers, isLoading: isLoadingServers, error: errorServers },
-    wave: { data: dataWaves, isLoading: isLoadingWaves, error: errorWaves },
-  };
+  const refreshApps = React.useCallback(() => updateApps(Schemas.Application.name), [updateApps]);
+  const refreshMoveGroups = React.useCallback(() => updateMoveGroups(Schemas.MoveGroup.name), [updateMoveGroups]);
+  const refreshWaves = React.useCallback(() => updateWaves(Schemas.Wave.name), [updateWaves]);
+
+  const dataAll: DataAll = React.useMemo(
+    () => ({
+      app: appLoadingState,
+      database: databaseLoadingState,
+      server: serverLoadingState,
+      move_group: moveGroupLoadingState,
+      wave: waveLoadingState,
+      wpm_job: wpmJobLoadingState,
+      job: autoJobLoadingState,
+    }),
+    [
+      appLoadingState,
+      autoJobLoadingState,
+      databaseLoadingState,
+      moveGroupLoadingState,
+      serverLoadingState,
+      waveLoadingState,
+      wpmJobLoadingState,
+    ]
+  );
 
   //Main table state management.
-  const [selectedItems, setSelectedItems] = useState<Array<any>>([]);
-  const [focusItem, setFocusItem] = useState<any>([]);
+  const [selectedItems, setSelectedItems] = React.useState<Wave[]>([]);
+  const [focusItem, setFocusItem] = React.useState<Wave>();
+  const [viewCurrentTab, setViewCurrentTab] = React.useState("details");
+
+  const entityLabel = React.useMemo(() => schemaName + (selectedItems.length > 1 ? "s" : ""), [selectedItems]);
 
   //Viewer pane state management.
-  const [action, setAction] = useState("View");
-  const [actions, setActions] = useState<ButtonDropdownProps.ItemOrGroup[]>([]); //Actions menu dropdown options.
-  const [automationAction, setAutomationAction] = useState<string | undefined>(undefined);
+  const [action, setAction] = React.useState("View");
+  const [actions, setActions] = React.useState<ButtonDropdownProps.ItemOrGroup[]>([]); //Actions menu dropdown options.
+  const [automationAction, setAutomationAction] = React.useState<string | undefined>(undefined);
 
-  const [preformingAction, setPreformingAction] = useState(false);
+  const [preformingAction, setPreformingAction] = React.useState(false);
 
   //Get base path from the URL, all actions will use this base path.
-  const basePath = location.pathname.split("/").length >= 2 ? "/" + location.pathname.split("/")[1] : "/";
-  //Key for main item displayed in table.
-  const itemIDKey = "wave_id";
-  const schemaName = "wave";
+  const basePath = React.useMemo(
+    () => (location.pathname.split("/").length >= 2 ? "/" + location.pathname.split("/")[1] : "/"),
+    [location.pathname]
+  );
 
   //Modals
-  const [isDeleteConfirmationModalVisible, setDeleteConfirmationModalVisible] = useState(false);
+  const [isDeleteConfirmationModalVisible, setDeleteConfirmationModalVisible] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState<boolean>(false);
 
-  async function handleRefreshClick(e: ClickEvent) {
-    e.preventDefault();
-    await updateWaves();
-  }
+  const handleRefreshClick = React.useCallback(() => {
+    refreshWaves();
+    refreshMoveGroups();
+    refreshServers();
+    refreshDatabases();
+    refreshApps();
+  }, [refreshApps, refreshDatabases, refreshMoveGroups, refreshServers, refreshWaves]);
 
-  function handleAddItem() {
+  const handleAddItem = React.useCallback(() => {
     navigate({
       pathname: basePath + "/add",
     });
     setAction("Add");
-    setFocusItem({});
-  }
+    setFocusItem(undefined);
+  }, [basePath, navigate]);
 
-  function handleDownloadItems() {
-    if (selectedItems.length > 0) {
-      // Download selected only.
-      exportTable(selectedItems, "Waves", "waves");
-    } else {
-      //Download all.
-      exportTable(dataWaves, "Waves", "waves");
-    }
-  }
+  const handleDownloadItems = React.useCallback(() => {
+    exportTable(selectedItems.length > 0 ? selectedItems : waveLoadingState.data, "Waves", "waves");
+  }, [selectedItems, waveLoadingState.data]);
 
-  function handleEditItem(selection = null) {
-    if (selectedItems.length === 1) {
-      navigate({
-        pathname: basePath + "/edit/" + selectedItems[0][itemIDKey],
-      });
-      setAction("Edit");
-      setFocusItem(selectedItems[0]);
-    } else if (selection) {
-      navigate({
-        pathname: basePath + "/edit/" + selection[itemIDKey],
-      });
-      setFocusItem(selection);
-      setAction("Edit");
-    }
-  }
-
-  function handleResetScreen() {
-    navigate({
-      pathname: basePath,
-    });
-    setAction("View");
-  }
-
-  function handleItemSelectionChange(selection: Array<any>) {
-    setSelectedItems(selection);
-    if (selection.length === 1) {
-      //TO-DO Need to pull in Waves or other data here.
-      //updateApps(selection[0].app_id);
-    }
-    //Reset URL to base table path.
-    navigate({
-      pathname: basePath,
-    });
-  }
-
-  async function handleAction(actionData: any, actionId: number) {
-    if (!automationAction) return;
-
-    setPreformingAction(true);
-
-    let newItem = Object.assign({}, actionData);
-    let notificationId;
-
-    let apiAction = schemas[automationAction].actions?.filter((entry: { id: number }) => entry.id === actionId) ?? [];
-
-    if (apiAction.length !== 1) {
-      addNotification({
-        type: "error",
-        dismissible: true,
-        header: "Perform wave action",
-        content: schemas[automationAction].friendly_name + " action [" + actionId + "] not found in schema.",
-      });
-    } else {
-      try {
-        if (apiAction[0].additionalData) {
-          const keys = Object.keys(apiAction[0].additionalData);
-          for (const i in keys) {
-            newItem[keys[i]] = apiAction[0].additionalData[keys[i]];
-          }
-        }
-
-        notificationId = addNotification({
-          type: "success",
-          loading: true,
-          dismissible: false,
-          header: "Perform wave action",
-          content: "Performing action - " + apiAction[0].name,
+  const handleEditItem = React.useCallback(
+    (selection: Wave | null = null) => {
+      if (selectedItems.length === 1) {
+        navigate({
+          pathname: basePath + "/edit/" + selectedItems[0].wave_id,
         });
+        setAction("Edit");
+        setFocusItem(selectedItems[0]);
+      } else if (selection) {
+        navigate({
+          pathname: basePath + "/edit/" + selection.wave_id,
+        });
+        setAction("Edit");
+        setFocusItem(selection);
+      }
+    },
+    [basePath, navigate, selectedItems]
+  );
 
-        const apiTools = new ToolsApiClient();
-        const response = await apiTools.postTool(apiAction[0].apiPath, newItem);
+  const handleResetScreen = React.useCallback(() => {
+    setAction("View");
+    navigate({
+      pathname: basePath,
+    });
+  }, [basePath, navigate]);
 
-        //Extra UUID from response.
-        let uuid = response.split("+");
-        if (uuid.length > 1) {
-          uuid = uuid[1];
-          handleResetScreen();
+  const handleItemSelectionChange = React.useCallback(
+    (selection: Wave[]) => {
+      setSelectedItems(selection);
+      //Reset URL to base table path.
+      navigate({
+        pathname: basePath,
+      });
+    },
+    [basePath, navigate]
+  );
 
-          addNotification({
-            id: notificationId,
-            type: "success",
-            dismissible: true,
-            header: "Perform wave action",
-            actionButtonTitle: "View Job",
-            actionButtonLink: "/automation/jobs/" + uuid,
-            content: apiAction[0].name + " action successfully.",
-          });
-        } else {
-          handleResetScreen();
+  const handleAction = React.useCallback(
+    async (actionData: any, actionId: number) => {
+      if (!automationAction) return;
 
-          addNotification({
-            id: notificationId,
-            type: "success",
-            dismissible: true,
-            header: "Perform wave action",
-            content: response,
-          });
-        }
-      } catch (e: any) {
-        console.log(e);
-        const content =
-          apiAction[0].name +
-          " action failed: " +
-          (e.response.data?.cause || e.response.data || e.message || "action failed: Unknown error occurred");
+      setPreformingAction(true);
 
+      const newItem = Object.assign({}, actionData);
+      let notificationId;
+
+      const apiAction =
+        schemas[automationAction].actions?.filter((entry: { id: number }) => entry.id === actionId) ?? [];
+
+      if (apiAction.length !== 1) {
         addNotification({
-          id: notificationId,
           type: "error",
           dismissible: true,
           header: "Perform wave action",
-          content: content,
+          content: schemas[automationAction].friendly_name + " action [" + actionId + "] not found in schema.",
         });
-      }
-    }
+      } else {
+        try {
+          if (apiAction[0].additionalData) {
+            const keys = Object.keys(apiAction[0].additionalData);
+            for (const i in keys) {
+              newItem[keys[i]] = apiAction[0].additionalData[keys[i]];
+            }
+          }
 
-    setPreformingAction(false);
-  }
-
-  async function handleSave(editItem: any, action: string): Promise<void> {
-    let newItem = Object.assign({}, editItem);
-    try {
-      if (action === "Edit") {
-        let wave_id = newItem.wave_id;
-        let wave_ref = newItem.wave_name;
-        newItem = getChanges(newItem, dataWaves, "wave_id");
-        if (!newItem) {
-          // no changes to original record.
-          addNotification({
-            type: "warning",
-            dismissible: true,
-            header: "Save " + schemaName,
-            content: "No updates to save.",
+          notificationId = addNotification({
+            loading: true,
+            dismissible: false,
+            header: "Perform wave action",
+            content: "Performing action - " + apiAction[0].name,
           });
-          return;
-        }
-        delete newItem.wave_id;
-        const apiUser = new UserApiClient();
-        let resultEdit = await apiUser.putItem(wave_id, newItem, "wave");
 
-        if (resultEdit["errors"]) {
-          console.debug("PUT " + schemaName + " errors");
-          console.debug(resultEdit["errors"]);
-          let errorsReturned = parsePUTResponseErrors(resultEdit["errors"]).join(",");
+          const apiTools = new ToolsApiClient();
+          const response = await apiTools.postTool(apiAction[0].apiPath, newItem);
+
+          //Extra UUID from response.
+          let uuid = response.split("+");
+          if (uuid.length > 1) {
+            uuid = uuid[1];
+            handleResetScreen();
+
+            addNotification({
+              id: notificationId,
+              type: "success",
+              dismissible: true,
+              header: "Perform wave action",
+              actionButtonTitle: "View Job",
+              actionButtonLink: "/automation/jobs/" + uuid,
+              content: apiAction[0].name + " action successfully.",
+            });
+          } else {
+            handleResetScreen();
+
+            addNotification({
+              id: notificationId,
+              type: "success",
+              dismissible: true,
+              header: "Perform wave action",
+              content: response,
+            });
+          }
+        } catch (e: any) {
+          console.log(e);
+          const content =
+            apiAction[0].name +
+            " action failed: " +
+            (e.response.data?.cause || e.response.data || e.message || "action failed: Unknown error occurred");
+
           addNotification({
+            id: notificationId,
             type: "error",
             dismissible: true,
-            header: "Update " + schemaName,
-            content: errorsReturned,
+            header: "Perform wave action",
+            content: content,
           });
-        } else {
+        }
+      }
+
+      setPreformingAction(false);
+    },
+    [addNotification, automationAction, handleResetScreen, schemas]
+  );
+
+  const callApisToSave = React.useCallback(
+    async (w: Wave) => {
+      let result: any;
+      // Create/update move group
+      if (action === "Add") {
+        result = await apiUser.postItem(w, Schemas.Wave.name);
+      } else {
+        const changes = getChanges(w, waveLoadingState.data, Schemas.Wave.keyAttribute);
+        if (!changes) throw new ErrorWithType("No updates to save.", "warning");
+
+        result = await apiUser.putItem(w.wave_id, changes, Schemas.Wave.name);
+      }
+      handlePutErrors(result);
+    },
+    [action, waveLoadingState.data]
+  );
+
+  const handleSave = React.useCallback(
+    async (editItem: Wave, action: string) => {
+      const header = `${action} ${Schemas.Wave.name}`;
+
+      const item = Object.assign({}, editItem);
+      try {
+        if (action === "Edit") {
+          await callApisToSave(item);
           addNotification({
             type: "success",
             dismissible: true,
-            header: "Update " + schemaName,
-            content: wave_ref + " updated successfully.",
+            header,
+            content: item.wave_name + " updated successfully.",
           });
-
-          updateWaves();
-          handleResetScreen();
 
           //This is needed to ensure the item in selectItems reflects new updates
           setSelectedItems([]);
-          setFocusItem({});
-        }
-      } else {
-        const apiUser = new UserApiClient();
-        delete newItem.wave_id;
-        let resultAdd = await apiUser.postItem(newItem, "wave");
-
-        if (resultAdd["errors"]) {
-          console.debug("PUT " + schemaName + " errors");
-          console.debug(resultAdd["errors"]);
-          let errorsReturned = parsePUTResponseErrors(resultAdd["errors"]).join(",");
-          addNotification({
-            type: "error",
-            dismissible: true,
-            header: "Add " + schemaName,
-            content: errorsReturned,
-          });
+          setFocusItem(undefined);
         } else {
+          await callApisToSave(item);
           addNotification({
             type: "success",
             dismissible: true,
-            header: "Add " + schemaName,
-            content: newItem.wave_name + " added successfully.",
+            header,
+            content: item.wave_name + " added successfully.",
           });
-          updateWaves();
-          handleResetScreen();
         }
+        handleRefreshClick();
+        handleResetScreen();
+      } catch (e) {
+        if (e instanceof ErrorWithType) handleError(e, { header });
+        else apiActionErrorHandler(action, Schemas.Wave.name, e, addNotification);
       }
-    } catch (e: any) {
-      apiActionErrorHandler(action, schemaName, e, addNotification);
-    }
-  }
+    },
+    [handleRefreshClick, handleResetScreen, callApisToSave, addNotification, handleError]
+  );
 
-  async function handleActionsClick(e: ClickEvent) {
-    let action = e.detail.id;
+  const handleActionsClick = React.useCallback(
+    (e: { detail: ButtonDropdownProps.ItemClickDetails }) => {
+      const action = e.detail.id;
 
-    setFocusItem(selectedItems);
-    setAutomationAction(action);
-    setAction("Action");
-  }
+      // Action button dropdown only enabled when one item is selected.
+      setFocusItem(selectedItems[0]);
+      setAutomationAction(action);
+      setAction("Action");
+    },
+    [selectedItems]
+  );
 
-  async function handleDeleteItem() {
+  const handleDeleteItem = React.useCallback(async () => {
     setDeleteConfirmationModalVisible(false);
 
-    let currentItem: any = 0;
-    let multiReturnMessage = [];
     let notificationId;
 
-    try {
-      const apiUser = new UserApiClient();
+    const currentSelectedItems = selectedItems;
+    setIsDeleting(true);
+    // Clear selected items so as to disable Edit/Edit buttons during deletion
+    setSelectedItems([]);
 
-      if (selectedItems.length > 1) {
-        notificationId = addNotification({
-          type: "success",
-          loading: true,
-          dismissible: false,
-          header: "Deleting selected " + schemaName + "s...",
-        });
-      }
-      for (let item in selectedItems) {
-        currentItem = item;
-        await apiUser.deleteItem(selectedItems[item].wave_id, "wave");
-        //Combine notifications into a single message if multi selected used, to save user dismiss clicks.
-        if (selectedItems.length > 1) {
-          multiReturnMessage.push(selectedItems[item].wave_name);
-        } else {
-          addNotification({
-            type: "success",
-            dismissible: true,
-            header: "Wave deleted successfully",
-            content: selectedItems[item].wave_name + " was deleted.",
-          });
-        }
-      }
+    try {
+      notificationId = addNotification({
+        loading: true,
+        dismissible: false,
+        header: `Deleting selected ${entityLabel}...`,
+      });
+
+      await apiTools.cleanupEntities(
+        "wave",
+        selectedItems.map((item) => item.wave_id)
+      );
 
       //Create notification where multi select was used.
-      if (selectedItems.length > 1) {
-        addNotification({
-          id: notificationId,
-          type: "success",
-          dismissible: true,
-          header: "Waves deleted successfully",
-          content: multiReturnMessage.join(", ") + " were deleted.",
-        });
-      }
-
-      //Unselect applications marked for deletion to clear apps.
-
-      setSelectedItems([]);
-      await updateWaves();
-    } catch (e: any) {
-      console.error(e);
-      let response =
-        e.response?.data?.errors ||
-        e.response?.data?.cause ||
-        selectedItems[currentItem].wave_name + " failed to delete with an unknown error.";
-
       addNotification({
+        id: notificationId,
+        type: "success",
+        dismissible: true,
+        header: `Delete ${entityLabel}`,
+        content: `${selectedItems.map((item) => item.wave_name).join(", ")} ${selectedItems.length > 1 ? "were" : "was"} deleted.`,
+      });
+
+      handleRefreshClick();
+    } catch (e) {
+      console.error(e);
+      // Revert selected items on error
+      setSelectedItems(currentSelectedItems);
+      addNotification({
+        id: notificationId,
         type: "error",
         dismissible: true,
-        header: "Wave deletion failed",
-        content: response,
+        header: `Delete ${entityLabel}`,
+        content: UNEXPECTED_ERROR,
       });
+    } finally {
+      setIsDeleting(false);
     }
-  }
+  }, [selectedItems, addNotification, entityLabel, handleRefreshClick]);
 
   //Update actions button options on schema change.
-  useEffect(() => {
+  React.useEffect(() => {
     setActions(userAutomationActionsMenuItems(schemas, userEntityAccess));
   }, [schemas, userEntityAccess]);
 
   //Update help tools panel.
-  useEffect(() => {
+  React.useEffect(() => {
     setHelpPanelContentFromSchema(schemas, schemaName);
-  }, [schemas]);
+  }, [schemas, setHelpPanelContentFromSchema]);
 
   function provideContent(currentAction: string) {
     switch (currentAction) {
@@ -386,7 +414,7 @@ const UserWaveTable = ({ schemas, userEntityAccess }: UserWaveTableParams) => {
             userAccess={userEntityAccess}
             schemas={schemas}
             performingAction={preformingAction}
-            selectedItems={focusItem}
+            selectedItems={selectedItems}
             handleAction={handleAction}
             handleCancel={handleResetScreen}
           />
@@ -409,14 +437,14 @@ const UserWaveTable = ({ schemas, userEntityAccess }: UserWaveTableParams) => {
           <SpaceBetween direction="vertical" size="xs">
             <ItemTable
               schema={schemas[schemaName]}
-              schemaKeyAttribute={itemIDKey}
+              schemaKeyAttribute={Schemas.Wave.keyAttribute}
               schemaName={schemaName}
               dataAll={dataAll}
-              items={dataWaves}
+              items={waveLoadingState.data}
               selectedItems={selectedItems}
               handleSelectionChange={handleItemSelectionChange}
-              isLoading={isLoadingWaves}
-              errorLoading={errorWaves}
+              isLoading={waveLoadingState.isLoading || isDeleting}
+              errorLoading={waveLoadingState.error}
               handleRefreshClick={handleRefreshClick}
               handleAddItem={handleAddItem}
               handleAction={handleActionsClick}
@@ -428,33 +456,44 @@ const UserWaveTable = ({ schemas, userEntityAccess }: UserWaveTableParams) => {
               handleDownloadItems={handleDownloadItems}
               userAccess={userEntityAccess}
             />
-            <WaveDetailsView schemas={schemas} selectedItems={selectedItems} dataAll={dataAll} />
+            <WaveDetailsView
+              schemas={schemas}
+              selectedItems={selectedItems}
+              dataAll={dataAll}
+              handleTabChange={setViewCurrentTab}
+              selectedTab={viewCurrentTab}
+            />
           </SpaceBetween>
         );
     }
   }
 
-  useEffect(() => {
-    let selected = [];
+  React.useEffect(() => {
+    if (!waveLoadingState.isLoading) {
+      const item = waveLoadingState.data.find((entry) => entry.wave_id === params.id);
 
-    if (!isLoadingWaves) {
-      let item = dataWaves.filter(function (entry: { [x: string]: string | undefined }) {
-        return entry[itemIDKey] === params.id;
-      });
-
-      if (item.length === 1) {
-        selected.push(item[0]);
-        handleItemSelectionChange(selected);
-        //Check if URL contains edit path and switch to amend component.
-        if (location.pathname && location.pathname.match("/edit/")) {
-          handleEditItem(item[0]);
+      if (item) {
+        if (selectedItems.length === 0) {
+          setSelectedItems([item]);
         }
-      } else if (location.pathname && location.pathname.match("/add")) {
+        //Check if URL contains edit path and switch to amend component.
+        if (location?.pathname.match("/edit/")) {
+          handleEditItem(item);
+        }
+      } else if (location?.pathname.match("/add")) {
         //Add url used, redirect to add screen.
         handleAddItem();
       }
     }
-  }, [dataWaves]);
+  }, [
+    handleAddItem,
+    handleEditItem,
+    location?.pathname,
+    params.id,
+    selectedItems.length,
+    waveLoadingState.data,
+    waveLoadingState.isLoading,
+  ]);
 
   return (
     <div>
@@ -465,7 +504,9 @@ const UserWaveTable = ({ schemas, userEntityAccess }: UserWaveTableParams) => {
         onConfirmation={handleDeleteItem}
         header={"Delete waves"}
       >
-        <p>Are you sure you wish to delete the {selectedItems.length} selected waves?</p>
+        <p>
+          Are you sure you wish to delete the {selectedItems.length} selected {entityLabel}?
+        </p>
       </CMFModal>
     </div>
   );

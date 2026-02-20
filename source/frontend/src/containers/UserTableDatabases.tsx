@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useContext, useEffect, useState } from "react";
-import UserApiClient from "../api_clients/userApiClient";
+import React from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { SpaceBetween } from "@cloudscape-design/components";
+
 import ItemAmend from "../components/ItemAmend";
 import { getChanges } from "../resources/main";
 import { exportTable } from "../utils/xlsx-export";
-import { SpaceBetween } from "@cloudscape-design/components";
 
 import DatabaseView from "../components/DatabaseView";
 import { useMFApps } from "../actions/ApplicationsHook";
@@ -17,14 +17,39 @@ import { useGetDatabases } from "../actions/DatabasesHook";
 import { useGetServers } from "../actions/ServersHook";
 import { useMFWaves } from "../actions/WavesHook";
 import ItemTable from "../components/ItemTable";
-import { apiActionErrorHandler, parsePUTResponseErrors } from "../resources/recordFunctions";
+import { apiActionErrorHandler, parsePUTResponseErrors, UNEXPECTED_ERROR } from "../resources/recordFunctions";
 import { NotificationContext } from "../contexts/NotificationContext";
-import { EntitySchema } from "../models/EntitySchema";
+import {
+  Application,
+  Database,
+  DataLoadingState,
+  EntitySchema,
+  MoveGroup,
+  OperationType,
+  Server,
+  UserAccess,
+  Wave,
+  WPMJob,
+} from "../models";
 import { ToolsContext } from "../contexts/ToolsContext";
 import { CMFModal } from "../components/Modal";
+import { Schemas } from "../utils/Constants";
+import { useGetItems } from "../actions/ItemsHook";
+import { ErrorWithType, useErrorHandler } from "../actions/ErrorHandlerHook";
+import ToolsApiClient from "../api_clients/toolsApiClient";
+import UserApiClient from "../api_clients/userApiClient";
 
-const ViewItem = (props: { schema: Record<string, EntitySchema>; selectedItems: any[]; dataAll: any }) => {
-  const [viewerCurrentTab, setViewerCurrentTab] = useState("details");
+type DataAll = {
+  readonly app: DataLoadingState<Application>;
+  readonly database: DataLoadingState<Database>;
+  readonly server: DataLoadingState<Server>;
+  readonly move_group: DataLoadingState<MoveGroup>;
+  readonly wave: DataLoadingState<Wave>;
+  readonly wpm_job: DataLoadingState<WPMJob>;
+};
+
+const ViewItem = (props: { schema: Record<string, EntitySchema>; selectedItems: Database[]; dataAll: DataAll }) => {
+  const [viewerCurrentTab, setViewerCurrentTab] = React.useState("details");
 
   if (props.selectedItems.length === 1) {
     return (
@@ -43,285 +68,346 @@ const ViewItem = (props: { schema: Record<string, EntitySchema>; selectedItems: 
 
 type UserDatabaseTableParams = {
   schemas: Record<string, EntitySchema>;
-  userEntityAccess: any;
+  userEntityAccess: UserAccess;
   schemaIsLoading?: boolean;
 };
-const UserDatabaseTable = ({ schemas, userEntityAccess }: UserDatabaseTableParams) => {
-  const { addNotification } = useContext(NotificationContext);
-  const { setHelpPanelContentFromSchema } = useContext(ToolsContext);
 
-  let location = useLocation();
-  let navigate = useNavigate();
-  let params = useParams();
+const apiUser = new UserApiClient();
+const apiTools = new ToolsApiClient();
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const handlePutErrors = (result: any) => {
+  if (result?.errors) {
+    const errorsReturned = parsePUTResponseErrors(result.errors).join(",");
+    throw new ErrorWithType(errorsReturned, "error");
+  }
+};
+
+const UserDatabaseTable = (props: UserDatabaseTableParams) => {
+  const { addNotification } = React.useContext(NotificationContext);
+  const { setHelpPanelContentFromSchema } = React.useContext(ToolsContext);
+  const handleError = useErrorHandler();
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = useParams();
+
+  const schema = React.useMemo(() => props.schemas[Schemas.Database.name], [props.schemas]);
   //Data items for viewer and table.
-  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }] = useMFApps();
-  const [{ isLoading: isLoadingMain, data: dataMain, error: errorMain }, { update: updateMain }] = useGetDatabases();
-  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }] = useGetServers();
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }] = useMFWaves();
+  const [appLoadingState, { update: updateApps }] = useMFApps<Application>();
+  const [databaseLoadingState, { update: refreshDatabases }] = useGetDatabases<Database>();
+  const [serverLoadingState] = useGetServers<Server>();
+  const [moveGroupLoadingState, { update: updateMoveGroups }] = useGetItems<MoveGroup>(Schemas.MoveGroup.name);
+  const [waveLoadingState] = useMFWaves<Wave>();
+  const [wpmJobLoadingState] = useGetItems<WPMJob>(Schemas.WPMJob.name);
 
-  const dataAll = {
-    application: {
-      data: dataApps,
-      isLoading: isLoadingApps,
-      error: errorApps,
-    },
-    database: {
-      data: dataMain,
-      isLoading: isLoadingMain,
-      error: errorMain,
-    },
-    server: {
-      data: dataServers,
-      isLoading: isLoadingServers,
-      error: errorServers,
-    },
-    wave: {
-      data: dataWaves,
-      isLoading: isLoadingWaves,
-      error: errorWaves,
-    },
-  };
+  const refreshApps = React.useCallback(() => updateApps(Schemas.Application.name), [updateApps]);
+  const refreshMoveGroups = React.useCallback(() => updateMoveGroups(Schemas.MoveGroup.name), [updateMoveGroups]);
 
-  //Layout state management.
-  const [editingItem, setEditingItem] = useState(false);
+  const dataAll: DataAll = React.useMemo(
+    () => ({
+      app: appLoadingState,
+      database: databaseLoadingState,
+      server: serverLoadingState,
+      move_group: moveGroupLoadingState,
+      wave: waveLoadingState,
+      wpm_job: wpmJobLoadingState,
+    }),
+    [
+      appLoadingState,
+      databaseLoadingState,
+      moveGroupLoadingState,
+      serverLoadingState,
+      waveLoadingState,
+      wpmJobLoadingState,
+    ]
+  );
+
+  // Is in add/edit mode
+  const editingItem = React.useRef(false);
 
   //Main table state management.
-  const [selectedItems, setSelectedItems] = useState<Array<any>>([]);
-  const [focusItem, setFocusItem] = useState<any>([]);
+  const [selectedItems, setSelectedItems] = React.useState<Database[]>([]);
+  const [focusItem, setFocusItem] = React.useState<Database>();
+
+  const headerEntity = React.useMemo(
+    () => Schemas.Database.name + (selectedItems.length > 1 ? "s" : ""),
+    [selectedItems]
+  );
 
   //Viewer pane state management.
-  const [action, setAction] = useState("Add");
+  const [action, setAction] = React.useState("Add");
 
   //Get base path from the URL, all actions will use this base path.
-  const basePath = location.pathname.split("/").length >= 2 ? "/" + location.pathname.split("/")[1] : "/";
-  //Key for main item displayed in table.
-  const itemIDKey = "database_id";
-  const schemaName = "database";
+  const basePath = React.useMemo(
+    () => (location.pathname.split("/").length >= 2 ? "/" + location.pathname.split("/")[1] : "/"),
+    [location.pathname]
+  );
 
-  const [isDeleteConfirmationModalVisible, setDeleteConfirmationModalVisible] = useState(false);
+  const [isDeleteConfirmationModalVisible, setDeleteConfirmationModalVisible] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState<boolean>(false);
 
-  function handleAddItem() {
+  const handleAddItem = React.useCallback(() => {
+    editingItem.current = true;
     navigate({
       pathname: basePath + "/add",
     });
     setAction("Add");
-    setFocusItem({});
-    setEditingItem(true);
-  }
+    setFocusItem(undefined);
+  }, [basePath, navigate]);
 
-  function handleDownloadItems() {
-    if (selectedItems.length > 0) {
-      // Download selected only.
-      exportTable(selectedItems, "Databases", schemaName + "s");
-    } else {
-      //Download all.
-      exportTable(dataServers, "Databases", schemaName + "s");
-    }
-  }
+  const handleDownloadItems = React.useCallback(() => {
+    exportTable(
+      selectedItems.length ? selectedItems : serverLoadingState.data,
+      `${Schemas.Database.friendlyName}s`,
+      `${Schemas.Database.name}s`
+    );
+  }, [selectedItems, serverLoadingState.data]);
 
-  function handleEditItem(selection = null) {
-    if (selectedItems.length === 1) {
-      navigate({
-        pathname: basePath + "/edit/" + selectedItems[0][itemIDKey],
-      });
-      setAction("Edit");
-      setFocusItem(selectedItems[0]);
-      setEditingItem(true);
-    } else if (selection) {
-      navigate({
-        pathname: basePath + "/edit/" + selection[itemIDKey],
-      });
-      setAction("Edit");
-      setFocusItem(selection);
-      setEditingItem(true);
-    }
-  }
-
-  function handleResetScreen() {
-    navigate({
-      pathname: basePath,
-    });
-    setEditingItem(false);
-  }
-
-  function handleItemSelectionChange(selection: Array<any>) {
-    setSelectedItems(selection);
-    if (selection.length === 1) {
-      //ATTN: Need to pull in Waves or other data here.
-      //updateApps(selection[0].app_id);
-    }
-    //Reset URL to base table path.
-    navigate({
-      pathname: basePath,
-    });
-  }
-
-  async function handleEditSave(editedItem: any): Promise<void> {
-    let newItem = Object.assign({}, editedItem);
-    let item_id = newItem[schemaName + "_id"];
-    let item_name = newItem[schemaName + "_name"];
-    const apiUser = new UserApiClient();
-
-    newItem = getChanges(newItem, dataMain, itemIDKey);
-    if (!newItem) {
-      // no changes to original record.
-      addNotification({
-        type: "warning",
-        dismissible: true,
-        header: "Save " + schemaName,
-        content: "No updates to save.",
-      });
-      return;
-    }
-    delete newItem[schemaName + "_id"];
-    let resultEdit = await apiUser.putItem(item_id, newItem, schemaName);
-
-    if (resultEdit["errors"]) {
-      console.debug("PUT " + schemaName + " errors");
-      console.debug(resultEdit["errors"]);
-      let errorsReturned = parsePUTResponseErrors(resultEdit["errors"]).join(",");
-      addNotification({
-        type: "error",
-        dismissible: true,
-        header: "Update " + schemaName,
-        content: errorsReturned,
-      });
-    } else {
-      addNotification({
-        type: "success",
-        dismissible: true,
-        header: "Update " + schemaName,
-        content: item_name + " updated successfully.",
-      });
-      updateMain();
-      handleResetScreen();
-
-      //This is needed to ensure the item in selectItems reflects new updates
-      setSelectedItems([]);
-      setFocusItem({});
-    }
-  }
-
-  async function handleNewSave(editedItem: any) {
-    let newItem = Object.assign({}, editedItem);
-    const apiUser = new UserApiClient();
-
-    delete newItem[schemaName + "_id"];
-    let resultAdd = await apiUser.postItem(newItem, schemaName);
-
-    if (resultAdd["errors"]) {
-      console.debug("PUT " + schemaName + " errors");
-      console.debug(resultAdd["errors"]);
-      let errorsReturned = parsePUTResponseErrors(resultAdd["errors"]).join(",");
-      addNotification({
-        type: "error",
-        dismissible: true,
-        header: "Add " + schemaName,
-        content: errorsReturned,
-      });
-      return false;
-    } else {
-      addNotification({
-        type: "success",
-        dismissible: true,
-        header: "Add " + schemaName,
-        content: newItem[schemaName + "_name"] + " added successfully.",
-      });
-      updateMain();
-      handleResetScreen();
-    }
-  }
-
-  async function handleSave(editItem: any, action: string) {
-    let newItem = Object.assign({}, editItem);
-    try {
-      if (action === "Edit") {
-        await handleEditSave(newItem);
-      } else {
-        await handleNewSave(newItem);
+  const handleEditItem = React.useCallback(
+    (selection: Database | null = null) => {
+      editingItem.current = true;
+      if (selectedItems.length === 1) {
+        navigate({
+          pathname: basePath + "/edit/" + selectedItems[0].database_id,
+        });
+        setAction("Edit");
+        setFocusItem(selectedItems[0]);
+      } else if (selection) {
+        navigate({
+          pathname: basePath + "/edit/" + selection.database_id,
+        });
+        setAction("Edit");
+        setFocusItem(selection);
       }
-    } catch (e: any) {
-      apiActionErrorHandler(action, schemaName, e, addNotification);
-    }
-  }
+    },
+    [basePath, navigate, selectedItems]
+  );
 
-  async function handleRefreshClick() {
-    await updateMain();
-  }
+  const handleResetScreen = React.useCallback(() => {
+    editingItem.current = false;
+    navigate({
+      pathname: basePath,
+    });
+  }, [basePath, navigate]);
 
-  async function handleDeleteItem() {
-    setDeleteConfirmationModalVisible(false);
+  const handleItemSelectionChange = React.useCallback(
+    (selection: Database[]) => {
+      setSelectedItems(selection);
+      //Reset URL to base table path.
+      navigate({
+        pathname: basePath,
+      });
+    },
+    [basePath, navigate]
+  );
 
-    let currentItem: any = 0;
-    let multiReturnMessage = [];
-    let notificationId;
+  const getDataChanges = React.useCallback(
+    (databaseId: string, db?: Database) => {
+      // Find out the changed appIds
+      const orig = databaseLoadingState.data.find((x) => x.database_id === databaseId);
+      const origAppIdsSet = new Set((orig?.app_ids ?? []).filter((x): x is string => !!x));
+      const updatedAppIdSet = new Set((db?.app_ids ?? []).filter((x): x is string => !!x));
+      const addedAppIds = Array.from(updatedAppIdSet).filter((x) => !origAppIdsSet.has(x));
+      const removedAppIds = Array.from(origAppIdsSet).filter((item) => !updatedAppIdSet.has(item));
 
-    try {
-      const apiUser = new UserApiClient();
-      if (selectedItems.length > 1) {
-        notificationId = addNotification({
-          type: "success",
-          loading: true,
-          dismissible: false,
-          header: "Deleting selected " + schemaName + "s...",
+      return { orig, addedAppIds, removedAppIds };
+    },
+    [databaseLoadingState.data]
+  );
+
+  // Callback function to update the delta of appIds
+  const callApiToUpdateApps = React.useCallback(
+    async (databaseId: string, params: { addedAppIds: string[]; removedAppIds: string[] }) => {
+      // Helper function to update an app's database_ids
+      const updateApp = async (appId: string, isAdding: boolean) => {
+        const app = appLoadingState.data.find((x) => x.app_id === appId);
+        if (!app) throw new ErrorWithType(`App ${appId} not found`, "error");
+
+        let databaseIds: string[];
+        if (isAdding) {
+          if (app.database_ids?.includes(databaseId)) return;
+          databaseIds = [...(app.database_ids ?? []), databaseId];
+        } else {
+          if (!app.database_ids?.length || !app.database_ids.includes(databaseId)) return;
+          databaseIds = app.database_ids.filter((x) => x !== databaseId);
+        }
+        const result = await apiUser.putItem(appId, { database_ids: databaseIds }, Schemas.Application.name);
+        handlePutErrors(result);
+      };
+
+      // Update all affected apps
+      await Promise.all([
+        ...params.addedAppIds.map((appId) => updateApp(appId, true)),
+        ...params.removedAppIds.map((appId) => updateApp(appId, false)),
+      ]);
+    },
+    [appLoadingState.data]
+  );
+
+  const callApisToSave = React.useCallback(
+    async (db: Database) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let result: any;
+      let saved: Database;
+      // Create/update database
+      if (!db.database_id) {
+        result = await apiUser.postItem(db, Schemas.Database.name);
+        saved = result.newItems[0];
+      } else {
+        const changes = getChanges(db, databaseLoadingState.data, Schemas.Database.keyAttribute);
+        if (!changes) throw new ErrorWithType("No updates to save.", "warning");
+
+        result = await apiUser.putItem(db.database_id, changes, Schemas.Database.name);
+        saved = db;
+      }
+      handlePutErrors(result);
+
+      const { orig, addedAppIds, removedAppIds } = getDataChanges(saved.database_id, saved);
+
+      // Update apps if there are added appIds or removed appIds
+      if (addedAppIds.length > 0 || removedAppIds.length > 0) {
+        await callApiToUpdateApps(saved.database_id, { addedAppIds, removedAppIds });
+      }
+      // Update move group if appIds changed and there is/was move group assigned, or move group indeed changed
+      if (
+        ((addedAppIds.length > 0 || removedAppIds.length > 0) && (saved.move_group_id || orig?.move_group_id)) ||
+        saved.move_group_id !== orig?.move_group_id
+      ) {
+        await apiTools.manageEntities({
+          operation: OperationType.MOVE,
+          source_entity_type: "move_group",
+          source_entity_id: orig?.move_group_id,
+          destination_entity_type: "move_group",
+          destination_entity_id: db?.move_group_id,
+          target_entities: [
+            {
+              entity_id: saved.database_id,
+              entity_type: "database",
+            },
+          ],
         });
       }
+    },
+    [callApiToUpdateApps, databaseLoadingState.data, getDataChanges]
+  );
 
-      for (let item in selectedItems) {
-        currentItem = item;
-        await apiUser.deleteDatabase(selectedItems[item][schemaName + "_id"]);
-        //Combine notifications into a single message if multi selected used, to save user dismiss clicks.
-        if (selectedItems.length > 1) {
-          multiReturnMessage.push(selectedItems[item][schemaName + "_name"]);
-        } else {
+  const handleRefreshClick = React.useCallback(() => {
+    refreshDatabases();
+    refreshApps();
+    refreshMoveGroups();
+  }, [refreshApps, refreshDatabases, refreshMoveGroups]);
+
+  const handleSave = React.useCallback(
+    async (editItem: Database, action: string) => {
+      const header = `${action} ${Schemas.Database.name}`;
+
+      const item = Object.assign({}, editItem);
+      try {
+        if (action === "Edit") {
+          await callApisToSave(item);
           addNotification({
             type: "success",
             dismissible: true,
-            header: schemaName + " deleted successfully",
-            content: selectedItems[item][schemaName + "_name"] + " was deleted.",
+            header,
+            content: item.database_name + " updated successfully.",
+          });
+
+          //This is needed to ensure the item in selectItems reflects new updates
+          setSelectedItems([]);
+          setFocusItem(undefined);
+        } else {
+          await callApisToSave(item);
+          addNotification({
+            type: "success",
+            dismissible: true,
+            header,
+            content: item.database_name + " added successfully.",
           });
         }
+        handleRefreshClick();
+        handleResetScreen();
+      } catch (e) {
+        if (e instanceof ErrorWithType) handleError(e, { header });
+        else apiActionErrorHandler(action, Schemas.Database.name, e, addNotification);
       }
+    },
+    [handleRefreshClick, handleResetScreen, callApisToSave, addNotification, handleError]
+  );
+
+  const handleDeleteItem = React.useCallback(async () => {
+    setDeleteConfirmationModalVisible(false);
+
+    let notificationId;
+
+    const currentSelectedItems = selectedItems;
+    setIsDeleting(true);
+    // Clear selected items so as to disable Edit/Edit buttons during deletion
+    setSelectedItems([]);
+
+    try {
+      notificationId = addNotification({
+        loading: true,
+        dismissible: false,
+        header: `Deleting selected ${headerEntity}...`,
+      });
+
+      await apiTools.cleanupEntities(
+        "database",
+        selectedItems.map((item) => item.database_id)
+      );
 
       //Create notification where multi select was used.
-      if (selectedItems.length > 1) {
-        addNotification({
-          id: notificationId,
-          type: "success",
-          dismissible: true,
-          header: schemaName + " deleted successfully",
-          content: multiReturnMessage.join(", ") + " were deleted.",
-        });
-      }
-
-      //Unselect applications marked for deletion to clear apps.
-      setSelectedItems([]);
-      await updateMain();
-    } catch (e: any) {
-      console.log(e);
       addNotification({
+        id: notificationId,
+        type: "success",
+        dismissible: true,
+        header: `Delete ${headerEntity}`,
+        content: `${selectedItems.map((item) => item.database_name).join(", ")} ${selectedItems.length > 1 ? "were" : "was"} deleted.`,
+      });
+
+      handleRefreshClick();
+    } catch (e) {
+      console.error(e);
+      // Revert selected items on error
+      setSelectedItems(currentSelectedItems);
+      addNotification({
+        id: notificationId,
         type: "error",
         dismissible: true,
-        header: schemaName + " deletion failed",
-        content: selectedItems[currentItem][schemaName + "_name"] + " failed to delete.",
+        header: `Delete ${headerEntity}`,
+        content: UNEXPECTED_ERROR,
       });
+    } finally {
+      setIsDeleting(false);
     }
-  }
+  }, [selectedItems, addNotification, headerEntity, handleRefreshClick]);
+
+  // Make cascade changes: wave_id based on move_group_id
+  const handleItemUpdate = React.useCallback(
+    (item: Database) => {
+      const mgId = item.move_group_id;
+      const wave = mgId ? waveLoadingState.data.find((w) => w.move_group_ids?.includes(mgId)) : undefined;
+      const delta: Partial<Database> = {};
+      delta.wave_id = wave?.wave_id;
+      setFocusItem({ ...item, ...delta });
+    },
+    [waveLoadingState.data]
+  );
 
   function displayItemsViewScreen() {
     return (
       <SpaceBetween direction="vertical" size="xs">
         <ItemTable
-          schema={schemas[schemaName]}
-          schemaKeyAttribute={itemIDKey}
-          schemaName={schemaName}
+          schema={schema}
+          schemaKeyAttribute={Schemas.Database.keyAttribute}
+          schemaName={Schemas.Database.name}
           dataAll={dataAll}
-          items={dataMain}
+          items={databaseLoadingState.data}
           selectedItems={selectedItems}
           handleSelectionChange={handleItemSelectionChange}
-          isLoading={isLoadingMain}
-          errorLoading={errorMain}
+          isLoading={databaseLoadingState.isLoading || isDeleting}
+          errorLoading={databaseLoadingState.error}
           handleRefreshClick={handleRefreshClick}
           handleAddItem={handleAddItem}
           handleDeleteItem={async function () {
@@ -329,22 +415,23 @@ const UserDatabaseTable = ({ schemas, userEntityAccess }: UserDatabaseTableParam
           }}
           handleEditItem={handleEditItem}
           handleDownloadItems={handleDownloadItems}
-          userAccess={userEntityAccess}
+          userAccess={props.userEntityAccess}
         />
-        <ViewItem schema={schemas} selectedItems={selectedItems} dataAll={dataAll} />
+        <ViewItem schema={props.schemas} selectedItems={selectedItems} dataAll={dataAll} />
       </SpaceBetween>
     );
   }
 
   function displayItemsScreen() {
-    if (editingItem) {
+    if (editingItem.current) {
       return (
         <ItemAmend
           action={action}
-          schemaName={schemaName}
-          schemas={schemas}
-          userAccess={userEntityAccess}
+          schemaName={Schemas.Database.name}
+          schemas={props.schemas}
+          userAccess={props.userEntityAccess}
           item={focusItem}
+          handleItemUpdate={handleItemUpdate}
           handleSave={handleSave}
           handleCancel={handleResetScreen}
         />
@@ -354,32 +441,40 @@ const UserDatabaseTable = ({ schemas, userEntityAccess }: UserDatabaseTableParam
     }
   }
 
-  useEffect(() => {
-    let selected = [];
-
-    if (!isLoadingMain) {
-      let item = dataMain.filter(function (entry: any) {
-        return entry[itemIDKey] === params.id;
+  React.useEffect(() => {
+    if (!databaseLoadingState.isLoading) {
+      const item = databaseLoadingState.data.find((entry) => {
+        return entry.database_id === params.id;
       });
 
-      if (item.length === 1) {
-        selected.push(item[0]);
-        handleItemSelectionChange(selected);
+      if (item) {
+        if (selectedItems.length === 0) {
+          setSelectedItems([item]);
+        }
         //Check if URL contains edit path and switch to amend component.
         if (location?.pathname.match("/edit/")) {
-          handleEditItem(item[0]);
+          handleEditItem(item);
         }
       } else if (location?.pathname.match("/add")) {
         //Add url used, redirect to add screen.
         handleAddItem();
       }
     }
-  }, [dataMain]);
+  }, [
+    databaseLoadingState.data,
+    databaseLoadingState.isLoading,
+    handleAddItem,
+    handleEditItem,
+    handleItemSelectionChange,
+    location?.pathname,
+    params.id,
+    selectedItems.length,
+  ]);
 
   //Update help tools panel.
-  useEffect(() => {
-    setHelpPanelContentFromSchema(schemas, schemaName);
-  }, [schemas]);
+  React.useEffect(() => {
+    setHelpPanelContentFromSchema(props.schemas, Schemas.Database.name);
+  }, [props.schemas, setHelpPanelContentFromSchema]);
 
   return (
     <div>
@@ -390,7 +485,9 @@ const UserDatabaseTable = ({ schemas, userEntityAccess }: UserDatabaseTableParam
         onConfirmation={handleDeleteItem}
         header={"Delete databases"}
       >
-        <p>Are you sure you wish to delete the {selectedItems.length} selected databases?</p>
+        <p>
+          Are you sure you wish to delete the {selectedItems.length} selected {headerEntity}?
+        </p>
       </CMFModal>
     </div>
   );

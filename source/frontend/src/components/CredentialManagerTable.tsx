@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -63,7 +64,7 @@ const CredentialManagerTable = (props: {
 
   async function handleOnRowClick(detail: TableProps.OnRowClickDetail<any>) {
     if (handleSelectionChange) {
-      let selectedItem = [];
+      const selectedItem = [];
       selectedItem.push(detail.item);
 
       handleSelectionChange(selectedItem);

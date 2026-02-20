@@ -3,6 +3,9 @@
     "schema_name": {
       "S": "server"
     },
+    "key_type": {
+      "S": "ulid"
+    },
     "schema_type": {
       "S": "user"
     },
@@ -33,22 +36,63 @@
         {
           "M": {
             "description": {
-              "S": "Application"
+              "S": "Related Applications"
             },
             "group_order": {
-              "S": "-998"
+              "S": "-997"
+            },
+            "listMultiSelect": {
+              "BOOL": true
             },
             "name": {
-              "S": "app_id"
+              "S": "app_ids"
             },
             "rel_display_attribute": {
               "S": "app_name"
             },
             "rel_entity": {
-              "S": "application"
+              "S": "app"
             },
             "rel_key": {
               "S": "app_id"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "migration_status"
+            },
+            "type": {
+              "S": "string"
+            },
+            "default": {
+              "S": "Not started"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "AWS Account Id"
+            },
+            "group": {
+              "S": "Target"
+            },
+            "listvalue": {
+              "S": "111122223333,222233334444"
+            },
+            "name": {
+              "S": "aws_accountid"
             },
             "required": {
               "BOOL": true
@@ -57,7 +101,38 @@
               "BOOL": true
             },
             "type": {
-              "S": "relationship"
+              "S": "list"
+            },
+            "validation_regex": {
+              "S": "^\\d{12}$"
+            },
+            "validation_regex_msg": {
+              "S": "Invalid AWS account Id."
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "AWS Region"
+            },
+            "group": {
+              "S": "Target"
+            },
+            "listvalue": {
+              "S": "us-east-2,us-east-1,us-west-1,us-west-2,af-south-1,ap-east-1,ap-southeast-3,ap-south-1,ap-northeast-3,ap-northeast-2,ap-southeast-1,ap-southeast-2,ap-northeast-1,ca-central-1,cn-north-1,cn-northwest-1,eu-central-1,eu-west-1,eu-west-2,eu-south-1,eu-west-3,eu-north-1,me-south-1,sa-east-1"
+            },
+            "name": {
+              "S": "aws_region"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "list"
             }
           }
         }
@@ -106,10 +181,277 @@
   },
   {
     "schema_name": {
+      "S": "app_ulid"
+    },
+    "key_type": {
+      "S": "ulid"
+    },
+    "schema_type": {
+      "S": "user"
+    },
+    "attributes": {
+      "L": [
+        {
+          "M": {
+            "name": {
+              "S": "app_ulid_id"
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "app_ulid_name"
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "schema_name": {
       "S": "automation"
     },
     "schema_type": {
       "S": "automation"
+    }
+  },
+  {
+    "schema_name": {
+      "S": "move_group"
+    },
+    "attributes": {
+      "L": [
+        {
+          "M": {
+            "description": {
+              "S": "MoveGroup Identifier"
+            },
+            "hidden": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "move_group_id"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "MoveGroup Name"
+            },
+            "name": {
+              "S": "move_group_name"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "system": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "string"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "WPM Job Identifier"
+            },
+            "name": {
+              "S": "wpm_job_id"
+            },
+            "rel_entity": {
+              "S": "wpm_job"
+            },
+            "rel_key": {
+              "S": "wpm_job_id"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "relationship"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Server Count"
+            },
+            "name": {
+              "S": "server_count"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "number"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Total Server Storage"
+            },
+            "name": {
+              "S": "total_server_storage"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "number"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Complexity Score"
+            },
+            "name": {
+              "S": "complexity_score"
+            },
+            "required": {
+              "BOOL": true
+            },
+            "type": {
+              "S": "number"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Wave Identifier"
+            },
+            "name": {
+              "S": "wave_id"
+            },
+            "rel_display_attribute": {
+              "S": "wave_name"
+            },
+            "rel_entity": {
+              "S": "wave"
+            },
+            "rel_key": {
+              "S": "wave_id"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "type": {
+              "S": "relationship"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Application Identifiers"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "app_ids"
+            },
+            "rel_display_attribute": {
+              "S": "app_name"
+            },
+            "rel_entity": {
+              "S": "app"
+            },
+            "rel_key": {
+              "S": "app_id"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Server Identifiers"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "server_ids"
+            },
+            "rel_display_attribute": {
+              "S": "server_name"
+            },
+            "rel_entity": {
+              "S": "server"
+            },
+            "rel_key": {
+              "S": "server_id"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            }
+          }
+        },
+        {
+          "M": {
+            "description": {
+              "S": "Database Identifiers"
+            },
+            "listMultiSelect": {
+              "BOOL": true
+            },
+            "name": {
+              "S": "database_ids"
+            },
+            "rel_display_attribute": {
+              "S": "database_name"
+            },
+            "rel_entity": {
+              "S": "database"
+            },
+            "rel_key": {
+              "S": "database_id"
+            },
+            "required": {
+              "BOOL": false
+            },
+            "type": {
+              "S": "multivalue-relationship"
+            }
+          }
+        }
+      ]
+    },
+    "schema_type": {
+      "S": "user"
     }
   }
 ]

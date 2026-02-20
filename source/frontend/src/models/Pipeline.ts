@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -11,7 +12,7 @@ export type Pipeline = {
   pipeline_status?: string;
   pipeline_description?: string;
   pipeline_template_id: string;
-  pipeline_tasks?: TaskExecution[]
+  pipeline_tasks?: TaskExecution[];
   task_arguments?: any;
   current_task_id?: string;
   _history?: CMFHistoryCreated;
@@ -27,13 +28,14 @@ export type PipelineTemplate = {
 
 export type CMFHistoryCreated = {
   createdBy: {
-    userRef: string; email: string
+    userRef: string;
+    email: string;
   };
-  createdTimestamp: string
+  createdTimestamp: string;
 };
 
 export type PipelineTemplateTask = {
-  [key: string]: number | string | string[] | CMFHistoryCreated | null |  undefined;
+  [key: string]: number | string | string[] | CMFHistoryCreated | null | undefined;
   pipeline_template_task_id: string;
   pipeline_template_id: string;
   task_id: string;

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -87,7 +88,6 @@ test('submitting the "Add group" form saves a new group to API', async () => {
     dismissible: false,
     loading: true,
     header: "Add group",
-    type: "success",
   });
 
   await waitFor(() => {

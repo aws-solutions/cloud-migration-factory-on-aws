@@ -5,26 +5,27 @@
 
 import { DataHook, reducer, requestStarted, requestSuccessful } from "../resources/reducer";
 
-import { useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 import UserApiClient from "../api_clients/userApiClient";
 
-export const useGetTaskExecutions: DataHook = () => {
-  const [state, dispatch] = useReducer(reducer, {
+const apiUser = new UserApiClient();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const useGetTaskExecutions: DataHook = <T = any>() => {
+  const [state, dispatch] = useReducer(reducer<T>, {
     isLoading: true,
     data: [],
     error: null,
   });
 
-  const apiUser = new UserApiClient();
-
-  async function update() {
+  const update = useCallback(async () => {
     const myAbortController = new AbortController();
 
     try {
       const response = await apiUser.getTaskExecutions();
       dispatch(requestSuccessful({ data: response }));
-    } catch (e: any) {
-      if (e.message !== "Request aborted") {
+    } catch (e) {
+      if (e instanceof Error && e.message !== "Request aborted") {
         console.error("TaskExecutions Hook", e);
       }
     }
@@ -32,17 +33,17 @@ export const useGetTaskExecutions: DataHook = () => {
     return () => {
       myAbortController.abort();
     };
-  }
+  }, []);
 
-  async function init() {
+  const init = useCallback(async () => {
     const myAbortController = new AbortController();
     dispatch(requestStarted());
 
     try {
       const response = await apiUser.getTaskExecutions();
       dispatch(requestSuccessful({ data: response }));
-    } catch (e: any) {
-      if (e.message !== "Request aborted") {
+    } catch (e) {
+      if (e instanceof Error && e.message !== "Request aborted") {
         console.error("TaskExecutions Hook", e);
       }
       dispatch(requestSuccessful({ data: [] }));
@@ -51,7 +52,7 @@ export const useGetTaskExecutions: DataHook = () => {
     return () => {
       myAbortController.abort();
     };
-  }
+  }, []);
 
   useEffect(() => {
     let cancelledRequest;
@@ -64,7 +65,7 @@ export const useGetTaskExecutions: DataHook = () => {
     return () => {
       cancelledRequest = true;
     };
-  }, []);
+  }, [init]);
 
   return [state, { update }];
 };

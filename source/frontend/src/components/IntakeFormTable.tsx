@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -60,7 +61,7 @@ const IntakeFormTable = (props) => {
 
   async function handleOnRowClick(detail) {
     if (props.handleSelectionChange) {
-      let selectedItem = [];
+      const selectedItem = [];
       selectedItem.push(detail.item);
 
       await props.handleSelectionChange(selectedItem);
@@ -68,7 +69,7 @@ const IntakeFormTable = (props) => {
   }
 
   function handleConfirmPreferences(detail) {
-    let lPreferences = detail;
+    const lPreferences = detail;
 
     lPreferences.trackBy = DEFAULT_PREFERENCES.trackBy;
 

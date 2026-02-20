@@ -1,0 +1,38 @@
+{
+  "headers": [
+    { "name": "Server Name", "previewValues": ["ServerName1", "ServerName2"] },
+    { "name": "IP Address", "previewValues": ["192.168.0.1"] },
+    {
+      "name": "Application",
+      "previewValues": [" GUSDMA01 - Andon ISR Irvine", ".NET Framework NGEN"]
+    }
+  ],
+  "schemas": {
+    "application": {
+      "schema_type": "user",
+      "schema_name": "app",
+      "key_type": "ulid",
+      "attributes": [
+        {
+          "name": "app_name"
+        },
+        {
+          "name": "app_owner"
+        }
+      ]
+    },
+    "storage": {
+      "schema_type": "custom",
+      "schema_name": "storage",
+      "key_type": "ulid",
+      "attributes": [
+        {
+          "name": "storage_name"
+        },
+        {
+          "name": "storage_type"
+        }
+      ]
+    }
+  }
+}

@@ -1,18 +1,27 @@
-import { defaultTestProps, mockNotificationContext, TEST_SESSION_STATE } from "../__tests__/TestUtils";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React from "react";
+import { mockNotificationContext, TEST_SESSION_STATE, wpmTestProps } from "../__tests__/TestUtils";
 import { render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { SessionContext } from "../contexts/SessionContext";
-import React from "react";
 import { server } from "../setupTests";
 import { rest } from "msw";
-import { generateTestApps, generateTestServers, generateTestWaves } from "../__tests__/mocks/user_api";
+import {
+  generateTestApps,
+  generateTestDatabases,
+  generateTestMoveGroups,
+  generateTestServers,
+  generateTestWaves,
+  generateTestWpmJobs,
+} from "../__tests__/mocks/user_api";
 import userEvent from "@testing-library/user-event";
 import * as XLSX from "xlsx";
 import UserTableApps from "./UserTableApps";
 import { NotificationContext } from "../contexts/NotificationContext";
 import AuthenticatedRoutes from "../AuthenticatedRoutes";
+import { Application } from "../models";
 
-function renderUserApplicationsTable(props = defaultTestProps) {
+function renderUserApplicationsTable(props = wpmTestProps) {
   return {
     ...mockNotificationContext,
     renderResult: render(
@@ -28,14 +37,42 @@ function renderUserApplicationsTable(props = defaultTestProps) {
   };
 }
 
+function setupApiCallsForLoad(...apps: Application[][]) {
+  let counter = 0;
+  server.use(
+    rest.get("/user/app", (request, response, context) => {
+      const index = Math.min(counter++, apps.length - 1);
+      return response(context.status(200), context.json(apps[index]));
+    }),
+    rest.get("/user/database", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestDatabases(10)));
+    }),
+    rest.get("/user/servers", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestServers(10)));
+    }),
+    rest.get("/user/move_group", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestMoveGroups(1)));
+    }),
+    rest.get("/user/wave", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestWaves(2)));
+    }),
+    rest.get("/user/wpm_job", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestWpmJobs(1)));
+    })
+  );
+}
+
 test('it renders an empty table with "no applications" message', async () => {
+  // GIVEN
+  setupApiCallsForLoad([]);
+
   // WHEN
   renderUserApplicationsTable();
 
   // THEN
   // page should render in loading state
   expect(screen.getByRole("heading", { name: "Applications (0)" })).toBeInTheDocument();
-  expect(screen.getByText("Loading applications")).toBeInTheDocument();
+  expect(screen.getByText("Loading Applications")).toBeInTheDocument();
 
   // after server response came in, it should render the table
   await waitForElementToBeRemoved(() => screen.queryByText(/Loading applications/i));
@@ -43,17 +80,13 @@ test('it renders an empty table with "no applications" message', async () => {
   const table = screen.getByRole("table");
   const tbody = within(table).getAllByRole("rowgroup")[1];
 
-  expect(await within(tbody).findByText("No applications")).toBeInTheDocument();
-  expect(within(tbody).getByRole("button", { name: "Add application" })).toBeInTheDocument();
+  expect(await within(tbody).findByText("No Applications")).toBeInTheDocument();
+  expect(within(tbody).getByRole("button", { name: "Add Application" })).toBeInTheDocument();
 });
 
 test("it renders a paginated table with 50 applications", async () => {
   // GIVEN
-  server.use(
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(50)));
-    })
-  );
+  setupApiCallsForLoad(generateTestApps(50));
 
   // WHEN
   renderUserApplicationsTable();
@@ -71,15 +104,7 @@ test("it renders a paginated table with 50 applications", async () => {
 
 test("click on refresh button refreshes the table", async () => {
   // GIVEN
-  server.use(
-    rest.get("/user/app", (request, response, context) => {
-      return response.once(context.status(200), context.json(generateTestApps(1)));
-    }),
-    // second request to same endpoint gives a different response
-    rest.get("/user/app", (request, response, context) => {
-      return response.once(context.status(200), context.json(generateTestApps(5)));
-    })
-  );
+  setupApiCallsForLoad(generateTestApps(1), generateTestApps(5));
 
   renderUserApplicationsTable();
   await waitForElementToBeRemoved(() => screen.queryByText(/Loading applications/i));
@@ -96,6 +121,7 @@ test("click on refresh button refreshes the table", async () => {
 
 test('click on add button opens "Add application" form', async () => {
   // GIVEN
+  setupApiCallsForLoad([]);
   renderUserApplicationsTable();
 
   const addButton = screen.getByRole("button", { name: "Add" });
@@ -115,17 +141,13 @@ test('click on add button opens "Add application" form', async () => {
 
 test("submitting the add form saves a new application to API", async () => {
   // GIVEN
+  setupApiCallsForLoad(generateTestApps(1), generateTestApps(2));
+
   let captureRequest: any;
   server.use(
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
-    }),
     rest.post(`/user/app`, async (request, response, context) => {
       request.json().then((body) => (captureRequest = body));
       return response(context.status(201));
-    }),
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestWaves(2)));
     })
   );
 
@@ -163,15 +185,7 @@ test("submitting the add form saves a new application to API", async () => {
 
 test('click on row enables "Edit" button and shows "Details" tab', async () => {
   // GIVEN
-  const applications = generateTestApps(1);
-  server.use(
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(applications));
-    }),
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestWaves(2)));
-    })
-  );
+  setupApiCallsForLoad(generateTestApps(1));
 
   const { addNotification } = renderUserApplicationsTable();
   const editButton = screen.getByRole("button", { name: "Edit" });
@@ -185,18 +199,6 @@ test('click on row enables "Edit" button and shows "Details" tab', async () => {
   // THEN
   expect(editButton).not.toBeDisabled();
   expect(screen.getByRole("heading", { name: "Details" })).toBeInTheDocument();
-
-  // AND WHEN
-  await userEvent.click(screen.getByRole("tab", { name: "Servers" }));
-
-  // THEN
-  expect(await screen.findByRole("heading", { name: "Servers (0)" })).toBeInTheDocument();
-
-  // AND WHEN
-  await userEvent.click(screen.getByRole("tab", { name: "Wave" }));
-
-  // THEN
-  expect(await screen.findByRole("heading", { name: "Wave" })).toBeInTheDocument();
 
   // AND WHEN
   await userEvent.click(screen.getByRole("tab", { name: "All attributes" }));
@@ -228,21 +230,14 @@ test('click on row enables "Edit" button and shows "Details" tab', async () => {
 
 test("submitting the edit form saves the application to API", async () => {
   // GIVEN
-  let captureRequest: any;
   const applications = generateTestApps(1);
+  setupApiCallsForLoad(applications);
+
+  let captureRequest: any;
   server.use(
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(applications));
-    }),
-    rest.get("/user/server/appid/:id", (request, response, context) => {
-      return response.once(context.status(200), context.json(generateTestServers(1)));
-    }),
     rest.put(`/user/app/${applications[0].app_id}`, async (request, response, context) => {
       request.json().then((body) => (captureRequest = body));
       return response(context.status(200));
-    }),
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestWaves(2)));
     })
   );
 
@@ -260,13 +255,7 @@ test("submitting the edit form saves the application to API", async () => {
   const saveButton = await screen.findByRole("button", { name: /Save/i });
   await waitFor(() => expect(saveButton).toBeEnabled());
 
-  // AND WHEN
-  await userEvent.click(await screen.findByRole("button", { name: "Related details" }));
-
-  // THEN
-  const dialog = await screen.findByRole("dialog", { name: "Item detail" });
-  expect(await within(dialog).findByRole("heading", { name: "Item detail" })).toBeInTheDocument();
-  expect(await within(dialog).findByText("Unit testing Wave 1")).toBeInTheDocument();
+  expect(await screen.findByText("Unit testing Wave 1")).toBeInTheDocument();
 
   // AND WHEN we edit some data and hit 'save'
   const applicationNameInput = screen.getByRole("textbox", { name: "app_name" });
@@ -282,18 +271,12 @@ test("submitting the edit form saves the application to API", async () => {
 
 test("when update fails with server error, display notification", async () => {
   // GIVEN
-  let captureRequest: any;
   const applications = generateTestApps(1);
+  setupApiCallsForLoad(applications);
+
   server.use(
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(applications));
-    }),
     rest.put(`/user/app/${applications[0].app_id}`, async (request, response, context) => {
-      request.json().then((body) => (captureRequest = body));
       return response(context.status(502));
-    }),
-    rest.get("/user/wave", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestWaves(2)));
     })
   );
 
@@ -330,11 +313,7 @@ test("when update fails with server error, display notification", async () => {
 
 test('click on row enables "Delete" button, shows "Delete" modal', async () => {
   // GIVEN
-  server.use(
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(1)));
-    })
-  );
+  setupApiCallsForLoad(generateTestApps(1));
 
   renderUserApplicationsTable();
   const deleteButton = screen.getByRole("button", { name: "Delete" });
@@ -355,7 +334,7 @@ test('click on row enables "Delete" button, shows "Delete" modal', async () => {
   // THEN
   const withinModal = within(await screen.findByRole("dialog"));
   expect(withinModal.getByRole("heading", { name: "Delete applications" })).toBeInTheDocument();
-  expect(withinModal.getByText("Are you sure you wish to delete the selected application?")).toBeInTheDocument();
+  expect(withinModal.getByText("Are you sure you wish to delete the 1 selected application?")).toBeInTheDocument();
 
   // AND WHEN
   await userEvent.click(withinModal.getByRole("button", { name: /Cancel/i }));
@@ -366,15 +345,12 @@ test('click on row enables "Delete" button, shows "Delete" modal', async () => {
 
 test("confirming the deletion successfully deletes a application", async () => {
   // GIVEN
-  const applications = generateTestApps(1);
+  setupApiCallsForLoad(generateTestApps(1), []);
+
+  const deleteAppRequestBodies: any[] = [];
   server.use(
-    rest.get("/user/app", (request, response, context) => {
-      return response.once(context.status(200), context.json(applications));
-    }),
-    rest.get("/user/server/appid/:id", (request, response, context) => {
-      return response.once(context.status(200), context.json(generateTestServers(1)));
-    }),
-    rest.delete(`/user/app/:id`, (request, response, context) => {
+    rest.post(`/manage-entities`, (request, response, context) => {
+      request.json().then((body) => deleteAppRequestBodies.push(body));
       return response(context.status(204));
     })
   );
@@ -391,11 +367,12 @@ test("confirming the deletion successfully deletes a application", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Ok" }));
 
   // THEN
+  expect(deleteAppRequestBodies).toEqual([{ entity_ids: ["0"], entity_type: "app", operation: "cleanup" }]);
   await waitFor(() => {
     expect(addNotification).toHaveBeenCalledWith({
       content: "Unit testing App 0 was deleted.",
       dismissible: true,
-      header: "Application deleted successfully",
+      header: "Delete application",
       type: "success",
     });
   });
@@ -404,12 +381,11 @@ test("confirming the deletion successfully deletes a application", async () => {
 
 test("delete multiple applications", async () => {
   // GIVEN
-  const applications = generateTestApps(2);
+  setupApiCallsForLoad(generateTestApps(2));
+  const deleteAppRequestBodies: any[] = [];
   server.use(
-    rest.get("/user/app", (request, response, context) => {
-      return response.once(context.status(200), context.json(applications));
-    }),
-    rest.delete(`/user/app/:id`, (request, response, context) => {
+    rest.post(`/manage-entities`, (request, response, context) => {
+      request.json().then((body) => deleteAppRequestBodies.push(body));
       return response(context.status(204));
     })
   );
@@ -440,18 +416,25 @@ test("delete multiple applications", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Ok" }));
 
   // THEN
+  expect(deleteAppRequestBodies).toEqual([
+    {
+      entity_ids: ["0", "1"],
+      entity_type: "app",
+      operation: "cleanup",
+    },
+  ]);
+
   expect(addNotification).toHaveBeenCalledWith({
     dismissible: false,
-    header: "Deleting selected applications...",
+    header: "Deleting applications...",
     loading: true,
-    type: "success",
   });
   await waitFor(() => {
     expect(addNotification).toHaveBeenCalledWith({
       id: undefined,
       content: "Unit testing App 0, Unit testing App 1 were deleted.",
       dismissible: true,
-      header: "Applications deleted successfully",
+      header: "Delete applications",
       type: "success",
     });
   });
@@ -462,11 +445,8 @@ test("click on export downloads an xlsx file", async () => {
   jest.spyOn(XLSX.utils, "json_to_sheet");
 
   const testApplications = generateTestApps(2);
-  server.use(
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(testApplications));
-    })
-  );
+  setupApiCallsForLoad(testApplications);
+
   renderUserApplicationsTable();
   await waitForElementToBeRemoved(() => screen.queryByText(/Loading applications/i));
 
@@ -485,11 +465,8 @@ test("selecting a row and click on export downloads an xlsx file", async () => {
   jest.spyOn(XLSX.utils, "json_to_sheet");
 
   const testApplications = generateTestApps(2);
-  server.use(
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(testApplications));
-    })
-  );
+  setupApiCallsForLoad(testApplications);
+
   renderUserApplicationsTable();
   await waitForElementToBeRemoved(() => screen.queryByText(/Loading applications/i));
 
@@ -506,16 +483,12 @@ test("selecting a row and click on export downloads an xlsx file", async () => {
 
 test("buttons are disabled based on user permissions", async () => {
   // GIVEN
-  server.use(
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
-    })
-  );
+  setupApiCallsForLoad(generateTestApps(2));
 
   renderUserApplicationsTable({
-    ...defaultTestProps,
+    ...wpmTestProps,
     userEntityAccess: {
-      ...defaultTestProps.userEntityAccess,
+      ...wpmTestProps.userEntityAccess,
       application: {
         delete: false,
         create: false,
@@ -537,7 +510,8 @@ test("buttons are disabled based on user permissions", async () => {
 
 test("it deep links to Add form", async () => {
   // GIVEN
-  const addAppRoute = "/applications/add";
+  const addAppRoute = "/apps/add";
+  setupApiCallsForLoad([]);
 
   // WHEN
   render(
@@ -545,7 +519,7 @@ test("it deep links to Add form", async () => {
       <NotificationContext.Provider value={mockNotificationContext}>
         <SessionContext.Provider value={TEST_SESSION_STATE}>
           <div id="modal-root" />
-          <AuthenticatedRoutes childProps={defaultTestProps}></AuthenticatedRoutes>
+          <AuthenticatedRoutes childProps={wpmTestProps}></AuthenticatedRoutes>
         </SessionContext.Provider>
       </NotificationContext.Provider>
     </MemoryRouter>
@@ -558,16 +532,9 @@ test("it deep links to Add form", async () => {
 test("it deep links to Edit form", async () => {
   // GIVEN
   const applications = generateTestApps(1);
-  server.use(
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(applications));
-    }),
-    rest.get("/user/server/appid/:id", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestServers(2)));
-    })
-  );
+  setupApiCallsForLoad(applications);
 
-  const editAppRoute = `/applications/edit/${applications[0].app_id}`;
+  const editAppRoute = `/apps/edit/${applications[0].app_id}`;
 
   // WHEN
   render(
@@ -575,7 +542,7 @@ test("it deep links to Edit form", async () => {
       <NotificationContext.Provider value={mockNotificationContext}>
         <SessionContext.Provider value={TEST_SESSION_STATE}>
           <div id="modal-root" />
-          <AuthenticatedRoutes childProps={defaultTestProps}></AuthenticatedRoutes>
+          <AuthenticatedRoutes childProps={wpmTestProps}></AuthenticatedRoutes>
         </SessionContext.Provider>
       </NotificationContext.Provider>
     </MemoryRouter>
