@@ -296,11 +296,12 @@ def group_servers_by_app(servers: List[Dict[str, Any]]) -> Dict[str, List[Dict[s
     
     for server in servers:
         # Also handle servers with multiple app_ids
-        app_ids = server.get('app_ids', [])
+        app_ids = server.get('app_ids') or []
         for aid in app_ids:
-            if aid and aid not in servers_by_app:
-                servers_by_app[aid] = []
-            servers_by_app[aid].append(server)
+            if aid:
+                if aid not in servers_by_app:
+                    servers_by_app[aid] = []
+                servers_by_app[aid].append(server)
     
     return servers_by_app
 

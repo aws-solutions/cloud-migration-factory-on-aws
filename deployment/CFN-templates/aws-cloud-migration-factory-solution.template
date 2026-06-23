@@ -1216,6 +1216,8 @@ Resources:
         PostAuthentication: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${Application}-${Environment}-lambda-user-subscription'
       UsernameAttributes:
         - email
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
       UserPoolTags:
         application: !Ref Application
         environment: !Ref Environment
