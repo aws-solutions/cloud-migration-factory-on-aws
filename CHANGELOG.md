@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.4] - 2026-09-30
+
+### Changed
+
+- **Security Enhancement**: Updated Python dependencies cryptography, PyJWT, urllib3 and pyasn1 across all Lambda functions and layers to resolve high-severity vulnerabilities.
+- **Default Deployment Type**: Changed the default deployment type from Public to Public with WAF, restricting access to the CIDR ranges supplied in SourceCIDR. Existing stacks are unaffected on update.
+- Parameter Validation: Added a template rule requiring SourceCIDR when the deployment type is Public with WAF, so invalid input is rejected before any resource is created.
+- Version increment to 5.0.4.
+
+## [5.0.3] - 2026-09-24
+
+### Changed
+
+- Version increment to 5.0.3.
+
+### Fixed
+
+- **Admin API Authorization**: Replaced the Cognito user-pool authorizer on the admin GET endpoints with the admin Lambda authorizer, which enforces a group check.
+- **Admin Lambda Authorization**: Added an independent in-Lambda admin group check to the admin Lambdas, so an API Gateway authorizer misconfiguration alone cannot expose role, policy, schema or Cognito group management.
+- **Automation Input Validation**: Added server FQDN validation before PowerShell and SSH command construction, and validation of the automation server ID against the allowlist before starting an SSM automation execution.
+- Access Control: Enforced the read entity_access flag server-side, added an ownership check to the upload data entities download path, and scoped the GFDeploy Lambda role's sts:AssumeRole permission.
+
 ## [5.0.2] - 2026-05-13
 
 ### Changed

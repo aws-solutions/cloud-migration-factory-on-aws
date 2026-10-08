@@ -993,3 +993,59 @@ class CommonTestCase(TestCase):
         expected_response = \
             f'ERROR: Could not connect to API endpoint https://{self.api_id}.execute-api.us-east-1.amazonaws.com/prod/user/server.\n'
         self.assertEqual(response, expected_response)
+
+
+class TestValidateServerFqdn(TestCase):
+    """FINDING-0005: Tests for validate_server_fqdn() FQDN sanitization."""
+
+    def test_valid_simple_hostname(self):
+        from mfcommon import validate_server_fqdn
+        # Should not raise
+        validate_server_fqdn("myserver")
+
+    def test_valid_fqdn(self):
+        from mfcommon import validate_server_fqdn
+        validate_server_fqdn("server1.onpremsim.env")
+
+    def test_valid_fqdn_with_hyphens(self):
+        from mfcommon import validate_server_fqdn
+        validate_server_fqdn("my-server-01.corp.example.com")
+
+    def test_valid_ipv4(self):
+        from mfcommon import validate_server_fqdn
+        validate_server_fqdn("192.168.1.100")
+
+    def test_invalid_semicolon_injection(self):
+        from mfcommon import validate_server_fqdn
+        with self.assertRaises(ValueError):
+            validate_server_fqdn("legit.server.com; Remove-Item -Recurse C:\\")
+
+    def test_invalid_backtick_injection(self):
+        from mfcommon import validate_server_fqdn
+        with self.assertRaises(ValueError):
+            validate_server_fqdn("server`whoami`.evil.com")
+
+    def test_invalid_pipe_injection(self):
+        from mfcommon import validate_server_fqdn
+        with self.assertRaises(ValueError):
+            validate_server_fqdn("server | net user hacker P@ss /add")
+
+    def test_invalid_empty_string(self):
+        from mfcommon import validate_server_fqdn
+        with self.assertRaises(ValueError):
+            validate_server_fqdn("")
+
+    def test_invalid_space(self):
+        from mfcommon import validate_server_fqdn
+        with self.assertRaises(ValueError):
+            validate_server_fqdn("server name with spaces")
+
+    def test_invalid_single_quote(self):
+        from mfcommon import validate_server_fqdn
+        with self.assertRaises(ValueError):
+            validate_server_fqdn("server'.evil.com")
+
+    def test_invalid_starts_with_hyphen(self):
+        from mfcommon import validate_server_fqdn
+        with self.assertRaises(ValueError):
+            validate_server_fqdn("-invalid.hostname.com")

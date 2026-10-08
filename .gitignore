@@ -54,6 +54,6 @@ build/
 /build/
 ../../build/
 .build/
-
+/build
 # IDE
 /.vscode

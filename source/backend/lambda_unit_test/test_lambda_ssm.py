@@ -307,14 +307,16 @@ class LambdaSSMTest(unittest.TestCase):
         }
         self.assertEqual(expected, response)
 
+    @patch('lambda_ssm.get_cmf_automation_servers')
     @patch('lambda_ssm.ssm')
     @patch('lambda_ssm.lambda_client')
     @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
-    def test_lambda_handler_post_success(self, mock_mf_auth, mock_lamda, mock_ssm):
+    def test_lambda_handler_post_success(self, mock_mf_auth, mock_lamda, mock_ssm, mock_get_servers):
         import lambda_ssm
         mock_mf_auth.side_effect = mock_getUserResourceCreationPolicy
         mock_lamda.invoke.side_effect = mock_lamda_invoke
         mock_ssm.start_automation_execution = mock_start_automation_execution
+        mock_get_servers.return_value = [{"mi_id": "test_mi_id", "online": True, "mi_name": "test"}]
         response = lambda_ssm.lambda_handler(self.event_post, None)
         self.assertEqual(lambda_ssm.default_http_headers, response['headers'])
         self.assertIn('"SSMId: test_mi_id', response['body'])
@@ -369,3 +371,39 @@ class LambdaSSMTest(unittest.TestCase):
             {'list': 'item1,item2',
              'stringnospace': 'test',
              'stringspace': "'test string'"}, args)
+
+    @patch('lambda_ssm.get_cmf_automation_servers')
+    @patch('lambda_ssm.ssm')
+    @patch('lambda_ssm.lambda_client')
+    @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
+    def test_lambda_handler_post_invalid_mi_id_rejected(self, mock_mf_auth, mock_lamda, mock_ssm, mock_get_servers):
+        """FINDING-0002: Verify that an mi_id not in the automation server allowlist is rejected."""
+        import lambda_ssm
+        mock_mf_auth.side_effect = mock_getUserResourceCreationPolicy
+        mock_lamda.invoke.side_effect = mock_lamda_invoke
+        # Return an allowlist that does NOT include 'test_mi_id'
+        mock_get_servers.return_value = [
+            {"mi_id": "mi-allowed-001", "online": True, "mi_name": "allowed_server"}
+        ]
+        response = lambda_ssm.lambda_handler(self.event_post, None)
+        self.assertEqual(400, response['statusCode'])
+        self.assertIn('not a CMF automation server', response['body'])
+        mock_ssm.start_automation_execution.assert_not_called()
+
+    @patch('lambda_ssm.get_cmf_automation_servers')
+    @patch('lambda_ssm.ssm')
+    @patch('lambda_ssm.lambda_client')
+    @patch('lambda_ssm.MFAuth.get_user_resource_creation_policy')
+    def test_lambda_handler_post_valid_mi_id_allowed(self, mock_mf_auth, mock_lamda, mock_ssm, mock_get_servers):
+        """FINDING-0002: Verify that a valid mi_id passes the allowlist check."""
+        import lambda_ssm
+        mock_mf_auth.side_effect = mock_getUserResourceCreationPolicy
+        mock_lamda.invoke.side_effect = mock_lamda_invoke
+        mock_ssm.start_automation_execution = mock_start_automation_execution
+        # Return an allowlist that includes 'test_mi_id'
+        mock_get_servers.return_value = [
+            {"mi_id": "test_mi_id", "online": True, "mi_name": "test_server"}
+        ]
+        response = lambda_ssm.lambda_handler(self.event_post, None)
+        self.assertEqual(200, response['statusCode'])
+        self.assertIn('SSMId: test_mi_id', response['body'])

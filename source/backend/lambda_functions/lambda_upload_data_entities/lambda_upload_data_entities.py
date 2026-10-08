@@ -419,6 +419,10 @@ def get_upload(event: Any, context: Any) -> dict:
     if not upload_data:
         raise NotFound('Upload not found')
 
+    # Verify the authenticated user owns this upload
+    if upload_data.get('uploaded_by') != user['userRef']:
+        raise Forbidden('Access denied')
+
     logger.info(f'Retrieved upload status for id: {upload_id}')
 
     return {
@@ -490,8 +494,9 @@ def list_user_uploads(event: Any, context: Any) -> dict:
             logger.info(f"Invalid pagination token: {str(e)}")
             raise BadRequest("Invalid pagination token")
 
-    # Get uploads from repository
-    result = repository.list_uploads(
+    # Get uploads for the authenticated user only
+    result = repository.list_uploads_by_user(
+        user['userRef'],
         limit=limit,
         last_evaluated_key=last_evaluated_key
     )

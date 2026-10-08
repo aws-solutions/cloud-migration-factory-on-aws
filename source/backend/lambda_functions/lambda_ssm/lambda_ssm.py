@@ -158,6 +158,7 @@ def filter_cmf_automation_servers(ssm_managed_instances):
 
     return mi_list
 
+
 def is_direct_ssm_automation(script_data):
     return (
         "compute_platform" in script_data and 
@@ -292,6 +293,22 @@ def create_automation_job(ssm_data, auth_response):
         ssm_data_copy = copy.deepcopy(ssm_data)
 
         parse_script_args(ssm_data_copy["script"]["script_arguments"])
+
+        # Validate that the requested mi_id is a CMF-tagged automation server.
+        # Reuses get_cmf_automation_servers() so tag-check logic stays in one place.
+        # Skipped for direct SSM automation jobs which have no mi_id.
+        if not is_direct_ssm_automation(ssm_data['script']):
+            mi_id = ssm_data["script"]["script_arguments"]["mi_id"]
+            allowed_servers = get_cmf_automation_servers()
+            allowed_mi_ids = {s["mi_id"] for s in allowed_servers}
+            if mi_id not in allowed_mi_ids:
+                error_msg = (
+                    f"mi_id '{mi_id}' is not a CMF automation server. "
+                    "Only instances tagged role=mf_automation may be targeted."
+                )
+                logger.error(f"SSM: POST: create_automation_job: {error_msg}")
+                return {'headers': {**default_http_headers},
+                        'statusCode': 400, 'body': error_msg}
 
         if is_direct_ssm_automation(ssm_data['script']):
             ''' SSM API call for direct SSM execution '''

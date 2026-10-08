@@ -8,7 +8,7 @@ from json import JSONEncoder
 import datetime
 
 import cmf_boto
-from cmf_utils import cors, default_http_headers
+from cmf_utils import cors, default_http_headers, is_admin_request, create_admin_forbidden_response
 from cmf_logger import logger, log_event_received
 
 
@@ -38,6 +38,11 @@ def get_user_groups(client, username):
 
 def lambda_handler(event, _):
     log_event_received(event)
+
+    # Defense-in-depth: independently verify the caller is an admin.
+    if event.get('httpMethod') and not is_admin_request(event):
+        logger.error('Access denied: caller is not a member of the admin group')
+        return create_admin_forbidden_response()
 
     client = cmf_boto.client('cognito-idp')
     response = client.list_users(

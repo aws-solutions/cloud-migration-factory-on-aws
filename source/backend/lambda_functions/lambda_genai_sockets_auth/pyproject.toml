@@ -5,9 +5,11 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-PyJWT = {extras = ["crypto"], version = "2.13.0"}
+python-jose = {extras = ["cryptography"], version = "^3.5.0"}
 # Transitive pin: mitigate CVE-2026-69247 PKCS#7 Bleichenbacher oracle (fixed in 50.0.0); caret caps below next major
 cryptography = "^50.0.0"
+# Transitive pin (via python-jose, rsa): mitigate CVE-2026-59884/59885/59886 ASN.1 decoder DoS (fixed in 0.6.4)
+pyasn1 = ">=0.6.4"
 
 [build-system]
 requires = ["poetry-core"]

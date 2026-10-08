@@ -7,7 +7,7 @@ import os
 
 import cmf_boto
 from cmf_logger import logger, log_event_received
-from cmf_utils import cors
+from cmf_utils import cors, is_admin_request, create_admin_forbidden_response
 
 default_http_headers = {
     'Access-Control-Allow-Origin': cors,
@@ -18,6 +18,11 @@ default_http_headers = {
 
 def lambda_handler(event, _):
     log_event_received(event)
+
+    # Defense-in-depth: independently verify the caller is an admin.
+    if event.get('httpMethod') and not is_admin_request(event):
+        logger.error('Access denied: caller is not a member of the admin group')
+        return create_admin_forbidden_response()
 
     client = cmf_boto.client('cognito-idp')
     response = client.list_groups(

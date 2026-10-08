@@ -5,10 +5,12 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-urllib3 = ">=2.6.3"
+urllib3 = ">=2.7.0"
 requests = "==2.32.4"
-PyJWT = {extras = ["crypto"], version = "2.10.1"}
+PyJWT = {extras = ["crypto"], version = "2.13.0"}
 simplejson = "==3.20.1"
+# Transitive pin: mitigate CVE-2026-69247 PKCS#7 Bleichenbacher oracle (fixed in 50.0.0); caret caps below next major
+cryptography = "^50.0.0"
 
 [build-system]
 requires = ["poetry-core"]

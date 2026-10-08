@@ -2,6 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import sys
+import re
 import requests
 import json
 import getpass
@@ -283,8 +284,16 @@ def group_servers_by_account(servers, os_split, waveid, log_error = print):
             msg = f"{ERROR_MSG_PREFIX} server_fqdn for server: {server['server_name']} doesn't exist"
             log_error(msg)
             errors.append(msg)
-            continue            
-            
+            continue
+
+        try:
+            validate_server_fqdn(server['server_fqdn'])
+        except ValueError as e:
+            msg = f"{ERROR_MSG_PREFIX} {e}"
+            log_error(msg)
+            errors.append(msg)
+            continue
+
         account_key = (str(server['aws_accountid']).strip(), server['aws_region'].lower().strip())
         
         if account_key not in accounts_dict:
@@ -400,6 +409,31 @@ def get_factory_servers(waveid, token, app_ids=None, server_ids=None, os_split=T
 
 def clean_value(value):
     return value.lower().strip()
+
+
+# Strict FQDN/hostname regex: labels separated by dots, each label starts and
+# ends with alphanumeric, may contain hyphens, max 63 chars per label.
+# Also allows bare IPv4 addresses (digits and dots only).
+_FQDN_REGEX = re.compile(
+    r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?'
+    r'(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$'
+)
+
+
+def validate_server_fqdn(fqdn):
+    """Validate that fqdn contains only safe hostname/FQDN characters.
+
+    Prevents command injection when server_fqdn is interpolated into
+    PowerShell or SSH command strings.
+
+    Raises:
+        ValueError: If fqdn contains characters outside [a-zA-Z0-9.-]
+    """
+    if not fqdn or not _FQDN_REGEX.match(fqdn):
+        raise ValueError(
+            f"Invalid server_fqdn: {fqdn!r}. "
+            "Must be a valid hostname, FQDN, or IPv4 address."
+        )
 
 
 def is_cmf_server_match_for_mgn_ip_address(interface, cmf_server):
@@ -601,6 +635,7 @@ def add_windows_servers_to_trusted_hosts(cmf_servers):
     # Get all servers FQDNs into csv for trusted hosts update.
     trusted_hosts_server_csv = ""
     for server in cmf_servers:
+        validate_server_fqdn(server["server_fqdn"])
         trusted_hosts_server_csv = trusted_hosts_server_csv + server["server_fqdn"] + ','
 
     trusted_hosts_server_csv = trusted_hosts_server_csv[:-1]

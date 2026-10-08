@@ -7,7 +7,7 @@ import json
 
 import cmf_boto
 from cmf_logger import logger, log_event_received
-from cmf_utils import cors, default_http_headers
+from cmf_utils import cors, default_http_headers, is_admin_request, create_admin_forbidden_response
 
 application = os.environ['application']
 environment = os.environ['environment']
@@ -113,6 +113,13 @@ def get_next_id(ids: list[int]):
 
 def lambda_handler(event, _):
     log_event_received(event)
+
+    # Defense-in-depth: independently verify the caller is an admin, in addition
+    # to the API Gateway authorizer, so an authorizer misconfiguration cannot
+    # silently expose this admin-only endpoint.
+    if event.get('httpMethod') and not is_admin_request(event):
+        logger.error('Access denied: caller is not a member of the admin group')
+        return create_admin_forbidden_response()
 
     if event['httpMethod'] == 'GET':
         logger.info('GET')
