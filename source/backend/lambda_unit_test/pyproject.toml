@@ -5,7 +5,7 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-urllib3 = ">=2.6.3"
+urllib3 = ">=2.7.0"
 requests = "==2.32.4"
 simplejson = "==3.20.1"
 boto3 = "^1.37.6"
@@ -17,10 +17,14 @@ PyYAML = "==6.0.2"
 pyparsing = "==3.2.1"
 docker = "==7.1.0"
 aws-lambda-powertools = {extras = ["aws-sdk", "validation"], version = ">=3.7.0"}
-PyJWT = {extras = ["crypto"], version = "2.10.1"}
+PyJWT = {extras = ["crypto"], version = "2.13.0"}
 joserfc = "~=1.0.4"
 mypy-boto3-dynamodb = ">=1.37.0"
 python-jose = {extras = ["cryptography"], version = "^3.5.0"}
+# Transitive pin: mitigate CVE-2026-69247 PKCS#7 Bleichenbacher oracle (fixed in 50.0.0); caret caps below next major
+cryptography = "^50.0.0"
+# Transitive pin (via python-jose, rsa): mitigate CVE-2026-59884/59885/59886 ASN.1 decoder DoS (fixed in 0.6.4)
+pyasn1 = ">=0.6.4"
 python-ulid = "^3.0.0"
 defusedxml = "^0.7.1"
 

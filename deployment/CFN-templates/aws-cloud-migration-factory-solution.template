@@ -105,8 +105,8 @@ Parameters:
 
   DeploymentType:
     Type: String
-    Description: 'What type of deployment do you require? (Public (default): all CMF endpoints are publicly accessible with user authentication. Public with WAF: access to CMF endpoints is restricted to customisable CIDR ranges. Private: all CMF endpoints are accessible only from your VPC networks and the CMF Web UI must be hosted on a private web server deployed separately.)'
-    Default: Default (Public)
+    Description: 'What type of deployment do you require? (Public: all CMF endpoints are publicly accessible with user authentication. Public with WAF: access to CMF endpoints is restricted to customisable CIDR ranges. Private: all CMF endpoints are accessible only from your VPC networks and the CMF Web UI must be hosted on a private web server deployed separately.)'
+    Default: Public with WAF
     AllowedValues: [ Default (Public), Public with WAF, Private ]
 
   WebURL:
@@ -144,6 +144,28 @@ Parameters:
     Description: Deploy Bedrock guardrail for AI features?
     Default: true
     AllowedValues: [ true, false ]
+
+Rules:
+  # 'Public with WAF' builds a WAFv2 IPSet from SourceCIDR (see WAFBEStack and
+  # CrossRegionWAFDeployer, both gated on the DeployWAF condition). An empty SourceCIDR
+  # produces an IPSet with no valid address, which fails part-way through stack creation
+  # after other resources already exist. Reject it before any resource is created instead.
+  # SourceCIDR stays optional for the deployment types that never create a WAF.
+  SourceCIDRRequiredForPublicWithWAF:
+    RuleCondition:
+      Fn::Equals:
+        - !Ref DeploymentType
+        - 'Public with WAF'
+    Assertions:
+      - Assert:
+          Fn::Not:
+            - Fn::Contains:
+                - !Ref SourceCIDR
+                - ''
+        AssertDescription: >-
+          Deployment type 'Public with WAF' requires SourceCIDR to be set. Enter the public
+          IPv4 CIDR ranges that your users and automation server connect from, for example
+          192.0.2.0/24, 198.51.100.0/24.
 
 Mappings:
   Send:
@@ -2632,16 +2654,6 @@ Resources:
       RestApiId: !Ref AdminAPI
       Type: REQUEST
 
-  AdminGetAuthorizer:
-    Type: AWS::ApiGateway::Authorizer
-    Properties:
-      IdentitySource: method.request.header.Authorization
-      Name: !Sub ${Application}-${Environment}-AdminAPIGet-Authorizer
-      ProviderARNs:
-        - !GetAtt CognitoUserPool.Arn
-      RestApiId: !Ref AdminAPI
-      Type: COGNITO_USER_POOLS
-
   AdminAPIDeploy:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
@@ -2735,8 +2747,8 @@ Resources:
       RestApiId: !Ref AdminAPI
       ResourceId: !Ref APIResourceAdminUsers
       HttpMethod: "GET"
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref AdminGetAuthorizer
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
       RequestValidatorId: !Ref AdminAPIRequestValidator
       MethodResponses:
         - StatusCode: '200'
@@ -2939,8 +2951,8 @@ Resources:
       RestApiId: !Ref AdminAPI
       ResourceId: !Ref APIResourceAdminRole
       HttpMethod: "GET"
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref AdminGetAuthorizer
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
       RequestValidatorId: !Ref AdminAPIRequestValidator
       MethodResponses:
         - StatusCode: '200'
@@ -3022,8 +3034,8 @@ Resources:
       RestApiId: !Ref AdminAPI
       ResourceId: !Ref APIResourceAdminRoleRoleId
       HttpMethod: "GET"
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref AdminGetAuthorizer
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
       RequestValidatorId: !Ref AdminAPIRequestValidator
       RequestModels:
         application/json: !Ref AdminAPIReqValidationModel
@@ -3135,8 +3147,8 @@ Resources:
       RestApiId: !Ref AdminAPI
       ResourceId: !Ref APIResourceAdminSchema
       HttpMethod: "GET"
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref AdminGetAuthorizer
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
       RequestValidatorId: !Ref AdminAPIRequestValidator
       MethodResponses:
         - StatusCode: '200'
@@ -3194,8 +3206,8 @@ Resources:
       RestApiId: !Ref AdminAPI
       ResourceId: !Ref APIResourceAdminSchemaNamed
       HttpMethod: "GET"
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref AdminGetAuthorizer
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
       RequestValidatorId: !Ref AdminAPIRequestValidator
       RequestModels:
         application/json: !Ref AdminAPIReqValidationModel
@@ -3307,8 +3319,8 @@ Resources:
       RestApiId: !Ref AdminAPI
       ResourceId: !Ref APIResourceAdminPolicy
       HttpMethod: "GET"
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref AdminGetAuthorizer
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
       RequestValidatorId: !Ref AdminAPIRequestValidator
       MethodResponses:
         - StatusCode: '200'
@@ -3390,8 +3402,8 @@ Resources:
       RestApiId: !Ref AdminAPI
       ResourceId: !Ref APIResourceAdminPolicyPolicyId
       HttpMethod: "GET"
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref AdminGetAuthorizer
+      AuthorizationType: "CUSTOM"
+      AuthorizerId: !Ref AdminAuthorizer
       RequestValidatorId: !Ref AdminAPIRequestValidator
       RequestModels:
         application/json: !Ref AdminAPIReqValidationModel

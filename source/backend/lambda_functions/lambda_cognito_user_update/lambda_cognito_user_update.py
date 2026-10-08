@@ -9,7 +9,7 @@ import os
 
 import cmf_boto
 from cmf_logger import logger, log_event_received
-from cmf_utils import cors, default_http_headers
+from cmf_utils import cors, default_http_headers, is_admin_request, create_admin_forbidden_response
 
 
 def add_user_to_current_groups(user, current_group_names, client_cognito_idp):
@@ -160,6 +160,11 @@ def update_user(user, client_cognito_idp):
 
 def lambda_handler(event, _):
     log_event_received(event)
+
+    # Defense-in-depth: independently verify the caller is an admin.
+    if event.get('httpMethod') and not is_admin_request(event):
+        logger.error('Access denied: caller is not a member of the admin group')
+        return create_admin_forbidden_response()
 
     client_cognito_idp = cmf_boto.client('cognito-idp')
     body = json.loads(event['body'])

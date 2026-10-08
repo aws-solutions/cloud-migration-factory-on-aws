@@ -7,7 +7,7 @@ import simplejson as json
 from datetime import datetime, timezone
 
 import cmf_boto
-from cmf_utils import cors, default_http_headers
+from cmf_utils import cors, default_http_headers, is_admin_request, create_admin_forbidden_response
 from cmf_logger import logger, log_event_received
 
 application = os.environ['application']
@@ -120,6 +120,11 @@ def update_administrator_policy_attribute(schema_name: str, attr_name: str):
 
 def lambda_handler(event, _):
     log_event_received(event)
+
+    # Defense-in-depth: independently verify the caller is an admin.
+    if event.get('httpMethod') and not is_admin_request(event):
+        logger.error('Access denied: caller is not a member of the admin group')
+        return create_admin_forbidden_response()
 
     if event['pathParameters'] is None or 'schema_name' not in event['pathParameters']:
         if event['httpMethod'] != 'GET':

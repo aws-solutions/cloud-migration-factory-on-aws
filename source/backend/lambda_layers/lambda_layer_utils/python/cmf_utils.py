@@ -180,3 +180,115 @@ def publish_event(notification: NotificationType, events_client: boto3.client, e
 
     except botocore.exceptions.ClientError as e:
         logger.error(f"EventBridge error occurred while publishing event: {str(e)}")
+
+
+# Cognito group that grants administrative access to the Admin API resources.
+ADMIN_COGNITO_GROUP = 'admin'
+
+
+def _extract_cognito_groups(event):
+    """
+    Extract the caller's Cognito group names from an API Gateway proxy event,
+    supporting both authorizer styles used by this solution:
+
+    - CUSTOM (Lambda REQUEST) authorizer: groups are propagated in the
+      authorizer context under 'cognito:groups' as a comma-separated string
+      (e.g. 'admin,readonly').
+    - COGNITO_USER_POOLS authorizer: groups are available in the token claims
+      under authorizer['claims']['cognito:groups']. API Gateway renders this
+      multi-valued claim as a bracketed, space-separated string
+      (e.g. '[admin readonly]'), not a comma-separated one.
+
+    Returns:
+        list[str]: The group names, or an empty list if none could be found.
+    """
+    authorizer = (event.get('requestContext', {}) or {}).get('authorizer', {}) or {}
+
+    # Custom authorizer context (string values only).
+    groups = authorizer.get('cognito:groups')
+
+    # Fall back to Cognito user pool authorizer claims.
+    if groups is None:
+        claims = authorizer.get('claims', {}) or {}
+        groups = claims.get('cognito:groups')
+
+    if groups is None:
+        return []
+
+    if isinstance(groups, str):
+        # Normalize both formats seen in practice: the custom authorizer's
+        # comma-separated string, and the Cognito user-pool claim's
+        # bracketed, space-separated string.
+        normalized = groups.strip().lstrip('[').rstrip(']')
+        tokens = normalized.replace(',', ' ').split()
+        return [g for g in (t.strip() for t in tokens) if g]
+
+    if isinstance(groups, list):
+        return [str(g).strip() for g in groups if str(g).strip()]
+
+    return []
+
+
+def is_admin_request(event):
+    """
+    Independently verify that the caller of an Admin API request is a member of
+    the administrative Cognito group.
+
+    This is a defense-in-depth check performed inside the Lambda itself, in
+    addition to the API Gateway authorizer, so that a realistic authorizer
+    misconfiguration (for example wiring an admin route to a plain Cognito
+    user-pool authorizer, or weakening the custom authorizer's group check)
+    cannot silently expose admin-only functionality: in those cases the caller's
+    group membership is still present in the request and is re-checked here.
+
+    A request that arrived through API Gateway but carries no authorizer
+    context fails closed. That is precisely the shape of the misconfiguration
+    this check exists to contain - a route wired with AuthorizationType: NONE,
+    or an authorizer that attaches no context - so allowing it would defeat the
+    purpose of the check.
+
+    Direct Lambda-to-Lambda invocations are still permitted, because trusted
+    internal callers must not be blocked. These are distinguished by the
+    absence of requestContext entirely: API Gateway always populates
+    requestContext on a proxy event, whereas an internal caller passes only the
+    fields it needs. httpMethod is deliberately NOT used to make this
+    distinction, because internal callers synthesise it - lambda_ssm_scripts
+    invokes lambda_schema with {'httpMethod': 'PUT', ...} and no
+    requestContext, and must keep working.
+
+    Args:
+        event: API Gateway proxy event, or an internally synthesised event.
+
+    Returns:
+        bool: True if the caller is an admin or is a trusted internal caller;
+              False if the request reached API Gateway without authorizer
+              context, or has context that lacks admin group membership.
+    """
+    request_context = event.get('requestContext') or {}
+    if not request_context:
+        # No requestContext at all: direct Lambda-to-Lambda or other non-HTTP
+        # invocation that never traversed API Gateway.
+        return True
+
+    if not request_context.get('authorizer'):
+        # Came through API Gateway but no authorizer context was attached.
+        return False
+
+    return ADMIN_COGNITO_GROUP in _extract_cognito_groups(event)
+
+
+def create_admin_forbidden_response():
+    """
+    Standardized HTTP 403 response for Admin API requests made by a caller that
+    is not a member of the administrative Cognito group.
+
+    Returns:
+        dict: API Gateway proxy response with a 403 status code.
+    """
+    return {
+        'headers': {**default_http_headers},
+        'statusCode': 403,
+        'body': json.dumps({
+            'errors': ['User is not authorized to perform this administrative action.']
+        })
+    }

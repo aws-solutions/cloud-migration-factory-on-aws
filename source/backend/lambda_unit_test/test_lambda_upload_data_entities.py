@@ -103,7 +103,7 @@ class LambdaUploadDataEntitiesTest(unittest.TestCase):
             'data_source_id': 'test-source',
             '_history': mock_audit_history(),
         }
-        self.mock_repository.list_uploads.return_value = {
+        self.mock_repository.list_uploads_by_user.return_value = {
             'items': [
                 {
                     'upload_id': 'test-upload-1',
@@ -680,7 +680,7 @@ class LambdaUploadDataEntitiesTest(unittest.TestCase):
         mock_auth.get_user_policy.return_value = mock_get_user_policy_success()
         mock_auth_class.return_value = mock_auth
         
-        mock_repository.list_uploads.return_value = {
+        mock_repository.list_uploads_by_user.return_value = {
             'items': [
                 {
                     'upload_id': 'test-upload-1',
@@ -787,7 +787,7 @@ class LambdaUploadDataEntitiesTest(unittest.TestCase):
         mock_auth.get_user_policy.return_value = mock_get_user_policy_success()
         mock_auth_class.return_value = mock_auth
         
-        mock_repository.list_uploads.side_effect = Exception('Database error')
+        mock_repository.list_uploads_by_user.side_effect = Exception('Database error')
         
         # Import and test
         import lambda_upload_data_entities
@@ -811,7 +811,7 @@ class LambdaUploadDataEntitiesTest(unittest.TestCase):
         mock_auth_class.return_value = mock_auth
         
         # Return invalid response (not a dict)
-        mock_repository.list_uploads.return_value = "invalid response"
+        mock_repository.list_uploads_by_user.return_value = "invalid response"
         
         # Import and test
         import lambda_upload_data_entities
@@ -835,7 +835,7 @@ class LambdaUploadDataEntitiesTest(unittest.TestCase):
         mock_auth_class.return_value = mock_auth
         
         # Return response missing required fields
-        mock_repository.list_uploads.return_value = {
+        mock_repository.list_uploads_by_user.return_value = {
             'items': [],
             # Missing 'count'
         }
@@ -861,7 +861,7 @@ class LambdaUploadDataEntitiesTest(unittest.TestCase):
         mock_auth.get_user_policy.return_value = mock_get_user_policy_success()
         mock_auth_class.return_value = mock_auth
         
-        mock_repository.list_uploads.return_value = {
+        mock_repository.list_uploads_by_user.return_value = {
             'items': [
                 {
                     'upload_id': 'test-upload-1',
@@ -900,8 +900,8 @@ class LambdaUploadDataEntitiesTest(unittest.TestCase):
         self.assertEqual(response_body['count'], 1)
         
         # Verify repository was called with correct limit
-        mock_repository.list_uploads.assert_called_once()
-        call_args = mock_repository.list_uploads.call_args
+        mock_repository.list_uploads_by_user.assert_called_once()
+        call_args = mock_repository.list_uploads_by_user.call_args
         self.assertEqual(call_args.kwargs['limit'], 25)
 
     @patch('lambda_upload_data_entities.repository', new_callable=lambda: MagicMock())
@@ -913,7 +913,7 @@ class LambdaUploadDataEntitiesTest(unittest.TestCase):
         mock_auth.get_user_policy.return_value = mock_get_user_policy_success()
         mock_auth_class.return_value = mock_auth
         
-        mock_repository.list_uploads.return_value = {
+        mock_repository.list_uploads_by_user.return_value = {
             'items': [
                 {
                     'upload_id': 'test-upload-1',
@@ -966,7 +966,7 @@ class LambdaUploadDataEntitiesTest(unittest.TestCase):
         mock_auth_class.return_value = mock_auth
         
         # Return response with invalid items type
-        mock_repository.list_uploads.return_value = {
+        mock_repository.list_uploads_by_user.return_value = {
             'items': 'not a list',  # Should be a list
             'count': 0
         }
@@ -992,7 +992,7 @@ class LambdaUploadDataEntitiesTest(unittest.TestCase):
         mock_auth.get_user_policy.return_value = mock_get_user_policy_success()
         mock_auth_class.return_value = mock_auth
         
-        mock_repository.list_uploads.return_value = {
+        mock_repository.list_uploads_by_user.return_value = {
             'items': [],
             'count': 0
         }
@@ -1074,3 +1074,74 @@ class LambdaUploadDataEntitiesTest(unittest.TestCase):
         expected_diff = 5 * 60 * 60  # 5 hours in seconds
         self.assertAlmostEqual(time_diff, expected_diff, delta=1)
 
+
+    @patch('lambda_upload_data_entities.repository', new_callable=lambda: MagicMock())
+    @patch('lambda_upload_data_entities.MFAuth')
+    def test_get_upload_forbidden_for_different_user(self, mock_auth_class, mock_repository):
+        """FINDING-0006: Verify get_upload returns 403 when user doesn't own the upload."""
+        # Setup mocks - user is 'test-user' but upload belongs to 'other-user'
+        mock_auth = MagicMock()
+        mock_auth.get_user_policy.return_value = mock_get_user_policy_success()
+        mock_auth_class.return_value = mock_auth
+
+        mock_repository.get_upload_record.return_value = {
+            'upload_id': 'test-upload-id',
+            'filename': 'test.json',
+            'status': 'complete',
+            'uploaded_by': 'arn:aws:iam::123456789012:user/other-user',  # Different user!
+            'file_size': 1024,
+            'total_entities': 100,
+            'data_source_id': 'test-source',
+            '_history': mock_audit_history(),
+        }
+
+        # Import and test
+        import lambda_upload_data_entities
+        lambda_upload_data_entities.repository = mock_repository
+
+        result = lambda_upload_data_entities.lambda_handler(self.get_upload_event, self.context)
+
+        # Assertions - should be 403 Forbidden
+        self.assertEqual(result['statusCode'], 403)
+        response_body = json.loads(result['body'])
+        self.assertIn('errors', response_body)
+
+    @patch('lambda_upload_data_entities.repository', new_callable=lambda: MagicMock())
+    @patch('lambda_upload_data_entities.MFAuth')
+    def test_list_uploads_calls_list_uploads_by_user(self, mock_auth_class, mock_repository):
+        """FINDING-0006: Verify list_user_uploads calls list_uploads_by_user with the authenticated user's ref."""
+        mock_auth = MagicMock()
+        mock_auth.get_user_policy.return_value = mock_get_user_policy_success()
+        mock_auth_class.return_value = mock_auth
+
+        mock_repository.list_uploads_by_user.return_value = {
+            'items': [
+                {
+                    'upload_id': 'test-upload-1',
+                    'status': 'complete',
+                    'uploaded_by': 'arn:aws:iam::123456789012:user/test-user',
+                    'filename': 'test.json',
+                    'file_size': 1024,
+                    'total_entities': 100,
+                    'data_source_id': 'test-source',
+                    '_history': mock_audit_history(),
+                }
+            ],
+            'count': 1
+        }
+
+        # Import and test
+        import lambda_upload_data_entities
+        lambda_upload_data_entities.repository = mock_repository
+
+        result = lambda_upload_data_entities.lambda_handler(self.list_uploads_event, self.context)
+
+        # Assertions
+        self.assertEqual(result['statusCode'], 200)
+        # Verify it called list_uploads_by_user (not list_uploads)
+        mock_repository.list_uploads_by_user.assert_called_once_with(
+            'arn:aws:iam::123456789012:user/test-user',
+            limit=10,
+            last_evaluated_key=None
+        )
+        mock_repository.list_uploads.assert_not_called()

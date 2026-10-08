@@ -7,7 +7,7 @@ import json
 
 import cmf_boto
 from cmf_logger import logger, log_event_received
-from cmf_utils import cors, default_http_headers
+from cmf_utils import cors, default_http_headers, is_admin_request, create_admin_forbidden_response
 
 application = os.environ['application']
 environment = os.environ['environment']
@@ -186,6 +186,11 @@ def process_delete(event):
 
 def lambda_handler(event, _):
     log_event_received(event)
+
+    # Defense-in-depth: independently verify the caller is an admin.
+    if event.get('httpMethod') and not is_admin_request(event):
+        logger.error('Access denied: caller is not a member of the admin group')
+        return create_admin_forbidden_response()
 
     logger.info(event['httpMethod'])
     if event['httpMethod'] == 'GET':
