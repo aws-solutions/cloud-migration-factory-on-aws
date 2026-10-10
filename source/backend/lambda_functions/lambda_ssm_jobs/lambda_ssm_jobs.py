@@ -115,7 +115,7 @@ def process_get(event):
     else:
         response = table.scan()
 
-    if response["Count"] == 0:
+    if response["Count"] == 0 and 'LastEvaluatedKey' not in response:
         return {
             'headers': {**default_http_headers},
             'body': json.dumps([])
@@ -137,6 +137,12 @@ def process_get(event):
         else:
             response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
         ssm_jobs.extend(response['Items'])
+
+    if not ssm_jobs:
+        return {
+            'headers': {**default_http_headers},
+            'body': json.dumps([])
+        }
 
     # Scan all jobs with a RUNNING status and check that timeout has not been breached.
     for ssm_data in ssm_jobs:
