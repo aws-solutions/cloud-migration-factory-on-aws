@@ -12,8 +12,9 @@ from cmf_logger import logger, log_event_received
 from cmf_utils import default_http_headers, convert_floats_to_decimal
 from shared.items.common import (
     get_schema_info, get_data_table, is_iam_request, create_error_response,
-    parse_json_body, validate_s3_format, get_auth_response, get_auth_response_for_deletion,
-    create_auth_error_response, JsonEncoder, PREFIX_INVOCATION, update_audit_trail,
+    parse_json_body, validate_s3_format, resolve_verified_auth_info, get_auth_response,
+    get_auth_response_for_deletion, create_auth_error_response, JsonEncoder,
+    PREFIX_INVOCATION, update_audit_trail,
 )
 
 SUFFIX_DOESNT_EXIST = 'does not exist'
@@ -190,24 +191,30 @@ def handle_s3_bulk_import_request(event: Any, data_table: Any, schema_name: str,
         dict: HTTP response with update results and any errors
     """
     logger.info(f'{PREFIX_INVOCATION} {logging_context}, Processing IAM-authenticated S3 import PUT request')
-    
-    body = parse_json_body(event, logging_context)
-    event['requestContext']['authorizer'] = body.get("auth_info", {})
 
+    body = parse_json_body(event, logging_context)
     if isinstance(body, dict) and 'statusCode' in body:
         return body
-    
+
     if not validate_s3_format(body):
         return create_error_response(400, json.dumps({'errors': ['Invalid S3 import format']}))
-    
+
+    # Resolve the authorizer context from the trusted upload record (server-verified),
+    # never from the caller-supplied request body (CWE-290/CWE-287/CWE-639).
+    auth_info = resolve_verified_auth_info(body.get('upload_id'), logging_context)
+    if auth_info is None:
+        return create_auth_error_response(
+            {'action': 'deny', 'cause': 'Unauthorised S3 import request'}, logging_context)
+    event['requestContext']['authorizer'] = auth_info
+
     logger.info(f'{PREFIX_INVOCATION} {logging_context}, Processing {len(body["data"])} items')
-    
+
     # Perform bulk authorization check
-    bulk_auth_event = create_bulk_auth_event(body['data'], schema_name, body.get("auth_info", {}))
+    bulk_auth_event = create_bulk_auth_event(body['data'], schema_name, auth_info)
     auth_response = get_auth_response(bulk_auth_event, schema_name)
     if auth_response['action'] != 'allow':
         return create_auth_error_response(auth_response, logging_context)
-    
+
     # Process all items with pre-approved authorization
     results = []
     for item in body['data']:
@@ -216,7 +223,7 @@ def handle_s3_bulk_import_request(event: Any, data_table: Any, schema_name: str,
                 'pathParameters': {'id': item[f'{schema_name}_id']},
                 'body': json.dumps(item),
                 'requestContext': {
-                    'authorizer': body.get("auth_info", {})
+                    'authorizer': auth_info
                 }
             }
             result = update_item_with_validation(item_event, data_table, schema_name, schema, auth_response, logging_context)

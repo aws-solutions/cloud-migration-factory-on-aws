@@ -18,6 +18,13 @@ environment = os.environ['environment']
 schema_table_name = '{}-{}-schema'.format(application, environment)
 schema_table = cmf_boto.resource('dynamodb').Table(schema_table_name)
 
+# Upload tracking table. The authoritative, server-verified Cognito authorizer
+# context for an S3 import is persisted here by the Cognito-authenticated upload
+# Lambda (lambda_upload_data_entities). It is the only trusted source of identity
+# for the IAM/S3 bulk-import path.
+upload_table_name = '{}-{}-upload-entities-metadata'.format(application, environment)
+upload_table = cmf_boto.resource('dynamodb').Table(upload_table_name)
+
 PREFIX_INVOCATION = 'Invocation:'
 
 
@@ -151,16 +158,61 @@ def validate_s3_format(body):
     """
     Validate that the request body has the expected S3 import format.
     
-    S3 import requests must have 'user' and 'data' fields where 'data'
-    contains the array of items to create/update.
-    
+    S3 import requests must have 'upload_id' and 'data' fields where 'data'
+    contains the array of items to create/update. The caller-supplied body must
+    NOT carry identity/claims (auth_info) - those are resolved server-side from
+    the trusted upload tracking record via resolve_verified_auth_info().
+
     Args:
         body: Parsed JSON body
-        
+
     Returns:
         bool: True if valid S3 format, False otherwise
     """
-    return isinstance(body, dict) and 'auth_info' in body and 'data' in body
+    return (isinstance(body, dict)
+            and isinstance(body.get('upload_id'), str) and body['upload_id']
+            and 'data' in body)
+
+
+def resolve_verified_auth_info(upload_id, logging_context):
+    """
+    Resolve the server-verified Cognito authorizer context for an S3 import.
+
+    The identity used to authorise a bulk import is read from the trusted upload
+    tracking table (written only by the Cognito-authenticated upload Lambda),
+    keyed by the upload_id reference supplied in the request body. This prevents
+    callers of the IAM/S3 import path from supplying (spoofing) their own claims
+    in the request body (CWE-290 / CWE-287 / CWE-639).
+
+    Args:
+        upload_id: The upload tracking id referenced by the import request
+        logging_context: Context string for logging
+
+    Returns:
+        dict: The stored authorizer context ({'claims': {...}}) if found and
+              well-formed, otherwise None.
+    """
+    if not upload_id or not isinstance(upload_id, str):
+        logger.error(f'{PREFIX_INVOCATION} {logging_context}, Missing or invalid upload_id for S3 import')
+        return None
+
+    try:
+        response = upload_table.get_item(Key={'upload_id': upload_id})
+    except Exception as e:
+        logger.error(f'{PREFIX_INVOCATION} {logging_context}, Error reading upload record {upload_id}: {str(e)}')
+        return None
+
+    record = response.get('Item')
+    if not record:
+        logger.error(f'{PREFIX_INVOCATION} {logging_context}, Upload record not found for upload_id: {upload_id}')
+        return None
+
+    auth_info = record.get('auth_info')
+    if not isinstance(auth_info, dict) or not auth_info.get('claims'):
+        logger.error(f'{PREFIX_INVOCATION} {logging_context}, Upload record {upload_id} has no verified auth_info')
+        return None
+
+    return auth_info
 
 
 def get_auth_response(event, schema_name):

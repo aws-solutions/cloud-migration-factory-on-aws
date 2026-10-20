@@ -117,27 +117,76 @@ class CommonItemsTest(LambdaItemCommonTest):
 
     def test_validate_s3_format_valid(self):
         from shared.items.common import validate_s3_format
-        body = {'auth_info': 'anything', 'data': [{'item': 'value'}]}
-        
+        body = {'upload_id': 'upload-123', 'data': [{'item': 'value'}]}
+
         self.assertTrue(validate_s3_format(body))
 
-    def test_validate_s3_format_invalid_missing_user(self):
+    def test_validate_s3_format_invalid_missing_upload_id(self):
         from shared.items.common import validate_s3_format
         body = {'data': [{'item': 'value'}]}
-        
+
+        self.assertFalse(validate_s3_format(body))
+
+    def test_validate_s3_format_invalid_auth_info_in_body_not_accepted(self):
+        # Caller-supplied auth_info must not satisfy the format check; identity
+        # is resolved server-side from the upload record, never from the body.
+        from shared.items.common import validate_s3_format
+        body = {'auth_info': {'claims': {'cognito:groups': 'admin'}}, 'data': [{'item': 'value'}]}
+
+        self.assertFalse(validate_s3_format(body))
+
+    def test_validate_s3_format_invalid_empty_upload_id(self):
+        from shared.items.common import validate_s3_format
+        body = {'upload_id': '', 'data': [{'item': 'value'}]}
+
         self.assertFalse(validate_s3_format(body))
 
     def test_validate_s3_format_invalid_missing_data(self):
         from shared.items.common import validate_s3_format
-        body = {'user': 'test-user'}
-        
+        body = {'upload_id': 'upload-123'}
+
         self.assertFalse(validate_s3_format(body))
 
     def test_validate_s3_format_invalid_not_dict(self):
         from shared.items.common import validate_s3_format
         body = "not a dict"
-        
+
         self.assertFalse(validate_s3_format(body))
+
+    def test_resolve_verified_auth_info_returns_stored_claims(self):
+        import test_common_utils
+        from shared.items.common import resolve_verified_auth_info, upload_table_name
+        stored = {'claims': {'cognito:username': 'alice', 'cognito:groups': 'admin',
+                             'email': 'alice@example.com'}}
+        test_common_utils.create_and_populate_upload_entities_metadata(
+            self.ddb_client, upload_table_name,
+            records=[{'upload_id': 'upload-abc', 'auth_info': stored, 'status': 'pending'}])
+
+        result = resolve_verified_auth_info('upload-abc', 'app:PUT')
+
+        self.assertEqual(stored, result)
+
+    def test_resolve_verified_auth_info_unknown_upload_id(self):
+        import test_common_utils
+        from shared.items.common import resolve_verified_auth_info, upload_table_name
+        test_common_utils.create_and_populate_upload_entities_metadata(
+            self.ddb_client, upload_table_name)
+
+        self.assertIsNone(resolve_verified_auth_info('does-not-exist', 'app:PUT'))
+
+    def test_resolve_verified_auth_info_missing_upload_id(self):
+        from shared.items.common import resolve_verified_auth_info
+        self.assertIsNone(resolve_verified_auth_info(None, 'app:PUT'))
+        self.assertIsNone(resolve_verified_auth_info('', 'app:PUT'))
+
+    def test_resolve_verified_auth_info_record_without_claims(self):
+        import test_common_utils
+        from shared.items.common import resolve_verified_auth_info, upload_table_name
+        test_common_utils.create_and_populate_upload_entities_metadata(
+            self.ddb_client, upload_table_name,
+            records=[{'upload_id': 'no-claims', 'auth_info': {}, 'status': 'pending'}])
+
+        self.assertIsNone(resolve_verified_auth_info('no-claims', 'app:PUT'))
 
     def test_json_encoder_decimal(self):
         from shared.items.common import JsonEncoder

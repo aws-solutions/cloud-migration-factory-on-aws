@@ -15,7 +15,8 @@ from cmf_logger import logger, log_event_received
 from cmf_utils import default_http_headers
 from shared.items.common import (
     get_schema_info, get_data_table, is_iam_request, create_error_response,
-    parse_json_body, validate_s3_format, get_auth_response_for_creation as get_auth_response,
+    parse_json_body, validate_s3_format, resolve_verified_auth_info,
+    get_auth_response_for_creation as get_auth_response,
     create_auth_error_response, JsonEncoder, PREFIX_INVOCATION, create_audit_info, normalize_to_list
 )
 from cmf_utils import convert_floats_to_decimal
@@ -219,18 +220,24 @@ def process_s3_post(event: dict, data_table: Any, data_table_name: str, schema, 
     logger.info(f'{PREFIX_INVOCATION} {logging_context}, Processing IAM-authenticated S3 import request')
     
     body = parse_json_body(event, logging_context)
-    event['requestContext']['authorizer'] = body.get("auth_info", {})
+    if isinstance(body, dict) and 'statusCode' in body:
+        return body
+
+    if not validate_s3_format(body):
+        return create_error_response(400, json.dumps({'errors': ['Invalid S3 import format']}))
+
+    # Resolve the authorizer context from the trusted upload record (server-verified),
+    # never from the caller-supplied request body (CWE-290/CWE-287/CWE-639).
+    auth_info = resolve_verified_auth_info(body.get('upload_id'), logging_context)
+    if auth_info is None:
+        return create_auth_error_response(
+            {'action': 'deny', 'cause': 'Unauthorised S3 import request'}, logging_context)
+    event['requestContext']['authorizer'] = auth_info
 
     auth_response = get_auth_response(event, schema_name)
     if auth_response['action'] != 'allow':
         return create_auth_error_response(auth_response, logging_context)
 
-    if isinstance(body, dict) and 'statusCode' in body:
-        return body
-    
-    if not validate_s3_format(body):
-        return create_error_response(400, json.dumps({'errors': ['Invalid S3 import format']}))
-    
     logger.info(f'{PREFIX_INVOCATION} {logging_context}, Processing {len(body["data"])} items for user: {auth_response["user"]}')
     
     try:

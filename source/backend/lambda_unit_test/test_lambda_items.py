@@ -13,7 +13,8 @@ from moto import mock_aws
 from test_lambda_item_common import LambdaItemCommonTest, mock_item_check_valid_item_create_valid, \
     mock_item_check_valid_item_create_in_valid
 from test_common_utils import logger, default_mock_os_environ as mock_os_environ, \
-    mock_get_mf_auth_policy_allow, mock_get_mf_auth_policy_default_deny, mock_get_mf_auth_policy_allow_no_user
+    mock_get_mf_auth_policy_allow, mock_get_mf_auth_policy_default_deny, mock_get_mf_auth_policy_allow_no_user, \
+    create_and_populate_upload_entities_metadata
 
 
 def mock_scan_dynamodb_data_table(table):
@@ -27,6 +28,21 @@ class LambdaItemsTest(LambdaItemCommonTest):
     @mock.patch.dict('os.environ', mock_os_environ)
     def setUp(self) -> None:
         super().setUp()
+        # Upload tracking table holding the server-verified authorizer context
+        # that the S3 bulk-import path resolves by upload_id.
+        self.upload_table_name = f'{os.environ["application"]}-{os.environ["environment"]}-upload-entities-metadata'
+        self.iam_upload_id = 'test-upload-post'
+        self.iam_auth_info = {
+            'claims': {
+                'sub': 'user123',
+                'email': 'testuser@example.com',
+                'cognito:groups': 'admin,users',
+                'cognito:username': 'testuser'
+            }
+        }
+        create_and_populate_upload_entities_metadata(
+            self.ddb_client, self.upload_table_name,
+            records=[{'upload_id': self.iam_upload_id, 'auth_info': self.iam_auth_info, 'status': 'pending'}])
         self.init_event_objects()
     
     def tearDown(self) -> None:
@@ -108,14 +124,7 @@ class LambdaItemsTest(LambdaItemCommonTest):
                 }
             },
             'body': json.dumps({
-                'auth_info': {
-                    'claims': {
-                        'sub': 'user123',
-                        'email': 'testuser@example.com',
-                        'cognito:groups': 'admin,users',
-                        'cognito:username': 'testuser'
-                    }
-                },
+                'upload_id': 'test-upload-post',
                 'data': [
                     {'app_name': 'IAM App 1', 'description': 'Test app 1'},
                     {'app_name': 'IAM App 2', 'description': 'Test app 2'}
@@ -268,11 +277,11 @@ class LambdaItemsTest(LambdaItemCommonTest):
             self.assertEqual('testuser@example.com', item['_history']['createdBy'])
             self.assertIn(item['app_name'], ['IAM App 1', 'IAM App 2'])
 
-    def test_lambda_handler_iam_post_missing_auth_info(self):
-        """Test IAM POST request when auth_info is missing from body"""
+    def test_lambda_handler_iam_post_missing_upload_id(self):
+        """IAM POST without an upload_id reference is rejected as invalid format (400)."""
         import lambda_items
-        
-        event_missing_auth = {
+
+        event_missing_upload_id = {
             'httpMethod': 'POST',
             'pathParameters': {'schema': 'app'},
             'requestContext': {
@@ -284,12 +293,42 @@ class LambdaItemsTest(LambdaItemCommonTest):
                 'data': [{'app_name': 'IAM App 1'}]
             })
         }
-        
-        response = lambda_items.lambda_handler(event_missing_auth, None)
-        
+
+        response = lambda_items.lambda_handler(event_missing_upload_id, None)
+
+        self.assertEqual(lambda_items.default_http_headers, response['headers'])
+        self.assertEqual(400, response['statusCode'])
+
+        body = json.loads(response['body'])
+        self.assertIn('errors', body)
+
+    def test_lambda_handler_iam_post_unknown_upload_id_denied(self):
+        """IAM POST referencing an unknown upload_id cannot resolve verified claims (401).
+
+        Guards the auth-bypass fix: a caller cannot forge identity via the body;
+        claims must come from a real upload record (CWE-290/CWE-287/CWE-639).
+        """
+        import lambda_items
+
+        event_unknown_upload = {
+            'httpMethod': 'POST',
+            'pathParameters': {'schema': 'app'},
+            'requestContext': {
+                'identity': {
+                    'userArn': 'arn:aws:iam::123456789012:user/test-user'
+                }
+            },
+            'body': json.dumps({
+                'upload_id': 'forged-or-unknown',
+                'data': [{'app_name': 'IAM App 1'}]
+            })
+        }
+
+        response = lambda_items.lambda_handler(event_unknown_upload, None)
+
         self.assertEqual(lambda_items.default_http_headers, response['headers'])
         self.assertEqual(401, response['statusCode'])
-        
+
         body = json.loads(response['body'])
         self.assertIn('errors', body)
 
