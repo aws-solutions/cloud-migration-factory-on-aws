@@ -4007,6 +4007,10 @@ Resources:
                   - !Join [ '', [ !GetAtt RoleDynamoDBTable.Arn, '*' ] ]
                   - !Join [ '', [ !GetAtt PolicyDynamoDBTable.Arn, '*' ] ]
                   - !Join [ '', [ !GetAtt AutomationService.Outputs.ScriptsTableArn, '*' ] ]
+                  # Read-only access to the upload tracking table so the S3 bulk-import
+                  # path can resolve server-verified authorizer context by upload_id
+                  # instead of trusting caller-supplied claims (CWE-290/CWE-287/CWE-639).
+                  - !If [ DeployWPM, !Join [ '', [ !GetAtt WPMStack.Outputs.UploadEntitiesMetadataTableArn, '*' ] ], !Ref 'AWS::NoValue' ]
               - Effect: Allow
                 Action:
                   - 'logs:CreateLogGroup'

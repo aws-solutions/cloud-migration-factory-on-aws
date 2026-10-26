@@ -265,7 +265,7 @@ def create_entities(data: WorkflowData, results: ProcessingResults) -> WorkflowD
         # Execute POST operations for all entity types
         failed_entity_ids = execute_create_phase(
             data.processed_creates or {},
-            data.auth_info,
+            data.upload_id,
             results,
             data.schema_cache
         )
@@ -300,7 +300,7 @@ def update_entities(data: WorkflowData, results: ProcessingResults) -> WorkflowD
         # Execute PUT operations for all entity types
         execute_update_phase(
             data.processed_updates or {},
-            data.auth_info,
+            data.upload_id,
             results,
             data.schema_cache
         )

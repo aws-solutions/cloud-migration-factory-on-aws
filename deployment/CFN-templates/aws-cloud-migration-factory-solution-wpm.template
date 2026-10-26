@@ -2476,6 +2476,9 @@ Outputs:
   BucketDataUploads:
     Value: !Ref UploadEntitiesBucket
 
+  UploadEntitiesMetadataTableArn:
+    Value: !GetAtt UploadEntitiesMetadataTable.Arn
+
   DataSourcesDynamoDBTableArn:
     Value: !GetAtt DataSourcesDynamoDBTable.Arn
 

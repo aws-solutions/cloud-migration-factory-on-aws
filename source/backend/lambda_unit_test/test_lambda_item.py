@@ -47,6 +47,21 @@ class LambdaItemTest(LambdaItemCommonTest):
     @mock.patch.dict('os.environ', mock_os_environ)
     def setUp(self) -> None:
         super().setUp()
+        # Upload tracking table holding the server-verified authorizer context
+        # that the S3 bulk-import path resolves by upload_id.
+        self.upload_table_name = f'{os.environ["application"]}-{os.environ["environment"]}-upload-entities-metadata'
+        self.iam_upload_id = 'test-upload-put'
+        self.iam_auth_info = {
+            'claims': {
+                'sub': 'user123',
+                'email': 'testuser@example.com',
+                'cognito:groups': 'admin,users',
+                'cognito:username': 'testuser'
+            }
+        }
+        test_common_utils.create_and_populate_upload_entities_metadata(
+            self.ddb_client, self.upload_table_name,
+            records=[{'upload_id': self.iam_upload_id, 'auth_info': self.iam_auth_info, 'status': 'pending'}])
         self.init_event_objects()
     
     def tearDown(self) -> None:
@@ -192,14 +207,7 @@ class LambdaItemTest(LambdaItemCommonTest):
                 }
             },
             'body': json.dumps({
-                'auth_info': {
-                    'claims': {
-                        'sub': 'user123',
-                        'email': 'testuser@example.com',
-                        'cognito:groups': 'admin,users',
-                        'cognito:username': 'testuser'
-                    }
-                },
+                'upload_id': 'test-upload-put',
                 'data': [
                     {'app_id': '1', 'app_name': 'Updated App 1', 'description': 'Updated'},
                     {'app_id': '2', 'app_name': 'Updated App 2', 'description': 'Updated'}
@@ -403,11 +411,11 @@ class LambdaItemTest(LambdaItemCommonTest):
         body = json.loads(response['body'])
         self.assertIn('errors', body)
 
-    def test_lambda_handler_iam_put_missing_auth_info(self):
-        """Test IAM PUT request when auth_info is missing from body"""
+    def test_lambda_handler_iam_put_missing_upload_id(self):
+        """IAM PUT without an upload_id reference is rejected as invalid format (400)."""
         import lambda_item
-        
-        event_missing_auth = {
+
+        event_missing_upload_id = {
             'httpMethod': 'PUT',
             'pathParameters': {'schema': 'app'},
             'requestContext': {
@@ -419,12 +427,42 @@ class LambdaItemTest(LambdaItemCommonTest):
                 'data': [{'app_id': '1', 'app_name': 'Updated App 1'}]
             })
         }
-        
-        response = lambda_item.lambda_handler(event_missing_auth, None)
-        
+
+        response = lambda_item.lambda_handler(event_missing_upload_id, None)
+
         self.assertEqual(lambda_item.default_http_headers, response['headers'])
         self.assertEqual(400, response['statusCode'])
-        
+
+        body = json.loads(response['body'])
+        self.assertIn('errors', body)
+
+    def test_lambda_handler_iam_put_unknown_upload_id_denied(self):
+        """IAM PUT referencing an unknown upload_id cannot resolve verified claims (401).
+
+        Guards the auth-bypass fix: a caller cannot forge identity via the body;
+        claims must come from a real upload record (CWE-290/CWE-287/CWE-639).
+        """
+        import lambda_item
+
+        event_unknown_upload = {
+            'httpMethod': 'PUT',
+            'pathParameters': {'schema': 'app'},
+            'requestContext': {
+                'identity': {
+                    'userArn': 'arn:aws:iam::123456789012:user/test-user'
+                }
+            },
+            'body': json.dumps({
+                'upload_id': 'forged-or-unknown',
+                'data': [{'app_id': '1', 'app_name': 'Updated App 1'}]
+            })
+        }
+
+        response = lambda_item.lambda_handler(event_unknown_upload, None)
+
+        self.assertEqual(lambda_item.default_http_headers, response['headers'])
+        self.assertEqual(401, response['statusCode'])
+
         body = json.loads(response['body'])
         self.assertIn('errors', body)
 

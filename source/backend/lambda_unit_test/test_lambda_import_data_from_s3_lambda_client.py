@@ -19,7 +19,7 @@ class S3ImportLambdaClientTest(unittest.TestCase):
 
     def setUp(self):
         self.sample_data = [{'app_id': 'test-id', 'app_name': 'TestApp'}]
-        self.auth_info = {'user': 'test-user'}
+        self.upload_id = 'test-upload-id'
 
     @patch('s3_import_lambda_client.lambda_client')
     def test_invoke_lambda_function_post_success(self, mock_lambda_client):
@@ -38,7 +38,7 @@ class S3ImportLambdaClientTest(unittest.TestCase):
         }).encode('utf-8')
         mock_lambda_client.invoke.return_value = mock_response
         
-        result = s3_import_lambda_client.invoke_lambda_function('POST', 'app', self.sample_data, self.auth_info)
+        result = s3_import_lambda_client.invoke_lambda_function('POST', 'app', self.sample_data, self.upload_id)
         
         self.assertTrue(result['success'])
         self.assertEqual(result['status_code'], 200)
@@ -61,7 +61,7 @@ class S3ImportLambdaClientTest(unittest.TestCase):
         }).encode('utf-8')
         mock_lambda_client.invoke.return_value = mock_response
         
-        result = s3_import_lambda_client.invoke_lambda_function('PUT', 'app', self.sample_data, self.auth_info)
+        result = s3_import_lambda_client.invoke_lambda_function('PUT', 'app', self.sample_data, self.upload_id)
         
         self.assertTrue(result['success'])
         self.assertEqual(result['status_code'], 200)
@@ -81,7 +81,7 @@ class S3ImportLambdaClientTest(unittest.TestCase):
         mock_lambda_client.invoke.return_value = mock_response
         
         with self.assertRaises(Exception):
-            s3_import_lambda_client.invoke_lambda_function('POST', 'app', self.sample_data, self.auth_info)
+            s3_import_lambda_client.invoke_lambda_function('POST', 'app', self.sample_data, self.upload_id)
 
     @patch('s3_import_lambda_client.lambda_client')
     def test_invoke_lambda_function_client_error(self, mock_lambda_client):
@@ -98,7 +98,7 @@ class S3ImportLambdaClientTest(unittest.TestCase):
         mock_lambda_client.invoke.return_value = mock_response
         
         with self.assertRaises(Exception):
-            s3_import_lambda_client.invoke_lambda_function('POST', 'app', self.sample_data, self.auth_info)
+            s3_import_lambda_client.invoke_lambda_function('POST', 'app', self.sample_data, self.upload_id)
 
     @patch('s3_import_lambda_client.lambda_client')
     def test_invoke_lambda_function_error(self, mock_lambda_client):
@@ -115,25 +115,25 @@ class S3ImportLambdaClientTest(unittest.TestCase):
         mock_lambda_client.invoke.return_value = mock_response
         
         with self.assertRaises(Exception):
-            s3_import_lambda_client.invoke_lambda_function('POST', 'app', self.sample_data, self.auth_info)
+            s3_import_lambda_client.invoke_lambda_function('POST', 'app', self.sample_data, self.upload_id)
 
     def test_validate_lambda_request_inputs_invalid_method(self):
         import s3_import_lambda_client
         
         with self.assertRaises(Exception):
-            s3_import_lambda_client.validate_lambda_request_inputs('INVALID', 'app', self.sample_data, self.auth_info)
+            s3_import_lambda_client.validate_lambda_request_inputs('INVALID', 'app', self.sample_data, self.upload_id)
 
     def test_validate_lambda_request_inputs_invalid_entity_name(self):
         import s3_import_lambda_client
         
         with self.assertRaises(Exception):
-            s3_import_lambda_client.validate_lambda_request_inputs('POST', '', self.sample_data, self.auth_info)
+            s3_import_lambda_client.validate_lambda_request_inputs('POST', '', self.sample_data, self.upload_id)
 
     def test_validate_lambda_request_inputs_invalid_data(self):
         import s3_import_lambda_client
         
         with self.assertRaises(Exception):
-            s3_import_lambda_client.validate_lambda_request_inputs('POST', 'app', [], self.auth_info)
+            s3_import_lambda_client.validate_lambda_request_inputs('POST', 'app', [], self.upload_id)
 
     def test_get_function_name_post(self):
         import s3_import_lambda_client
@@ -156,12 +156,12 @@ class S3ImportLambdaClientTest(unittest.TestCase):
     def test_create_lambda_payload(self):
         import s3_import_lambda_client
         
-        payload = s3_import_lambda_client.create_lambda_payload('POST', 'app', self.sample_data, self.auth_info)
+        payload = s3_import_lambda_client.create_lambda_payload('POST', 'app', self.sample_data, self.upload_id)
         
         self.assertEqual(payload['httpMethod'], 'POST')
         self.assertEqual(payload['pathParameters']['schema'], 'app')
         self.assertIn('data', json.loads(payload['body']))
-        self.assertIn('auth_info', json.loads(payload['body']))
+        self.assertIn('upload_id', json.loads(payload['body']))
 
     def test_validate_lambda_response_success(self):
         import s3_import_lambda_client

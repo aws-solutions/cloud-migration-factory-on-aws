@@ -19,7 +19,7 @@ from s3_import_lambda_client import invoke_lambda_function
 EntityData = List[Dict[str, Any]]
 ProcessedEntities = Dict[str, EntityData]
 
-def execute_create_phase(processed_creates: ProcessedEntities, auth_info: Dict[str, Any], results: ProcessingResults, schema_cache: Dict[str, Dict[str, Any]] = None) -> Dict[str, List[str]]:
+def execute_create_phase(processed_creates: ProcessedEntities, upload_id: str, results: ProcessingResults, schema_cache: Dict[str, Dict[str, Any]] = None) -> Dict[str, List[str]]:
     """
     Execute CREATE phase - POST entities without cross-references.
     """
@@ -30,7 +30,7 @@ def execute_create_phase(processed_creates: ProcessedEntities, auth_info: Dict[s
     for entity_type, entity_data in processed_creates.items():
         try:
             logger.info(f"Creating {len(entity_data)} {entity_type} entities via POST")
-            entity_failed_ids = _process_create_batches(entity_type, entity_data, auth_info, results, schema_cache)
+            entity_failed_ids = _process_create_batches(entity_type, entity_data, upload_id, results, schema_cache)
             
             if entity_failed_ids:
                 failed_entity_ids[entity_type] = entity_failed_ids
@@ -42,7 +42,7 @@ def execute_create_phase(processed_creates: ProcessedEntities, auth_info: Dict[s
     return failed_entity_ids
 
 def _process_create_batches(entity_type: str, entity_data: EntityData, 
-                          auth_info: Dict[str, Any], results: ProcessingResults, 
+                          upload_id: str, results: ProcessingResults, 
                           schema_cache: Dict[str, Dict[str, Any]] = None) -> List[str]:
     """Process entity data in batches for CREATE operations in parallel."""
     batch_size = 200
@@ -51,7 +51,7 @@ def _process_create_batches(entity_type: str, entity_data: EntityData,
     
     with ThreadPoolExecutor(max_workers=75) as executor:
         future_to_batch = {
-            executor.submit(_process_single_create_batch, entity_type, batch_num, batch, auth_info, results, schema_cache): (batch_num, batch)
+            executor.submit(_process_single_create_batch, entity_type, batch_num, batch, upload_id, results, schema_cache): (batch_num, batch)
             for batch_num, batch in enumerate(batches, 1)
         }
         
@@ -66,13 +66,13 @@ def _process_create_batches(entity_type: str, entity_data: EntityData,
     return entity_failed_ids
 
 def _process_single_create_batch(entity_type: str, batch_num: int, batch: EntityData, 
-                               auth_info: Dict[str, Any], results: ProcessingResults, 
+                               upload_id: str, results: ProcessingResults, 
                                schema_cache: Dict[str, Dict[str, Any]] = None) -> List[str]:
     """Process a single CREATE batch."""
     batch_failed_ids = []
     
     try:
-        response = invoke_lambda_function('POST', entity_type, batch, auth_info)
+        response = invoke_lambda_function('POST', entity_type, batch, upload_id)
         
         if response and response.get('success'):
             _track_successful_creates(entity_type, batch_num, response, results)
@@ -216,7 +216,7 @@ def handle_create_entity_type_failure(entity_type: str, entity_data: EntityData,
     
     logger.error(f"Entity type {entity_type} creation failed: {len(entity_data)} entities failed - {error_message}")
 
-def execute_update_phase(processed_updates: ProcessedEntities, auth_info: Dict[str, Any], results: ProcessingResults, schema_cache: Dict[str, Dict[str, Any]] = None) -> None:
+def execute_update_phase(processed_updates: ProcessedEntities, upload_id: str, results: ProcessingResults, schema_cache: Dict[str, Dict[str, Any]] = None) -> None:
     """
     Execute UPDATE phase - PUT entities with cross-references and file updates.
     """
@@ -228,7 +228,7 @@ def execute_update_phase(processed_updates: ProcessedEntities, auth_info: Dict[s
             
         try:
             logger.info(f"Updating {len(entity_data)} {entity_type} entities via bulk PUT")
-            _process_update_batches(entity_type, entity_data, auth_info, results, schema_cache)
+            _process_update_batches(entity_type, entity_data, upload_id, results, schema_cache)
                     
         except Exception as e:
             handle_update_entity_type_failure(entity_type, entity_data, e, results, schema_cache)
@@ -236,7 +236,7 @@ def execute_update_phase(processed_updates: ProcessedEntities, auth_info: Dict[s
     logger.info(f"UPDATE phase completed: {results.get_successful_updates_count()} updated, {results.get_failed_updates_count()} failed")
 
 def _process_update_batches(entity_type: str, entity_data: EntityData, 
-                          auth_info: Dict[str, Any], results: ProcessingResults, 
+                          upload_id: str, results: ProcessingResults, 
                           schema_cache: Dict[str, Dict[str, Any]] = None) -> None:
     """Process entity data in batches for UPDATE operations in parallel."""
     batch_size = 200
@@ -244,7 +244,7 @@ def _process_update_batches(entity_type: str, entity_data: EntityData,
     
     with ThreadPoolExecutor(max_workers=75) as executor:
         future_to_batch = {
-            executor.submit(_process_single_update_batch, entity_type, batch_num, batch, auth_info, results, schema_cache): (batch_num, batch)
+            executor.submit(_process_single_update_batch, entity_type, batch_num, batch, upload_id, results, schema_cache): (batch_num, batch)
             for batch_num, batch in enumerate(batches, 1)
         }
         
@@ -256,11 +256,11 @@ def _process_update_batches(entity_type: str, entity_data: EntityData,
                 handle_update_batch_error(entity_type, batch, e, results, schema_cache)
 
 def _process_single_update_batch(entity_type: str, batch_num: int, batch: EntityData, 
-                               auth_info: Dict[str, Any], results: ProcessingResults, 
+                               upload_id: str, results: ProcessingResults, 
                                schema_cache: Dict[str, Dict[str, Any]] = None) -> None:
     """Process a single UPDATE batch."""
     try:
-        response = invoke_lambda_function('PUT', entity_type, batch, auth_info)
+        response = invoke_lambda_function('PUT', entity_type, batch, upload_id)
         
         if response and response.get('success'):
             _track_successful_updates(entity_type, batch_num, batch, results, schema_cache)

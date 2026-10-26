@@ -403,3 +403,32 @@ def mock_get_mf_auth_policy_allow_no_user(event, schema):
 def mock_get_mf_auth_policy_default_deny(event, schema):
     logger.debug(f'mock_get_user_resource_creation_policy_default_deny({event}, {schema})')
     return {'action': 'deny', 'cause': 'Request is not Authenticated'}
+
+
+def create_and_populate_upload_entities_metadata(ddb_client, table_name, records=None):
+    """
+    Create the upload-entities-metadata table (hash key: upload_id) and
+    optionally populate it with upload tracking records. Used by tests that
+    exercise the S3 bulk-import path, which resolves the server-verified
+    authorizer context from this table by upload_id.
+    """
+    import boto3
+
+    try:
+        ddb_client.describe_table(TableName=table_name)
+    except ddb_client.exceptions.ResourceNotFoundException:
+        ddb_client.create_table(
+            TableName=table_name,
+            BillingMode='PAY_PER_REQUEST',
+            KeySchema=[{'AttributeName': 'upload_id', 'KeyType': 'HASH'}],
+            AttributeDefinitions=[{'AttributeName': 'upload_id', 'AttributeType': 'S'}],
+        )
+        ddb_client.get_waiter('table_exists').wait(TableName=table_name)
+        logger.info(f"Created table {table_name}")
+
+    if records:
+        table = boto3.resource('dynamodb').Table(table_name)
+        for record in records:
+            table.put_item(Item=record)
+
+    return table_name

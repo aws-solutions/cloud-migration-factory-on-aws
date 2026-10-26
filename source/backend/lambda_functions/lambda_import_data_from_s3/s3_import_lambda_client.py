@@ -17,7 +17,6 @@ from cmf_logger import logger
 from s3_import_exceptions import APIError, ValidationError
 
 EntityData = List[Dict[str, Any]]
-AuthInfo = Dict[str, Any]
 
 def decimal_serializer(obj):
     """JSON serializer for Decimal objects from DynamoDB"""
@@ -30,26 +29,28 @@ lambda_client = boto3.client('lambda', region_name=os.environ['region'])
 application = os.environ.get('application', 'migration-factory')
 environment = os.environ.get('environment', 'test')
 
-def invoke_lambda_function(method: str, entity_name: str, data: EntityData, auth_info: AuthInfo) -> Dict[str, Any]:
+def invoke_lambda_function(method: str, entity_name: str, data: EntityData, upload_id: str) -> Dict[str, Any]:
     """
     Invoke Lambda function directly for S3 import operations.
-    
+
     Creates and sends a Lambda invocation request that mimics API Gateway events.
     Validates input data and response for errors.
-    
+
     Args:
         method: HTTP method ('POST' for creation, 'PUT' for updates)
         entity_name: Name of the entity type (e.g., 'app', 'server')
         data: List of entity objects to process
-        auth_info: Authentication info from original upload
-        
+        upload_id: Reference to the trusted upload record from which the target
+            Lambda resolves the server-verified authorizer context. The identity
+            is never passed in the request body.
+
     Returns:
         dict: Response dictionary with success status and data
     """
-    validate_lambda_request_inputs(method, entity_name, data, auth_info)
-    
+    validate_lambda_request_inputs(method, entity_name, data, upload_id)
+
     function_name = get_function_name(method)
-    payload = create_lambda_payload(method, entity_name, data, auth_info)
+    payload = create_lambda_payload(method, entity_name, data, upload_id)
     
     try:
         response = lambda_client.invoke(
@@ -78,19 +79,19 @@ def invoke_lambda_function(method: str, entity_name: str, data: EntityData, auth
         logger.error(error_msg)
         raise APIError(error_msg, entity_type=entity_name) from e
 
-def validate_lambda_request_inputs(method: str, entity_name: str, data: EntityData, auth_info: AuthInfo) -> None:
+def validate_lambda_request_inputs(method: str, entity_name: str, data: EntityData, upload_id: str) -> None:
     """Validate Lambda request inputs before making the request."""
     if not method or method not in ['POST', 'PUT']:
         raise ValidationError(f"Invalid HTTP method: {method}")
-    
+
     if not entity_name or not entity_name.replace('_', '').replace('-', '').isalnum():
         raise ValidationError(f"Invalid entity name: {entity_name}")
-    
+
     if not data or not isinstance(data, list):
         raise ValidationError(f"Invalid data provided for {method} {entity_name}: data must be a non-empty list")
-    
-    if not isinstance(auth_info, dict):
-        logger.error(f"auth_info is not a dict for {method} {entity_name}, this may cause authentication issues")
+
+    if not upload_id or not isinstance(upload_id, str):
+        raise ValidationError(f"Invalid upload_id provided for {method} {entity_name}: upload_id must be a non-empty string")
 
 def get_function_name(method: str) -> str:
     """Get Lambda function name based on HTTP method."""
@@ -101,14 +102,19 @@ def get_function_name(method: str) -> str:
     else:
         raise ValidationError(f"Unsupported HTTP method: {method}")
 
-def create_lambda_payload(method: str, entity_name: str, data: EntityData, auth_info: AuthInfo) -> Dict[str, Any]:
-    """Create Lambda payload that mimics API Gateway event structure."""
+def create_lambda_payload(method: str, entity_name: str, data: EntityData, upload_id: str) -> Dict[str, Any]:
+    """Create Lambda payload that mimics API Gateway event structure.
+
+    Only a reference to the trusted upload record (upload_id) is sent. The target
+    Lambda resolves the server-verified authorizer context from that record;
+    identity/claims are never carried in the request body.
+    """
     return {
         'httpMethod': method,
         'pathParameters': {'schema': entity_name},
         'body': json.dumps({
             'data': data,
-            'auth_info': auth_info
+            'upload_id': upload_id
         }, default=decimal_serializer),
         'requestContext': {
             'identity': {

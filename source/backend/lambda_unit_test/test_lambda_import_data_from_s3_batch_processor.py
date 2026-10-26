@@ -24,7 +24,7 @@ class S3ImportBatchProcessorTest(unittest.TestCase):
             ]
         }
         
-        self.auth_info = {'user': 'test-user'}
+        self.upload_id = 'test-upload-id'
         self.mock_results = MagicMock()
         self.mock_results.created_items = {}
         self.mock_results.updated_items = {}
@@ -49,11 +49,11 @@ class S3ImportBatchProcessorTest(unittest.TestCase):
         }
         
         result = s3_import_batch_processor.execute_create_phase(
-            self.processed_creates, self.auth_info, self.mock_results
+            self.processed_creates, self.upload_id, self.mock_results
         )
         
         self.assertEqual(result, {})  # No failed entities
-        mock_lambda_invoke.assert_called_once_with('POST', 'app', self.processed_creates['app'], self.auth_info)
+        mock_lambda_invoke.assert_called_once_with('POST', 'app', self.processed_creates['app'], self.upload_id)
 
     @patch('s3_import_batch_processor.invoke_lambda_function')
     def test_execute_create_phase_failure(self, mock_lambda_invoke):
@@ -65,7 +65,7 @@ class S3ImportBatchProcessorTest(unittest.TestCase):
         }
         
         result = s3_import_batch_processor.execute_create_phase(
-            self.processed_creates, self.auth_info, self.mock_results
+            self.processed_creates, self.upload_id, self.mock_results
         )
         
         self.assertIn('app', result)  # Should have failed entities
@@ -77,7 +77,7 @@ class S3ImportBatchProcessorTest(unittest.TestCase):
         mock_lambda_invoke.side_effect = Exception('Lambda Error')
         
         result = s3_import_batch_processor.execute_create_phase(
-            self.processed_creates, self.auth_info, self.mock_results
+            self.processed_creates, self.upload_id, self.mock_results
         )
         
         self.assertIn('app', result)  # Should have failed entities
@@ -92,10 +92,10 @@ class S3ImportBatchProcessorTest(unittest.TestCase):
         }
         
         s3_import_batch_processor.execute_update_phase(
-            self.processed_updates, self.auth_info, self.mock_results
+            self.processed_updates, self.upload_id, self.mock_results
         )
         
-        mock_lambda_invoke.assert_called_once_with('PUT', 'app', self.processed_updates['app'], self.auth_info)
+        mock_lambda_invoke.assert_called_once_with('PUT', 'app', self.processed_updates['app'], self.upload_id)
 
     @patch('s3_import_batch_processor.invoke_lambda_function')
     def test_execute_update_phase_failure(self, mock_lambda_invoke):
@@ -107,7 +107,7 @@ class S3ImportBatchProcessorTest(unittest.TestCase):
         }
         
         s3_import_batch_processor.execute_update_phase(
-            self.processed_updates, self.auth_info, self.mock_results
+            self.processed_updates, self.upload_id, self.mock_results
         )
 
     @patch('s3_import_batch_processor.invoke_lambda_function')
@@ -117,7 +117,7 @@ class S3ImportBatchProcessorTest(unittest.TestCase):
         mock_lambda_invoke.side_effect = Exception('Lambda Error')
         
         s3_import_batch_processor.execute_update_phase(
-            self.processed_updates, self.auth_info, self.mock_results
+            self.processed_updates, self.upload_id, self.mock_results
         )
 
     def test_handle_create_batch_failure(self):
@@ -162,7 +162,7 @@ class S3ImportBatchProcessorTest(unittest.TestCase):
         }
         
         result = s3_import_batch_processor.execute_create_phase(
-            large_creates, self.auth_info, self.mock_results
+            large_creates, self.upload_id, self.mock_results
         )
         
         # Should be called twice (2 batches of 200 each)
