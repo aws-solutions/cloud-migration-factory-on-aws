@@ -108,7 +108,10 @@ Resources:
                   - 'ssm:DeleteParameters'
                   - 'ssm:GetParameter'
                   - 'ssm:GetParameters'
+                  - 'ssm:SendCommand'
                   - 'ssm:GetDocument'
+                  - 'ssm:StartSession'
+                  - 'ssm:ListCommandInvocations'
                 Resource: '*'
         -
           PolicyName: LambdaRolePolicy
