@@ -1,5 +1,20 @@
-#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-#  SPDX-License-Identifier: Apache-2.0
+#########################################################################################
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.                    #
+# SPDX-License-Identifier: MIT-0                                                        #
+#                                                                                       #
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this  #
+# software and associated documentation files (the "Software"), to deal in the Software #
+# without restriction, including without limitation the rights to use, copy, modify,    #
+# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to    #
+# permit persons to whom the Software is furnished to do so.                            #
+#                                                                                       #
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,   #
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A         #
+# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT    #
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION     #
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE        #
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                #
+#########################################################################################
 
 # Version: 01SEP2023.01
 
@@ -362,7 +377,7 @@ def validate_software_services(args, server_details, report):
             ServiceList = args.ServiceList
 
         try:
-            credentials = mfcommon.get_server_credentials(user_name, pass_key, server_details["server_name"],
+            credentials = mfcommon.get_server_credentials(user_name, pass_key, server_details,
                                                           args.SecretLinux, args.NoPrompts)
             server_ip = server_details.get("private_ip", None)
 
@@ -389,7 +404,7 @@ def validate_windows_software_services(args, parameters, server, server_details,
 
     try:
 
-        credentials = mfcommon.get_server_credentials(Domain_User, Domain_Password, server_details["server_name"],
+        credentials = mfcommon.get_server_credentials(Domain_User, Domain_Password, server_details,
                                                       args.SecretWindows, args.NoPrompts)
         if credentials['username'] != "":
             if "\\" not in credentials['username'] and "@" not in credentials['username']:
@@ -540,10 +555,11 @@ def get_instance_screenshot(ec2_client, rekognition_client, instance, args, buck
         key = instance_name + "_" + instance_id + ".jpg"
         screenshot_file_name = screenshot_status_wise_path + key
 
-        s3_resource.Bucket(bucket_name).upload_fileobj(io.BytesIO(image_bytes), screenshot_file_name)
+        #s3_resource.Bucket(bucket_name).upload_fileobj(io.BytesIO(image_bytes), screenshot_file_name)
 
-        s3_url = "s3://" + bucket_name + "/" + key
-        report["instance_bootup_screenshot"] = s3_url
+        #s3_url = "s3://" + bucket_name + "/" + key
+        #report["instance_bootup_screenshot"] = s3_url
+        report["instance_bootup_screenshot"] = ""
 
     except Exception as e:
         print(f"Error: Error while trying to save the screenshot for instance: {instance_id}")
@@ -751,10 +767,10 @@ def main(args):
     final_report_name_csv = mfcommon.create_csv_report("validationReport", finalReport, args.Waveid)
     key = "report/" + final_report_name_csv
 
-    s3_resource.Bucket(bucket_name).upload_file(final_report_name_csv, key)
+    #s3_resource.Bucket(bucket_name).upload_file(final_report_name_csv, key)
 
-    s3_url = "s3://" + bucket_name + "/" + key
-    print("Report is made available in the S3 bucket \n\n\n" + s3_url)
+    #s3_url = "s3://" + bucket_name + "/" + key
+    #print("Report is made available in the S3 bucket \n\n\n" + s3_url)
 
 
 if __name__ == '__main__':
@@ -769,3 +785,4 @@ if __name__ == '__main__':
         args.SyslogEntryCheck = True
         args.BootupStatusCheck = True
     sys.exit(main(args))
+ 
