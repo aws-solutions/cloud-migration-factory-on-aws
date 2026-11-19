@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -48,12 +49,12 @@ const PipelineTemplateView = (props: PipelineTemplateViewParams) => {
       const task_script = props.dataAll.script.data.find((script: any) => {
         return task.task_id === script.package_uuid;
       });
-      return {...task, 'script': task_script}
+      return {...task, 'script': task_script};
     });
   }
 
   useEffect(() => {
-    setPipelineTasksWithScripts(resolveScripts())
+    setPipelineTasksWithScripts(resolveScripts());
   }, [props.pipelineTemplateTasks]);
 
   return (

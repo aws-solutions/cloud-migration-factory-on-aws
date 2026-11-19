@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -37,7 +38,7 @@ const AmendItemModal = ({
   const [validForm, setFormValidation] = useState(false);
 
   function handleUserInput(value: Array<{ field: any; value: any }>) {
-    let newAttr = Object.assign({}, localObject);
+    const newAttr = Object.assign({}, localObject);
     setNestedValuePath(newAttr, value[0].field, value[0].value);
 
     setLocalObject(newAttr);

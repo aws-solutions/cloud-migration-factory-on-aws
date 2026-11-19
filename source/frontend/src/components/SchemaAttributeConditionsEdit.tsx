@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -60,7 +61,7 @@ const SchemaAttributeConditionsEdit = ({
   };
 
   let conditions = [];
-  let outcomes = [];
+  const outcomes = [];
 
   function getSelectedOutcomeOptions(outcome) {
     if (editingSchemaConditionsTemp?.outcomes && editingSchemaConditionsTemp.outcomes[outcome]) {

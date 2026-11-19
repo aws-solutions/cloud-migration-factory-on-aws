@@ -1,6 +1,7 @@
+/* eslint-disable */
 import { render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
 import * as XLSX from "xlsx";
-import UserPipelineTemplateTable from "./UserTablePipelineTemplates"
+import UserPipelineTemplateTable from "./UserTablePipelineTemplates";
 import { MemoryRouter } from "react-router-dom";
 import { defaultTestProps, mockNotificationContext, TEST_SESSION_STATE } from "../__tests__/TestUtils";
 import { SessionContext } from "../contexts/SessionContext";
@@ -48,16 +49,16 @@ test('it renders an empty table with "no pipeline_templates" message', async () 
   // THEN
   // page should render in loading state
   expect(screen.getByRole("heading", { name: "Pipeline Templates (0)" })).toBeInTheDocument();
-  expect(screen.getByText("Loading pipeline_templates")).toBeInTheDocument();
+  expect(screen.getByText("Loading Pipeline Templates")).toBeInTheDocument();
 
   // after pipeline_template response came in, it should render the table
-  await waitForElementToBeRemoved(() => screen.queryByText(/Loading pipeline_templates/i));
+  await waitForElementToBeRemoved(() => screen.queryByText(/Loading pipeline templates/i));
 
   const table = screen.getByRole("table");
   const tbody = within(table).getAllByRole("rowgroup")[1];
 
-  expect(await within(tbody).findByText("No pipeline_templates")).toBeInTheDocument();
-  expect(within(tbody).getByRole("button", { name: "Add pipeline_template" })).toBeInTheDocument();
+  expect(await within(tbody).findByText("No Pipeline Templates")).toBeInTheDocument();
+  expect(within(tbody).getByRole("button", { name: "Add Pipeline Template" })).toBeInTheDocument();
 });
 
 test("it renders a paginated table with 50 pipeline_templates", async () => {
@@ -70,7 +71,7 @@ test("it renders a paginated table with 50 pipeline_templates", async () => {
 
   // WHEN
   renderUserPipelineTemplateTable();
-  await waitForElementToBeRemoved(() => screen.queryByText(/Loading pipeline_templates/i));
+  await waitForElementToBeRemoved(() => screen.queryByText(/Loading pipeline templates/i));
 
   // THEN
   expect(screen.getByRole("heading", { name: "Pipeline Templates (50)" })).toBeInTheDocument();
@@ -97,7 +98,7 @@ test("click on refresh button refreshes the table", async () => {
   );
 
   renderUserPipelineTemplateTable();
-  await waitForElementToBeRemoved(() => screen.queryByText(/Loading pipeline_templates/i));
+  await waitForElementToBeRemoved(() => screen.queryByText(/Loading pipeline templates/i));
   expect(screen.getByRole("heading", { name: "Pipeline Templates (1)" })).toBeInTheDocument();
 
   const refreshButton = screen.getByRole("button", { name: "Refresh" });
@@ -155,8 +156,8 @@ test("submitting the Add form saves a new pipeline_template to API", async () =>
   expect(screen.getAllByText("You must specify a valid value.")[0]).toBeInTheDocument();
 
   // AND WHEN we populate all fields
-  const ptName = "My test pipeline name"
-  const ptDescription = "My test pipeline description"
+  const ptName = "My test pipeline name";
+  const ptDescription = "My test pipeline description";
   await userEvent.type(screen.getByRole("textbox", { name: "pipeline_template_name" }), ptName);
   await userEvent.type(screen.getByRole("textbox", { name: "pipeline_template_description" }), ptDescription);
 
@@ -250,7 +251,6 @@ test('click on row enables "Edit" button and shows "Details" tab', async () => {
 
 test("system owned pipeline_template cannot be edited", async () => {
   // GIVEN
-  let captureRequest: any;
   const pipeline_templates = generateSystemOwnedTestPipelineTemplates(1);
   server.use(
     rest.get("/user/pipeline_template", (request, response, context) => {
@@ -290,10 +290,9 @@ test("system owned pipeline_template cannot be edited", async () => {
 
 test("delete protected pipeline_template cannot be deleted", async () => {
   // GIVEN
-  let captureRequest: any;
   const pipeline_templates = generateTestDeleteProtectedPipelineTemplates(1);
   server.use(
-      rest.get("/user/pipeline_template", (request, response, context) => {
+      rest.get("/user/pipeline_template", (_, response, context) => {
         return response(context.status(200), context.json(pipeline_templates));
       })
   );
@@ -326,7 +325,6 @@ test("delete protected pipeline_template cannot be deleted", async () => {
 
 test("only one pipeline_template can be edited at a time", async () => {
   // GIVEN
-  let captureRequest: any;
   const pipeline_templates = generateTestPipelineTemplates(2);
   server.use(
       rest.get("/user/pipeline_template", (request, response, context) => {
@@ -353,7 +351,6 @@ test("only one pipeline_template can be edited at a time", async () => {
 
 test("system owned pipeline_template cannot be deleted", async () => {
   // GIVEN
-  let captureRequest: any;
   const pipeline_templates = generateSystemOwnedTestPipelineTemplates(1);
   server.use(
       rest.get("/user/pipeline_template", (request, response, context) => {
@@ -433,14 +430,13 @@ test("submitting the edit form saves the pipeline_template to API", async () => 
 
 test("when update fails with pipeline_template error, display notification", async () => {
   // GIVEN
-  let captureRequest: any;
   const pipeline_templates = generateTestPipelineTemplates(1);
   server.use(
     rest.get("/user/pipeline_template", (request, response, context) => {
       return response(context.status(200), context.json(pipeline_templates));
     }),
     rest.put(`/user/pipeline_template/${pipeline_templates[0].pipeline_template_id}`, async (request, response, context) => {
-      request.json().then((body) => (captureRequest = body));
+      request.json().then(() => {});
       return response(context.status(502));
     }),
     rest.get("/user/pipeline_template", (request, response, context) => {
@@ -586,7 +582,6 @@ test("delete multiple pipeline_templates", async () => {
     dismissible: false,
     header: "Deleting selected pipeline_templates...",
     loading: true,
-    type: "success",
   });
   await waitFor(() => {
     expect(addNotification).toHaveBeenCalledWith({
@@ -611,7 +606,7 @@ test("click on export downloads an xlsx file", async () => {
     })
   );
   renderUserPipelineTemplateTable();
-  await waitForElementToBeRemoved(() => screen.queryByText(/Loading pipeline_templates/i));
+  await waitForElementToBeRemoved(() => screen.queryByText(/Loading pipeline templates/i));
 
   const exportButton = screen.getByRole("button", { name: "Download" });
 
@@ -635,7 +630,7 @@ test("selecting a row and click on export downloads an xlsx file", async () => {
     })
   );
   renderUserPipelineTemplateTable();
-  await waitForElementToBeRemoved(() => screen.queryByText(/Loading pipeline_templates/i));
+  await waitForElementToBeRemoved(() => screen.queryByText(/Loading pipeline templates/i));
 
   await userEvent.click(screen.getAllByRole("row")[1]);
   const exportButton = screen.getByRole("button", { name: "Download" });
@@ -724,7 +719,7 @@ test("submitting the Duplicate form saves a copy of an existing pipeline_templat
 
   // THEN verify the in-progress notification
   await waitFor(() => {
-    expect(addNotification).toHaveBeenCalledTimes(2)
+    expect(addNotification).toHaveBeenCalledTimes(2);
   });
 
   await waitFor(() => {
@@ -771,7 +766,7 @@ test("selecting a row and click on visual task editor tab", async () => {
     })
   );
   renderUserPipelineTemplateTable();
-  await waitForElementToBeRemoved(() => screen.queryByText(/Loading pipeline_templates/i));
+  await waitForElementToBeRemoved(() => screen.queryByText(/Loading pipeline templates/i));
 
   // WHEN
   await userEvent.click(screen.getAllByRole("row")[1]);

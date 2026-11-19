@@ -5,10 +5,13 @@
 
 import { reducer, requestStarted, requestSuccessful } from "../resources/reducer";
 
-import { useEffect, useReducer, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import ToolsApiClient from "../api_clients/toolsApiClient";
 import LoginApiClient from "../api_clients/loginApiClient";
 import AdminApiClient from "../api_clients/adminApiClient";
+
+const apiAutomation = new ToolsApiClient();
+const apiLogin = new LoginApiClient();
 
 export const useValueLists = () => {
   const [state, dispatch] = useReducer(reducer, {
@@ -18,23 +21,28 @@ export const useValueLists = () => {
   });
 
   //Array of APIs that should be used to collect value lists for forms.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [valueListAPIs, setValueListAPIs] = useState<any>([]);
 
-  function addValueListItem(item: any) {
-    //Get current API list.
-    let tmpvalueListAPIs = valueListAPIs;
+  const addValueListItem = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (item: any) => {
+      //Get current API list.
+      const tmpvalueListAPIs = valueListAPIs;
 
-    tmpvalueListAPIs.push(item);
+      tmpvalueListAPIs.push(item);
 
-    setValueListAPIs(tmpvalueListAPIs);
-  }
+      setValueListAPIs(tmpvalueListAPIs);
+    },
+    [valueListAPIs]
+  );
 
-  async function update() {
+  const update = useCallback(async () => {
     const myAbortController = new AbortController();
 
     dispatch(requestStarted());
 
-    let tempValueList = [];
+    const tempValueList = [];
     for (const vlAPI of valueListAPIs) {
       let result = {
         values: [],
@@ -42,13 +50,12 @@ export const useValueLists = () => {
 
       if (vlAPI === "/admin/groups") {
         try {
-          let apiLogin = new LoginApiClient();
           const response = await apiLogin.getGroups();
           result = {
             values: response,
           };
           tempValueList[vlAPI] = result;
-        } catch (e: any) {
+        } catch (e) {
           console.log(e);
 
           return () => {
@@ -57,13 +64,13 @@ export const useValueLists = () => {
         }
       } else if (vlAPI === "/admin/users") {
         try {
-          let apiAdmin = new AdminApiClient();
+          const apiAdmin = new AdminApiClient();
           const response = await apiAdmin.getUsers();
           result = {
             values: response,
           };
           tempValueList[vlAPI] = result;
-        } catch (e: any) {
+        } catch (e: unknown) {
           console.log(e);
 
           return () => {
@@ -72,14 +79,13 @@ export const useValueLists = () => {
         }
       } else {
         try {
-          let apiAutomation = new ToolsApiClient();
           const response = await apiAutomation.getTool(vlAPI);
           result = {
             values: response,
           };
           tempValueList[vlAPI] = result;
-        } catch (e: any) {
-          if (e.message !== "Request aborted") {
+        } catch (e) {
+          if (e instanceof Error && e.message !== "Request aborted") {
             console.error("Value Lists Hook", e);
           }
 
@@ -95,7 +101,7 @@ export const useValueLists = () => {
     return () => {
       myAbortController.abort();
     };
-  }
+  }, [valueListAPIs]);
 
   useEffect(() => {
     let cancelledRequest;
@@ -108,7 +114,7 @@ export const useValueLists = () => {
     return () => {
       cancelledRequest = true;
     };
-  }, [valueListAPIs]);
+  }, [update, valueListAPIs]);
 
   return [state, { update, addValueListItem }];
 };

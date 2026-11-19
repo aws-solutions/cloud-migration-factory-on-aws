@@ -1,0 +1,49 @@
+[
+  {
+    "app_ulid_id": {
+      "S": "01K0X1E8523X1AAH57V04NKPRQ"
+    },
+    "app_ulid_name": {
+      "S": "Wordpress"
+    },
+    "aws_accountid": {
+      "S": "111111111111"
+    },
+    "aws_region": {
+      "S": "us-east-1"
+    },
+    "wave_ids": {
+      "L": [{ "S": "1" }]
+    },
+    "tags": {
+      "L": [
+        {
+          "S": "tag1"
+        },
+        {
+          "S": "tag2"
+        }
+      ]
+    },
+    "description": {
+      "S": "The amazing wordpress"
+    }
+  },
+  {
+    "app_ulid_id": {
+      "S": "01K0X1ERE0MG5HCH2R2W0NJATZ"
+    },
+    "app_ulid_name": {
+      "S": "OFBiz"
+    },
+    "aws_accountid": {
+      "S": "111111111111"
+    },
+    "aws_region": {
+      "S": "us-east-1"
+    },
+    "wave_ids": {
+      "L": [{ "S": "1" }]
+    }
+  }
+]

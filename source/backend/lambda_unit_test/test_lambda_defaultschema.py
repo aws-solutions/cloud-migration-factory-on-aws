@@ -21,7 +21,9 @@ mock_os_environ = {
     'PolicyDynamoDBTable': 'PolicyDynamoDBTable',
     'PipelineTemplateDynamoDBTable': 'PipelineTemplateDynamoDBTable',
     'ScriptsDynamoDBTable': 'ScriptsDynamoDBTable',
-    'PipelineTemplateTaskDynamoDBTable': 'PipelineTemplateTaskDynamoDBTable'
+    'PipelineTemplateTaskDynamoDBTable': 'PipelineTemplateTaskDynamoDBTable',
+    'WPM': 'true',
+    'RuleDynamoDBTable': 'RuleDynamoDBTable',
 }
 
 @mock.patch.dict('os.environ', mock_os_environ)
@@ -35,7 +37,10 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         dir_lambda_defaultschema = [d for d in sys.path if d.endswith('lambda_defaultschema')][0]
         logger.debug(f'dir_lambda_defaultschema : {dir_lambda_defaultschema}')
         cls.json_schema_file = open(dir_lambda_defaultschema + '/default_schema.json')
+        cls.json_wpm_schema_file = open(dir_lambda_defaultschema + '/default_wpm_schema.json')
         cls.json_policies_file = open(dir_lambda_defaultschema + '/default_policies.json')
+        cls.json_wpm_policies_file = open(dir_lambda_defaultschema + '/default_wpm_policies.json')
+        cls.json_wpm_rules_file = open(dir_lambda_defaultschema + '/default_wpm_rules.json')
         cls.json_roles_file = open(dir_lambda_defaultschema + '/default_roles.json')
         cls.default_pipeline_templates_import_file = open(dir_lambda_defaultschema + '/default_pipeline_templates_import.json')
         cls.default_pipeline_tasks_file = open(dir_lambda_defaultschema + '/default_tasks.json')
@@ -55,7 +60,8 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         'PolicyDynamoDBTable': 'PolicyDynamoDBTable',
         'PipelineTemplateDynamoDBTable': 'PipelineTemplateDynamoDBTable',
         'ScriptsDynamoDBTable': 'ScriptsDynamoDBTable',
-        'PipelineTemplateTaskDynamoDBTable': 'PipelineTemplateTaskDynamoDBTable'
+        'PipelineTemplateTaskDynamoDBTable': 'PipelineTemplateTaskDynamoDBTable',
+        'RuleDynamoDBTable': 'RuleDynamoDBTable',
     })
 
     def setUp(self):
@@ -66,19 +72,25 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         self.table_pipeline_template = os.getenv('PipelineTemplateDynamoDBTable')
         self.table_pipeline_template_tasks = os.getenv('PipelineTemplateTaskDynamoDBTable')
         self.table_scripts = os.getenv('ScriptsDynamoDBTable')
+        self.table_rules = os.getenv('RuleDynamoDBTable')
 
         dir_lambda_defaultschema = [d for d in sys.path if d.endswith('lambda_defaultschema')][0]
         with open(dir_lambda_defaultschema + '/default_schema.json') as json_schema_file:
             self.json_schema = json.load(json_schema_file)
+        with open(dir_lambda_defaultschema + '/default_wpm_schema.json') as json_wpm_schema_file:
+            self.json_schema.extend(json.load(json_wpm_schema_file))
         with open(dir_lambda_defaultschema + '/default_policies.json') as json_policies_file:
             self.json_policies = json.load(json_policies_file)
+        with open(dir_lambda_defaultschema + '/default_wpm_policies.json') as json_wpm_policies_file:
+            self.json_wpm_policies = json.load(json_wpm_policies_file)
         with open(dir_lambda_defaultschema + '/default_roles.json') as json_roles_file:
             self.json_roles = json.load(json_roles_file)
         with open(dir_lambda_defaultschema + '/default_pipeline_templates_import.json') as default_pipeline_templates_import_file:
             self.json_default_pipeline_templates_import_file = json.load(default_pipeline_templates_import_file)
-        with open(
-                dir_lambda_defaultschema + '/default_tasks.json') as json_default_pipeline_tasks_file:
+        with open(dir_lambda_defaultschema + '/default_tasks.json') as json_default_pipeline_tasks_file:
             self.json_default_pipeline_tasks_file = json.load(json_default_pipeline_tasks_file)
+        with open(dir_lambda_defaultschema + '/default_wpm_rules.json') as json_rules_file:
+            self.json_rules = json.load(json_rules_file)
 
         # create the dynamodb tables
         self.ddb_client = boto3.client('dynamodb')
@@ -147,6 +159,17 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
             ],
         )
 
+        self.ddb_client.create_table(
+            TableName=self.table_rules,
+            BillingMode='PAY_PER_REQUEST',
+            KeySchema=[
+                {"AttributeName": "rule_id", "KeyType": "HASH"},
+            ],
+            AttributeDefinitions=[
+                {"AttributeName": "rule_id", "AttributeType": "S"},
+            ],
+        )
+
         self.event_create = {
             'RequestType': 'Create',
             'StackId': 'StackABC',
@@ -184,8 +207,14 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         logger.debug(f'file to open : {file_name}')
         if file_name == 'default_schema.json':
             return LambdaDefaultSchemaTest.json_schema_file
+        elif file_name == 'default_wpm_schema.json':
+            return LambdaDefaultSchemaTest.json_wpm_schema_file
         elif file_name == 'default_policies.json':
             return LambdaDefaultSchemaTest.json_policies_file
+        elif file_name == 'default_wpm_policies.json':
+            return LambdaDefaultSchemaTest.json_wpm_policies_file
+        elif file_name == 'default_wpm_rules.json':
+            return LambdaDefaultSchemaTest.json_wpm_rules_file
         elif file_name == 'default_roles.json':
             return LambdaDefaultSchemaTest.json_roles_file
         elif file_name == 'default_pipeline_templates_import.json':
@@ -209,6 +238,10 @@ class LambdaDefaultSchemaTest(unittest.TestCase):
         for page in paginator.paginate(TableName=self.table_policy):
             policies.extend(page['Items'])
         self.assertEqual(len(self.json_policies), len(policies))
+        rules = []
+        for page in paginator.paginate(TableName=self.table_rules):
+            rules.extend(page['Items'])
+        self.assertEqual(len(self.json_rules), len(rules))
 
     def assert_table_contents_empty(self):
         paginator = self.ddb_client.get_paginator('scan')

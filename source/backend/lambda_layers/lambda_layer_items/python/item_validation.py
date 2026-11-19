@@ -7,7 +7,7 @@ import functools
 import re
 import query_conditions
 from query_comparator_operations import query_comparator_operations_dictionary
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 
 application = os.environ['application']
 environment = os.environ['environment']
@@ -109,7 +109,7 @@ def check_attribute_required_conditions(item, conditions):
     return {'required': return_required, 'hidden': return_hidden}
 
 
-def check_valid_item_create(item, schema, related_items=None):
+def check_valid_item_create(item, schema):
     required_attributes = get_required_attributes(schema, True)
     invalid_attributes = check_required_attributes(item, required_attributes)
     if len(invalid_attributes) > 0:
@@ -117,7 +117,7 @@ def check_valid_item_create(item, schema, related_items=None):
 
     # check that values are correct.
     validation_errors = []
-    validation_errors.extend(validate_item_keys_and_values(item, schema['attributes'], related_items))
+    validation_errors.extend(validate_item_keys_and_values(item, schema['attributes']))
     validation_errors.extend(invalid_attributes)
 
     # Add schema-specification validation
@@ -125,6 +125,8 @@ def check_valid_item_create(item, schema, related_items=None):
         validation_errors.extend(check_valid_pipeline_create(item))
     elif schema['schema_name'] == 'task_execution':
         validation_errors.extend(check_valid_task_execution_update(item))
+    elif schema['schema_name'] == 'rule':
+        validation_errors.extend(check_valid_rule_create(item))
 
     if len(validation_errors) > 0:
         return validation_errors
@@ -177,153 +179,6 @@ def validate_value(attribute, value, regex_string):
     return error
 
 
-def get_related_items(related_schema_names):
-    related_items = {}
-
-    for related_schema_name in related_schema_names:
-        # Check that item is set.
-        if not related_schema_name:
-            continue
-
-        if related_schema_name in SCHEMA_NO_DDB_TABLE_LOOKUP:
-            continue  # entity not saved in DDB so no check is possible also options list is provided by external source.
-
-        table_name_suffix = map_schema_to_table_name_suffix(related_schema_name)
-
-        related_table_name = '{}-{}-{}'.format(application, environment, table_name_suffix)
-
-        related_table = cmf_boto.resource('dynamodb').Table(related_table_name)
-        related_table_items = scan_dynamodb_data_table(related_table)  # get all items from related table.
-        related_items[related_schema_name] = related_table_items
-
-    return related_items
-
-
-def get_item_attribute_names(items):
-    attribute_names = []
-    for item in items:
-        for key in item.keys():
-            if key.startswith('_'):
-                #  Ignore system keys.
-                continue
-            if key not in attribute_names:
-                attribute_names.append(key)
-
-    return attribute_names
-
-
-# Filters the provided attributes for all with a type of relationship.
-def get_relationship_attributes(attribute_names, attributes):
-    relationship_attributes = []
-    for attribute in attributes:
-        if attribute['name'] in attribute_names:
-            if attribute['type'] == 'relationship':
-                relationship_attributes.append(attribute)
-
-    return relationship_attributes
-
-
-# Searches relationship_attributes parameter and provides related table names.
-def get_relationship_schema_names(relationship_attributes):
-    relationship_schema_names = []
-    for relationship_attribute in relationship_attributes:
-        if 'rel_entity' not in relationship_attribute:
-            continue
-
-        relationship_schema_names.append(relationship_attribute['rel_entity'])
-
-    return relationship_schema_names
-
-
-# Based on the items provided it returns any related data items to be used to validate relationships.
-def get_relationship_data(items, schema):
-    # Get duplicated list of attributes being uploaded.
-    attribute_names = get_item_attribute_names(items)
-
-    # Filter attributes for relationship attributes.
-    relationship_attributes = get_relationship_attributes(attribute_names, schema['attributes'])
-
-    # extract schema names from related attributes.
-    relationship_schema_names = get_relationship_schema_names(relationship_attributes)
-
-    # Get all data for the schema list provided.
-    related_data = get_related_items(relationship_schema_names)
-
-    return related_data
-
-
-def validate_item_related_record(attribute, value, preloaded_related_items=None):
-    if attribute['type'] != 'relationship':
-        return None  # Not a relationship attribute, return success.
-    if attribute.get('rel_entity') in SCHEMA_NO_DDB_TABLE_LOOKUP:
-        return None # entity not saved in DDB so no check is possible also options list is provided by external source.
-
-    if 'rel_entity' not in attribute or 'rel_key' not in attribute:
-        # invalid relationship attribute.
-        return [attribute['name'] + ': Invalid relationship attribute schema or key missing.']
-    else:
-        if preloaded_related_items:
-            # Preloaded items provided.
-            related_items = preloaded_related_items
-        else:
-            # No preloaded item provided, load from DDB table.
-            related_items = load_items_from_ddb(attribute)
-
-        if 'listMultiSelect' in attribute and attribute['listMultiSelect']:
-            message = validate_list_multi_select(attribute, related_items, value)
-        else:
-            message = validate_non_list_multi_select(attribute, related_items, value)
-
-        return message
-
-
-def load_items_from_ddb(attribute):
-    # No preloaded item provided, load from DDB table.
-
-    table_name_suffix = map_schema_to_table_name_suffix(attribute['rel_entity'])
-
-    related_table_name = '{}-{}-{}'.format(application, environment, table_name_suffix)
-
-    related_table = cmf_boto.resource('dynamodb').Table(related_table_name)
-    related_items = scan_dynamodb_data_table(related_table)  # get all items from related table.
-
-    return related_items
-
-
-def validate_list_multi_select(attribute, related_items, value):
-    related_records_found = []
-    related_records_not_found = []
-    for related_item in related_items:
-        if related_item[attribute['rel_key']] in value:
-            related_records_found.append(related_item[attribute['rel_key']])
-
-    for record_id in value:
-        if record_id not in related_records_found:
-            related_records_not_found.append(record_id)
-
-    if len(related_records_not_found) > 0:
-        message = attribute['name'] + ': The following related record ids do not exist using key ' + \
-                    attribute['rel_key'] + ' - ' + ", ".join(related_records_not_found)
-        return [message]
-    else:
-        #  All related IDs found.
-        return None
-
-
-def validate_non_list_multi_select(attribute, related_items, value):
-    related_record_found = False
-    for related_item in related_items:
-        if related_item[attribute['rel_key']] == str(value):
-            related_record_found = True
-
-    if not related_record_found:
-        message = attribute['name'] + ':' + value + ' related record does not exist using key ' + \
-                    attribute['rel_key']
-        return [message]
-    else:
-        return None
-
-
 def validate_tag_value(attribute, tag, errors):
     if 'validation_regex' in attribute and attribute['validation_regex'] != '':
         value_validation_result = validate_value(attribute, tag['value'], attribute['validation_regex'])
@@ -362,18 +217,81 @@ def validate_list_type_attribute(item, attribute, key, errors):
     return errors
 
 
-def validate_relationship_type_attribute(related_items, item, attribute, key, errors):
-    if related_items and attribute['rel_entity'] in related_items.keys():
-        related_record_validation = validate_item_related_record(
-            attribute, item[key],
-            related_items[attribute['rel_entity']])
+def validate_required_relationship(item, attribute, key, errors):
+    if not item[key] and 'required' in attribute and attribute['required']:
+        errors.append(f"{ATTRIBUTE_MESSAGE_PREFIX}{attribute['name']} is required and not provided.")
+        return True
+    return False
+
+
+def validate_relationship_schema(attribute, errors):
+    if not "rel_entity" in attribute and not "rel_key" in attribute:
+        errors.append(attribute['name'] + ': Invalid relationship attribute schema or key missing.')
+        return False
+    return True
+
+
+def validate_multi_select_relationship(item, attribute, key, errors):
+    relationship_values = item[key] if isinstance(item[key], list) else [item[key]]
+    unique_values = list(dict.fromkeys(relationship_values))  # Remove duplicates while preserving order
+    not_found_values = []
+    
+    table_name_suffix = map_schema_to_table_name_suffix(attribute["rel_entity"])
+    related_table_name = '{}-{}-{}'.format(application, environment, table_name_suffix)
+    client = cmf_boto.client('dynamodb')
+
+    keys = [{attribute["rel_key"]: {'S': str(value)}} for value in unique_values]
+    try:
+        response = client.batch_get_item(
+            RequestItems={
+                related_table_name: {'Keys': keys}
+            }
+        )
+        
+        response_items = response.get('Responses', {}).get(related_table_name, [])
+        found_values = {item[attribute["rel_key"]]['S'] for item in response_items}
+        not_found_values = [str(value) for value in relationship_values if str(value) not in found_values]
+        
+    except Exception as e:
+        errors.append(f"{key}: Failed to validate relationship - {str(e)}")
+        return
+    
+    if not_found_values:
+        errors.append(key + ': The following related record ids do not exist using key ' + \
+                    attribute["rel_key"] + ' - ' + ", ".join(not_found_values))
+
+
+def validate_single_relationship(item, attribute, key, errors):
+    table_name_suffix = map_schema_to_table_name_suffix(attribute["rel_entity"])
+    related_table_name = '{}-{}-{}'.format(application, environment, table_name_suffix)
+    related_table = cmf_boto.resource('dynamodb').Table(related_table_name)
+    
+    # Use query instead of get_item as there are tables with SK
+    try:
+        response = related_table.query(
+            KeyConditionExpression=Key(attribute["rel_key"]).eq(str(item[key]))
+        )
+        if not response.get('Items'):
+            errors.append(key + ':' + str(item[key]) + ' related record does not exist using key ' + attribute["rel_key"])
+    except Exception as e:
+        errors.append(f"{key}: Failed to validate relationship - {str(e)}")
+
+
+def validate_relationship_type_attribute(item, attribute, key, errors):
+    if validate_required_relationship(item, attribute, key, errors) or not item[key]:
+        return errors
+        
+    if not validate_relationship_schema(attribute, errors):
+        return errors
+        
+    if attribute["rel_entity"] in SCHEMA_NO_DDB_TABLE_LOOKUP:
+        return errors
+    
+    if 'listMultiSelect' in attribute and attribute['listMultiSelect']:
+        validate_multi_select_relationship(item, attribute, key, errors)
     else:
-        # relationship items not preloaded, validate will have to fetch them.
-        related_record_validation = validate_item_related_record(attribute, item[key])
-
-    if related_record_validation != None:
-        errors.append(related_record_validation)
-
+        validate_single_relationship(item, attribute, key, errors)
+       
     return errors
 
 
@@ -410,11 +328,11 @@ def append_error_message(check, key, errors):
     return errors
 
 
-def validate_attribute(attribute, item, key, errors, related_items):
+def validate_attribute(attribute, item, key, errors):
     if attribute['type'] == 'list' and 'listvalue' in attribute:
         errors = validate_list_type_attribute(item, attribute, key, errors)
     elif attribute['type'] == 'relationship':
-        errors = validate_relationship_type_attribute(related_items, item, attribute, key, errors)
+        errors = validate_relationship_type_attribute(item, attribute, key, errors)
     elif attribute['type'] == 'tag':
         errors = validate_tag_type_attribute(item, attribute, key, errors)
     else:
@@ -423,7 +341,7 @@ def validate_attribute(attribute, item, key, errors, related_items):
     return errors
 
 
-def validate_item_keys_and_values(item, attributes, related_items=None):
+def validate_item_keys_and_values(item, schema):
     errors = []
 
     for key in item.keys():
@@ -431,10 +349,10 @@ def validate_item_keys_and_values(item, attributes, related_items=None):
         if key.startswith('_'):
             #  Ignore system keys.
             continue
-        for attribute in attributes:
+        for attribute in schema:
             if key == attribute['name']:
                 check = True
-                errors = validate_attribute(attribute, item, key, errors, related_items)
+                errors = validate_attribute(attribute, item, key, errors)
                 break  # Exit loop as key matched to attribute no need to check other attributes.
 
         errors = append_error_message(check, key, errors)
@@ -451,7 +369,6 @@ def scan_dynamodb_data_table(data_table):
         scan_data.extend(response['Items'])
     return scan_data
 
-
 def query_dynamodb_index(data_table, index_name, key_condition):
     response = data_table.query(
         IndexName=index_name,
@@ -465,14 +382,23 @@ def query_dynamodb_index(data_table, index_name, key_condition):
     return query_data
 
 
-def does_item_exist(new_item_key, new_item_value, current_items):
-    # Search current_items for key and value that match.
-    for item in current_items:
-        if new_item_key in item and str(item[new_item_key]).lower() == str(new_item_value).lower():
-            return True
-
-    # Item not found in current_items.
-    return False
+def does_item_with_name_exist(new_item_key, new_item_value, data_table):
+    try:
+        # Query the NameIndex GSI
+        response = data_table.query(
+            IndexName='NameIndex', # NameIndex should be set on all tables. If not, it will scan
+            KeyConditionExpression=Key(new_item_key).eq(new_item_value),
+            Limit=1
+        )
+        return len(response.get('Items', [])) > 0
+    except Exception as e:
+        print(f"Error querying NameIndex: {str(e)}")
+        # Fall back to scan if GSI doesn't exist
+        response = data_table.scan(
+            FilterExpression=Attr(new_item_key).eq(new_item_value),
+            Limit=1
+        )
+        return len(response.get('Items', [])) > 0
 
 
 def get_task(task_id, task_version=0):
@@ -591,6 +517,74 @@ def validate_task_predecessors_status(item, task_executions):
     return errors
 
 
+def check_valid_rule_create(item):
+    validation_errors = []
+
+    rule_type = item.get('rule_type')
+    sub_type = item.get('sub_type')
+
+    if rule_type == 'PRIORITIZING':
+        # Conditional required fields based on sub_type
+        if sub_type == 'SCORING':
+            if not item.get('scoring_criteria'):
+                validation_errors.append('scoring_criteria is required when sub_type is SCORING')
+            elif isinstance(item['scoring_criteria'], list):
+                for i, criteria in enumerate(item['scoring_criteria']):
+                    complexity_score = criteria.get('complexity_score')
+                    try:
+                        complexity_score = float(complexity_score)
+                        if not (0 <= complexity_score <= 100):
+                            validation_errors.append(
+                                f'scoring_criteria[{i}].complexity_score must be a number between 0 and 100'
+                            )
+                    except (ValueError, TypeError):
+                        validation_errors.append(
+                            f'scoring_criteria[{i}].complexity_score must be a number between 0 and 100'
+                        )
+
+        elif sub_type == 'SORTING':
+            if not item.get('sort_order'):
+                validation_errors.append('sort_order is required when sub_type is SORTING')
+            sort_level = item.get('sort_level')
+            if sort_level is None:
+                validation_errors.append('sort_level is required when sub_type is SORTING')
+
+    # Validate GROUPING rules
+    elif rule_type in ['GROUPING_INCLUSIVE', 'GROUPING_EXCLUSIVE']:
+        relationships = item.get('relationships')
+        if not relationships:
+            validation_errors.append('relationships is required for GROUPING rules')
+        elif not isinstance(relationships, list):
+            validation_errors.append('relationships must be a list')
+        else:
+            for i, relationship in enumerate(relationships):
+                if not isinstance(relationship, dict):
+                    validation_errors.append(f'relationships[{i}] must be an object')
+                    continue
+
+                if not relationship.get('asset_type'):
+                    validation_errors.append(f'relationships[{i}].asset_type is required')
+                if not relationship.get('asset_key'):
+                    validation_errors.append(f'relationships[{i}].asset_key is required')
+
+                # TODO: Validate asset_key values exist in the schema
+                valid_asset_types = ['app', 'database', 'server']  # Add more if needed
+                if relationship.get('asset_type') and relationship['asset_type'] not in valid_asset_types:
+                    validation_errors.append(
+                        f"relationships[{i}].asset_type must be one of: {', '.join(valid_asset_types)}"
+                    )
+        if not item.get('status') or item['status'] not in ['ENABLED', 'DISABLED']:
+            validation_errors.append("status must be one of: ENABLED, DISABLED")
+
+        if 'rule_description' in item and not isinstance(item['rule_description'], str):
+            validation_errors.append('rule_description must be a string')
+            
+    else:
+        validation_errors.append('rule_type must be one of: PRIORITIZING, GROUPING_INCLUSIVE, GROUPING_EXCLUSIVE')
+
+    return validation_errors
+
+
 def is_valid_id(schema, item_id):
     if schema.get('key_type', 'number') == 'number':
         pattern = re.compile("^\d+$")
@@ -602,3 +596,44 @@ def is_valid_id(schema, item_id):
             return False
 
     return True
+
+
+# Input validation utilities
+
+# Validation constants
+MAX_STRING_LENGTH = 255
+MAX_LIST_COUNT = 200
+ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+
+def validate_id_string(value: str, field_name: str) -> str:
+    """Validate an ID string field. Returns error message or None if valid."""
+    if not isinstance(value, str):
+        return f"{field_name} must be a string"
+    if not value.strip():
+        return f"{field_name} cannot be empty"
+    if len(value) > MAX_STRING_LENGTH:
+        return f"{field_name} exceeds maximum length of {MAX_STRING_LENGTH}"
+    if not ID_PATTERN.match(value):
+        return f"{field_name} must contain only alphanumeric characters, dashes, and underscores"
+    return None
+
+
+def validate_id_list(values: list, field_name: str, max_count: int = MAX_LIST_COUNT) -> str:
+    """Validate a list of ID strings. Returns error message or None if valid."""
+    if not isinstance(values, list):
+        return f"{field_name} must be a list"
+    if not values:
+        return f"{field_name} cannot be empty"
+    if len(values) > max_count:
+        return f"Too many {field_name}. Maximum allowed is {max_count}"
+    
+    for value in values:
+        error = validate_id_string(value, f"Item in {field_name}")
+        if error:
+            return error
+    
+    if len(set(values)) != len(values):
+        return f"Duplicate {field_name} not allowed"
+    
+    return None

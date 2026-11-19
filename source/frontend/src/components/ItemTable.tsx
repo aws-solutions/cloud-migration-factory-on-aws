@@ -1,9 +1,10 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useContext, useState } from "react";
+import React, { useContext, useMemo, useState } from "react";
 
 import {
   Box,
@@ -60,6 +61,7 @@ type ItemTableParams = {
   selectedItems?: any[];
   selectionType?: any;
   userAccess?: UserAccess;
+  editButtonText?: string;
 };
 
 const ItemTable = ({
@@ -86,8 +88,16 @@ const ItemTable = ({
   selectedItems,
   selectionType,
   userAccess,
+  editButtonText,
 }: ItemTableParams) => {
   const { setHelpPanelContent } = useContext(ToolsContext);
+
+  const entityName = useMemo(
+    () => (schema.friendly_name ? schema.friendly_name : capitalize(schemaName)),
+    [schema.friendly_name, schemaName]
+  );
+
+  const entityNames = useMemo(() => `${entityName}s`, [entityName]);
 
   const localStorageKeys = {
     tablePrefs: schemaName + "_table_prefs",
@@ -135,7 +145,7 @@ const ItemTable = ({
     // Force update of current item to ensure latest data is available on viewer.
 
     // Search for previously selected items, and update based on refreshed data.
-    let updatedItems = [];
+    const updatedItems = [];
     if (selectedItems?.length) {
       for (const selectedItem of selectedItems) {
         const findResult = collectionItems.find(
@@ -152,7 +162,7 @@ const ItemTable = ({
 
   async function handleOnRowClick(detail: TableProps.OnRowClickDetail<any>) {
     if (handleSelectionChange) {
-      let selectedItem = [];
+      const selectedItem = [];
       selectedItem.push(detail.item);
 
       handleSelectionChange(selectedItem);
@@ -160,8 +170,8 @@ const ItemTable = ({
   }
 
   function handleConfirmPreferences(detail: CollectionPreferencesProps.Preferences<any>) {
-    let lPreferences: any = detail;
-    let defaults = getDefaultPreferences(schema, schemaKeyAttribute);
+    const lPreferences: any = detail;
+    const defaults = getDefaultPreferences(schema, schemaKeyAttribute);
 
     lPreferences.trackBy = defaults.trackBy;
 
@@ -186,7 +196,7 @@ const ItemTable = ({
   }
 
   function getEntityAccessForSchema(entityAccessRecord: EntityAccessRecord) {
-    let disabledButtons: ActionDenyType = {};
+    const disabledButtons: ActionDenyType = {};
     if (entityAccessRecord.create) {
       if (!entityAccessRecord.create) {
         disabledButtons.add = true;
@@ -248,7 +258,7 @@ const ItemTable = ({
 
   const getTableHeader = () => (
     <TableHeader
-      title={schema.friendly_name ? schema.friendly_name + "s" : capitalize(schemaName + "s")}
+      title={entityNames}
       description={description ? description : undefined}
       selectedItems={selectedItems ? selectedItems : undefined}
       counter={headerCounter(selectedItems ?? [], items)}
@@ -263,6 +273,7 @@ const ItemTable = ({
       handleDuplicateClick={handleDuplicateItem ? handleDuplicateItem : undefined}
       handleDownload={handleDownloadItems ? handleDownloadItems : undefined}
       disabledButtons={getEntityAccess()}
+      editButtonText={editButtonText}
     />
   );
 
@@ -277,16 +288,20 @@ const ItemTable = ({
       visibleColumns={preferences.visibleContent}
       items={resolveRelationshipValues(dataAll, collectionItems, schema)}
       loading={!errorLoading ? isLoading : true}
-      loadingText={!errorLoading ? "Loading " + schemaName + "s" : "Error getting data from API : " + errorLoading}
+      loadingText={!errorLoading ? "Loading " + entityNames : "Error getting data from API : " + errorLoading}
       resizableColumns={true}
       stickyHeader={true}
       empty={
         <Box textAlign="center" color="inherit">
-          <b>No {schemaName + "s"}</b>
+          <b>No {entityNames}</b>
           <Box padding={{ bottom: "s" }} variant="p" color="inherit">
-            No {schemaName + "s"} to display.
+            No {entityNames} to display.
           </Box>
-          {handleAddItem ? <Button onClick={handleAddItem}>Add {schemaName}</Button> : undefined}
+          {handleAddItem ? (
+            <Button onClick={handleAddItem} disabled={getEntityAccess().add === true}>
+              Add {entityName}
+            </Button>
+          ) : undefined}
         </Box>
       }
       header={getTableHeader()}
@@ -322,7 +337,7 @@ const ItemTable = ({
         <TextFilter
           {...filterProps}
           countText={filterCounter(filteredItemsCount)}
-          filteringPlaceholder={"Search " + schemaName + "s"}
+          filteringPlaceholder={`Search ${entityNames}`}
         />
       }
     />

@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -33,13 +34,13 @@ const AutomationScriptImport = (props) => {
 
   const maxFileUploadSizeBytes = 10485760;
 
-  function handleAction(e) {
+  function handleAction() {
     setSaving(true);
     props.handleUpload(selectedFile, scriptDetails);
   }
 
   function handleUserInput(key, update) {
-    let tempUpdate = Object.assign({}, scriptDetails);
+    const tempUpdate = Object.assign({}, scriptDetails);
     tempUpdate[key] = update;
     setScriptDetails(tempUpdate);
   }

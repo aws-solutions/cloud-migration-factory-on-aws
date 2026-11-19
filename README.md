@@ -99,6 +99,44 @@ _✅ All assets are now built. You should see templates under deployment/global-
 
 Deploy the distributable to an Amazon S3 bucket in your account:
 
+The script performs these key actions:
+
+1. Prepares distribution directories:
+   • Creates global-s3-assets for CloudFormation templates
+   • Creates regional-s3-assets for code artifacts (Lambda functions, frontend)
+
+2. Processes CloudFormation templates:
+   • Copies templates from CFN-templates directory
+   • Replaces placeholders in templates:
+     • %%BUCKET_NAME%% with your bucket name
+     • %%SOLUTION_NAME%% with cloud-migration-factory-on-aws
+     • %%VERSION%% with custom001
+
+3. Packages Lambda functions:
+   • Processes each Lambda function in source/backend/lambda_functions/
+   • Installs dependencies and creates ZIP files in the build directory
+
+4. Packages Lambda layers:
+   • Processes each Lambda layer in source/backend/lambda_layers/
+   • Installs dependencies and creates ZIP files
+
+5. Packages integration components:
+   • Processes integration Lambda functions
+   • Packages MGN automation scripts
+   • Packages other automation scripts
+   • Creates a combined default_scripts.zip
+
+6. Builds the frontend application:
+   • Runs npm run build to create the production React application
+   • Updates security.txt with an expiry date
+   • Creates a ZIP file of the frontend application
+
+After running this script, you'll have:
+• CloudFormation templates in deployment/global-s3-assets/
+• Code artifacts (Lambda ZIPs, frontend ZIP) in deployment/regional-s3-assets/
+
+These assets are then ready to be uploaded to your S3 buckets as shown in the deployment steps.
+
 ```
 cd ./deployment
 aws s3 ls s3://$ASSET_BUCKET_NAME  # should not give an error (verifies the bucket exists)
@@ -113,13 +151,40 @@ _✅ All assets are now staged in your S3 bucket. You or any user may use S3 lin
 In order to run the frontend app locally for development, you need to deploy the solution to your AWS account first 
 and then configure the local frontend to use the deployed backend in the cloud.
 To do so,
-- In the S3 console, locate the S3 bucket with the name `migration-factory-test-<ACOUNT_ID>-front-end`
+- In the S3 console, locate the S3 bucket with the name `migration-factory-test-<ACOUNT_ID>-front-end` 
 - Download the file `env.js` from the above bucket, rename it to `env_dev.js` to your local development environment, and place it under `source/frontend/public/` folder next to the existing `env.js` file.
 - Run `npm run start`. The app will become available under [http://localhost:3000](http://localhost:3000) and read the settings from `env_dev.js`
 - Use a browser extension to bypass CORS errors on localhost
 - To log in, create a Cognito user in the AWS Cognito Console as described in the Implementation Guide
 
+Note: To bypass CORS errors when developing the Cloud Migration Factory frontend locally, you can use browser extensions specifically designed for this 
+purpose. Here's how to set it up:
 
+### Browser Extensions to Bypass CORS
+
+#### For Chrome:
+1. Install the "CORS Unblock" or "Allow CORS: Access-Control-Allow-Origin" extension from the Chrome Web Store
+   • CORS Unblock: https://chrome.google.com/webstore/detail/cors-unblock/lfhmikememgdcahcdlaciloancbhjino
+   • Allow CORS: https://chrome.google.com/webstore/detail/allow-cors-access-control/lhobafahddgcelffkeicbaginigeejlf
+
+2. After installation:
+   • Click on the extension icon in your browser toolbar
+   • Toggle the extension to "On" or "Enabled" state
+   • The icon should change color to indicate it's active
+
+#### Important Notes:
+
+1. Security Warning: Only enable these extensions when working on your local development environment. Disable them when browsing other websites as 
+they can create security vulnerabilities.
+
+2. How it works: These extensions modify HTTP headers in your browser requests to bypass CORS restrictions, allowing your localhost frontend to 
+communicate with the deployed backend in the cloud.
+
+3. Temporary use only: Remember that this is just a development workaround. In production, proper CORS headers should be configured on the server 
+side.
+
+After enabling the extension, restart your local development server (npm run start) and try accessing the application at http://localhost:3000 
+again. The CORS errors should be bypassed, allowing your local frontend to communicate with the deployed backend.
 ***
 
 ## Unit Testing Framework

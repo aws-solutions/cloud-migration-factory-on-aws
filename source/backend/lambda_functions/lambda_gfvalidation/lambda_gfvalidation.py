@@ -95,9 +95,9 @@ def init_server_params(server):
 
 
 def process_server(server, app_list, server_list, app_numb, validation_list):
-    if "app_id" in server:
+    if "app_ids" in server:
         addvolcount = 0
-        if app_list[app_numb] == server['app_id'] and server['r_type'].upper() == 'REPLATFORM':
+        if app_list[app_numb] in server['app_ids'] and server['r_type'].upper() == 'REPLATFORM':
             server_list.append(server)
             init_server_params(server)
 
@@ -118,7 +118,7 @@ def process_server(server, app_list, server_list, app_numb, validation_list):
 
 def populate_app_lists(apps, app_list, app_name_list, wave_id):
     for app in apps:
-        if 'wave_id' in app and str(app['wave_id']) == wave_id:
+        if wave_id in app.get("wave_ids", []):
             app_list.append(app['app_id'])
             app_name_list.append(app['app_name'])
 

@@ -5,26 +5,29 @@
 
 import { DataHook, reducer, requestFailed, requestStarted, requestSuccessful } from "../resources/reducer";
 
-import { useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 import ToolsApiClient from "../api_clients/toolsApiClient";
 
-export const useAutomationScripts: DataHook = () => {
-  const [state, dispatch] = useReducer(reducer, {
+const apiAutomation = new ToolsApiClient();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const useAutomationScripts: DataHook = <T = any>() => {
+  const [state, dispatch] = useReducer(reducer<T>, {
     isLoading: true,
     data: [],
     error: null,
   });
 
-  async function update() {
+  const update = useCallback(async () => {
     const myAbortController = new AbortController();
 
     dispatch(requestStarted());
 
     try {
-      let apiAutomation = new ToolsApiClient();
       const response = await apiAutomation.getSSMScripts();
 
       dispatch(requestSuccessful({ data: response }));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       if (e.message !== "Request aborted") {
         console.error("Automation Scripts Hook", e);
@@ -39,7 +42,7 @@ export const useAutomationScripts: DataHook = () => {
     return () => {
       myAbortController.abort();
     };
-  }
+  }, []);
 
   useEffect(() => {
     let cancelledRequest;
@@ -52,7 +55,7 @@ export const useAutomationScripts: DataHook = () => {
     return () => {
       cancelledRequest = true;
     };
-  }, []);
+  }, [update]);
 
   return [state, { update }];
 };

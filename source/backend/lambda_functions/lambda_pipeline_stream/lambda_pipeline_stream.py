@@ -24,7 +24,6 @@ task_executions_table = cmf_boto.resource('dynamodb').Table(task_executions_tabl
 pipelines_table_name = os.environ['PIPELINES_TABLE_NAME']
 pipelines_table = cmf_boto.resource('dynamodb').Table(pipelines_table_name)
 
-
 def query_dynamodb_index(data_table, index_name, key_condition):
     response = data_table.query(
         IndexName=index_name,

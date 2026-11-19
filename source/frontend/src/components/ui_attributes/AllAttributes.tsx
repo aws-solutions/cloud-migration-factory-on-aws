@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useContext, useState } from "react";
 import {
   Alert,
   Checkbox,
@@ -17,41 +17,56 @@ import {
   Tabs,
   Textarea,
 } from "@cloudscape-design/components";
+import React, { useContext, useState } from "react";
 
 import { useMFApps } from "../../actions/ApplicationsHook";
+import { useAutomationScripts } from "../../actions/AutomationScriptsHook";
+import { useGetPipelines } from "../../actions/PipelinesHook";
+import { useGetPipelineTemplates } from "../../actions/PipelineTemplatesHook";
+import { useGetPipelineTemplateTasks } from "../../actions/PipelineTemplateTasksHook";
 import { useGetServers } from "../../actions/ServersHook";
 import { useMFWaves } from "../../actions/WavesHook";
-import { useAutomationScripts } from "../../actions/AutomationScriptsHook";
-import { useGetPipelineTemplates } from "../../actions/PipelineTemplatesHook";
-import { useGetPipelines } from "../../actions/PipelinesHook";
-import { useGetPipelineTemplateTasks } from "../../actions/PipelineTemplateTasksHook";
+import { useCustomAssetItems } from "../../actions/CustomAssetItemsHook.ts";
 
-import JsonAttribute from "./JsonAttribute";
 import Audit from "./Audit";
+import JsonAttribute from "./JsonAttribute";
 
-import { capitalize, getNestedValuePath, validateValue } from "../../resources/main";
+import { capitalize, getNestedValuePath, resolveRelationshipValues, validateValue } from "../../resources/main";
 
-import { useCredentialManager } from "../../actions/CredentialManagerHook";
 import { useAdminPermissions } from "../../actions/AdminPermissionsHook";
+import { useCredentialManager } from "../../actions/CredentialManagerHook";
+import { useGetDatabases } from "../../actions/DatabasesHook";
+import { useGetItems } from "../../actions/ItemsHook.ts";
+import { ToolsContext } from "../../contexts/ToolsContext";
+import {
+  Application,
+  Attribute,
+  BaseData,
+  Database,
+  EntitySchema,
+  MoveGroup,
+  SchemaAccess,
+  Server,
+  UserAccess,
+  Wave,
+  WPMJob,
+} from "../../models";
 import {
   checkAttributeRequiredConditions,
   getRelationshipRecord,
   getRelationshipValue,
 } from "../../resources/recordFunctions";
-import { useGetDatabases } from "../../actions/DatabasesHook";
-import MultiValueStringAttribute from "./MultiValueStringAttribute";
-import TagAttribute from "./TagAttribute";
-import ListAttribute from "./ListAttribute";
-import RelationshipAttribute from "./RelationshipAttribute";
-import GroupsAttribute from "./GroupsAttribute";
+import { Schemas } from "../../utils/Constants.ts";
+import { OptionDefinition } from "../../utils/OptionDefinition.ts";
+import CheckboxAttribute from "./CheckboxAttribute";
 import DateAttribute from "./DateAttribute";
 import EmbeddedEntityAttribute from "./EmbeddedEntityAttribute";
+import GroupsAttribute from "./GroupsAttribute";
+import ListAttribute from "./ListAttribute";
+import MultiValueStringAttribute from "./MultiValueStringAttribute";
 import PoliciesAttribute from "./PoliciesAttribute";
-import CheckboxAttribute from "./CheckboxAttribute";
-import { ToolsContext } from "../../contexts/ToolsContext";
-import { Attribute, BaseData, EntitySchema } from "../../models/EntitySchema";
-import { SchemaAccess, UserAccess } from "../../models/UserAccess";
-import { OptionDefinition } from "../../utils/OptionDefinition.ts";
+import RelationshipAttribute from "./RelationshipAttribute";
+import TagAttribute from "./TagAttribute";
 import { TaskLevelEmailSettingsAttribute } from "./TaskLevelEmailSettingsAttribute.tsx";
 
 const constDefaultGroupName = "Details";
@@ -79,12 +94,12 @@ const AllAttributes = (props: AllAttributesParams) => {
 
   //Load all related data into the UI for all relationships to work correctly.
   // ATTN: this is not optimal currently as all data is pulled back, needs update in future to make APIs return related data for a item.
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }] = useMFWaves();
-  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }] = useMFApps();
-  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }] = useGetServers();
+  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }] = useMFWaves<Wave>();
+  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }] = useMFApps<Application>();
+  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }] = useGetServers<Server>();
   const [{ isLoading: isLoadingScripts, data: dataScripts, error: errorScripts }] = useAutomationScripts();
   const [{ isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets }] = useCredentialManager();
-  const [{ isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases }] = useGetDatabases();
+  const [{ isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases }] = useGetDatabases<Database>();
   const [{ isLoading: permissionsIsLoading, data: permissionsData }] = useAdminPermissions();
   const [{ isLoading: isLoadingPipelines, data: dataPipelines, error: errorPipelines }] = useGetPipelines();
   const [{ isLoading: isLoadingPipelineTemplates, data: dataPipelineTemplates, error: errorPipelineTemplates }] =
@@ -93,11 +108,24 @@ const AllAttributes = (props: AllAttributesParams) => {
     { isLoading: isLoadingPipelineTemplateTasks, data: dataPipelineTemplateTasks, error: errorPipelineTemplateTasks },
   ] = useGetPipelineTemplateTasks();
 
+  // WPM data
+  const [{ isLoading: isLoadingMoveGroups, data: dataMoveGroups, error: errorMoveGroups }] = useGetItems<MoveGroup>(
+    Schemas.MoveGroup.name
+  );
+  const [{ isLoading: isLoadingWPMJobs, data: dataWPMJobs, error: errorWPMJobs }] = useGetItems<WPMJob>(
+    Schemas.WPMJob.name
+  );
+
+  // Custom assets
+  const [customAssetLoadingStates] = useCustomAssetItems(props.schemas);
+
   const allData: BaseData = {
     secret: { data: dataSecrets, isLoading: isLoadingSecrets, error: errorSecrets },
     script: { data: dataScripts, isLoading: isLoadingScripts, error: errorScripts },
     database: { data: dataDatabases, isLoading: isLoadingDatabases, error: errorDatabases },
     server: { data: dataServers, isLoading: isLoadingServers, error: errorServers },
+    // Keep both `app` and `application` to cater for the schema name inconsistency
+    app: { data: dataApps, isLoading: isLoadingApps, error: errorApps },
     application: { data: dataApps, isLoading: isLoadingApps, error: errorApps },
     wave: { data: dataWaves, isLoading: isLoadingWaves, error: errorWaves },
     pipeline: { data: dataPipelines, isLoading: isLoadingPipelines, error: errorPipelines },
@@ -111,15 +139,24 @@ const AllAttributes = (props: AllAttributesParams) => {
       isLoading: isLoadingPipelineTemplateTasks,
       error: errorPipelineTemplateTasks,
     },
+    move_group: { data: dataMoveGroups, isLoading: isLoadingMoveGroups, error: errorMoveGroups },
+    wpm_job: { data: dataWPMJobs, isLoading: isLoadingWPMJobs, error: errorWPMJobs },
+    ...customAssetLoadingStates,
   };
 
   const [formValidationErrors, setFormValidationErrors] = useState<any[]>([]);
   const [showadvancedpolicy, setShowadvancedpolicy] = useState(false);
-  const [ showTaskLevelNotification, setTaskLevelNotification ] = useState(false);
+  const [showTaskLevelNotification, setTaskLevelNotification] = useState(false);
 
   function getFilterAttributes(attribute: Attribute): Attribute[] {
-    let attributes_with_rel_filter = props.schema.attributes.filter((attributeFilter) => {
-      //this attribute's value is used to filter another select if true.
+    const attributes_with_rel_filter = props.schema.attributes.filter((attributeFilter) => {
+      // Check if using the new filters structure
+      if (attributeFilter.filters) {
+        return attributeFilter.filters.some((filter: any) => {
+          return attribute.name === filter.source_filter_attribute_name;
+        });
+      }
+      // Check if using the legacy single filter structure
       return attribute.name === attributeFilter.source_filter_attribute_name;
     });
 
@@ -132,9 +169,9 @@ const AllAttributes = (props: AllAttributesParams) => {
   }
 
   async function handleUserInput(attribute: Attribute, value: any, validationError: any, errorOnly: boolean = false) {
-    let attributes_with_rel_filter = getFilterAttributes(attribute);
+    const attributes_with_rel_filter = getFilterAttributes(attribute);
 
-    let attributes_with_embedded_filter = props.schema.attributes.filter((attributeFilter) => {
+    const attributes_with_embedded_filter = props.schema.attributes.filter((attributeFilter) => {
       //this attribute's value is used to filter another embedded attribute if true.
       return attribute.name === attributeFilter.lookup && attributeFilter.type === "embedded_entity";
     });
@@ -144,37 +181,59 @@ const AllAttributes = (props: AllAttributesParams) => {
     }
 
     // Special case for email recipients and groups in pipeline
-    if (attribute.name === "pipeline_default_email_recipients" ||
-       attribute.name === "pipeline_default_email_groups" || 
-       attribute.name === "pipeline_enable_email_notifications") {
-        // Use the most up-to-date values for validation:
-        // 1. For the field being changed, use the 'value' parameter (contains the new selection)
-        // 2. Use getNestedValuePath to get exiting user and group selections
-        // This ensures validation happens with the latest data before React state updates
-        const emailRecipients = attribute.name === "pipeline_default_email_recipients" ? value : getNestedValuePath(props.item, "pipeline_default_email_recipients") || [];
-        const emailGroups = attribute.name === "pipeline_default_email_groups" ? value : getNestedValuePath(props.item, "pipeline_default_email_groups") || [];
+    if (
+      attribute.name === "pipeline_default_email_recipients" ||
+      attribute.name === "pipeline_default_email_groups" ||
+      attribute.name === "pipeline_enable_email_notifications"
+    ) {
+      // Use the most up-to-date values for validation:
+      // 1. For the field being changed, use the 'value' parameter (contains the new selection)
+      // 2. Use getNestedValuePath to get exiting user and group selections
+      // This ensures validation happens with the latest data before React state updates
+      const emailRecipients =
+        attribute.name === "pipeline_default_email_recipients"
+          ? value
+          : getNestedValuePath(props.item, "pipeline_default_email_recipients") || [];
+      const emailGroups =
+        attribute.name === "pipeline_default_email_groups"
+          ? value
+          : getNestedValuePath(props.item, "pipeline_default_email_groups") || [];
 
-        if (emailRecipients.length > 0 || emailGroups.length > 0)  {
-          validationError = null;
-          clearAttributeFormError("pipeline_default_email_recipients");
-          clearAttributeFormError("pipeline_default_email_groups");
-          clearAttributeFormError("pipeline_enable_email_notifications");
-        } else {
-          validationError = "You must specify either default email recipients or default email groups when email notifications are enabled";
-        }
+      if (emailRecipients.length > 0 || emailGroups.length > 0) {
+        validationError = null;
+        clearAttributeFormError("pipeline_default_email_recipients");
+        clearAttributeFormError("pipeline_default_email_groups");
+        clearAttributeFormError("pipeline_enable_email_notifications");
+      } else {
+        validationError =
+          "You must specify either default email recipients or default email groups when email notifications are enabled";
+      }
     }
 
-    let values: {
+    const values: {
       field: string;
-      value: any[] | string | {};
+      value: any[] | string | object;
       validationError: any;
     }[] = [
       {
         field: attribute.name,
-        value: value,
+        value: attribute.type == "number" ? (isNaN(parseFloat(value)) ? value : parseFloat(value)) : value,
         validationError: validationError,
-      }
+      },
     ];
+
+    if (attribute.additional_name_list && Array.isArray(attribute.additional_name_list)) {
+      attribute.additional_name_list.forEach((additionalName) => {
+        const existingIndex = values.findIndex((item) => item.field === additionalName);
+        if (existingIndex === -1 && typeof additionalName === "string") {
+          values.push({
+            field: additionalName,
+            value: value,
+            validationError: validationError,
+          });
+        }
+      });
+    }
 
     // As filter value has been changed, set all child attribute values to empty.
     for (const attributeFilter of attributes_with_rel_filter) {
@@ -203,27 +262,54 @@ const AllAttributes = (props: AllAttributesParams) => {
 
   function getFilterData(entityData: any[], attribute: Attribute, currentRecord: any) {
     return entityData.filter((item) => {
-      const rel_value = getNestedValuePath(item, attribute.rel_filter_attribute_name!);
-      const source_value = getNestedValuePath(currentRecord, attribute.source_filter_attribute_name!);
+      // Check if using the new filters structure
+      if (attribute.filters) {
+        // Apply AND operation across all filters
+        return attribute.filters.every((filter: any) => {
+          const rel_value = getNestedValuePath(item, filter.rel_filter_attribute_name);
+          const source_value = getNestedValuePath(currentRecord, filter.source_filter_attribute_name);
 
-      if (Array.isArray(source_value)) {
-        return source_value?.includes(rel_value);
+          return compareFilterValues(rel_value, source_value);
+        });
       } else {
-        return source_value === rel_value;
+        // Use legacy single filter approach
+        const rel_value = getNestedValuePath(item, attribute.rel_filter_attribute_name);
+        const source_value = getNestedValuePath(currentRecord, attribute.source_filter_attribute_name);
+
+        return compareFilterValues(rel_value, source_value);
       }
     });
+  }
+
+  function compareFilterValues(rel_value: any, source_value: any) {
+    if (rel_value == null || source_value == null) {
+      return rel_value === source_value;
+    }
+
+    if (Array.isArray(source_value)) {
+      if (Array.isArray(rel_value)) {
+        return rel_value.some((value) => source_value.includes(value));
+      } else {
+        return source_value.includes(rel_value);
+      }
+    } else if (Array.isArray(rel_value)) {
+      return rel_value?.includes(source_value);
+    }
+
+    return rel_value === source_value;
   }
 
   function getSelectOptions(entityData: any[], isLoading: boolean, attribute: Attribute, currentRecord: any) {
     if (isLoading) return [];
 
     let dataFiltered = entityData;
-    if ("rel_filter_attribute_name" in attribute && "source_filter_attribute_name" in attribute) {
+
+    if (attribute.filters || containsSourceFilter(attribute)) {
       dataFiltered = getFilterData(entityData, attribute, currentRecord);
     }
 
     return dataFiltered.map((item) => {
-      let tags = [];
+      const tags = [];
       if (attribute.rel_additional_attributes) {
         for (const add_attr of attribute.rel_additional_attributes) {
           if (add_attr in item) {
@@ -232,8 +318,8 @@ const AllAttributes = (props: AllAttributesParams) => {
         }
       }
       return {
-        label: getNestedValuePath(item, attribute.rel_display_attribute!),
-        value: getNestedValuePath(item, attribute.rel_key!),
+        label: getNestedValuePath(item, attribute.rel_display_attribute),
+        value: getNestedValuePath(item, attribute.rel_key),
         tags: tags,
       };
     });
@@ -259,6 +345,7 @@ const AllAttributes = (props: AllAttributesParams) => {
 
     //Get related records list, based on entity.
     switch (attribute.rel_entity) {
+      case "app":
       case "application":
         listFull = getSelectOptions(dataApps, isLoadingApps, attribute, currentRecord);
         break;
@@ -302,6 +389,11 @@ const AllAttributes = (props: AllAttributesParams) => {
           currentRecord
         );
         break;
+      case "move_group":
+        // Resolve the relationships so that `__wave_id` attribute with wave name is available
+        resolveRelationshipValues(allData, dataMoveGroups, props.schema);
+        listFull = getSelectOptions(dataMoveGroups, isLoadingMoveGroups, attribute, currentRecord);
+        break;
       default:
         return [];
     }
@@ -310,9 +402,9 @@ const AllAttributes = (props: AllAttributesParams) => {
     listFull = options.concat(listFull);
 
     //Deduplicate the list of applications.
-    let listDeduped = [];
+    const listDeduped = [];
 
-    for (let listItem of listFull) {
+    for (const listItem of listFull) {
       let found = undefined;
       found = listDeduped.find((itemNew) => {
         return itemNew.value === listItem.value;
@@ -330,13 +422,12 @@ const AllAttributes = (props: AllAttributesParams) => {
   }
 
   function updateFormErrorsDisplayedToUser(attribute: Attribute, errorMsg: any) {
-    let existingValidationError = formValidationErrors.filter(function (item) {
+    const existingValidationError = formValidationErrors.filter(function (item) {
       return item.name === attribute.name;
     });
-
     //Error present raise attribute as error.
     if (existingValidationError.length === 0 && errorMsg !== null) {
-      let newValidationErrors = formValidationErrors;
+      const newValidationErrors = formValidationErrors;
       const attributeCopy = { ...attribute, __errorMsg: errorMsg };
       newValidationErrors.push(attributeCopy);
       setFormValidationErrors(newValidationErrors);
@@ -413,7 +504,7 @@ const AllAttributes = (props: AllAttributesParams) => {
       errorMsg = validateValue(value, attribute);
 
       if (value && !attribute?.listvalue?.includes(value)) {
-        let relatedRecord = getRelationshipRecord(attribute, allData, value);
+        const relatedRecord = getRelationshipRecord(attribute, allData, value);
         if (relatedRecord === null) {
           errorMsg = "Related record not found based on value provided, please check your selection.";
         }
@@ -450,16 +541,17 @@ const AllAttributes = (props: AllAttributesParams) => {
 
   function returnErrorMessage(attribute: Attribute) {
     let errorMsg: string | null | undefined;
-    
-    let value = getAttributeValue(attribute);
-    const defaultEmailValidationError = "You must specify either default email recipients or default email groups when email notifications are enabled";
+
+    const value = getAttributeValue(attribute);
+    const defaultEmailValidationError =
+      "You must specify either default email recipients or default email groups when email notifications are enabled";
 
     // Special case for email recipients and groups in pipeline
-    if (props.schemaName === "pipeline" &&
-        props.item?.pipeline_enable_email_notifications &&
-        (attribute.name === "pipeline_default_email_recipients" ||
-         attribute.name === "pipeline_default_email_groups")) {
-
+    if (
+      props.schemaName === "pipeline" &&
+      props.item?.pipeline_enable_email_notifications &&
+      (attribute.name === "pipeline_default_email_recipients" || attribute.name === "pipeline_default_email_groups")
+    ) {
       const emailRecipients = getNestedValuePath(props.item, "pipeline_default_email_recipients") || [];
       const emailGroups = getNestedValuePath(props.item, "pipeline_default_email_groups") || [];
 
@@ -480,7 +572,8 @@ const AllAttributes = (props: AllAttributesParams) => {
           errorMsg = getErrorMessageMultiValueString(attribute, value);
           break;
         }
-        case "relationship": {
+        case "relationship":
+        case "multivalue-relationship": {
           errorMsg = getErrorMessageRelationship(attribute, value);
           break;
         }
@@ -505,7 +598,7 @@ const AllAttributes = (props: AllAttributesParams) => {
   function handleAccessChange(updatedData: boolean, schemaName: any, currentAccess: any, typeChanged: string) {
     const schemaNameTransform = schemaName === "app" ? "application" : schemaName;
 
-    let schemaAccess = currentAccess.filter((schema: { schema_name: any }) => {
+    const schemaAccess = currentAccess.filter((schema: { schema_name: any }) => {
       return schema.schema_name === schemaNameTransform;
     });
 
@@ -515,7 +608,7 @@ const AllAttributes = (props: AllAttributesParams) => {
       props.handleUserInput([{ field: "entity_access", value: currentAccess, validationError: null }]);
     } else {
       //Create schema access object.
-      let newSchemaAccess: SchemaAccess = {
+      const newSchemaAccess: SchemaAccess = {
         schema_name: schemaNameTransform,
       };
 
@@ -526,7 +619,7 @@ const AllAttributes = (props: AllAttributesParams) => {
     }
   }
 
-  function addPolicyTab(tabsArray: {}[], schema: EntitySchema) {
+  function addPolicyTab(tabsArray: object[], schema: EntitySchema) {
     let schemaPolicyTab = {};
     //Add tab for this schema type as not present.
     let tabName = "";
@@ -539,6 +632,9 @@ const AllAttributes = (props: AllAttributesParams) => {
         break;
       case "system":
         tabName = "Advanced Permissions";
+        break;
+      case "custom":
+        tabName = "Custom Permissions";
         break;
       default:
         tabName = schema.schema_type;
@@ -758,7 +854,7 @@ const AllAttributes = (props: AllAttributesParams) => {
   }
 
   function getPolicy(schemas: Record<string, EntitySchema>, attribute: Attribute, currentPolicy: any[], index: number) {
-    let policyUITabs: any[] = [];
+    const policyUITabs: any[] = [];
 
     for (const schemaName in schemas) {
       //Do not display edit for the following schemas as this will be made available in future releases.
@@ -766,7 +862,7 @@ const AllAttributes = (props: AllAttributesParams) => {
       if (schemas[schemaName].schema_type === "system" && !showadvancedpolicy) {
         continue;
       }
-      let availableAttributes = getSelectableAttributes(schemas[schemaName], attribute.listMultiSelect);
+      const availableAttributes = getSelectableAttributes(schemas[schemaName], attribute.listMultiSelect);
 
       if (!currentPolicy) {
         ///No access settings, could be a new record/currentPolicy, provide default access settings.
@@ -774,11 +870,11 @@ const AllAttributes = (props: AllAttributesParams) => {
         props.handleUserInput([{ field: "entity_access", value: currentPolicy, validationError: null }]);
       }
 
-      let schemaAccessPolicy = getSchemaAccessPolicy(currentPolicy, schemaName);
+      const schemaAccessPolicy = getSchemaAccessPolicy(currentPolicy, schemaName);
 
-      let selectedAttributes = getSelectedAttributes(schemaAccessPolicy);
+      const selectedAttributes = getSelectedAttributes(schemaAccessPolicy);
 
-      let tabSchemaType = getPolicyTab(policyUITabs, schemas[schemaName]);
+      const tabSchemaType = getPolicyTab(policyUITabs, schemas[schemaName]);
 
       if (schemas[schemaName].schema_type !== "automation") {
         tabSchemaType.content.push(
@@ -874,10 +970,7 @@ const AllAttributes = (props: AllAttributesParams) => {
   function isReadOnly(schema: EntitySchema, userAccess: UserAccess, attribute: Attribute) {
     const schemaName = schema?.schema_name === "app" ? "application" : schema?.schema_name;
 
-    if (
-      !userAccess[schemaName] ||
-      userAccess[schemaName].create
-    ) {
+    if (!userAccess[schemaName] || userAccess[schemaName].create) {
       //Any required attributes will be available if the user has the create permission.
       return false;
     } else {
@@ -896,7 +989,7 @@ const AllAttributes = (props: AllAttributesParams) => {
   }
 
   function clearAttributeFormError(attributeName: string) {
-    let newValidationErrors = formValidationErrors.filter((item) => {
+    const newValidationErrors = formValidationErrors.filter((item) => {
       return item.name !== attributeName;
     });
     if (newValidationErrors.length > 0) {
@@ -949,7 +1042,7 @@ const AllAttributes = (props: AllAttributesParams) => {
         let validationError: any = null;
 
         //Check if user has update rights to attribute.
-        let attributeReadOnly = isReadOnly(props.schema, props.userAccess, attribute);
+        const attributeReadOnly = attribute.readonly || isReadOnly(props.schema, props.userAccess, attribute);
         const displayKey = "item-" + index;
 
         switch (attribute.type) {
@@ -999,7 +1092,7 @@ const AllAttributes = (props: AllAttributesParams) => {
                     ])
                   }
                   value={getNestedValuePath(props.item, attribute.name)}
-                  disabled={attributeReadOnly}
+                  readOnly={attributeReadOnly}
                 />
               </FormField>
             );
@@ -1038,6 +1131,14 @@ const AllAttributes = (props: AllAttributesParams) => {
               />
             );
           case "relationship":
+          case "multivalue-relationship":
+            if (containsSourceFilter(attribute)) {
+              const source_value = getNestedValuePath(props.item, attribute.source_filter_attribute_name);
+              if (!source_value) {
+                return null;
+              }
+            }
+
             return (
               <RelationshipAttribute
                 key={displayKey}
@@ -1054,7 +1155,7 @@ const AllAttributes = (props: AllAttributesParams) => {
             );
           case "policy": {
             validationError = returnErrorMessage(attribute);
-            let value = getNestedValuePath(props.item, attribute.name);
+            const value = getNestedValuePath(props.item, attribute.name);
 
             return getPolicy(props.schemas, attribute, value, index);
           }
@@ -1088,35 +1189,35 @@ const AllAttributes = (props: AllAttributesParams) => {
             let embedded_entity_schema = getRelationshipValue(
               attribute,
               allData,
-              getNestedValuePath(props.item, attribute.lookup!)
+              getNestedValuePath(props.item, attribute.lookup)
             );
 
             /**
              * Override embedded_entity for pipeline since it is a double lookup
              */
             if (props.schemaName === "pipeline") {
-              let template_tasks = allData.pipeline_template_task?.data.filter((ptt) => {
+              const template_tasks = allData.pipeline_template_task?.data.filter((ptt) => {
                 return ptt.pipeline_template_id === props.item.pipeline_template_id;
               });
 
               if (!template_tasks) {
                 return null;
               }
-            
-              let embedded_task_arg_schemas = template_tasks?.map((templateTask) => {
+
+              const embedded_task_arg_schemas = template_tasks?.map((templateTask) => {
                 return allData.script?.data.find((t) => {
                   return t.package_uuid === templateTask.task_id;
                 });
               });
-          
-              let missing_scripts = [];
-          
+
+              const missing_scripts = [];
+
               for (let script_idx = 0; script_idx < template_tasks.length; script_idx++) {
                 if (!embedded_task_arg_schemas[script_idx]) {
                   missing_scripts.push(template_tasks[script_idx]);
                 }
               }
-          
+
               if (template_tasks && missing_scripts.length > 0) {
                 return (
                   <Alert
@@ -1131,7 +1232,7 @@ const AllAttributes = (props: AllAttributesParams) => {
                 );
               }
 
-              let embedded_task_arg_schemas_attributes = embedded_task_arg_schemas?.flatMap((task: any) =>
+              const embedded_task_arg_schemas_attributes = embedded_task_arg_schemas?.flatMap((task: any) =>
                 getRelationshipValue(attribute, allData, getNestedValuePath({ task }, attribute.lookup))
               );
               // De-duping duplicate embedded entity values across pipeline template tasks
@@ -1209,8 +1310,9 @@ const AllAttributes = (props: AllAttributesParams) => {
                 <Input
                   value={getDisplayValue(attribute, props.item)}
                   onChange={(event) => handleUserInput(attribute, event.detail.value, validationError)}
-                  disabled={attributeReadOnly}
+                  readOnly={attributeReadOnly}
                   ariaLabel={attribute.name}
+                  type={attribute.type === "number" ? "number" : undefined}
                 />
               </FormField>
             );
@@ -1218,7 +1320,7 @@ const AllAttributes = (props: AllAttributesParams) => {
       } else {
         //Attribute is hidden, check that no errors exist for this hidden attribute, could be that a condition has hidden it.
 
-        let existingValidationError = formValidationErrors.filter(function (item) {
+        const existingValidationError = formValidationErrors.filter(function (item) {
           return item.name === attribute.name;
         });
 
@@ -1247,7 +1349,7 @@ const AllAttributes = (props: AllAttributesParams) => {
   }
 
   function addAttributeToGroup(attribute: Attribute, groups: any[], groupName: string) {
-    let existingGroup = groups.find((o) => o.name === groupName);
+    const existingGroup = groups.find((o) => o.name === groupName);
     if (!existingGroup) {
       groups.push({ name: groupName, attributes: [attribute] });
     } else {
@@ -1275,11 +1377,11 @@ const AllAttributes = (props: AllAttributesParams) => {
     if (!schema.attributes) {
       return [];
     }
-    let groupedAttrs = buildAttributeGroups(schema.attributes);
+    const groupedAttrs = buildAttributeGroups(schema.attributes);
 
     //Create containers for each group of attributes.
-    let allContainers = groupedAttrs.map((item, index) => {
-      let group = buildAttributeUI(item.attributes);
+    const allContainers = groupedAttrs.map((item) => {
+      const group = buildAttributeUI(item.attributes);
       let allNull = true;
 
       for (const attr of group) {
@@ -1289,9 +1391,7 @@ const AllAttributes = (props: AllAttributesParams) => {
       if (!allNull) {
         return (
           <Container key={item.name} header={<Header variant="h2">{item.name}</Header>}>
-            <SpaceBetween size="l">
-              {group}
-            </SpaceBetween>
+            <SpaceBetween size="l">{group}</SpaceBetween>
           </Container>
         );
       } else {
@@ -1310,16 +1410,16 @@ const AllAttributes = (props: AllAttributesParams) => {
     // Only add TaskLevelEmailSettingsAttribute if email notifications are enabled
     // and it doesn't already exist in allContainers
     if (showTaskLevelNotification) {
-        allContainers.push(
-          <TaskLevelEmailSettingsAttribute 
-            item={props.item} 
-            handleUserInput={props.handleUserInput} 
-            dataAll={allData} 
-          />
-        );
+      allContainers.push(
+        <TaskLevelEmailSettingsAttribute item={props.item} handleUserInput={props.handleUserInput} dataAll={allData} />
+      );
     }
 
     return allContainers;
+  }
+
+  function containsSourceFilter(attribute: Attribute) {
+    return attribute.rel_filter_attribute_name && attribute.source_filter_attribute_name;
   }
 
   return <SpaceBetween size="l">{props.schema ? buildFinalUI(props.schema) : undefined}</SpaceBetween>;

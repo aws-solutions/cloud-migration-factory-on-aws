@@ -1,9 +1,11 @@
 {
   "schema_name": "server",
   "schema_type": "user",
+  "key_type": "ulid",
   "attributes": [
     {
       "description": "Root Volume Size",
+      "default": "1",
       "system": true,
       "name": "root_vol_size",
       "group": "Target - Storage",
@@ -11,6 +13,7 @@
     },
     {
       "description": "AMI Id",
+      "default": "ami-00000000",
       "name": "ami_id",
       "group": "Target - Instance",
       "system": true,
@@ -88,15 +91,16 @@
       "type": "string"
     },
     {
-      "description": "Application",
-      "group_order": "-998",
-      "name": "app_id",
+      "description": "Related Applications",
+      "group_order": "-997",
+      "listMultiSelect": true,
+      "name": "app_ids",
       "rel_display_attribute": "app_name",
-      "rel_entity": "application",
+      "rel_entity": "app",
       "rel_key": "app_id",
-      "required": true,
+      "required": false,
       "system": true,
-      "type": "relationship"
+      "type": "multivalue-relationship"
     }
   ]
 }

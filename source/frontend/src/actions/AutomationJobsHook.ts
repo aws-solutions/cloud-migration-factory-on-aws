@@ -5,26 +5,29 @@
 
 import { DataHook, reducer, requestFailed, requestStarted, requestSuccessful } from "../resources/reducer";
 
-import { useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 import ToolsApiClient from "../api_clients/toolsApiClient";
 
-export const useAutomationJobs: DataHook = () => {
-  const [state, dispatch] = useReducer(reducer, {
+const apiAutomation = new ToolsApiClient();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const useAutomationJobs: DataHook = <T = any>() => {
+  const [state, dispatch] = useReducer(reducer<T>, {
     isLoading: true,
     data: [],
     error: null,
   });
 
-  async function update(maximumDays: number | undefined = undefined) {
+  const update = useCallback(async (maximumDays: number | undefined = undefined) => {
     const myAbortController = new AbortController();
 
     dispatch(requestStarted());
 
     try {
-      let apiAutomation = new ToolsApiClient();
       const response = await apiAutomation.getSSMJobs(maximumDays);
 
       dispatch(requestSuccessful({ data: response }));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       if (e.message !== "Request aborted") {
         console.error("Automation Jobs Hook", e);
@@ -39,7 +42,7 @@ export const useAutomationJobs: DataHook = () => {
     return () => {
       myAbortController.abort();
     };
-  }
+  }, []);
 
   useEffect(() => {
     let cancelledRequest;
@@ -52,7 +55,7 @@ export const useAutomationJobs: DataHook = () => {
     return () => {
       cancelledRequest = true;
     };
-  }, []);
+  }, [update]);
 
   return [state, { update }];
 };

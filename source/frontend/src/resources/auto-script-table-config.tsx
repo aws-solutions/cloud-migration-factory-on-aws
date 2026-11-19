@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -6,8 +7,8 @@
 
 import { getNestedValue, returnLocaleDateTime, sortAscendingComparator } from "../resources/main";
 
-export function getColumnDefinitions(schema, provide_link = false) {
-  let columnDefinitions = schema.attributes.map((attr, index) => {
+export function getColumnDefinitions(schema) {
+  const columnDefinitions = schema.attributes.map((attr) => {
     switch (attr.type) {
       case "password":
         return {
@@ -32,7 +33,7 @@ export function getColumnDefinitions(schema, provide_link = false) {
           cell: (item) =>
             item[attr.name]
               ? item[attr.name]
-                  .map((tag, index) => {
+                  .map((tag) => {
                     return tag.key + "=" + tag.value;
                   })
                   .join(";")
@@ -106,8 +107,8 @@ function defaultAuditColumns(columnDefinitions) {
   });
 }
 
-function defaultAuditSelectorOptions(options) {
-  let auditSelectorOptions = [];
+function defaultAuditSelectorOptions() {
+  const auditSelectorOptions = [];
 
   auditSelectorOptions.push({
     id: "createdTimestamp",
@@ -137,7 +138,7 @@ function defaultAuditSelectorOptions(options) {
 }
 
 export function getContentSelectorOptions(schema) {
-  let options = schema.attributes.map((attr, index) => {
+  const options = schema.attributes.map((attr) => {
     let option = {};
     if (attr.type === "relationship") {
       option = {

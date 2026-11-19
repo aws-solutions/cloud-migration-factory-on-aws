@@ -9,7 +9,6 @@ import logging
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
-
 def assume_role(account_id, region):
     sts_client = boto3.client('sts', region_name=region)
     role_arn = 'arn:aws:iam::' + account_id + ':role/CMF-MGNAutomation'

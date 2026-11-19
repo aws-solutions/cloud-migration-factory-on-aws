@@ -19,6 +19,10 @@ from test_common_utils import create_and_populate_servers, \
 from cmf_logger import logger
 
 
+def mock_get_factory_servers(waveid, accountid, appidlist, server_ids=None):
+    account_servers, error_list = mock_get_servers(None, None, waveid, None)
+    return account_servers, error_list
+
 @mock.patch.dict('os.environ', default_mock_os_environ)
 @mock_aws
 class MGNLambdaTestCase(TestCase):
@@ -140,7 +144,7 @@ class MGNLambdaTestCase(TestCase):
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy',
                 new=mock_get_user_resource_creation_policy_allow)
-    @mock.patch('lambda_mgn.get_servers', new=mock_get_servers)
+    @mock.patch('lambda_mgn.get_factory_servers', new=mock_get_factory_servers)
     def test_lambda_handler_with_allow_action_and_disconnected_state_and_invalid_credentials(self):
         logger.info("Testing test_lambda_mgn: "
                     "test_lambda_handler_with_allow_action_and_disconnected_state_and_invalid_credentials")
@@ -160,7 +164,7 @@ class MGNLambdaTestCase(TestCase):
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy',
                 new=mock_get_user_resource_creation_policy_allow)
-    @mock.patch('lambda_mgn.get_servers', new=mock_get_servers)
+    @mock.patch('lambda_mgn.get_factory_servers', new=mock_get_factory_servers)
     @mock.patch('lambda_mgn_template.multiprocessing_update', new=mock_multiprocessing_update_success)
     @mock.patch('lambda_mgn.get_mgn_launch_template_id', new=mock_get_mgn_launch_template_id)
     def test_lambda_hander_manage_mgn_actions_valid_launch_template(self):
@@ -190,7 +194,7 @@ class MGNLambdaTestCase(TestCase):
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy',
                 new=mock_get_user_resource_creation_policy_allow)
-    @mock.patch('lambda_mgn.get_servers', new=mock_get_servers)
+    @mock.patch('lambda_mgn.get_factory_servers', new=mock_get_factory_servers)
     @mock.patch('lambda_mgn.update_ec2_launch_template', new=mock_update_ec2_launch_template)
     def test_lambda_hander_manage_mgn_actions_launch_test_instances_succeeded(self):
         logger.info("Testing test_lambda_mgn: "
@@ -221,7 +225,7 @@ class MGNLambdaTestCase(TestCase):
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy',
                 new=mock_get_user_resource_creation_policy_allow)
-    @mock.patch('lambda_mgn.get_servers', new=mock_get_servers)
+    @mock.patch('lambda_mgn.get_factory_servers', new=mock_get_factory_servers)
     @mock.patch('lambda_mgn.update_ec2_launch_template', new=mock_update_ec2_launch_template)
     def test_lambda_hander_manage_mgn_actions_launch_test_instances_failed(self):
         logger.info("Testing test_lambda_mgn: "
@@ -255,7 +259,7 @@ class MGNLambdaTestCase(TestCase):
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy',
                 new=mock_get_user_resource_creation_policy_allow)
-    @mock.patch('lambda_mgn.get_servers', new=mock_get_servers)
+    @mock.patch('lambda_mgn.get_factory_servers', new=mock_get_factory_servers)
     @mock.patch('lambda_mgn.update_ec2_launch_template', new=mock_update_ec2_launch_template)
     def test_lambda_hander_manage_mgn_actions_launch_cutover_instances_succeeded(self):
         logger.info("Testing test_lambda_mgn: "
@@ -286,7 +290,7 @@ class MGNLambdaTestCase(TestCase):
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy',
                 new=mock_get_user_resource_creation_policy_allow)
-    @mock.patch('lambda_mgn.get_servers', new=mock_get_servers)
+    @mock.patch('lambda_mgn.get_factory_servers', new=mock_get_factory_servers)
     @mock.patch('lambda_mgn.update_ec2_launch_template', new=mock_update_ec2_launch_template)
     def test_lambda_hander_manage_mgn_actions_launch_cutover_instances_failed(self):
         logger.info("Testing test_lambda_mgn: "
@@ -320,7 +324,7 @@ class MGNLambdaTestCase(TestCase):
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy',
                 new=mock_get_user_resource_creation_policy_allow)
-    @mock.patch('lambda_mgn.get_servers', new=mock_get_servers)
+    @mock.patch('lambda_mgn.get_factory_servers', new=mock_get_factory_servers)
     @mock.patch('lambda_mgn.update_ec2_launch_template', new=mock_update_ec2_launch_template)
     def test_lambda_hander_manage_mgn_actions_terminate_instances_succeeded(self):
         logger.info("Testing test_lambda_mgn: "
@@ -351,7 +355,7 @@ class MGNLambdaTestCase(TestCase):
     @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
     @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy',
                 new=mock_get_user_resource_creation_policy_allow)
-    @mock.patch('lambda_mgn.get_servers', new=mock_get_servers)
+    @mock.patch('lambda_mgn.get_factory_servers', new=mock_get_factory_servers)
     @mock.patch('lambda_mgn.update_ec2_launch_template', new=mock_update_ec2_launch_template)
     def test_lambda_hander_manage_mgn_actions_terminate_instances_failed(self):
         logger.info("Testing test_lambda_mgn: "
@@ -380,57 +384,6 @@ class MGNLambdaTestCase(TestCase):
         self.event = self.initial_event
         test_lambda_mgn_common_util.MGN_TEST_SCENARIO = 'default'
         test_lambda_mgn_common_util.MGN_SERVER_ACTION_SCENARIO = 'default'
-
-    @mock_aws
-    @mock.patch('botocore.client.BaseClient._make_api_call', new=mock_boto_api_call)
-    @mock.patch('lambda_mgn.MFAuth.get_user_resource_creation_policy',
-                new=mock_get_user_resource_creation_policy_allow)
-    @mock.patch('lambda_mgn.get_servers', new=mock_get_servers)
-    @mock.patch('lambda_mgn.update_ec2_launch_template', new=mock_update_ec2_launch_template)
-    def test_filter_items_with_item_ids(self):
-        logger.info("Testing test_lambda_mgn: "
-                    "test_filter_items_success")
-        from lambda_mgn import filter_items
-
-        items = [
-            {'id': 1, 'name': 'Item 1'},
-            {'id': 2, 'name': 'Item 2'},
-            {'id': 3, 'name': 'Item 3'},
-            {'id': 4, 'name': 'Item 4'}
-        ]
-        item_ids = [1, 3]
-        key = 'id'
-        expected_output = [
-            {'id': 1, 'name': 'Item 1'},
-            {'id': 3, 'name': 'Item 3'}
-        ]
-        self.assertEqual(filter_items(items, key, item_ids), expected_output)
-
-    def test_filter_items_without_item_ids(self):
-        logger.info("Testing test_lambda_mgn: "
-                    "test_filter_items_without_item_ids")
-        from lambda_mgn import filter_items
-
-        items = [
-            {'id': 1, 'name': 'Item 1'},
-            {'id': 2, 'name': 'Item 2'},
-            {'id': 3, 'name': 'Item 3'},
-            {'id': 4, 'name': 'Item 4'}
-        ]
-        key = 'id'
-
-        self.assertEqual(filter_items(items, key), items)
-
-    def test_filter_items_with_empty_list(self):
-        logger.info("Testing test_lambda_mgn: "
-                    "test_filter_items_with_empty_list")
-        from lambda_mgn import filter_items
-
-        items = []
-        key = 'id'
-        item_ids = [1, 2]
-
-        self.assertEqual(filter_items(items, key, item_ids), [])
 
     # get_mgn_launch_template_id test needed as threaded
     # @mock_aws

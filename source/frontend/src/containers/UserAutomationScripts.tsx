@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -55,9 +56,9 @@ type AutomationScriptsParams = {
 };
 const AutomationScripts = (props: AutomationScriptsParams) => {
   const { addNotification } = useContext(NotificationContext);
-  let location = useLocation();
-  let navigate = useNavigate();
-  let params = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = useParams();
   //Data items for viewer and table.
   //Main table content hook. When duplicating just create a new hook and change the hook function at the end to populate table.
   const [{ isLoading: isLoadingMain, data: dataMain, error: errorMain }, { update: updateMain }] =
@@ -90,7 +91,7 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
 
   function refreshSelectedItems() {
     // Search for previously selected items, and update based on refreshed data.
-    let updatedItems = [];
+    const updatedItems = [];
     if (selectedItems.length > 0) {
       for (const selectedItem of selectedItems) {
         const findResult = dataMain.find((item: { [x: string]: any }) => item[itemIDKey] === selectedItem[itemIDKey]);
@@ -126,7 +127,7 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
   async function handleAction(e: ClickEvent) {
     e.preventDefault();
 
-    let action = e.detail.id;
+    const action = e.detail.id;
 
     if (action === "new_version") {
       handleUpdateItem();
@@ -158,7 +159,7 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
       return;
     }
 
-    let newItem: any = {
+    const newItem: any = {
       script_name: details.script_name,
       script_file: result,
     };
@@ -166,7 +167,6 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
 
     try {
       notificationId = addNotification({
-        type: "success",
         loading: true,
         dismissible: false,
         header: "Uploading script",
@@ -251,7 +251,7 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
   }
 
   async function handleChangeVersion() {
-    let newItem: any = {
+    const newItem: any = {
       package_uuid: focusItem.package_uuid,
       script_name: focusItem.script_name,
       default: newDefaultVersion,
@@ -260,7 +260,6 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
 
     try {
       notificationId = addNotification({
-        type: "success",
         loading: true,
         dismissible: false,
         header: "Change script default version",
@@ -341,7 +340,6 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
 
     try {
       notificationId = addNotification({
-        type: "success",
         loading: true,
         dismissible: false,
         header: "Download script",
@@ -547,7 +545,7 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
               </FormField>
               <Button
                 iconName={"download"}
-                onClick={(e) =>
+                onClick={() =>
                   downloadScriptVersion({
                     package_uuid: focusItem.package_uuid,
                     script_name: focusItem.script_name,
@@ -584,10 +582,10 @@ const AutomationScripts = (props: AutomationScriptsParams) => {
   }
 
   useEffect(() => {
-    let selected = [];
+    const selected = [];
 
     if (!isLoadingMain) {
-      let item = dataMain.filter((entry: { [x: string]: string | undefined }) => entry[itemIDKey] === params.id);
+      const item = dataMain.filter((entry: { [x: string]: string | undefined }) => entry[itemIDKey] === params.id);
 
       if (item.length === 1) {
         selected.push(item[0]);

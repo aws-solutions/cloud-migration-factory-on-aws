@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -7,7 +8,7 @@ import { SessionState } from "../contexts/SessionContext";
 import { v4 } from "uuid";
 import { AppChildProps } from "../models/AppChildProps";
 import { NotificationContextType } from "../contexts/NotificationContext";
-import { defaultSchemas } from "../../test_data/default_schema";
+import { defaultSchemas, wpmSchemas } from "../../test_data";
 
 const defaultRoles = "default_roles.json";
 const defaultPolicies = "default_policies.json";
@@ -36,7 +37,7 @@ const TEST_USER_ACCESS = {
       },
       {
         attr_type: "application",
-        attr_name: "wave_id",
+        attr_name: "wave_ids",
       },
       {
         attr_type: "application",
@@ -88,7 +89,7 @@ const TEST_USER_ACCESS = {
       },
       {
         attr_type: "server",
-        attr_name: "app_id",
+        attr_name: "app_ids",
       },
       {
         attr_type: "server",
@@ -109,6 +110,14 @@ const TEST_USER_ACCESS = {
       {
         attr_type: "server",
         attr_name: "server_tier",
+      },
+      {
+        attr_type: "server",
+        attr_name: "aws_accountid",
+      },
+      {
+        attr_type: "server",
+        attr_name: "aws_region",
       },
       {
         attr_type: "server",
@@ -188,7 +197,7 @@ const TEST_USER_ACCESS = {
       },
       {
         attr_type: "database",
-        attr_name: "app_id",
+        attr_name: "app_ids",
       },
       {
         attr_type: "database",
@@ -443,7 +452,10 @@ export const defaultTestProps: AppChildProps = {
   ],
   userEntityAccess: TEST_USER_ACCESS,
   userGroups: [],
+  enabledModules: [],
 };
+
+export const wpmTestProps: AppChildProps = { ...defaultTestProps, schemas: wpmSchemas() };
 
 export const TEST_SESSION_STATE: SessionState = {
   idToken: v4(),

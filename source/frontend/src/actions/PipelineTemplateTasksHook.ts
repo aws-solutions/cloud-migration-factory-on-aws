@@ -5,27 +5,28 @@
 
 import { DataHook, reducer, requestStarted, requestSuccessful } from "../resources/reducer";
 
-import { useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 import UserApiClient from "../api_clients/userApiClient";
 
-export const useGetPipelineTemplateTasks: DataHook = () => {
-  const [state, dispatch] = useReducer(reducer, {
+const apiUser = new UserApiClient();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const useGetPipelineTemplateTasks: DataHook = <T = any>() => {
+  const [state, dispatch] = useReducer(reducer<T>, {
     isLoading: true,
     data: [],
     error: null,
   });
 
-  const apiUser = new UserApiClient();
-
-  async function init() {
+  const init = useCallback(async () => {
     const myAbortController = new AbortController();
     dispatch(requestStarted());
 
     try {
       const response = await apiUser.getPipelineTemplateTasks();
       dispatch(requestSuccessful({ data: response }));
-    } catch (e: any) {
-      if (e.message !== "Request aborted") {
+    } catch (e) {
+      if (e instanceof Error && e.message !== "Request aborted") {
         console.error("PipelineTemplateTasks Hook", e);
       }
       dispatch(requestSuccessful({ data: [] }));
@@ -34,16 +35,16 @@ export const useGetPipelineTemplateTasks: DataHook = () => {
     return () => {
       myAbortController.abort();
     };
-  }
+  }, []);
 
-  async function update() {
+  const update = useCallback(async () => {
     const myAbortController = new AbortController();
 
     try {
       const response = await apiUser.getPipelineTemplateTasks();
       dispatch(requestSuccessful({ data: response }));
-    } catch (e: any) {
-      if (e.message !== "Request aborted") {
+    } catch (e) {
+      if (e instanceof Error && e.message !== "Request aborted") {
         console.error("PipelineTemplateTasks Hook", e);
       }
     }
@@ -51,7 +52,7 @@ export const useGetPipelineTemplateTasks: DataHook = () => {
     return () => {
       myAbortController.abort();
     };
-  }
+  }, []);
 
   useEffect(() => {
     let cancelledRequest;
@@ -64,7 +65,7 @@ export const useGetPipelineTemplateTasks: DataHook = () => {
     return () => {
       cancelledRequest = true;
     };
-  }, []);
+  }, [init]);
 
   return [state, { update }];
 };

@@ -4,29 +4,31 @@
  */
 
 import { reducer, requestStarted, requestSuccessful } from "../resources/reducer";
-import { Dispatch, useEffect, useReducer } from "react";
+import { Dispatch, useCallback, useEffect, useReducer } from "react";
 import ToolsApiClient from "../api_clients/toolsApiClient";
 
+const toolsAPI = new ToolsApiClient();
+
 export const useCredentialManager = () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, dispatch]: [any, Dispatch<any>] = useReducer(reducer, {
     isLoading: true,
     data: [],
     error: null,
   });
 
-  async function getSecretList() {
+  const getSecretList = useCallback(async () => {
     const myAbortController = new AbortController();
     let credentialManagerData = [];
 
     dispatch(requestStarted());
 
     try {
-      let toolsAPI = new ToolsApiClient();
       credentialManagerData = await toolsAPI.getCredentials();
 
       dispatch(requestSuccessful({ data: credentialManagerData }));
-    } catch (e: any) {
-      if (e.name !== "AbortError") {
+    } catch (e) {
+      if (e instanceof Error && e.name !== "AbortError") {
         console.error("Credential Manager Hook", e);
       }
       dispatch(requestSuccessful({ data: [] }));
@@ -35,7 +37,7 @@ export const useCredentialManager = () => {
     return () => {
       myAbortController.abort();
     };
-  }
+  }, []);
 
   useEffect(() => {
     let cancelledRequest;
@@ -48,7 +50,7 @@ export const useCredentialManager = () => {
     return () => {
       cancelledRequest = true;
     };
-  }, []);
+  }, [getSecretList]);
 
   return [state, { getSecretList }];
 };

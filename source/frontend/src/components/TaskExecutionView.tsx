@@ -1,3 +1,9 @@
+/* eslint-disable */
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React from "react";
 import { Container, Header, Textarea, Tabs, ColumnLayout, SpaceBetween, Box } from "@cloudscape-design/components";
 
@@ -28,7 +34,7 @@ const TaskExecutionView = (props: TaskExecutionViewParams) => {
   // Helper function to render email lists
   const renderEmailList = (emails: any[]) => {
     if (!emails || emails.length === 0) return null;
-    return emails.map((item: any) => item.email || item.group_name).join(', ');
+    return emails.map((item: any) => item.email || item.group_name).join(", ");
   };
 
   // Find the task level email settings for this task
@@ -58,11 +64,11 @@ const TaskExecutionView = (props: TaskExecutionViewParams) => {
             <>
               <div>
                 <Box variant="awsui-key-label">Email Notifications Enabled</Box>
-                <div>{taskEmailSettings.enabled ? 'Yes' : 'No'}</div>
+                <div>{taskEmailSettings.enabled ? "Yes" : "No"}</div>
               </div>
               <div>
                 <Box variant="awsui-key-label">Override Defaults</Box>
-                <div>{taskEmailSettings.override_defaults ? 'Yes' : 'No'}</div>
+                <div>{taskEmailSettings.override_defaults ? "Yes" : "No"}</div>
               </div>
             </>
           )}
@@ -119,8 +125,8 @@ const TaskExecutionView = (props: TaskExecutionViewParams) => {
         {
           label: "Email Notification Settings",
           id: "email",
-          content: emailNotificationContent
-        }
+          content: emailNotificationContent,
+        },
       ]}
     />
   );

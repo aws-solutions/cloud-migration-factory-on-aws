@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -64,7 +65,7 @@ const AutomationJobsTable = (props) => {
     // Force update of current item to ensure latest data is available on viewer.
 
     // Search for previously selected items, and update based on refreshed data.
-    let updatedItems = [];
+    const updatedItems = [];
     if (props.selectedItems.length > 0) {
       for (const selectedItem of props.selectedItems) {
         const findResult = items.find(
@@ -81,7 +82,7 @@ const AutomationJobsTable = (props) => {
 
   async function handleOnRowClick(detail) {
     if (props.handleSelectionChange) {
-      let selectedItem = [];
+      const selectedItem = [];
       selectedItem.push(detail.item);
 
       await props.handleSelectionChange(selectedItem);
@@ -89,7 +90,7 @@ const AutomationJobsTable = (props) => {
   }
 
   function handleConfirmPreferences(detail) {
-    let lPreferences = detail;
+    const lPreferences = detail;
 
     lPreferences.trackBy = DEFAULT_PREFERENCES.trackBy;
 

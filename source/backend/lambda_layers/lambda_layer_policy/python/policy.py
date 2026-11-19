@@ -363,6 +363,20 @@ class MFAuth(object):
         # Finally, build the policy
         auth_response = policy.build()
 
+        # Propagate the validated group membership and email to the downstream
+        # Lambda via the authorizer context so each Lambda can perform its own
+        # independent (defense-in-depth) authorization check. Context values
+        # must be strings, so the group list is serialised as a comma-separated
+        # string.
+        if isinstance(group, list):
+            groups_context = ','.join(str(g) for g in group)
+        else:
+            groups_context = group or ''
+        auth_response['context'] = {
+            'cognito:groups': groups_context,
+            'email': email or ''
+        }
+
         return auth_response
 
 
@@ -400,6 +414,7 @@ class MFAuth(object):
 
     def get_access_level_for_schema(self, event, policy, schema_name, allow_access):
         method_schema_dict ={
+            "GET": "read",
             "PUT": "update",
             "POST": "create",
             "DELETE": "delete"}
@@ -438,6 +453,8 @@ class MFAuth(object):
     def update_access_type_in_return_message(self, event, allow_access, schema_name, user):
         # Update access type string for return message.
         allow_access_type = 'unknown'
+        if event['httpMethod'] == 'GET':
+            allow_access_type = 'read'
         if event['httpMethod'] == 'PUT':
             allow_access_type = 'update'
         if event['httpMethod'] == 'POST':

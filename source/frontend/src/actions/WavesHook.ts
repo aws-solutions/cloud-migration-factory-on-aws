@@ -3,27 +3,31 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { DataHook, DataState, reducer, requestFailed, requestStarted, requestSuccessful } from "../resources/reducer";
+import { DataHook, reducer, requestFailed, requestStarted, requestSuccessful } from "../resources/reducer";
 
-import { useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 import UserApiClient from "../api_clients/userApiClient";
 
-export const useMFWaves: DataHook = () => {
-  const [state, dispatch]: [DataState, React.Dispatch<any>] = useReducer(reducer, {
+const userApiClient = new UserApiClient();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const useMFWaves: DataHook = <T = any>() => {
+  const [state, dispatch] = useReducer(reducer<T>, {
     isLoading: true,
     data: [],
     error: null,
   });
 
-  async function update(): Promise<() => void> {
+  const update = useCallback(async () => {
     const myAbortController = new AbortController();
 
     dispatch(requestStarted());
 
     try {
-      const response = await new UserApiClient().getWaves();
+      const response = await userApiClient.getWaves();
 
       dispatch(requestSuccessful({ data: response }));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       if (e.message !== "Request aborted") {
         console.error("Waves Hook", e);
@@ -38,7 +42,7 @@ export const useMFWaves: DataHook = () => {
     return () => {
       myAbortController.abort();
     };
-  }
+  }, []);
 
   useEffect(() => {
     let cancelledRequest;
@@ -51,7 +55,7 @@ export const useMFWaves: DataHook = () => {
     return () => {
       cancelledRequest = true;
     };
-  }, []);
+  }, [update]);
 
   return [state, { update }];
 };

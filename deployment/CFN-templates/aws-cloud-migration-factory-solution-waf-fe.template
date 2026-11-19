@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "(%%SOLUTION_ID%%-waf-fe) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution WAF Frontend additional security template. Version:%%VERSION%%"
+Description: "(%%SOLUTION_ID%%-waf-fe) - The AWS CloudFormation template for deployment of the AWS Cloud Migration Factory Solution WAF Frontend additional security template. IMPORTANT: This template must be deployed in us-east-1 region for CloudFront compatibility. Version:%%VERSION%%"
 
 Metadata:
   'AWS::CloudFormation::Interface':
@@ -54,13 +54,10 @@ Parameters:
 
 Conditions:
   CloudFrontDeployed: !Equals [!Ref CloudFrontDeployed, true]
-  InRegionUSEAST1: !Equals [!Ref AWS::Region, us-east-1]
-  DeployCloudFrontIPSet: !And [!Condition CloudFrontDeployed, !Condition InRegionUSEAST1]
-  DontDeployCloudFrontIPSet: !Not [Condition: DeployCloudFrontIPSet]
 
 Resources:
   WAFFERuleSet:
-    Condition: DeployCloudFrontIPSet
+    Condition: CloudFrontDeployed
     Type: AWS::WAFv2::IPSet
     Properties:
       Addresses: !Ref SourceCIDR
@@ -75,7 +72,7 @@ Resources:
           Value: !Ref Environment
 
   WAFFEACL:
-    Condition: DeployCloudFrontIPSet
+    Condition: CloudFrontDeployed
     Type: 'AWS::WAFv2::WebACL'
     Properties:
       Name: !Sub ${Application}-${Environment}-${AWS::AccountId}-FE-ACL
@@ -100,46 +97,6 @@ Resources:
         MetricName: !Sub ${Application}-${Environment}-${AWS::AccountId}-FE-Ruleset-Denied
 
 
-  WAFv1FEACLNonUSEAST1:
-    Condition: DontDeployCloudFrontIPSet
-    Type: "AWS::WAF::WebACL"
-    Properties:
-      Name: !Sub ${Application}-${Environment}-${AWS::AccountId}-FE-ACL
-      DefaultAction:
-        Type: "BLOCK"
-      MetricName: "CMFFEACL"
-      Rules:
-        -
-          Action:
-            Type: "ALLOW"
-          Priority: 1
-          RuleId:
-            Ref: "WAFv1FERuleSet"
-
-  WAFv1FERuleSet:
-    Condition: DontDeployCloudFrontIPSet
-    Type: "AWS::WAF::Rule"
-    Properties:
-      Name: "CMFFEIPSetRule"
-      MetricName: "CMFFEIPSetRule"
-      Predicates:
-        -
-          DataId:
-            Ref: "WAFv1FEIPSet"
-          Negated: false
-          Type: "IPMatch"
-
-  WAFv1FEIPSet:
-    Condition: DontDeployCloudFrontIPSet
-    Type: "AWS::WAF::IPSet"
-    Properties:
-      Name: !Sub ${Application}-${Environment}-${AWS::AccountId}-FE-IPSet
-      IPSetDescriptors:
-        - Type: "IPV4"
-          Value: !Select ['0', !Ref SourceCIDR]
-        - Type: "IPV4"
-          Value: !Select ['1', !Ref SourceCIDR]
-
 Outputs:
   WAFFEACLArn:
-    Value: !If [ DeployCloudFrontIPSet, !GetAtt WAFFEACL.Arn, !Ref WAFv1FEACLNonUSEAST1 ]
+    Value: !If [CloudFrontDeployed, !GetAtt WAFFEACL.Arn, ""]

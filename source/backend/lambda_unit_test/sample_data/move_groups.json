@@ -1,0 +1,30 @@
+[
+  {
+    "move_group_id": {
+      "S": "1"
+    },
+    "move_group_name": {
+      "S": "Group with Wordpress"
+    },
+    "wpm_job_id": {
+      "S": "1"
+    },
+    "app_ids": {
+      "L": [
+        {
+          "S": "1"
+        }
+      ]
+    },
+    "server_ids": {
+      "L": [
+        {
+          "S": "1"
+        }
+      ]
+    },
+    "database_ids": {
+      "L": []
+    }
+  }
+]

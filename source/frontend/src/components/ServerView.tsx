@@ -9,31 +9,30 @@ import { ColumnLayout, Container, Header, SpaceBetween, Tabs } from "@cloudscape
 import Audit from "../components/ui_attributes/Audit";
 import AllViewerAttributes from "../components/ui_attributes/AllViewerAttributes";
 import { ValueWithLabel } from "./ui_attributes/ValueWithLabel";
-import { EntitySchema } from "../models/EntitySchema";
+import { Application, Database, DataLoadingState, EntitySchema, MoveGroup, Server, Wave, WPMJob } from "../models";
+
+type ServerViewDataAll = {
+  readonly app: DataLoadingState<Application>;
+  readonly database: DataLoadingState<Database>;
+  readonly server: DataLoadingState<Server>;
+  readonly move_group: DataLoadingState<MoveGroup>;
+  readonly wave: DataLoadingState<Wave>;
+  readonly wpm_job: DataLoadingState<WPMJob>;
+};
 
 type ServerViewParams = {
-  handleTabChange: (arg0: string) => void;
-  selectedTab: any;
-  server: { server_name: string };
-  schemas: Record<string, EntitySchema>;
-  app: { items: any[] };
-  dataAll: any;
+  readonly handleTabChange: (arg0: string) => void;
+  readonly selectedTab: string;
+  readonly server: Server;
+  readonly schemas: Record<string, EntitySchema>;
+  readonly dataAll: ServerViewDataAll;
 };
+
 const ServerView = (props: ServerViewParams) => {
-  function handleOnTabChange(activeTabId: string) {
-    if (props.handleTabChange) {
-      props.handleTabChange(activeTabId);
-    }
-  }
-
-  function selectedTab() {
-    return props.selectedTab;
-  }
-
   return (
     <Tabs
-      activeTabId={selectedTab()}
-      onChange={({ detail }) => handleOnTabChange(detail.activeTabId)}
+      activeTabId={props.selectedTab}
+      onChange={({ detail }) => props.handleTabChange(detail.activeTabId)}
       tabs={[
         {
           label: "Details",
@@ -44,25 +43,6 @@ const ServerView = (props: ServerViewParams) => {
                 <SpaceBetween size="l">
                   <ValueWithLabel label="Server Name">{props.server.server_name}</ValueWithLabel>
                   <Audit item={props.server} expanded={true} />
-                </SpaceBetween>
-              </ColumnLayout>
-            </Container>
-          ),
-        },
-        {
-          label: "Application",
-          id: "application",
-          content: (
-            <Container header={<Header variant="h2">Application</Header>}>
-              <ColumnLayout columns={3}>
-                <SpaceBetween size="l">
-                  <AllViewerAttributes
-                    schema={props.schemas.application}
-                    schemas={props.schemas}
-                    item={props.app.items[0]}
-                    dataAll={props.dataAll}
-                  />
-                  <Audit item={props.app.items[0]} expanded={true} />
                 </SpaceBetween>
               </ColumnLayout>
             </Container>

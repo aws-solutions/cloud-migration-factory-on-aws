@@ -21,3 +21,7 @@ yarn-debug.log*
 yarn-error.log*
 /vite.config.d.ts
 /vite.config.js
+
+# storybook
+*storybook.log
+/storybook-static

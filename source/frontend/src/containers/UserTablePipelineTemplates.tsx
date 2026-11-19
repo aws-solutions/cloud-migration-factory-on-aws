@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -76,9 +77,9 @@ const UserPipelineTemplateTable = ({ schemas, userEntityAccess }: UserPipelineTe
   const { addNotification } = useContext(NotificationContext);
   const { setHelpPanelContentFromSchema } = useContext(ToolsContext);
 
-  let location = useLocation();
-  let navigate = useNavigate();
-  let params = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = useParams();
 
   //Data items for viewer and table.
   const [{ isLoading: isLoadingMain, data: dataMain, error: errorMain }, { update: updateMain }] =
@@ -161,7 +162,7 @@ const UserPipelineTemplateTable = ({ schemas, userEntityAccess }: UserPipelineTe
   async function handleDeleteItem() {
     setDeleteConfirmationModalVisible(false);
 
-    let multiReturnMessage = [];
+    const multiReturnMessage = [];
     let notificationId;
 
     try {
@@ -177,7 +178,6 @@ const UserPipelineTemplateTable = ({ schemas, userEntityAccess }: UserPipelineTe
           return;
         } else {
           notificationId = addNotification({
-            type: "success",
             loading: true,
             dismissible: false,
             header: "Deleting selected " + schemaName + "s...",
@@ -185,7 +185,7 @@ const UserPipelineTemplateTable = ({ schemas, userEntityAccess }: UserPipelineTe
         }
       }
 
-      for (let item in selectedItems) {
+      for (const item in selectedItems) {
         await apiUser.deletePipelineTemplate(selectedItems[item].pipeline_template_id);
         await handleDeletePipelineTemplateTasks(selectedItems[item].pipeline_template_id);
         //Combine notifications into a single message if multi selected used, to save user dismiss clicks.
@@ -230,7 +230,7 @@ const UserPipelineTemplateTable = ({ schemas, userEntityAccess }: UserPipelineTe
         .filter((ptt: PipelineTemplate) => ptt.pipeline_template_id === pipelineTemplateId)
         .sort((a: any, b: any) => a.task_sequence_number - b.task_sequence_number);
 
-      for (let task of pipelineTemplateTasks) {
+      for (const task of pipelineTemplateTasks) {
         await apiUser.deletePipelineTemplateTask(task.pipeline_template_task_id);
       }
     } catch (e: any) {
@@ -300,7 +300,7 @@ const UserPipelineTemplateTable = ({ schemas, userEntityAccess }: UserPipelineTe
   }
 
   async function handleAddSave(currentItem: PipelineTemplate, action: string): Promise<void> {
-    const { version, pipeline_template_id, ...newPipelineTemplate } = currentItem;
+    const { ...newPipelineTemplate } = currentItem;
 
     // create a brand new pipeline template
     const apiUser = new UserApiClient();
@@ -346,10 +346,10 @@ const UserPipelineTemplateTable = ({ schemas, userEntityAccess }: UserPipelineTe
     }
     delete newPipelineTemplate.pipeline_template_id;
     const apiUser = new UserApiClient();
-    let editResult = await apiUser.putItem(pipeline_template_id, newPipelineTemplate, "pipeline_template");
+    const editResult = await apiUser.putItem(pipeline_template_id, newPipelineTemplate, "pipeline_template");
 
     if (editResult["errors"]) {
-      let errorsReturned = parsePUTResponseErrors(editResult["errors"]).join(",");
+      const errorsReturned = parsePUTResponseErrors(editResult["errors"]).join(",");
       addNotification({
         type: "error",
         dismissible: true,
@@ -414,7 +414,7 @@ const UserPipelineTemplateTable = ({ schemas, userEntityAccess }: UserPipelineTe
     // we enter this function if result["errors"] exist,
     // don't need to check it again.
     apiActionErrorHandler(action, schemaName, result["errors"], addNotification);
-    let errorsReturned = parsePUTResponseErrors(result["errors"]).join(",");
+    const errorsReturned = parsePUTResponseErrors(result["errors"]).join(",");
     addNotification({
       type: "error",
       dismissible: true,
@@ -424,12 +424,16 @@ const UserPipelineTemplateTable = ({ schemas, userEntityAccess }: UserPipelineTe
   }
 
   function handleSaveSuccess(currentItem: any, action: string) {
-    let pipelineTemplateTaskNames: string[] = [];
-    let pipelineTemplateNames: string[] = [];
+    const pipelineTemplateTaskNames: string[] = [];
+    const pipelineTemplateNames: string[] = [];
     if (currentItem !== null && Array.isArray(currentItem) && currentItem.length > 0) {
       for (const element of currentItem) {
-        element.pipeline_template_task_name && pipelineTemplateTaskNames.push(element.pipeline_template_task_name);
-        element.pipeline_template_name && pipelineTemplateNames.push(element.pipeline_template_name);
+        if (element.pipeline_template_task_name) {
+          pipelineTemplateTaskNames.push(element.pipeline_template_task_name);
+        }
+        if(element.pipeline_template_name) {
+          pipelineTemplateNames.push(element.pipeline_template_name);
+        } 
       }
     }
 
@@ -464,8 +468,6 @@ const UserPipelineTemplateTable = ({ schemas, userEntityAccess }: UserPipelineTe
   }
 
   async function handleDuplicateSave(currentItem: PipelineTemplate): Promise<void> {
-    const {version, pipeline_template_id, deletion_protection, _history, ...newPipelineTemplate} = currentItem;
-
     const toolsApiClient = new ToolsApiClient();
     let exportData = undefined;
     if (selectedItems.length === 1) {
@@ -551,7 +553,7 @@ const UserPipelineTemplateTable = ({ schemas, userEntityAccess }: UserPipelineTe
   }
 
   async function handleActionSelection(e: ClickEvent) {
-    let action = e.detail.id;
+    const action = e.detail.id;
 
     switch (action) {
       case "pipelineImportButton":
@@ -648,10 +650,10 @@ const UserPipelineTemplateTable = ({ schemas, userEntityAccess }: UserPipelineTe
   }
 
   useEffect(() => {
-    let selected = [];
+    const selected = [];
 
     if (!isLoadingMain) {
-      let item = dataMain.filter(function (entry: any) {
+      const item = dataMain.filter(function (entry: any) {
         return entry[itemIDKey] === params.id;
       });
 

@@ -1,9 +1,10 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState, useMemo } from "react";
 import UserApiClient from "../api_clients/userApiClient";
 import * as XLSX from "xlsx";
 
@@ -25,17 +26,37 @@ import {
   exportAllTemplate,
   getRequiredAttributesAllSchemas,
   getSummary,
+  mergeDuplicates,
   performDataValidation,
   readXLSXFile,
   removeCalculatedKeyValues,
   removeNullKeys,
-  updateRelatedItemAttributes,
+  removeTbcValues,
+  splitIntoEntities,
+  updateAllRelationships,
 } from "../utils/import-utils";
 import { CMFModal } from "../components/Modal";
 import { CompletionNotification } from "../models/CompletionNotification";
 
+// Type definitions for better type safety
+type CommitAction = "Create" | "Update";
+
+type DataImportStructure = {
+  [schemaName: string]: {
+    Create: any[];
+    Update: any[];
+  };
+};
+
 const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
   const { addNotification } = useContext(NotificationContext);
+  const apiUser = new UserApiClient();
+
+  // Remove the duplicate "application" key from the schema
+  const schemas = useMemo(() => {
+    const { app, ...filteredSchemas } = props.schemas;
+    return filteredSchemas;
+  }, [props.schemas]);
 
   //Data items for viewer and table.
   const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }] = useMFApps();
@@ -44,13 +65,73 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
   const [{ isLoading: isLoadingDatabases, data: dataDatabases, error: errorDatabases }] = useGetDatabases();
   const [{ isLoading: isLoadingSecrets, data: dataSecrets, error: errorSecrets }] = useCredentialManager();
 
-  const dataAll: Record<string, any> = {
-    secret: { data: dataSecrets, isLoading: isLoadingSecrets, error: errorSecrets },
-    database: { data: dataDatabases, isLoading: isLoadingDatabases, error: errorDatabases },
-    server: { data: dataServers, isLoading: isLoadingServers, error: errorServers },
-    application: { data: dataApps, isLoading: isLoadingApps, error: errorApps },
-    wave: { data: dataWaves, isLoading: isLoadingWaves, error: errorWaves },
-  };
+  // Track items created/updated during import
+  const [importedItems, setImportedItems] = useState<Record<string, any[]>>({
+    secret: [],
+    database: [],
+    server: [],
+    application: [],
+    wave: [],
+  });
+
+  // dataAll includes both original data from the backend and imported items
+  const dataAll: Record<string, any> = useMemo(() => {
+    const mergeData = (originalData: any[], importedData: any[], keyField: string) => {
+      if (!importedData.length) return originalData;
+
+      const merged = [...originalData];
+      const existingIds = new Set(originalData.map(item => item[keyField]).filter(id => id != null));
+
+      // Add new items that don't exist in original data
+      for (const importedItem of importedData) {
+        const itemId = importedItem[keyField];
+        if (itemId != null && !existingIds.has(itemId)) {
+          merged.push(importedItem);
+        } else if (itemId != null) {
+          // Update existing items with imported changes
+          const existingIndex = merged.findIndex(item => item[keyField] === itemId);
+          if (existingIndex !== -1) {
+            merged[existingIndex] = { ...merged[existingIndex], ...importedItem };
+          }
+        }
+      }
+
+      return merged;
+    };
+
+    return {
+      secret: {
+        data: mergeData(dataSecrets || [], importedItems.secret, 'Name'),
+        isLoading: isLoadingSecrets,
+        error: errorSecrets
+      },
+      database: {
+        data: mergeData(dataDatabases || [], importedItems.database, 'database_id'),
+        isLoading: isLoadingDatabases,
+        error: errorDatabases
+      },
+      server: {
+        data: mergeData(dataServers || [], importedItems.server, 'server_id'),
+        isLoading: isLoadingServers,
+        error: errorServers
+      },
+      application: {
+        data: mergeData(dataApps || [], importedItems.application, 'app_id'),
+        isLoading: isLoadingApps,
+        error: errorApps
+      },
+      wave: {
+        data: mergeData(dataWaves || [], importedItems.wave, 'wave_id'),
+        isLoading: isLoadingWaves,
+        error: errorWaves
+      },
+    };
+  }, [
+    dataSecrets, dataDatabases, dataServers, dataApps, dataWaves,
+    isLoadingSecrets, isLoadingDatabases, isLoadingServers, isLoadingApps, isLoadingWaves,
+    errorSecrets, errorDatabases, errorServers, errorApps, errorWaves,
+    importedItems
+  ]);
 
   const [isNoCommitModalVisible, setNoCommitModalVisible] = useState(false);
 
@@ -105,134 +186,106 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
   async function commitItems(
     schema: string,
     items: any[],
-    dataImport: {
-      [x: string]: {
-        Create: any[];
-        Update: any[];
-      };
-    },
-    action: string,
-    notification: CompletionNotification
-  ) {
-    const schema_shortname = schema === "application" ? "app" : schema;
-
-    const start = Date.now();
-
-    if (!items || items.length === 0) {
-      //Nothing to be done as items is empty.
-      const millis = Date.now() - start;
-      console.debug(`seconds elapsed = ${Math.floor(millis / 1000)}`);
-      return;
-    }
-
-    let loutputCommit = [];
-    let commitItems = [];
-    let currentItem = null;
-    const apiUser = new UserApiClient();
-
-    for (let item of items) {
-      let newItem = Object.assign({}, item);
-
-      currentItem = item;
-
-      removeCalculatedKeyValues(newItem);
-
-      commitItems.push(currentItem);
-
-      try {
-        if (action === "Update") {
-          let item_id = newItem[schema_shortname + "_id"];
-          delete newItem[schema_shortname + "_id"];
-          await apiUser.putItem(item_id, newItem, schema_shortname);
-          updateUploadStatus(notification, action + " " + schema + " records...");
-        }
-      } catch (e: any) {
-        updateUploadStatus(notification, action + " " + schema + " records...");
-        console.error(e);
-        loutputCommit.push(buildCommitExceptionNotification(e, schema, schema_shortname, currentItem));
-      }
-    }
-
-    await bulkPostCommitItems(
-      commitItems,
-      action,
-      { schema_shortname, schema },
-      dataImport,
-      notification,
-      loutputCommit,
-      apiUser
-    );
-
-    const millis = Date.now() - start;
-    console.debug(`seconds elapsed = ${Math.floor(millis / 1000)}`);
-
-    if (loutputCommit.length > 0) {
-      let newCommitError = outputCommitErrors;
-      newCommitError.push(...loutputCommit);
-      setOutputCommitErrors(newCommitError);
-    }
-  }
-
-  async function bulkPostCommitItems(
-    commitItems: any[],
-    action: string,
-    { schema, schema_shortname }: { schema_shortname: string; schema: string },
-    dataImport: { [p: string]: { Create: any[]; Update: any[] } },
+    dataImport: DataImportStructure,
+    action: CommitAction,
     notification: CompletionNotification,
-    loutputCommit: any[],
-    apiUser: UserApiClient
-  ) {
+    returnCreatedItems: boolean = false
+  ): Promise<{ items: any[], errors: any[] }> {
+    const startTime = Date.now();
+    const schemaShortname = schema === "application" ? "app" : schema;
+
+    // Early return for empty items
+    if (!items?.length) {
+      console.debug(`${action} ${schema}: No items to process`);
+      return { items: [], errors: [] };
+    }
+
+    console.debug(`Starting ${action} for ${items.length} ${schema} items`);
+
+    const errors: any[] = [];
+
     try {
       if (action === "Create") {
-        for (let item of commitItems) {
-          delete item[schema_shortname + "_id"];
-        }
-
-        console.debug("Starting bulk post");
-        const result = await apiUser.postItems(commitItems, schema_shortname);
-
-        if (result["newItems"]) {
-          updateUploadStatus(
-            notification,
-            "Updating any related records with new " + schema + " IDs...",
-            commitItems.length / 2
-          );
-          console.debug("Bulk post complete");
-
-          console.debug("Updating related items");
-          for (const item of result["newItems"]) {
-            for (const updateSchema in dataImport) {
-              //ATTN: add logic to determine if the updateSchema is related to current schema by any attributes
-              // and then only update those that are, for the moment it will validate all.
-              updateRelatedItemAttributes(props.schemas, item, schema, dataImport[updateSchema].Create, updateSchema);
-              updateRelatedItemAttributes(props.schemas, item, schema, dataImport[updateSchema].Update, updateSchema);
-            }
-          }
-
-          updateUploadStatus(
-            notification,
-            `Updating any related records with new ${schema} IDs...`,
-            commitItems.length / 2
-          );
-        }
-
-        if (result["errors"]) {
-          console.debug("PUT " + schema + " errors");
-          console.debug(result["errors"]);
-          let errorsReturned = parsePUTResponseErrors(result["errors"]);
-          loutputCommit.push({
-            itemType: schema,
-            error: "Create failed",
-            item: errorsReturned,
-          });
-        }
+        const createdItems = await handleCreateItems(items, schema, schemaShortname, dataImport, notification, returnCreatedItems, errors);
+        return { items: createdItems, errors };
+      } else if (action === "Update") {
+        await handleUpdateItems(items, schema, schemaShortname, notification, errors);
+        return { items: [], errors };
+      } else {
+        throw new Error(`Unsupported action: ${action}`);
       }
-    } catch (e: any) {
-      bulkPostCommitItemsError(e, schema, action, notification, loutputCommit);
+    } catch (error) {
+      console.error(`Error during ${action} operation for ${schema}:`, error);
+      errors.push(buildCommitExceptionNotification(error as any, schema, schemaShortname, {}));
+      return { items: [], errors };
+    } finally {
+      // Log timing and handle errors
+      const duration = Math.floor((Date.now() - startTime) / 1000);
+      console.debug(`${action} ${schema} completed in ${duration} seconds`);
     }
   }
 
-  function bulkPostCommitItemsError(
+  async function handleCreateItems(
+    items: any[],
+    schema: string,
+    schemaShortname: string,
+    dataImport: DataImportStructure,
+    notification: CompletionNotification,
+    returnCreatedItems: boolean,
+    errors: any[]
+  ): Promise<any[]> {
+    // Prepare items for creation
+    const preparedItems = items.map(item => {
+      const cleanItem = { ...item };
+      removeCalculatedKeyValues(cleanItem);
+      removeTbcValues(cleanItem);
+      // Remove ID field for creation
+      delete cleanItem[schemaShortname + "_id"];
+      return cleanItem;
+    });
+
+    try {
+      console.debug(`Starting bulk creation for ${preparedItems.length} ${schema} items`);
+      const result = await apiUser.postItems(preparedItems, schemaShortname);
+
+      let createdItems: any[] = [];
+
+      if (result.newItems) {
+        updateUploadStatus(notification, `Created ${schema} records...`, preparedItems.length);
+
+        // Inject returned IDs back into dataImport for relationship updates
+        injectReturnedIdsIntoDataImport(result.newItems, dataImport, schemaShortname);
+
+        if (returnCreatedItems) {
+          // Add schema metadata for later relationship updates
+          createdItems = result.newItems.map((item: any) => ({
+            ...item,
+            __schemaName: schema
+          }));
+        }
+
+        console.debug(`Successfully created ${result.newItems.length} ${schema} items`);
+      }
+
+      if (result.errors) {
+        console.warn(`Creation errors for ${schema}:`, result.errors);
+        const parsedErrors = parsePUTResponseErrors(result.errors);
+        errors.push({
+          itemType: schema,
+          error: "Create failed",
+          item: parsedErrors,
+        });
+      }
+
+      return createdItems;
+    } catch (error) {
+      console.error(`Bulk creation failed for ${schema}:`, error);
+      handleCommitItemsError(error, schema, "Create", notification, errors);
+      return [];
+    }
+  }
+
+  function handleCommitItemsError(
     e: any,
     schema: string,
     action: string,
@@ -259,10 +312,153 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
     updateUploadStatus(notification, "Error uploading records of type :" + schema, commitItems.length);
   }
 
+  async function handleUpdateItems(
+    items: any[],
+    schema: string,
+    schemaShortname: string,
+    notification: CompletionNotification,
+    errors: any[]
+  ): Promise<void> {
+    const batchSize = 10; // Process updates in batches to avoid overwhelming the API
+
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      const batchPromises = batch.map(async (item) => {
+        try {
+          const updateItem = { ...item };
+          removeCalculatedKeyValues(updateItem);
+          removeTbcValues(updateItem);
+
+          const itemId = updateItem[schemaShortname + "_id"];
+          if (!itemId) {
+            throw new Error(`Missing ID for ${schema} update operation`);
+          }
+
+          // Remove ID from update payload
+          delete updateItem[schemaShortname + "_id"];
+
+          await apiUser.putItem(itemId, updateItem, schemaShortname);
+          console.debug(`Successfully updated ${schema} item ${itemId}`);
+        } catch (error) {
+          console.error(`Failed to update ${schema} item:`, error);
+          errors.push(buildCommitExceptionNotification(error as any, schema, schemaShortname, item));
+        }
+      });
+
+      // Wait for current batch to complete before processing next batch
+      await Promise.all(batchPromises);
+
+      // Update progress
+      const completed = Math.min(i + batchSize, items.length);
+      updateUploadStatus(notification, `Updated ${schema} records...`, completed);
+    }
+  }
+
+  function injectReturnedIdsIntoDataImport(
+    newItems: any[],
+    dataImport: DataImportStructure,
+    schemaShortname: string
+  ): void {
+    if (!newItems?.length) {
+      return;
+    }
+
+    // Create a lookup map for newly created items by their name
+    const nameToIdMap = new Map<string, string>();
+    const nameKey = schemaShortname + "_name";
+    const idKey = schemaShortname + "_id";
+
+    for (const newItem of newItems) {
+      const itemName = newItem[nameKey];
+      const itemId = newItem[idKey];
+
+      if (itemName && itemId) {
+        const compositeKey = `${schemaShortname}:${itemName.toLowerCase()}`
+        nameToIdMap.set(compositeKey, itemId);
+      }
+    }
+
+    if (nameToIdMap.size === 0) {
+      console.debug("No valid name-to-ID mappings found in new items");
+      return;
+    }
+
+    console.debug(`Injecting ${nameToIdMap.size} IDs into dataImport for ${schemaShortname}`);
+
+    // Update all items in dataImport that might reference the newly created items
+    for (const [schemaName, schemaData] of Object.entries(dataImport)) {
+      const allItems = [...schemaData.Create, ...schemaData.Update];
+      const currentSchemaShortname = schemaName === "application" ? "app" : schemaName;
+      const currentNameKey = currentSchemaShortname + "_name";
+      const currentIdKey = currentSchemaShortname + "_id";
+
+      for (const item of allItems) {
+        // Check if this item needs an ID injection
+        const itemName = item[currentNameKey];
+        const compositeKey = `${currentSchemaShortname}:${itemName.toLowerCase()}`
+
+        if (itemName && nameToIdMap.has(compositeKey) && !item[currentIdKey]) {
+          item[currentIdKey] = nameToIdMap.get(compositeKey);
+        }
+
+        // Also check for relationship references that might need updating
+        injectIdsIntoRelationshipFields(item, nameToIdMap, schemaShortname);
+      }
+    }
+  }
+
+  function injectIdsIntoRelationshipFields(
+    item: any,
+    nameToIdMap: Map<string, string>,
+    schemaShortname: string,
+  ): void {
+    // Look for relationship fields that might reference the newly created items
+    for (const [key, value] of Object.entries(item)) {
+      if (key.startsWith('__') && typeof value === 'string') {
+        // This might be a relationship display value that needs ID injection
+        const actualKey = key.substring(2); // Remove __ prefix
+
+        if (item.hasOwnProperty(actualKey)) {
+          // Get the related item ID if available
+          const cachedId = getIdFromCache(actualKey, nameToIdMap, schemaShortname);
+
+          if (cachedId) {
+            // Update the actual relationship field with the ID
+            item[actualKey] = cachedId;
+            console.debug(`Updated relationship field ${actualKey} with ID for ${value}`);
+          } else {
+            console.warn(`Skipping field ${actualKey}`);
+          }
+        }
+      }
+    }
+  }
+
+  function getIdFromCache(fieldName: string, nameToIdMap: Map<string, string>, currentSchema: string): string | undefined {
+    // Find the schema which relates to the attribute
+    const schema = Object.entries(schemas).find(([schemaName, _]) => schemaName === currentSchema);
+    if (!schema) {
+      return;
+    }
+    // Look for the field in this schema's attributes
+    const attribute = schema[1].attributes.find(attr => attr.name === fieldName);
+    if (!attribute) {
+      return;
+    }
+    // Check if this is a relationship field that references the target schema
+    const isRelationshipField = attribute.type === 'relationship' || attribute.type === 'multivalue-relationship';
+    if (!isRelationshipField) {
+      return;
+    }
+    // Get the schema name of the target entity
+    const targetSchemaName = attribute.rel_entity
+    return nameToIdMap.get(`${targetSchemaName}:${fieldName.toLowerCase()}`)
+  }
+
   async function handleDownloadTemplate(e: ClickEvent) {
     e.preventDefault();
 
-    let action = e.detail.id;
+    const action = e.detail.id;
 
     switch (action) {
       case "download_req": {
@@ -270,18 +466,18 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
         break;
       }
       case "download_all": {
-        exportAllTemplate(props.schemas);
+        exportAllTemplate(schemas);
         break;
       }
     }
   }
 
   function exportTemplate() {
-    let ws_data: Record<string, any> = {};
+    const ws_data: Record<string, any> = {};
 
-    let attributes = getRequiredAttributesAllSchemas(props.schemas); // get all required attributes from all schemas
+    const attributes = getRequiredAttributesAllSchemas(schemas); // get all required attributes from all schemas
 
-    let headers: Record<string, any> = {};
+    const headers: Record<string, any> = {};
     for (const attr_idx in attributes) {
       const attribute = attributes[attr_idx];
       if (attribute.type === "relationship") {
@@ -292,10 +488,10 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
     }
     const json_output = [headers]; // Create single item array with empty values to populate headers fdr intake form.
 
-    let range = { s: { c: 0, r: 0 }, e: { c: attributes.length, r: 1 } }; // set worksheet cell range
+    const range = { s: { c: 0, r: 0 }, e: { c: attributes.length, r: 1 } }; // set worksheet cell range
     ws_data["!ref"] = XLSX.utils.encode_range(range);
 
-    let wb = XLSX.utils.book_new(); // create new workbook
+    const wb = XLSX.utils.book_new(); // create new workbook
     wb.SheetNames.push("mf_intake"); // create new worksheet
     wb.Sheets["mf_intake"] = XLSX.utils.json_to_sheet(json_output); // load headers array into worksheet
 
@@ -318,11 +514,20 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
     setSelectedSheet(undefined);
     setSheetNames([]);
 
+    // Reset imported items for new upload
+    setImportedItems({
+      secret: [],
+      database: [],
+      server: [],
+      application: [],
+      wave: [],
+    });
+
     setSelectedFile(e.target.files[0]);
 
     if (e.target.files[0].type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
-      let data = await readXLSXFile(reader, e.target.files[0]);
-      let workbook = XLSX.read(data);
+      const data = await readXLSXFile(reader, e.target.files[0]);
+      const workbook = XLSX.read(data, { raw: true });
       //Set first sheet as default import source.
       setSelectedSheet(workbook.SheetNames[0]);
       if (workbook.SheetNames.length > 1) {
@@ -343,6 +548,15 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
     setCommitting(false);
     setSelectedSheet(undefined);
     setSheetNames([]);
+
+    // Reset imported items
+    setImportedItems({
+      secret: [],
+      database: [],
+      server: [],
+      application: [],
+      wave: [],
+    });
   }
 
   function countUpdates(entities: {
@@ -373,7 +587,7 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
       importName = selectedFile?.name + " [" + selectedSheet + "]";
     }
 
-    let status: CompletionNotification = {
+    const status: CompletionNotification = {
       increment: 1,
       percentageComplete: 0,
       status: "Starting upload...",
@@ -395,13 +609,13 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
 
     setCommitting(true);
 
-    let totalUpdates = countUpdates(summary.entities);
+    const totalUpdates = countUpdates(summary.entities);
     status.increment = 100 / totalUpdates;
 
-    let entities = Object.keys(summary.entities);
+    const entities = Object.keys(summary.entities);
 
     //Ensure that the built-in entity types are processed before others.
-    let prefEntityList = ["wave", "application", "server", "database"];
+    const prefEntityList = ["wave", "application", "server", "database"];
     for (const entityName of entities) {
       if (!prefEntityList.includes(entityName)) {
         //Add other custom items to end of list.
@@ -409,18 +623,93 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
       }
     }
 
-    //Perform record creation.
+    // Track all created and updated items so we can display post import summary
+    const allCreatedItems: Record<string, any[]> = {
+      secret: [],
+      database: [],
+      server: [],
+      application: [],
+      wave: [],
+    };
+    const allUpdatedItems: Record<string, any[]> = {
+      secret: [],
+      database: [],
+      server: [],
+      application: [],
+      wave: [],
+    };
+
+    // Step 1: Perform all record creation first (without relationship updates)
+    const allNewItems: any[] = [];
+    const allCreateErrors: any[] = [];
     for (const entityName of prefEntityList) {
       if (summary.entities[entityName].Create.length > 0) {
-        await commitItems(entityName, summary.entities[entityName].Create, summary.entities, "Create", status);
+        const result = await commitItems(entityName, summary.entities[entityName].Create, summary.entities, "Create", status, true);
+        allNewItems.push(...result.items);
+        allCreateErrors.push(...result.errors);
+
+        // Track created items
+        if (result.items.length > 0) {
+          allCreatedItems[entityName].push(...result.items);
+        }
       }
     }
 
-    //Perform record updates.
+    // Step 2: Perform record updates
+    const allUpdateErrors: any[] = [];
     for (const entityName of prefEntityList) {
       if (summary.entities[entityName].Update.length > 0) {
-        await commitItems(entityName, summary.entities[entityName].Update, summary.entities, "Update", status);
+        const result = await commitItems(entityName, summary.entities[entityName].Update, summary.entities, "Update", status);
+        allUpdateErrors.push(...result.errors);
+
+        // Track updated items
+        if (result.items.length > 0) {
+          allUpdatedItems[entityName].push(...result.items);
+        }
       }
+    }
+
+    // Step 3: Now update all relationships in one final pass
+    const allRelationshipErrors: any[] = [];
+    if (allNewItems.length > 0) {
+      await updateAllRelationships(
+        allNewItems,
+        summary.entities,
+        schemas,
+        status,
+        updateUploadStatus,
+        outputCommitErrors,
+        allRelationshipErrors
+      );
+    }
+
+    // Step 4: Update importedItems state to enhance dataAll
+    setImportedItems(prevImported => {
+      const newImported = { ...prevImported };
+
+      // Add all created and updated items to the imported items
+      for (const entityName of Object.keys(allCreatedItems)) {
+        if (allCreatedItems[entityName].length > 0 || allUpdatedItems[entityName].length > 0) {
+          // Combine created and updated items, removing duplicates by ID
+          const combinedItems = [...allCreatedItems[entityName], ...allUpdatedItems[entityName]];
+
+          // Remove duplicates and merge with existing imported items
+          let entityIdField = entityName === 'application' ? 'app_id' : `${entityName}_id`;
+          const existingItems = prevImported[entityName] || [];
+          const existingIds = new Set(existingItems.map(item => item[entityIdField]));
+
+          const newItems = combinedItems.filter(item => !existingIds.has(item[entityIdField]));
+          newImported[entityName] = [...existingItems, ...newItems];
+        }
+      }
+
+      return newImported;
+    });
+
+    // Add all collected errors to state at once
+    const allErrors = [...allCreateErrors, ...allUpdateErrors, ...allRelationshipErrors];
+    if (allErrors.length > 0) {
+      setOutputCommitErrors(prev => [...prev, ...allErrors]);
     }
 
     setErrorFile([]);
@@ -429,10 +718,9 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
     setSelectedFile(null);
     setCommitted(true);
 
-    setItems([]);
-
-    if (outputCommitErrors.length > 0) {
-      let errors = outputCommitErrors.map((errorItem) => (
+    console.debug("Final allErrors check:", allErrors.length, allErrors);
+    if (allErrors.length > 0) {
+      const errors = allErrors.map((errorItem) => (
         <ExpandableSection
           key={errorItem.itemType + " - " + errorItem.error}
           headerText={errorItem.itemType + " - " + errorItem.error}
@@ -441,11 +729,12 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
         </ExpandableSection>
       ));
 
+      console.debug("Adding error notification with", allErrors.length, "errors");
       addNotification({
         id: status.id,
         type: "error",
         dismissible: true,
-        header: "Import of file '" + importName + "' had " + outputCommitErrors.length + " errors.",
+        header: "Import of file '" + importName + "' had " + allErrors.length + " errors.",
         content: <ExpandableSection headerText="Error details">{errors}</ExpandableSection>,
       });
     } else {
@@ -469,14 +758,14 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
   }
 
   function updateProcessingResultCounts(dataJson: any) {
-    let errorCount = dataJson.data.reduce((accumulator: number, currentValue: { [x: string]: { errors: any[] } }) => {
+    const errorCount = dataJson.data.reduce((accumulator: number, currentValue: { [x: string]: { errors: any[] } }) => {
       return currentValue["__validation"].errors
         ? accumulator + currentValue["__validation"].errors.length
         : accumulator;
     }, 0);
     setErrors(errorCount);
 
-    let warningCount = dataJson.data.reduce(
+    const warningCount = dataJson.data.reduce(
       (accumulator: number, currentValue: { [x: string]: { warnings: any[] } }) => {
         return currentValue["__validation"].warnings
           ? accumulator + currentValue["__validation"].warnings.length
@@ -486,7 +775,7 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
     );
     setWarnings(warningCount);
 
-    let infromationalCount = dataJson.data.reduce(
+    const infromationalCount = dataJson.data.reduce(
       (accumulator: number, currentValue: { [x: string]: { informational: any[] } }) => {
         return currentValue["__validation"].informational
           ? accumulator + currentValue["__validation"].informational.length
@@ -512,9 +801,15 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
 
         dataJson = removeNullKeys(dataJson);
 
-        dataJson = performDataValidation(props.schemas, dataJson);
+        dataJson = performDataValidation(schemas, dataJson);
 
-        const summary1 = getSummary(props.schemas, dataJson, dataAll);
+        const splitEntities = splitIntoEntities(dataJson.data, schemas);
+        const mergedEntities = mergeDuplicates(splitEntities, schemas);
+
+        // Update dataJson.data with the split entities
+        dataJson.data = mergedEntities;
+
+        const summary1 = getSummary(schemas, dataJson, dataAll);
         setSummary(summary1);
 
         updateProcessingResultCounts(dataJson);
@@ -534,7 +829,7 @@ const UserImport = (props: { schemas: Record<string, EntitySchema> }) => {
           errors={errors}
           warnings={warnings}
           informational={informational}
-          schema={props.schemas}
+          schema={schemas}
           dataAll={dataAll}
           uploadChange={handleUploadChange}
           uploadClick={handleUploadClick}

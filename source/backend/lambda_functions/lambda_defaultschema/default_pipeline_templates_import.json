@@ -1,54 +1,5 @@
 [
   {
-    "pipeline_template_description": "Imports Application Discovery Service (ADS) inventory data and EC2 recommendations",
-    "pipeline_template_name": "Migration Hub Import",
-    "deletion_protection": true,
-    "pipeline_template_tasks": [
-      {
-        "pipeline_template_task_name": "Create Migration Hub home region",
-        "task_successors": [
-          "feb5192e-1efa-42bb-9294-20f17170497f"
-        ],
-        "task_name": "Create Home Region",
-        "task_version": "1",
-        "pipeline_template_task_id": "ea98f704-a2f8-4dc7-ac77-bb132cd31a12"
-      },
-      {
-        "pipeline_template_task_name": "Discover on-premise data",
-        "task_successors": [
-          "d3f04901-6067-4edb-8d84-e22057af8c27"
-        ],
-        "task_name": "Manual",
-        "task_version": "1",
-        "pipeline_template_task_id": "feb5192e-1efa-42bb-9294-20f17170497f"
-      },
-      {
-        "pipeline_template_task_name": "Group inventory into applications",
-        "task_successors": [
-          "234e14df-30b8-4c13-871c-d49f7ff6c7d9"
-        ],
-        "task_name": "Manual",
-        "task_version": "1",
-        "pipeline_template_task_id": "d3f04901-6067-4edb-8d84-e22057af8c27"
-      },
-      {
-        "pipeline_template_task_name": "Import ADS inventory into CMF",
-        "task_successors": [
-          "d72c39b1-3d4d-4fd3-8a4a-fa4ccbd10f47"
-        ],
-        "task_id": "2c585097-0e13-4e42-994d-8f1269f7c97d",
-        "task_version": "1",
-        "pipeline_template_task_id": "234e14df-30b8-4c13-871c-d49f7ff6c7d9"
-      },
-      {
-        "pipeline_template_task_name": "Import EC2 recommendations into CMF",
-        "task_version": "1",
-        "pipeline_template_task_id": "d72c39b1-3d4d-4fd3-8a4a-fa4ccbd10f47",
-        "task_id": "22f4df1d-4b0e-43fa-bf4e-0b335375eeff"
-      }
-    ]
-  },
-  {
     "pipeline_template_description": "Facilitates server replications via Application Migration Service (MGN) for the selected wave",
     "pipeline_template_name": "Rehost with Application Migration Service (MGN)",
     "deletion_protection": true,

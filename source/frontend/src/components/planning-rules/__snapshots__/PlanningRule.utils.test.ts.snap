@@ -1,0 +1,163 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`validateGroupingRule throws error for additional properties 1`] = `
+[
+  "must NOT have additional properties 'additional'",
+]
+`;
+
+exports[`validateGroupingRule throws error for empty relationships 1`] = `
+[
+  "relationships: must NOT have fewer than 1 items",
+]
+`;
+
+exports[`validateGroupingRule throws error for invalid asset_key 1`] = `
+[
+  "relationships[0].asset_key: must be equal to one of the allowed values [app_id, app_name, app_owner, wave_ids, aws_accountid, aws_region, server_ids, database_ids, wpm_job_ids, move_group_ids, rank, complexity_score, planning_status]",
+]
+`;
+
+exports[`validateGroupingRule throws error for invalid asset_key for custom asset 1`] = `
+[
+  "relationships[0].asset_key: must be equal to one of the allowed values [storage_id, asset_name, description, storage_type, capacity, app_ids, status]",
+]
+`;
+
+exports[`validateGroupingRule throws error for invalid asset_type 1`] = `
+[
+  "relationships[0].asset_type: must be equal to one of the allowed values [app, server, database, storage, app_group]",
+]
+`;
+
+exports[`validateGroupingRule throws error for nested additional properties 1`] = `
+[
+  "relationships[0]: must NOT have additional properties 'additional'",
+]
+`;
+
+exports[`validateGroupingRule throws error for nested required properties 1`] = `
+[
+  "relationships[0]: must have required property 'asset_type'",
+  "relationships[0]: must have required property 'asset_key'",
+]
+`;
+
+exports[`validateGroupingRule throws error for required properties 1`] = `
+[
+  "must have required property 'rule_type'",
+  "must have required property 'rule_name'",
+  "must have required property 'relationships'",
+  "must have required property 'status'",
+]
+`;
+
+exports[`validatePrioritizingRule scoring rule throws error conditional requirement properties 1`] = `
+[
+  "must have required property 'scoring_criteria'",
+  "must have required property 'rule_name'",
+  "must have required property 'status'",
+  "must have required property 'asset_type'",
+  "must have required property 'attr_key'",
+]
+`;
+
+exports[`validatePrioritizingRule scoring rule throws error for additional properties 1`] = `
+[
+  "must NOT have additional properties 'additional'",
+]
+`;
+
+exports[`validatePrioritizingRule scoring rule throws error for empty scoring_criteria 1`] = `
+[
+  "scoring_criteria: must NOT have fewer than 1 items",
+]
+`;
+
+exports[`validatePrioritizingRule scoring rule throws error for invalid asset_key 1`] = `
+[
+  "attr_key: must be equal to one of the allowed values [server_id, server_name, server_os_family, server_os_version, server_fqdn, server_tier, aws_accountid, aws_region, server_environment, storage_size, subnet_IDs, securitygroup_IDs, subnet_IDs_test, securitygroup_IDs_test, secondary_private_ip, instanceType, iamRole, private_ip, tags, tenancy, migration_status, replication_status, r_type, dedicated_host_id, network_interface_id, network_interface_id_test, server_mgn_post_launch]",
+]
+`;
+
+exports[`validatePrioritizingRule scoring rule throws error for invalid asset_key for custom asset 1`] = `
+[
+  "attr_key: must be equal to one of the allowed values [app_group_id, type, asset_name, description, status, owner, priority]",
+]
+`;
+
+exports[`validatePrioritizingRule scoring rule throws error for invalid asset_type 1`] = `
+[
+  "asset_type: must be equal to one of the allowed values [app, server, database, storage, app_group]",
+]
+`;
+
+exports[`validatePrioritizingRule scoring rule throws error for nested additional properties 1`] = `
+[
+  "scoring_criteria[0]: must NOT have additional properties 'additional'",
+]
+`;
+
+exports[`validatePrioritizingRule scoring rule throws error for nested required properties 1`] = `
+[
+  "scoring_criteria[0]: must have required property 'complexity_score'",
+]
+`;
+
+exports[`validatePrioritizingRule scoring rule throws error for relationship asset_key for custom asset 1`] = `
+[
+  "attr_key: must be equal to one of the allowed values [storage_id, asset_name, description, storage_type, capacity, status]",
+]
+`;
+
+exports[`validatePrioritizingRule sorting rule throws error conditional requirement properties 1`] = `
+[
+  "must have required property 'sort_order'",
+  "must have required property 'sort_level'",
+  "must have required property 'rule_name'",
+  "must have required property 'status'",
+  "must have required property 'asset_type'",
+  "must have required property 'attr_key'",
+]
+`;
+
+exports[`validatePrioritizingRule sorting rule throws error for additional properties 1`] = `
+[
+  "must NOT have additional properties 'additional'",
+]
+`;
+
+exports[`validatePrioritizingRule sorting rule throws error for invalid asset_key 1`] = `
+[
+  "attr_key: must be equal to one of the allowed values [app_id, app_name, app_owner, aws_accountid, aws_region, rank, complexity_score, planning_status]",
+]
+`;
+
+exports[`validatePrioritizingRule sorting rule throws error for invalid asset_key for custom asset 1`] = `
+[
+  "attr_key: must be equal to one of the allowed values [app_group_id, type, asset_name, description, status, owner, priority]",
+]
+`;
+
+exports[`validatePrioritizingRule sorting rule throws error for invalid asset_type 1`] = `
+[
+  "asset_type: must be equal to one of the allowed values [app, server, database, storage, app_group]",
+]
+`;
+
+exports[`validatePrioritizingRule sorting rule throws error for relationship asset_key for custom asset 1`] = `
+[
+  "attr_key: must be equal to one of the allowed values [storage_id, asset_name, description, storage_type, capacity, status]",
+]
+`;
+
+exports[`validatePrioritizingRule throws error for required properties 1`] = `
+[
+  "must have required property 'rule_type'",
+  "must have required property 'rule_name'",
+  "must have required property 'sub_type'",
+  "must have required property 'status'",
+  "must have required property 'asset_type'",
+  "must have required property 'attr_key'",
+]
+`;

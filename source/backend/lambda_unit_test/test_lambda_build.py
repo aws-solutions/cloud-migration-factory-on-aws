@@ -23,14 +23,17 @@ mock_os_environ = {
     'LOGIN_API': 'https://example.com/login',
     'TOOLS_API': 'https://example.com/tools',
     'SSM_WS_API': 'wss://example.com/ssm',
+    'GENAI_WS_API': 'wss://example.com/genai',
     'USER_POOL_ID': 'test_USER_POOL_ID',
     'VPCE_API_ID': 'fd00:ec2::253',
     'APP_CLIENT_ID': 'test_APP_CLIENT_ID',
     'COGNITO_HOSTED_UI_URL': 'https://example.com/cognito',
     'FRONTEND_BUCKET': 'test_FRONTEND_BUCKET',
+    'DATA_UPLOADS_BUCKET': 'test_DATA_UPLOADS_BUCKET',
     'SOURCE_BUCKET': 'test_SOURCE_BUCKET',
     'SOURCE_KEY': 'test_SOURCE_KEY',
-    'SOLUTION_VERSION': 'test_VERSION'
+    'SOLUTION_VERSION': 'test_VERSION',
+    'GENAI_SUPPORTED': 'true'
 }
 
 @mock_aws

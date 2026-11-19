@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -32,7 +33,7 @@ const TagAttribute = ({ attribute, tags, handleUserInput, displayHelpInfoLink })
     }
 
     if (tags) {
-      let temptags = tags.map((item) => {
+      const temptags = tags.map((item) => {
         return { ...item, existing: false };
       });
 

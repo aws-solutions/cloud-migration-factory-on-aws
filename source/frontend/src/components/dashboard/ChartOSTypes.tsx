@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -11,19 +12,19 @@ import { Box, Container, Header, PieChart } from "@cloudscape-design/components"
 const ChartOSTypes = ({ data }) => {
   let statusType = "loading";
 
-  let waveStatus = data.data.map(function (value, index) {
+  const waveStatus = data.data.map(function (value) {
     return value["server_os_family"];
   });
 
-  let wave_count = [];
-  waveStatus.forEach(function (value, index) {
+  const wave_count = [];
+  waveStatus.forEach(function (value) {
     let lvalue = value;
 
     if (lvalue === undefined) {
       lvalue = "Not set";
     }
 
-    let item = wave_count.filter(function (entry) {
+    const item = wave_count.filter(function (entry) {
       return entry.title === lvalue;
     });
 

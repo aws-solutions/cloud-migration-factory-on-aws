@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { defaultTestProps, mockNotificationContext } from "../__tests__/TestUtils";
+import { mockNotificationContext } from "../__tests__/TestUtils";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import { NotificationContext } from "../contexts/NotificationContext";
@@ -16,17 +16,14 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-function renderPage(props = defaultTestProps) {
+function renderPage() {
   return {
     ...mockNotificationContext,
     renderResult: render(
       <MemoryRouter initialEntries={["/pipeline_templates/import"]}>
         <NotificationContext.Provider value={mockNotificationContext}>
           <Routes>
-            <Route
-              path={"/pipeline_templates/import"}
-              element={<PipelineTemplatesImport {...props}></PipelineTemplatesImport>}
-            />
+            <Route path={"/pipeline_templates/import"} element={<PipelineTemplatesImport></PipelineTemplatesImport>} />
             <Route path={"/pipeline_templates"} element={<h1>Pipeline Templates (0)</h1>} />
           </Routes>
         </NotificationContext.Provider>
@@ -59,7 +56,6 @@ test("should disable submit button if no file is selected", async () => {
   expect(screen.getByLabelText(/choose file/i)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
-  
   const submitButton = screen.getByRole("button", { name: "Submit" });
   expect(submitButton).toBeInTheDocument();
   expect(submitButton).toBeDisabled();
@@ -103,7 +99,6 @@ test("should be able to submit uploaded file", async () => {
   expect(submitButton).toBeInTheDocument();
   // TODO: Fix as a part of CMF-113
   // expect(submitButton).toBeEnabled();
- 
   // AND WHEN
   await userEvent.click(screen.getByRole("button", { name: "Submit" }));
 
@@ -114,7 +109,7 @@ test("should be able to submit uploaded file", async () => {
 test("should be able to get error notification", async () => {
   // GIVEN
   const { addNotification } = renderPage();
-  
+
   const file = new File(["   \n  \t  "], "test_pipeline_template_import.json", { type: "application/json" });
 
   // WHEN user uploads a file
@@ -125,7 +120,7 @@ test("should be able to get error notification", async () => {
   const submitButton = screen.getByRole("button", { name: "Submit" });
   expect(submitButton).toBeInTheDocument();
   expect(submitButton).toBeDisabled();
-  
+
   // Wait for the FileReader to complete and error notification to be called
   await waitFor(() => {
     expect(addNotification).toHaveBeenCalledWith({
@@ -135,5 +130,30 @@ test("should be able to get error notification", async () => {
       type: "error",
     });
   });
-  
+});
+
+test("should be able to get error notification", async () => {
+  // GIVEN
+  const { addNotification } = renderPage();
+
+  const file = new File(["   \n  \t  "], "test_pipeline_template_import.json", { type: "application/json" });
+
+  // WHEN user uploads a file
+  const uploadInput = document.querySelector("input[type='file']") as HTMLInputElement;
+  await userEvent.upload(uploadInput, file);
+
+  // THEN metadata of the uploaded file is displayed
+  const submitButton = screen.getByRole("button", { name: "Submit" });
+  expect(submitButton).toBeInTheDocument();
+  expect(submitButton).toBeDisabled();
+
+  // Wait for the FileReader to complete and error notification to be called
+  await waitFor(() => {
+    expect(addNotification).toHaveBeenCalledWith({
+      content: "File is empty. Please upload a file with template.",
+      dismissible: true,
+      header: "Error parsing file",
+      type: "error",
+    });
+  });
 });

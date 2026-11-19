@@ -13,10 +13,19 @@ export type CMFModalProps = {
   onConfirmation?: () => void;
   noCancel?: boolean;
   children?: ReactNode;
+  isLoading?: boolean;
 };
 
 // Wrapper for Modal component from @cloudscape-design/components to reduce duplication of defaults
-export const CMFModal = ({ children, onDismiss, visible, onConfirmation, header, noCancel }: CMFModalProps) => {
+export const CMFModal = ({
+  children,
+  onDismiss,
+  visible,
+  onConfirmation,
+  header,
+  noCancel,
+  isLoading,
+}: CMFModalProps) => {
   if (!visible) return <></>; // if modal is not visible, don't render it. it makes unit testing harder when there are multiple invisible modals in the DOM.
 
   return (
@@ -30,11 +39,11 @@ export const CMFModal = ({ children, onDismiss, visible, onConfirmation, header,
           <Box float="right">
             <SpaceBetween direction="horizontal" size="xs">
               {noCancel ? undefined : (
-                <Button onClick={onDismiss} variant="link">
+                <Button onClick={onDismiss} disabled={isLoading} variant="link">
                   Cancel
                 </Button>
               )}
-              <Button onClick={onConfirmation} variant="primary">
+              <Button onClick={onConfirmation} loading={isLoading} variant="primary">
                 Ok
               </Button>
             </SpaceBetween>

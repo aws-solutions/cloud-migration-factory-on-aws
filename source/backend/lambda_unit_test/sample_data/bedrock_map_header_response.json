@@ -1,0 +1,49 @@
+{
+  "output": {
+    "message": {
+      "content": [
+        {
+          "toolUse": {
+            "input": {
+              "application": {
+                "mappings": [
+                  {
+                    "source_header": "Business Application",
+                    "target_header": "app_name",
+                    "confidence": 0.5
+                  },
+                  {
+                      "source_header": "Database",
+                      "target_header": "database_ids",
+                      "confidence": 0.8
+                  },
+                  {
+                    "source_header": "Application",
+                    "target_header": "app_name",
+                    "confidence": 0.9
+                  },
+                  {
+                      "source_header": "DB",
+                      "target_header": "database_ids",
+                      "confidence": 0.8
+                  },
+                  {
+                      "source_header": "Owner",
+                      "target_header": "app_owner"
+                  }
+                ],
+                "unmapped_attributes": ["server_ids"],
+                "recommendations": []
+              },
+              "storage": {
+                "mappings": [],
+                "unmapped_attributes": ["storage_name", "storage_type"],
+                "recommendations": []
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

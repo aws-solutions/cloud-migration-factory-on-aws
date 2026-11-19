@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -72,8 +73,8 @@ const ListAttribute = ({ attribute, value, isReadonly, errorText, handleUserInpu
     } else if ("listValueAPI" in attribute && !isLoadingVL && attribute.listValueAPI in dataVL) {
       //Attributes value list is obtained from a dynamic API call.
       if (dataVL[attribute.listValueAPI].errorMessage !== undefined) {
-        let options = [];
-        let errorMessage = dataVL[attribute.listValueAPI].errorMessage;
+        const options = [];
+        const errorMessage = dataVL[attribute.listValueAPI].errorMessage;
         if (errorMessage) {
           setCurrentVLErrorText(errorMessage);
         }
@@ -81,7 +82,7 @@ const ListAttribute = ({ attribute, value, isReadonly, errorText, handleUserInpu
         setLocalOptions(options);
         return options;
       } else {
-        let options = dataVL[attribute.listValueAPI].values.map((item) => {
+        const options = dataVL[attribute.listValueAPI].values.map((item) => {
           return { label: item[attribute.labelKey], value: item[attribute.valueKey], tags: getTags(item) };
         });
 

@@ -752,10 +752,10 @@ Resources:
             Type: string
           - Name: aws_accountid
             Type: string
-          - Name: wave_id
-            Type: string
+          - Name: wave_ids
+            Type: array<string>
           - Name: app_id
-            Type: string	
+            Type: string
           InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
           Location: !Sub s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/migration_tracker_app_extract_data/
           SerdeInfo:
@@ -828,9 +828,11 @@ Resources:
             Type: string
           - Name: database_type
             Type: string
-          - Name: app_id
-            Type: string
+          - Name: app_ids
+            Type: array<string>
           - Name: r_type
+            Type: string
+          - Name: wave_id
             Type: string
           InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
           Location: !Sub s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/migration_tracker_database_extract_data/
@@ -872,11 +874,13 @@ Resources:
             Type: string
           - Name: replication_status
             Type: string
-          - Name: app_id
-            Type: string
+          - Name: app_ids
+            Type: array<string>
           - Name: server_environment
             Type: string
           - Name: r_type
+            Type: string
+          - Name: wave_id
             Type: string
           InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
           Location: !Sub s3://${Application}-${Environment}-${AWS::AccountId}-migration-tracker/migration_tracker_server_extract_data/
@@ -980,6 +984,8 @@ Resources:
     Properties:
       ServiceToken: !GetAtt LambdaCopyGlueScriptCopy.Arn
       # When a create event type is send to the lambda use this object
+      # Force execution on every deployment by including version
+      Version: '%%VERSION%%'
 
   LambdaCopyGlueScriptCopy: 
     Type: AWS::Lambda::Function

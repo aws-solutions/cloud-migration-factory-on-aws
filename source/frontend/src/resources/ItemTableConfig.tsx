@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -10,14 +11,14 @@ import {
   returnLocaleDateTime,
   sortAscendingComparator,
 } from "./main";
-import { Button, StatusIndicator } from "@cloudscape-design/components";
+import { Button, StatusIndicator, TableProps } from "@cloudscape-design/components";
 import React from "react";
 import { Attribute, EntitySchema } from "../models/EntitySchema";
 
 function status(value: string) {
   let component = undefined;
 
-  let new_value = value.toLowerCase();
+  const new_value = value.toLowerCase();
 
   switch (new_value) {
     case "timed-out":
@@ -80,9 +81,9 @@ function getColumnDefinitionsForPassword(attr: Attribute) {
 
 function getColumnDefinitionsForRelationship(attr: Attribute) {
   //Update last element in key name with __.
-  let arrName = attr.name.split(".");
+  const arrName = attr.name.split(".");
   arrName[arrName.length - 1] = "__" + arrName[arrName.length - 1];
-  let newName = arrName.join(".");
+  const newName = arrName.join(".");
   return {
     id: newName,
     header: attr.description,
@@ -100,7 +101,7 @@ function getColumnDefinitionsForTag(attr: Attribute) {
     cell: (item: any) =>
       getNestedValuePath(item, attr.name)
         ? getNestedValuePath(item, attr.name)
-            .map((tag: { key: string; value: string }, index: any) => {
+            .map((tag: { key: string; value: string }) => {
               return tag.key + "=" + tag.value;
             })
             .join(";")
@@ -112,9 +113,9 @@ function getColumnDefinitionsForTag(attr: Attribute) {
 
 function getColumnDefinitionsForPolicies(attr: Attribute) {
   //Update last element in key name with __.
-  let arrName1 = attr.name.split(".");
+  const arrName1 = attr.name.split(".");
   arrName1[arrName1.length - 1] = "__" + arrName1[arrName1.length - 1];
-  let newName1 = arrName1.join(".");
+  const newName1 = arrName1.join(".");
   return {
     id: attr.name,
     header: attr.description,
@@ -175,7 +176,7 @@ function getColumnDefinitionsForGroups(attr: Attribute) {
     cell: (item: any) =>
       getNestedValuePath(item, attr.name)
         ? getNestedValuePath(item, attr.name)
-            .map((group: { group_name: any }, index: any) => {
+            .map((group: { group_name: any }) => {
               return group.group_name;
             })
             .join(", ")
@@ -197,6 +198,9 @@ function getColumnDefinitionsForJson(attr: Attribute) {
 }
 
 function getColumnDefinitionsDefault(attr: Attribute, schemaName: string, provide_link: boolean) {
+  if (schemaName === 'application') {
+    schemaName = 'app';
+  }
   return {
     id: attr.name,
     header: attr.description,
@@ -222,8 +226,24 @@ function getColumnDefinitionsDefault(attr: Attribute, schemaName: string, provid
   };
 }
 
+function getColumnDefinitionsForMultivalueRelationship(attr: Attribute) {
+  return {
+    id: attr.name,
+    header: attr.description,
+    cell: (item: any) => {
+      const mutlivalueRelationship = getNestedValuePath(item, attr.name);
+      if (mutlivalueRelationship === null || mutlivalueRelationship === undefined) return "";
+      return Array.isArray(mutlivalueRelationship)
+        ? mutlivalueRelationship.join()
+        : JSON.stringify(mutlivalueRelationship);
+    },
+    minWidth: 100,
+    sortingField: attr.name,
+  };
+}
+
 export function getColumnDefinitions(schemaName: string, schema: EntitySchema, provide_link = false) {
-  let columnDefinitions = schema.attributes.map((attr: Attribute) => {
+  const columnDefinitions = schema.attributes.map((attr: Attribute) => {
     switch (attr.type) {
       case "checkbox":
         return getColumnDefinitionsForCheckBox(attr);
@@ -243,6 +263,9 @@ export function getColumnDefinitions(schemaName: string, schema: EntitySchema, p
         return getColumnDefinitionsForGroups(attr);
       case "json":
         return getColumnDefinitionsForJson(attr);
+      // New attribute type added by WPM
+      case "multivalue-relationship":
+        return getColumnDefinitionsForMultivalueRelationship(attr);
       default:
         return getColumnDefinitionsDefault(attr, schemaName, provide_link);
     }
@@ -259,20 +282,11 @@ export function getColumnDefinitions(schemaName: string, schema: EntitySchema, p
   return columnDefinitions;
 }
 
-function defaultAuditColumns(
-  columnDefinitions: {
-    id: string;
-    header: string;
-    cell: (item: any) => any;
-    minWidth: number;
-    sortingField: string;
-    sortingComparator?: (item1: any, item2: any) => number;
-  }[]
-) {
+export function defaultAuditColumns(columnDefinitions: TableProps.ColumnDefinition<any>[]) {
   columnDefinitions.push({
     id: "createdTimestamp",
     header: "Created on",
-    cell: (item) => returnLocaleDateTime(getNestedValue(item, "_history", "createdTimestamp")),
+    cell: (item) => returnLocaleDateTime(getNestedValue(item, "_history", "createdTimestamp")) as React.ReactNode,
     minWidth: 180,
     sortingField: "createdTimestamp",
     sortingComparator: (item1, item2) =>
@@ -299,9 +313,9 @@ function defaultAuditColumns(
     id: "lastModifiedTimestamp",
     header: "Last modified on",
     cell: (item) =>
-      getNestedValue(item, "_history", "lastModifiedTimestamp")
+      (getNestedValue(item, "_history", "lastModifiedTimestamp")
         ? returnLocaleDateTime(getNestedValue(item, "_history", "lastModifiedTimestamp"))
-        : returnLocaleDateTime(getNestedValue(item, "_history", "createdTimestamp")),
+        : returnLocaleDateTime(getNestedValue(item, "_history", "createdTimestamp"))) as React.ReactNode,
     minWidth: 180,
     sortingField: "lastModifiedTimestamp",
     sortingComparator: (item1, item2) =>
@@ -337,7 +351,7 @@ function defaultAuditColumns(
 }
 
 function defaultAuditSelectorOptions() {
-  let auditSelectorOptions = [];
+  const auditSelectorOptions = [];
 
   auditSelectorOptions.push({
     id: "createdTimestamp",
@@ -370,7 +384,7 @@ export function getContentSelectorOptions(schema: { attributes: any[] }) {
   //Remove any dynamic embedded_entity attributes as currently not supported in table.
   //ATTN: add support for embedded_entity in table column.
 
-  let cleansedSchema = schema.attributes.filter((filterAttribute) => {
+  const cleansedSchema = schema.attributes.filter((filterAttribute) => {
     return (
       filterAttribute.type !== "embedded_entity" ||
       filterAttribute.type !== "policy" ||
@@ -379,13 +393,13 @@ export function getContentSelectorOptions(schema: { attributes: any[] }) {
     );
   });
 
-  let options = cleansedSchema.map((attr, index) => {
+  const options = cleansedSchema.map((attr) => {
     let option = {};
     if (attr.type === "relationship") {
       //Update last element in key name with __.
-      let arrName = attr.name.split(".");
+      const arrName = attr.name.split(".");
       arrName[arrName.length - 1] = "__" + arrName[arrName.length - 1];
-      let newName = arrName.join(".");
+      const newName = arrName.join(".");
 
       option = {
         id: newName,

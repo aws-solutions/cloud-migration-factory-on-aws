@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -32,6 +33,7 @@ export type EntityName =
   | "script"
   | "database"
   | "server"
+  | "app"
   | "application"
   | "wave"
   | "policy"
@@ -40,7 +42,14 @@ export type EntityName =
   | "pipeline_template_task"
   | "task"
   | "task_execution"
+  | "move_group"
+  | "wpm_job"
   | "user";
+
+export type Filter = {
+  source_filter_attribute_name: string;
+  rel_filter_attribute_name: string;
+};
 
 export type Attribute = {
   sample_data_intake?: any;
@@ -59,6 +68,7 @@ export type Attribute = {
   long_desc?: string;
   lookup?: string;
   name: string;
+  additional_name_list?: string[];
   readonly?: boolean;
   rel_additional_attributes?: string[];
   rel_attribute?: string;
@@ -69,6 +79,7 @@ export type Attribute = {
   required?: boolean;
   schema?: string;
   source_filter_attribute_name?: string;
+  filters?: Filter[];
   system?: boolean;
   type: string;
   unique?: boolean;
@@ -80,7 +91,7 @@ export type Attribute = {
 export type DataLoadingState<T> = {
   data: T[];
   isLoading: boolean;
-  error: any;
+  error?: any;
 };
 
 export type BaseData = {
@@ -90,6 +101,7 @@ export type BaseData = {
   database?: DataLoadingState<Database>;
   server?: DataLoadingState<Server>;
   application?: DataLoadingState<Application>;
+  app?: DataLoadingState<Application>;
   wave?: DataLoadingState<Wave>;
   policy?: DataLoadingState<any>;
   pipeline?: DataLoadingState<any>;

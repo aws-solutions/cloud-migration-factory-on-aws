@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -10,9 +11,17 @@ import { Database } from "../../models/Database";
 import { Application } from "../../models/Application";
 import { Wave } from "../../models/Wave";
 import { Pipeline, PipelineTemplate, PipelineTemplateTask, Task, TaskExecution } from "../../models/Pipeline.ts";
+import { WPMJob } from "../../models/WpmJob.ts";
+import { MoveGroup } from "../../models/MoveGroup.ts";
 
-type TaskExecutionStatus = "Not Started" | "In Progress" | "Complete" | "Failed" | "Abandoned" | "Skip" | "Pending Approval";
-
+type TaskExecutionStatus =
+  | "Not Started"
+  | "In Progress"
+  | "Complete"
+  | "Failed"
+  | "Abandoned"
+  | "Skip"
+  | "Pending Approval";
 
 export const mock_user_api = [
   rest.get("/user/server", (request, response, context) => {
@@ -42,11 +51,15 @@ export const mock_user_api = [
 export function generateTestServers(count: number, data?: { appId: string }): Array<Server> {
   const numbers = Array.from({ length: count }, (_, index) => index);
   return numbers.map((number) => ({
+    aws_accountid: "123456789012",
+    aws_region: "us-east-2",
     server_os_family: "linux",
-    app_id: data?.appId ?? `1`,
+    app_ids: data?.appId ? [data.appId] : [`1`],
     server_name: `unittest${number}`,
     server_id: `${number}`,
     server_fqdn: `unittest${number}.testdomain.local`,
+    move_group_id: `${number}`,
+    wave_id: `${number}`,
     _history: {
       createdBy: {
         userRef: v4(),
@@ -59,7 +72,10 @@ export function generateTestServers(count: number, data?: { appId: string }): Ar
   }));
 }
 
-export function generateTestApps(count: number, data?: { waveId: string }): Array<Application> {
+export function generateTestApps(
+  count: number,
+  data?: { waveId: string }
+): Array<Application & { os_state?: string; sg_test?: string[] }> {
   const numbers = Array.from({ length: count }, (_, index) => index);
   return numbers.map((number) => ({
     aws_region: "us-east-2",
@@ -77,7 +93,33 @@ export function generateTestApps(count: number, data?: { waveId: string }): Arra
       createdTimestamp: "2023-09-15T21:58:59.182564",
     },
     app_name: `Unit testing App ${number}`,
-    wave_id: data?.waveId ?? "1",
+    wave_ids: [data?.waveId ?? "1"],
+    aws_accountid: "123456789012",
+  }));
+}
+
+export function generateTestAppsWithWaveIds(
+  count: number,
+  data?: { waveId: string }
+): Array<Application & { os_state?: string; sg_test?: string[] }> {
+  const numbers = Array.from({ length: count }, (_, index) => index);
+  return numbers.map((number) => ({
+    aws_region: "us-east-2",
+    app_id: `${number}`,
+    _history: {
+      createdBy: {
+        userRef: "47237551-331e-44a8-a00b-67c739ce9676",
+        email: "foo@example.com",
+      },
+      lastModifiedTimestamp: "2023-09-19T19:02:30.593821",
+      lastModifiedBy: {
+        userRef: "47237551-331e-44a8-a00b-67c739ce9676",
+        email: "foo@example.com",
+      },
+      createdTimestamp: "2023-09-15T21:58:59.182564",
+    },
+    app_name: `Unit testing App ${number}`,
+    wave_ids: [data?.waveId ?? "1"],
     aws_accountid: "123456789012",
   }));
 }
@@ -88,6 +130,8 @@ export function generateTestWaves(count: number, data?: { waveStatus: string }):
     wave_id: `${number}`,
     wave_name: `Unit testing Wave ${number}`,
     wave_status: data?.waveStatus ?? undefined,
+    move_group_ids: [`${number}`], // Added missing required property
+    server_count: Math.ceil(Math.random() * 100),
     _history: {
       createdBy: {
         userRef: "47237551-331e-44a8-a00b-67c739ce9676",
@@ -106,10 +150,54 @@ export function generateTestWaves(count: number, data?: { waveStatus: string }):
 export function generateTestDatabases(count: number, data?: { appId: string }): Array<Database> {
   const numbers = Array.from({ length: count }, (_, index) => index);
   return numbers.map((number) => ({
-    app_id: data?.appId ?? "1",
+    app_ids: [data?.appId ?? "1"],
     database_type: "mysql",
     database_id: `${number}`,
+    move_group_id: `${number}`,
+    wave_id: `${number}`,
     database_name: `unittest${number}`,
+    _history: {
+      createdBy: {
+        userRef: v4(),
+        email: "foo@example.com",
+      },
+      createdTimestamp: new Date().toISOString(),
+    },
+  }));
+}
+
+export function generateTestMoveGroups(count: number): Array<MoveGroup> {
+  return [...new Array(count).keys()].map((number) => ({
+    move_group_id: `${number}`,
+    app_ids: [],
+    complexity_score: 0,
+    database_ids: [],
+    move_group_name: `Unit testing Group ${number}`,
+    server_count: 2,
+    server_ids: [],
+    wave_id: `${number}`,
+    total_server_storage: 100,
+    _history: {
+      createdBy: {
+        userRef: v4(),
+        email: "foo@example.com",
+      },
+      createdTimestamp: new Date().toISOString(),
+    },
+  }));
+}
+
+export function generateTestWpmJobs(count: number): Array<WPMJob> {
+  return [...new Array(count).keys()].map((number) => ({
+    wpm_job_id: `${number}`,
+    current_step: "JOB_DETAILS",
+    move_group_ids: [`${number}`],
+    nomination_app_count: 10,
+    starting_wave_server_capacity: 50,
+    wave_server_capacity: 100,
+    wave_server_capacity_increase: 10,
+    wave_storage_capacity: 10000,
+    wpm_job_name: `Unit testing WPM Job ${number}`,
     _history: {
       createdBy: {
         userRef: v4(),
@@ -222,7 +310,11 @@ export function generateTestPipelines(
   }));
 }
 
-export function generateTestTaskExecutions(pipeline: Pipeline, tasks: Array<Task>, statusOverrides?: TaskExecutionStatus[] | undefined): Array<TaskExecution> {
+export function generateTestTaskExecutions(
+  pipeline: Pipeline,
+  tasks: Array<Task>,
+  statusOverrides?: TaskExecutionStatus[] | undefined
+): Array<TaskExecution> {
   return tasks.map((task, index) => ({
     task_execution_id: v4(),
     task_execution_name: `unittest_task_execution${index}`,
@@ -231,9 +323,11 @@ export function generateTestTaskExecutions(pipeline: Pipeline, tasks: Array<Task
     task_id: task.task_id,
     task_type: task.task_type,
     task_description: task.task_description,
-    task_execution_status: statusOverrides 
+    task_execution_status: statusOverrides
       ? statusOverrides[index] || "Not Started"
-      : index === 0 ? "In Progress" : "Not Started",
+      : index === 0
+        ? "In Progress"
+        : "Not Started",
     outputLastMessage: `Last message for unittest_task_execution${index}`,
     output: `Output for unittest_task_execution${index}`,
     task_execution_inputs: {
@@ -253,23 +347,26 @@ export function generateTestTaskExecutions(pipeline: Pipeline, tasks: Array<Task
     },
   }));
 }
-  // generate the POST response object with an array with the given number of pipeline_template records
-  export function generateTestPostPipelineTemplatesResponse(count: number, data?: { pipelineTemplate: PipelineTemplate }): object {
-    const numbers = Array.from({ length: count }, (_, index) => index);
-    let response = numbers.map((number) => ({
-      pipeline_template_id: `${number}`,
-      pipeline_template_name: `unittest_pipeline_template${number}`,
-      pipeline_template_description: `Description for unittest_pipeline_template${number}`,
-      version: `0`,
-      _history: {
-        createdBy: {
-          userRef: v4(),
-          email: "foo@example.com",
-        },
-        createdTimestamp: new Date().toISOString(),
+// generate the POST response object with an array with the given number of pipeline_template records
+export function generateTestPostPipelineTemplatesResponse(
+  count: number,
+  data?: { pipelineTemplate: PipelineTemplate }
+): object {
+  const numbers = Array.from({ length: count }, (_, index) => index);
+  const response = numbers.map((number) => ({
+    pipeline_template_id: `${number}`,
+    pipeline_template_name: `unittest_pipeline_template${number}`,
+    pipeline_template_description: `Description for unittest_pipeline_template${number}`,
+    version: `0`,
+    _history: {
+      createdBy: {
+        userRef: v4(),
+        email: "foo@example.com",
       },
-    }))
-    return {"newItems": response};
+      createdTimestamp: new Date().toISOString(),
+    },
+  }));
+  return { newItems: response };
 }
 
 export function generateTestDeleteProtectedPipelineTemplates(count: number): Array<PipelineTemplate> {
@@ -350,10 +447,7 @@ function addSuccessorsToPipelineTemplateTasks(pTTasks: PipelineTemplateTask[]): 
       const nextTaskId = pTTasks[index + 1].pipeline_template_task_id;
       return {
         ...pTTask,
-        task_successors: [
-          ...(pTTask.task_successors ?? []),
-          nextTaskId
-        ]
+        task_successors: [...(pTTask.task_successors ?? []), nextTaskId],
       };
     }
     return pTTask;

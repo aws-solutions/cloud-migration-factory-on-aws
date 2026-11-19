@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -10,7 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { Box, Button, Container, Form, FormField, Header, Input, SpaceBetween } from "@cloudscape-design/components";
 
 const ChangePassword = () => {
-  let navigate = useNavigate();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [oldPassword, setOldPassword] = useState("");

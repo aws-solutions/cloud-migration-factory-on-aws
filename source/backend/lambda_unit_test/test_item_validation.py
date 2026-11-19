@@ -5,8 +5,19 @@
 import logging
 import os
 import boto3
+import sys
 from moto import mock_aws
 from unittest import TestCase, mock
+
+# Create a mock for cmf_boto that will be used only during these tests
+class MockCmfBoto:
+    @staticmethod
+    def resource(service_name):
+        return boto3.resource(service_name)
+    
+    @staticmethod
+    def client(service_name):
+        return boto3.client(service_name)
 
 # # This is to get around the relative path import issue.
 # # Absolute paths are being used in this file after setting the root directory
@@ -16,7 +27,6 @@ file = Path(__file__).resolve()
 package_root_directory = file.parents [1]  
 sys.path.append(str(package_root_directory))  
 sys.path.append(str(package_root_directory)+'/lambda_layers/lambda_layer_items/python/')
-
 
 # Set log level
 loglevel = logging.INFO
@@ -30,10 +40,13 @@ log = logging.getLogger(__name__)
 @mock_aws
 class ItemValidationTestCase(TestCase):
     def setUp(self):
+        # Register the mock for cmf_boto
+        sys.modules['cmf_boto'] = MockCmfBoto
+        
         # Setup dynamoDB tables and put items required for test cases
         self.table_name = '{}-{}-'.format('cmf', 'unittest') + 'apps'
         boto3.setup_default_session()
-        self.event = {"httpMethod": 'GET', 'pathParameters': {'appid': '1', 'schema': 'app'}}
+        self.event = {"httpMethod": 'GET', 'pathParameters': {'schema': 'app'}}
         self.table_name = '{}-{}-'.format('cmf', 'unittest') + 'apps'
         self.client = boto3.client("dynamodb",region_name='us-east-1')
         self.client.create_table(
@@ -45,20 +58,6 @@ class ItemValidationTestCase(TestCase):
             AttributeDefinitions=[
               {"AttributeName": "app_id", "AttributeType": "S"},
             ],
-            GlobalSecondaryIndexes=[
-                    {
-                        'IndexName': 'app_id-index',
-                        'KeySchema': [
-                            {
-                                'AttributeName': 'app_id',
-                                'KeyType': 'HASH'
-                            },
-                        ],
-                        'Projection': {
-                            'ProjectionType': 'ALL'
-                        }
-                    }
-                    ]
         )
         self.client.put_item(
                TableName=self.table_name,
@@ -128,6 +127,11 @@ class ItemValidationTestCase(TestCase):
         self.role_client.delete_table(TableName=self.role_table_name)
         self.schema_client.delete_table(TableName=self.schema_table_name)
         self.dynamodb = None
+        
+        # Clean up the cmf_boto mock to prevent affecting other tests
+        if 'cmf_boto' in sys.modules:
+            del sys.modules['cmf_boto']
+            
         print("Teardown complete")
 
 
@@ -514,10 +518,36 @@ class ItemValidationTestCase(TestCase):
                     "validation_regex_msg": "AWS account ID must be provided."
             }]
         }
-        response = item_validation.check_valid_item_create(item, schema, related_items=None)
+        response = item_validation.check_valid_item_create(item, schema)
         print("Response: ", response)
         expected_response = ['Attribute system_key is not defined in the schema.', 'Attribute conditions is not defined in the schema.']
         self.assertEqual(response, expected_response)
+
+    def test_check_valid_item_create_rule_schema(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: check_valid_item_create with rule schema")
+        item = {
+            "rule_type": "PRIORITIZING",
+            "rule_name": "test-rule",
+            "sub_type": "SCORING",
+            "status": "ENABLED",
+            "scoring_criteria": [
+                {"upper_bound": 200, "complexity_score": 20}
+            ]
+        }
+        schema = {
+            "schema_name": "rule",
+            "attributes": [
+                {"name": "rule_type", "type": "string", "required": True},
+                {"name": "rule_name", "type": "string", "required": True},
+                {"name": "sub_type", "type": "string", "required": False},
+                {"name": "status", "type": "string", "required": True},
+                {"name": "scoring_criteria", "type": "list", "required": False}
+            ]
+        }
+        response = item_validation.check_valid_item_create(item, schema)
+        print("Response: ", response)
+        self.assertIsNone(response)
 
 
     def test_check_valid_item_create_having_relationship_type_but_no_key(self):
@@ -558,9 +588,9 @@ class ItemValidationTestCase(TestCase):
                     "validation_regex_msg": "AWS account ID must be provided."
             }]
         }
-        response = item_validation.check_valid_item_create(item, schema, related_items=None)
+        response = item_validation.check_valid_item_create(item, schema)
         print("Response: ", response)
-        expected_response = [['r_type: Invalid relationship attribute schema or key missing.'], 'Attribute conditions is not defined in the schema.']
+        expected_response = ['r_type: Invalid relationship attribute schema or key missing.', 'Attribute conditions is not defined in the schema.']
         self.assertEqual(response, expected_response)
 
 
@@ -601,7 +631,7 @@ class ItemValidationTestCase(TestCase):
             "schema_name": "server",
             
         }
-        response = item_validation.check_valid_item_create(item, schema, related_items=None)
+        response = item_validation.check_valid_item_create(item, schema)
         print("Response: ", response)
         expected_response = ['Attribute conditions is not defined in the schema.']
         self.assertEqual(response, expected_response)
@@ -612,11 +642,11 @@ class ItemValidationTestCase(TestCase):
         log.info("Testing item_validation: check_valid_item_create has relationship type"
                  " and relationship key, but database record doesn't have a matching key.")
         item = {
-            "all_applications": "xxx",
+            "all_applications": ["x", "y", "z"],
             "conditions": {
                 "queries": [{
                         "comparator": "=",
-                        "value": "xxx",
+                        "value": "xyz",
                         "attribute": "all_applications"
                     }
                 ],
@@ -658,12 +688,14 @@ class ItemValidationTestCase(TestCase):
                 }
             }],
             "schema_name": "server",
-            
         }
-        response = item_validation.check_valid_item_create(item, schema, related_items=None)
+
+        response = item_validation.check_valid_item_create(item, schema)
         print("Response: ", response)
-        expected_response = [['all_applications: The following related record ids do not exist using key app_id - x, x, x'], 
+        expected_response = ['all_applications: The following related record ids do not exist using key app_id - x, y, z', 
                              'Attribute conditions is not defined in the schema.']
+        
+        print(expected_response)
         self.assertEqual(response, expected_response)
 
 
@@ -718,11 +750,11 @@ class ItemValidationTestCase(TestCase):
                 }
             }],
             "schema_name": "server",
-            
         }
-        response = item_validation.check_valid_item_create(item, schema, related_items=None)
+
+        response = item_validation.check_valid_item_create(item, schema)
         print("Response: ", response)
-        expected_response = [['all_applications:xxx related record does not exist using key app_id'], 
+        expected_response = ['all_applications:xxx related record does not exist using key app_id', 
                              'Attribute conditions is not defined in the schema.']
         self.assertEqual(response, expected_response)
 
@@ -777,7 +809,7 @@ class ItemValidationTestCase(TestCase):
             }],
             "schema_name": "server"
         }
-        response = item_validation.check_valid_item_create(item, schema, related_items=None)
+        response = item_validation.check_valid_item_create(item, schema)
         print("Response: ", response)
         expected_response = ['Attribute subnet_IDs, Subnets must start with subnet-, followed by 8 or 17 alphanumeric characters.', 
                              'Attribute conditions is not defined in the schema.']
@@ -821,7 +853,7 @@ class ItemValidationTestCase(TestCase):
             }],
             "schema_name": "server"
         }
-        response = item_validation.check_valid_item_create(item, schema, related_items=None)
+        response = item_validation.check_valid_item_create(item, schema)
         print("Response: ", response)
         expected_response = ["Attribute server_os_family's value does not match any of the allowed values 'windows,linux' defined in the schema", 
                              'Attribute conditions is not defined in the schema.']
@@ -866,7 +898,7 @@ class ItemValidationTestCase(TestCase):
             }],
             "schema_name": "server"
         }
-        response = item_validation.check_valid_item_create(item, schema, related_items=None)
+        response = item_validation.check_valid_item_create(item, schema)
         print("Response: ", response)
         expected_response = ["Attribute server_os_family's value does not match any of the allowed values 'windows,linux' defined in the schema", 
                              "Attribute server_os_family's value does not match any of the allowed values 'windows,linux' defined in the schema", 
@@ -874,165 +906,275 @@ class ItemValidationTestCase(TestCase):
                              'Attribute conditions is not defined in the schema.']
         self.assertEqual(response, expected_response)
 
-
-    def test_get_relationship_data_with_relationship_attributes(self):
-        from lambda_layers.lambda_layer_items.python import item_validation    
-        log.info("Testing item_validation: get_relationship_data has relationship attributes")
-        item = [{
-            "accountid": "xxxxxxx",
-            "server_os_family": {
-                "family": [
-                    "windows",
-                    "linux"
-                ]
-            },
-            "subnet_IDs": {
-                "id:": [
-                    "subnet-xxx",
-                    "subnet-yyy"
-                ]
-            }
-        }]
-        schema = {
-            "schema_type": "user",
-            "attributes": [{
-                    "listMultiSelect": True,
-                    "rel_display_attribute": "aws_accountid",
-                    "hidden": True,
-                    "rel_key": "aws_accountid",
-                    "description": "AWS account ID",
-                    "rel_entity": "application",
-                    "type": "relationship",
-                    "required": True,
-                    "system": True,
-                    "validation_regex": "^(?!\\s*$).+",
-                    "listvalue": "All Accounts",
-                    "name": "accountid",
-                    "validation_regex_msg": "AWS account ID must be provided."
-                },
-                {
-                    "system": True,
-                    "validation_regex": "^(?!\\s*$).+",
-                    "listvalue": "windows,linux",
-                    "name": "server_os_family",
-                    "description": "Server OS Family",
-                    "validation_regex_msg": "Select a valid operating system.",
-                    "type": "list",
-                    "required": True
-                },
-                {
-                    "system": True,
-                    "validation_regex": "^(subnet-([a-z0-9]{8}|[a-z0-9]{17})$)",
-                    "name": "subnet_IDs",
-                    "description": "Subnet Ids",
-                    "validation_regex_msg": "Subnets must start with subnet-, followed by 8 or 17 alphanumeric characters.",
-                    "type": "multivalue-string"
-                }],
-            "schema_name": "server"
+    def test_check_valid_rule_create_scoring_rule_valid(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: check_valid_rule_create with valid scoring rule")
+        item = {
+            "rule_type": "PRIORITIZING",
+            "rule_name": "test-scoring-rule",
+            "sub_type": "SCORING",
+            "status": "ENABLED",
+            "scoring_criteria": [
+                {"upper_bound": 200, "complexity_score": 20},
+                {"lower_bound": 200, "upper_bound": 500, "complexity_score": 40}
+            ]
         }
-        response = item_validation.get_relationship_data(item, schema)
+        response = item_validation.check_valid_rule_create(item)
         print("Response: ", response)
-        expected_response = {"application": [{"app_id": "3", "app_name": "test app"}]}
+        self.assertEqual(response, [])
+
+    def test_check_valid_rule_create_scoring_rule_missing_criteria(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: check_valid_rule_create with scoring rule missing criteria")
+        item = {
+            "rule_type": "PRIORITIZING",
+            "rule_name": "test-scoring-rule",
+            "sub_type": "SCORING",
+            "status": "ENABLED"
+        }
+        response = item_validation.check_valid_rule_create(item)
+        print("Response: ", response)
+        expected_response = ['scoring_criteria is required when sub_type is SCORING']
         self.assertEqual(response, expected_response)
 
-
-    def test_get_relationship_data_without_relationship_attributes(self):
-        from lambda_layers.lambda_layer_items.python import item_validation    
-        log.info("Testing item_validation: get_relationship_data has no relationship attributes")
-        item = [{
-            "server_os_version": "Ubuntu",
-            "server_os_family": {
-                "family": [
-                    "windows",
-                    "linux"
-                ]
-            },
-            "subnet_IDs": {
-                "id:": [
-                    "subnet-xxx",
-                    "subnet-yyy"
-                ]
-            }
-        }]
-        schema = {
-            "schema_type": "user",
-            "attributes": [{
-                    "name": "server_os_version",
-                    "description": "Server OS Version",
-                    "system": True,
-                    "type": "string",
-                    "required": True
-                },
-                {
-                    "system": True,
-                    "validation_regex": "^(?!\\s*$).+",
-                    "listvalue": "windows,linux",
-                    "name": "server_os_family",
-                    "description": "Server OS Family",
-                    "validation_regex_msg": "Select a valid operating system.",
-                    "type": "list",
-                    "required": True
-                },
-                {
-                    "system": True,
-                    "validation_regex": "^(subnet-([a-z0-9]{8}|[a-z0-9]{17})$)",
-                    "name": "subnet_IDs",
-                    "description": "Subnet Ids",
-                    "validation_regex_msg": "Subnets must start with subnet-, followed by 8 or 17 alphanumeric characters.",
-                    "type": "multivalue-string"
-                }],
-            "schema_name": "server"
+    def test_check_valid_rule_create_scoring_rule_invalid_complexity_score(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: check_valid_rule_create with invalid complexity_score")
+        item = {
+            "rule_type": "PRIORITIZING",
+            "rule_name": "test-scoring-rule",
+            "sub_type": "SCORING",
+            "status": "ENABLED",
+            "scoring_criteria": [
+                {"upper_bound": 200, "complexity_score": 150},  # Invalid: > 100
+                {"lower_bound": 200, "complexity_score": -10}   # Invalid: < 0
+            ]
         }
-        response = item_validation.get_relationship_data(item, schema)
+        response = item_validation.check_valid_rule_create(item)
         print("Response: ", response)
-        expected_response = {}
+        expected_response = [
+            'scoring_criteria[0].complexity_score must be a number between 0 and 100',
+            'scoring_criteria[1].complexity_score must be a number between 0 and 100'
+        ]
         self.assertEqual(response, expected_response)
 
-    def test_is_valid_id_number(self):
+    def test_check_valid_rule_create_sorting_rule_valid(self):
         from lambda_layers.lambda_layer_items.python import item_validation
-        log.info("Testing item_validation: is_valid_id number")
-        schema = {
-            "schema_type": "user",
-            "schema_name": "server"
+        log.info("Testing item_validation: check_valid_rule_create with valid sorting rule")
+        item = {
+            "rule_type": "PRIORITIZING",
+            "rule_name": "test-sorting-rule",
+            "sub_type": "SORTING",
+            "status": "ENABLED",
+            "sort_order": "ASC",
+            "sort_level": 1
         }
-        response = item_validation.is_valid_id(schema, "1")
+        response = item_validation.check_valid_rule_create(item)
         print("Response: ", response)
-        self.assertTrue(response)
+        self.assertEqual(response, [])
 
-    def test_is_valid_id_uuid(self):
+    def test_check_valid_rule_create_sorting_rule_missing_fields(self):
         from lambda_layers.lambda_layer_items.python import item_validation
-        log.info("Testing item_validation: is_valid_id uuid")
-        schema = {
-            "schema_type": "user",
-            "schema_name": "server",
-            "key_type": "uuid"
+        log.info("Testing item_validation: check_valid_rule_create with sorting rule missing fields")
+        item = {
+            "rule_type": "PRIORITIZING",
+            "rule_name": "test-sorting-rule",
+            "sub_type": "SORTING",
+            "status": "ENABLED"
         }
-        response = item_validation.is_valid_id(schema, '4a120d34-e09e-4e75-bbed-2bab3ad897c1')
+        response = item_validation.check_valid_rule_create(item)
         print("Response: ", response)
-        self.assertTrue(response)
+        expected_response = [
+            'sort_order is required when sub_type is SORTING',
+            'sort_level is required when sub_type is SORTING'
+        ]
+        self.assertEqual(response, expected_response)
 
-    def test_is_invalid_id_number(self):
+    def test_check_valid_rule_create_scoring_rule_string_complexity_score(self):
         from lambda_layers.lambda_layer_items.python import item_validation
-        log.info("Testing item_validation: is_valid_id invalid number")
-        schema = {
-            "schema_type": "user",
-            "schema_name": "server"
+        log.info("Testing item_validation: check_valid_rule_create with string complexity_score")
+        item = {
+            "rule_type": "PRIORITIZING",
+            "rule_name": "test-scoring-rule",
+            "sub_type": "SCORING",
+            "status": "ENABLED",
+            "scoring_criteria": [
+                {"upper_bound": 200, "complexity_score": "50"},  # String number
+                {"lower_bound": 200, "complexity_score": "invalid"}  # Invalid string
+            ]
         }
-        response = item_validation.is_valid_id(schema, "notanumber")
+        response = item_validation.check_valid_rule_create(item)
         print("Response: ", response)
-        self.assertFalse(response)
+        expected_response = [
+            'scoring_criteria[1].complexity_score must be a number between 0 and 100'
+        ]
+        self.assertEqual(response, expected_response)
 
-    def test_is_invalid_id_uuid(self):
+    def test_check_valid_rule_create_grouping_rule_valid(self):
         from lambda_layers.lambda_layer_items.python import item_validation
-        log.info("Testing item_validation: is_valid_id invalid uuid")
-        schema = {
-            "schema_type": "user",
-            "schema_name": "server",
-            "key_type": "uuid"
-        }
-        response = item_validation.is_valid_id(schema, 'notauuid')
-        print("Response: ", response)
-        self.assertFalse(response)
+        log.info("Testing item_validation: check_valid_rule_create with valid grouping rules")
+        for rule_type in ["GROUPING_INCLUSIVE", "GROUPING_EXCLUSIVE"]:
+            item = {
+                "rule_type": rule_type,
+                "rule_name": f"test-{rule_type.lower()}-rule",
+                "relationships": [
+                    {
+                        "asset_type": "app",
+                        "asset_key": "server_ids"
+                    }
+                ],
+                "status": "ENABLED"
+            }
+            response = item_validation.check_valid_rule_create(item)
+            print("Response: ", response)
+            self.assertEqual(response, [])
+
+    def test_check_valid_rule_create_grouping_rule_missing_status(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: check_valid_rule_create with grouping rules missing status")
+        
+        for rule_type in ["GROUPING_INCLUSIVE", "GROUPING_EXCLUSIVE"]:
+            item = {
+                "rule_type": rule_type,
+                "rule_name": f"test-{rule_type.lower()}-rule",
+                "relationships": [
+                    {
+                        "asset_type": "app",
+                        "asset_key": "server_ids"
+                    }
+                ]
+            }
+            response = item_validation.check_valid_rule_create(item)
+            print("Response: ", response)
+            expected_response = ['status must be one of: ENABLED, DISABLED']
+            self.assertEqual(response, expected_response)
+
+    def test_check_valid_rule_create_grouping_rule_missing_relationships(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: check_valid_rule_create with grouping rules missing relationships")
+        
+        for rule_type in ["GROUPING_INCLUSIVE", "GROUPING_EXCLUSIVE"]:
+            item = {
+                "rule_type": rule_type,
+                "rule_name": f"test-{rule_type.lower()}-rule",
+                "status": "ENABLED"
+            }
+            response = item_validation.check_valid_rule_create(item)
+            print("Response: ", response)
+            expected_response = ['relationships is required for GROUPING rules']
+            self.assertEqual(response, expected_response)
+
+    def test_check_valid_rule_create_grouping_rule_empty_relationships(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: check_valid_rule_create with grouping rules with empty relationships")
+        
+        for rule_type in ["GROUPING_INCLUSIVE", "GROUPING_EXCLUSIVE"]:
+            item = {
+                "rule_type": rule_type,
+                "rule_name": f"test-{rule_type.lower()}-rule",
+                "relationships": [],
+                "status": "ENABLED"
+            }
+            response = item_validation.check_valid_rule_create(item)
+            print("Response: ", response)
+            expected_response = ['relationships is required for GROUPING rules']
+            self.assertEqual(response, expected_response)
+
+    def test_check_valid_rule_create_grouping_rule_invalid_asset_type(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: check_valid_rule_create with grouping rules invalid asset type")
+        
+        for rule_type in ["GROUPING_INCLUSIVE", "GROUPING_EXCLUSIVE"]:
+            item = {
+                "rule_type": rule_type,
+                "rule_name": f"test-{rule_type.lower()}-rule",
+                "relationships": [
+                    {
+                        "asset_type": "invalid_type",
+                        "asset_key": "server_ids"
+                    }
+                ],
+                "status": "ENABLED"
+            }
+            response = item_validation.check_valid_rule_create(item)
+            print(f"Response for {rule_type}: ", response)
+            expected_response = ['relationships[0].asset_type must be one of: app, database, server']
+            self.assertEqual(response, expected_response)
+
+    def test_check_valid_rule_create_grouping_rule_missing_asset_key(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: check_valid_rule_create with grouping rules invalid asset type")
+        
+        for rule_type in ["GROUPING_INCLUSIVE", "GROUPING_EXCLUSIVE"]:
+            item = {
+                "rule_type": rule_type,
+                "rule_name": f"test-{rule_type.lower()}-rule",
+                "relationships": [
+                    {
+                        "asset_type": "app",
+                    }
+                ],
+                "status": "ENABLED"
+            }
+            response = item_validation.check_valid_rule_create(item)
+            print(f"Response for {rule_type}: ", response)
+            expected_response = ['relationships[0].asset_key is required']
+            self.assertEqual(response, expected_response)
+
+    def test_check_valid_rule_create_grouping_rule_multiple_relationships(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: check_valid_rule_create with grouping rules multiple relationships")
+        
+        for rule_type in ["GROUPING_INCLUSIVE", "GROUPING_EXCLUSIVE"]:
+            item = {
+                "rule_type": rule_type,
+                "rule_name": f"test-{rule_type.lower()}-rule",
+                "relationships": [
+                    {
+                        "asset_type": "app",
+                        "asset_key": "app_owner"
+                    },
+                    {
+                        "asset_type": "database",
+                        "asset_key": "db_owner"
+                    }
+                ],
+                "status": "ENABLED"
+            }
+            response = item_validation.check_valid_rule_create(item)
+            print(f"Response for {rule_type}: ", response)
+            self.assertEqual(response, [])
+
+    def test_validate_id_string(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: validate_id_string")
+        
+        # Test valid cases
+        self.assertIsNone(item_validation.validate_id_string("valid-id", "test_field"))
+        self.assertIsNone(item_validation.validate_id_string("valid_id_123", "test_field"))
+
+        # Test invalid cases
+        self.assertIsNotNone(item_validation.validate_id_string(123, "test_field"))  # Not a string
+        self.assertIsNotNone(item_validation.validate_id_string("", "test_field"))  # Empty string
+        self.assertIsNotNone(item_validation.validate_id_string("a" * (item_validation.MAX_STRING_LENGTH + 1), "test_field"))  # Too long
+        self.assertIsNotNone(item_validation.validate_id_string("invalid@id", "test_field"))  # Invalid characters
+
+    def test_validate_id_list(self):
+        from lambda_layers.lambda_layer_items.python import item_validation
+        log.info("Testing item_validation: validate_id_list")
+        
+        # Test valid cases
+        self.assertIsNone(item_validation.validate_id_list(["id1", "id2"], "test_list"))
+
+        # Test invalid cases
+        self.assertIsNotNone(item_validation.validate_id_list("not-a-list", "test_list"))  # Not a list
+        self.assertIsNotNone(item_validation.validate_id_list([], "test_list"))  # Empty list
+        self.assertIsNotNone(item_validation.validate_id_list(["id1", "id1"], "test_list"))  # Duplicate IDs
+        self.assertIsNotNone(item_validation.validate_id_list(["id1", "invalid@id"], "test_list"))  # Invalid ID
+
+        # Test max count
+        many_ids = [f"id{i}" for i in range(item_validation.MAX_LIST_COUNT + 1)]
+        self.assertIsNotNone(item_validation.validate_id_list(many_ids, "test_list"))  # Too many IDs
         
     def test_validate_task_predecessors_status_no_predecessors(self):
         from lambda_layers.lambda_layer_items.python import item_validation

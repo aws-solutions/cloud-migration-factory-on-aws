@@ -1,0 +1,1337 @@
+[
+  {
+    "policy_id": {
+      "S": "1"
+    },
+    "entity_access": {
+      "L": [
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            },
+            "schema_name": {
+              "S": "data_source"
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "data_source_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "data_source_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "data_source_description"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "data_source_type"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "file_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "header_mappings"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "rule_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "rule_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "rule_type"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "rule_description"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "sub_type"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "asset_type"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "attr_key"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "scoring_criteria"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "sort_order"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "sort_level"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "sort_by_value"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "group_order"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "status"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "isDefault"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "rule"
+                    },
+                    "attr_name": {
+                      "S": "relationships"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "rule"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "nomination_app_count"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "wave_server_capacity"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "wave_storage_capacity"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "starting_wave_server_capacity"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "wave_server_capacity_increase"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "move_group_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "wave_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "data_changed_flag"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "current_step"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "wpm_job"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "move_group_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "move_group_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "app_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "server_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "database_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "wave_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "total_server_storage"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "complexity_score"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "server_count"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "move_group"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group_request"
+                    },
+                    "attr_name": {
+                      "S": "move_group_request_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group_request"
+                    },
+                    "attr_name": {
+                      "S": "move_group_request_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group_request"
+                    },
+                    "attr_name": {
+                      "S": "app_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group_request"
+                    },
+                    "attr_name": {
+                      "S": "move_group_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group_request"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_id"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "move_group_request"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "wave_ids"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "application"
+            }
+          }
+        },
+        {
+          "M": {
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "app_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "wave_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "move_group_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_id"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "server"
+            }
+          }
+        }
+      ]
+    },
+    "policy_name": {
+      "S": "Administrator"
+    }
+  },
+  {
+    "policy_id": {
+      "S": "2"
+    },
+    "policy_name": {
+      "S": "ReadOnly"
+    },
+    "entity_access": {
+      "L": [
+        {
+          "M": {
+            "schema_name": {
+              "S": "data_source"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "data_source_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "data_source_description"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "data_source_type"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "file_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "header_mappings"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "M": {
+            "schema_name": {
+              "S": "rule"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "schema_name": {
+              "S": "wpm_job"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "schema_name": {
+              "S": "move_group"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "schema_name": {
+              "S": "move_group_request"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "policy_id": {
+      "S": "3"
+    },
+    "entity_access": {
+      "L": [
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            },
+            "schema_name": {
+              "S": "data_source"
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "data_source_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "data_source_description"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "data_source_type"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "file_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "data_source"
+                    },
+                    "attr_name": {
+                      "S": "header_mappings"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "M": {
+            "schema_name": {
+              "S": "rule"
+            },
+            "create": {
+              "BOOL": false
+            },
+            "read": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": false
+            },
+            "delete": {
+              "BOOL": false
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "nomination_app_count"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "wave_server_capacity"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "wave_storage_capacity"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "starting_wave_server_capacity"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "wave_server_capacity_increase"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "move_group_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "wave_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "data_changed_flag"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wpm_job"
+                    },
+                    "attr_name": {
+                      "S": "current_step"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "wpm_job"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "move_group_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "move_group_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "app_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "server_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "database_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "wave_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "total_server_storage"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "complexity_score"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group"
+                    },
+                    "attr_name": {
+                      "S": "server_count"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "move_group"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "create": {
+              "BOOL": true
+            },
+            "update": {
+              "BOOL": true
+            },
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group_request"
+                    },
+                    "attr_name": {
+                      "S": "move_group_request_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group_request"
+                    },
+                    "attr_name": {
+                      "S": "move_group_request_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group_request"
+                    },
+                    "attr_name": {
+                      "S": "app_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group_request"
+                    },
+                    "attr_name": {
+                      "S": "move_group_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "move_group_request"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_id"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "move_group_request"
+            },
+            "read": {
+              "BOOL": true
+            },
+            "delete": {
+              "BOOL": true
+            }
+          }
+        },
+        {
+          "M": {
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "wave_ids"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "application"
+            }
+          }
+        },
+        {
+          "M": {
+            "attributes": {
+              "L": [
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "app_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "wave_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "move_group_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_id"
+                    }
+                  }
+                }
+              ]
+            },
+            "schema_name": {
+              "S": "server"
+            }
+          }
+        }
+      ]
+    },
+    "policy_name": {
+      "S": "AutomationTaskOrchestrator"
+    }
+  }
+]

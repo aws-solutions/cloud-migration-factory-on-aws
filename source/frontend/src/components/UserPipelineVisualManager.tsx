@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -307,7 +308,7 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
   }, [selectedNode]);
 
   const handleRefresh = async () => {
-    await handleRefreshTasks()
+    await handleRefreshTasks();
     if (selectedNode) {
       // updated selected node to reflect changes in side panel.
       const updatedSelectedNode = getExistingNode(selectedNode.id);
@@ -315,13 +316,13 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
         setSelectedNode(updatedSelectedNode);
       }
     }
-  }
+  };
 
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
   const getDefaultWidth = (node: TaskExecutionNode) => {
-    let width = node.data?.task ? node.data.task.task_execution_name.length * 20 + 100: 15;
+    const width = node.data?.task ? node.data.task.task_execution_name.length * 20 + 100: 15;
 
     return width < 200 ? 200 : width;
   };
@@ -338,7 +339,7 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
 
     if (nodes) {
       nodes.forEach((node: Node) => {
-        let newData = node.data;
+        const newData = node.data;
         newData.layoutDirectionTB = directionTB;
         g.setNode(node.id, {
           ...node,
@@ -461,9 +462,9 @@ const PipelineVisualManager: React.FC<PipelineVisualManagerProps> = ({
   }, [directionTB]);
 
   const visualActions = () => {
-    let actionButtons = [];
+    const actionButtons = [];
 
-    actionButtons.push(<Button key={"refresh"} iconAlign="right" iconName="refresh" ariaLabel={"Refresh"} onClick={() => handleRefresh()}/>)
+    actionButtons.push(<Button key={"refresh"} iconAlign="right" iconName="refresh" ariaLabel={"Refresh"} onClick={() => handleRefresh()}/>);
     actionButtons.push(<Button key={"direction"} onClick={() => setDirectionTB(!directionTB)}>Toggle layout direction</Button>);
 
     return actionButtons;

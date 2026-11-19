@@ -24,7 +24,7 @@ Arguments:
     validation_regex: "^(?!\\s*$).+"
     validation_regex_msg: "Application must be provided."
     source_filter_attribute_name: "script.script_arguments.Waveid"
-    rel_filter_attribute_name: "wave_id"
+    rel_filter_attribute_name: "wave_ids"
     required: false
     group_order: "2"
   - name: "ServerIds"

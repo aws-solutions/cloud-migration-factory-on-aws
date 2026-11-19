@@ -171,3 +171,81 @@ test("it shows an error if MFA token is invalid", async () => {
   // THEN
   expect((await screen.findAllByText(/some-error/i))[0]).toBeInTheDocument();
 });
+
+test("it logs in when Enter key is pressed in the password field", async () => {
+  // GIVEN
+  const cognitoUser = {};
+  jest.spyOn(Auth, "signIn").mockImplementation(() => Promise.resolve(cognitoUser));
+  renderLoginPage();
+
+  // WHEN
+  await userEvent.type(screen.getByRole("textbox", { name: /username/i }), "some-username");
+  await userEvent.type(screen.getByLabelText(/password/i), "some-password");
+  await userEvent.keyboard("{Enter}");
+
+  // THEN
+  expect(await screen.findByText("This is the authenticated landing page")).toBeInTheDocument();
+});
+
+test("it logs in when Enter key is pressed in the username field", async () => {
+  // GIVEN
+  const cognitoUser = {};
+  jest.spyOn(Auth, "signIn").mockImplementation(() => Promise.resolve(cognitoUser));
+  renderLoginPage();
+
+  // WHEN
+  await userEvent.type(screen.getByRole("textbox", { name: /username/i }), "some-username");
+  await userEvent.type(screen.getByLabelText(/password/i), "some-password");
+
+  // Focus back on username field and press Enter
+  screen.getByRole("textbox", { name: /username/i }).focus();
+  await userEvent.keyboard("{Enter}");
+
+  // THEN
+  expect(await screen.findByText("This is the authenticated landing page")).toBeInTheDocument();
+});
+
+test("it submits MFA code when Enter key is pressed in the MFA code field", async () => {
+  // GIVEN
+  const cognitoUser = { challengeName: "SOFTWARE_TOKEN_MFA" };
+  jest.spyOn(Auth, "signIn").mockImplementation(() => Promise.resolve(cognitoUser));
+  jest.spyOn(Auth, "confirmSignIn").mockImplementation(() => Promise.resolve(cognitoUser));
+  renderLoginPage();
+
+  // WHEN
+  await userEvent.type(screen.getByRole("textbox", { name: /username/i }), "some-username");
+  await userEvent.type(screen.getByLabelText(/password/i), "some-password");
+  await userEvent.click(screen.getByRole("button", { name: /login/i }));
+
+  // THEN
+  const mfaInput = await screen.findByRole("textbox", { name: /mfa code/i });
+  expect(mfaInput).toBeInTheDocument();
+
+  // AND WHEN entering the MFA token and pressing Enter
+  await userEvent.type(mfaInput, "some-code");
+  await userEvent.keyboard("{Enter}");
+
+  // THEN
+  expect(await screen.findByText("This is the authenticated landing page")).toBeInTheDocument();
+});
+
+test("it does not submit when Enter key is pressed but form is incomplete", async () => {
+  // GIVEN
+  const signInSpy = jest.spyOn(Auth, "signIn");
+  renderLoginPage();
+
+  // WHEN only username is entered and Enter is pressed
+  await userEvent.type(screen.getByRole("textbox", { name: /username/i }), "some-username");
+  await userEvent.keyboard("{Enter}");
+
+  // THEN
+  expect(signInSpy).not.toHaveBeenCalled();
+
+  // AND WHEN only password is entered and Enter is pressed
+  await userEvent.clear(screen.getByRole("textbox", { name: /username/i }));
+  await userEvent.type(screen.getByLabelText(/password/i), "some-password");
+  await userEvent.keyboard("{Enter}");
+
+  // THEN
+  expect(signInSpy).not.toHaveBeenCalled();
+});

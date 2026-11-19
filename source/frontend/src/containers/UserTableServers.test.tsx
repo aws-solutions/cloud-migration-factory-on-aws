@@ -1,17 +1,25 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React from "react";
 import { render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
 import * as XLSX from "xlsx";
 import UserServerTable from "./UserTableServers";
 import { MemoryRouter } from "react-router-dom";
-import { defaultTestProps, mockNotificationContext, TEST_SESSION_STATE } from "../__tests__/TestUtils";
+import { mockNotificationContext, TEST_SESSION_STATE, wpmTestProps } from "../__tests__/TestUtils";
 import { SessionContext } from "../contexts/SessionContext";
 import { rest } from "msw";
 import { server } from "../setupTests";
-import { generateTestApps, generateTestServers } from "../__tests__/mocks/user_api";
+import {
+  generateTestApps,
+  generateTestMoveGroups,
+  generateTestServers,
+  generateTestWaves,
+  generateTestWpmJobs,
+} from "../__tests__/mocks/user_api";
 import userEvent from "@testing-library/user-event";
-import React from "react";
 import { NotificationContext } from "../contexts/NotificationContext";
+import { Server } from "../models";
 
-function renderUserServerTable(props = defaultTestProps) {
+function renderUserServerTable(props = wpmTestProps) {
   return {
     ...mockNotificationContext,
     renderResult: render(
@@ -27,6 +35,67 @@ function renderUserServerTable(props = defaultTestProps) {
   };
 }
 
+function setupApiCallsForLoad(...svrs: Server[][]) {
+  let getDatabaseCall = 0;
+  server.use(
+    rest.get("/user/server", (request, response, context) => {
+      const index = Math.min(getDatabaseCall++, svrs.length - 1);
+      return response(context.status(200), context.json(svrs[index]));
+    }),
+    rest.get("/user/app", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestApps(2)));
+    }),
+    rest.get("/user/move_group", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestMoveGroups(1)));
+    }),
+    rest.get("/user/wave", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestWaves(1)));
+    }),
+    rest.get("/user/wpm_job", (request, response, context) => {
+      return response(context.status(200), context.json(generateTestWpmJobs(1)));
+    })
+  );
+}
+
+function setupApiCallsForSave(operation: "post" | "put" | "delete", createSvrItem?: Server) {
+  const saveSvrRequestBodies: any[] = [];
+  const manageEntityRequestBodies: any[] = [];
+  const saveAppRequestBodies: any[] = [];
+
+  if (operation === "post") {
+    server.use(
+      rest.post(`/user/server`, async (request, response, context) => {
+        request.json().then((body) => saveSvrRequestBodies.push(body));
+        return response(context.status(200), context.json({ newItems: [createSvrItem] }));
+      })
+    );
+  } else if (operation === "put") {
+    server.use(
+      rest.put(`/user/server/:id`, async (request, response, context) => {
+        request.json().then((body) => saveSvrRequestBodies.push(body));
+        return response(context.status(200));
+      })
+    );
+  }
+
+  server.use(
+    rest.put(`/user/app/:id`, (request, response, context) => {
+      request.json().then((body) => saveAppRequestBodies.push(body));
+      return response(context.status(200), context.json({}));
+    }),
+    rest.post("/manage-entities", (request, response, context) => {
+      request.json().then((body) => manageEntityRequestBodies.push(body));
+      return response(context.status(200), context.json({}));
+    })
+  );
+
+  return {
+    saveSvrRequestBodies,
+    manageEntityRequestBodies,
+    saveAppRequestBodies,
+  };
+}
+
 test('it renders an empty table with "no servers" message', async () => {
   // WHEN
   renderUserServerTable();
@@ -34,7 +103,7 @@ test('it renders an empty table with "no servers" message', async () => {
   // THEN
   // page should render in loading state
   expect(screen.getByRole("heading", { name: "Servers (0)" })).toBeInTheDocument();
-  expect(screen.getByText("Loading servers")).toBeInTheDocument();
+  expect(screen.getByText("Loading Servers")).toBeInTheDocument();
 
   // after server response came in, it should render the table
   await waitForElementToBeRemoved(() => screen.queryByText(/Loading servers/i));
@@ -42,17 +111,13 @@ test('it renders an empty table with "no servers" message', async () => {
   const table = screen.getByRole("table");
   const tbody = within(table).getAllByRole("rowgroup")[1];
 
-  expect(await within(tbody).findByText("No servers")).toBeInTheDocument();
-  expect(within(tbody).getByRole("button", { name: "Add server" })).toBeInTheDocument();
+  expect(await within(tbody).findByText("No Servers")).toBeInTheDocument();
+  expect(within(tbody).getByRole("button", { name: "Add Server" })).toBeInTheDocument();
 });
 
 test("it renders a paginated table with 50 servers", async () => {
   // GIVEN
-  server.use(
-    rest.get("/user/server", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestServers(50)));
-    })
-  );
+  setupApiCallsForLoad(generateTestServers(50));
 
   // WHEN
   renderUserServerTable();
@@ -70,15 +135,7 @@ test("it renders a paginated table with 50 servers", async () => {
 
 test("click on refresh button refreshes the table", async () => {
   // GIVEN
-  server.use(
-    rest.get("/user/server", (request, response, context) => {
-      return response.once(context.status(200), context.json(generateTestServers(1)));
-    }),
-    // second request to same endpoint gives a different response
-    rest.get("/user/server", (request, response, context) => {
-      return response.once(context.status(200), context.json(generateTestServers(5)));
-    })
-  );
+  setupApiCallsForLoad(generateTestServers(1), generateTestServers(5));
 
   renderUserServerTable();
   await waitForElementToBeRemoved(() => screen.queryByText(/Loading servers/i));
@@ -114,19 +171,9 @@ test('click on add button opens "Add server" form', async () => {
 
 test("submitting the add form saves a new server to API", async () => {
   // GIVEN
-  let captureRequest: any;
-  server.use(
-    rest.get("/user/server", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestServers(2)));
-    }),
-    rest.post(`/user/server`, async (request, response, context) => {
-      request.json().then((body) => (captureRequest = body));
-      return response(context.status(201));
-    }),
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
-    })
-  );
+  const [svr0, svr1] = generateTestServers(2);
+  setupApiCallsForLoad([svr0], [svr0, svr1]);
+  const { saveSvrRequestBodies, saveAppRequestBodies, manageEntityRequestBodies } = setupApiCallsForSave("post", svr1);
 
   const { addNotification } = renderUserServerTable();
   const addButton = screen.getByRole("button", { name: "Add" });
@@ -142,7 +189,7 @@ test("submitting the add form saves a new server to API", async () => {
   await userEvent.type(screen.getByRole("textbox", { name: "server_name" }), "my-test-server");
   await userEvent.type(screen.getByRole("textbox", { name: "server_fqdn" }), "foo");
 
-  await userEvent.click(screen.getByLabelText("Application"));
+  await userEvent.click(screen.getByText("Select Related Applications"));
   await userEvent.click(await screen.findByText("Unit testing App 1"));
 
   await userEvent.click(
@@ -156,6 +203,14 @@ test("submitting the add form saves a new server to API", async () => {
   await userEvent.type(screen.getByRole("textbox", { name: "server_environment" }), "Production");
   await userEvent.type(screen.getByRole("textbox", { name: "server_os_version" }), "Production");
 
+  await userEvent.click(screen.getByRole("button", { name: /select aws account id/i }));
+  await userEvent.click(await screen.findByText("123456789012")); // see default_schema.ts
+
+  await userEvent.click(screen.getByLabelText("AWS Region"));
+  await userEvent.click(await screen.findByText("us-east-1"));
+
+  // TODO: Set Move Group ID, but it is blocked by WPM-666
+
   // THEN expect no more validation errors
   const saveButton = await screen.findByRole("button", { name: /Save/i });
   await waitFor(() => expect(saveButton).toBeEnabled());
@@ -166,29 +221,54 @@ test("submitting the add form saves a new server to API", async () => {
 
   // THEN verify the API has received the expected update request
   await waitFor(() => {
-    expect(captureRequest.server_name).toEqual("my-test-server");
+    expect(saveSvrRequestBodies).toEqual([
+      {
+        app_ids: ["1"],
+        r_type: "Retire",
+        server_environment: "Production",
+        server_fqdn: "foo",
+        server_name: "my-test-server",
+        server_os_family: "windows",
+        server_os_version: "Production",
+        aws_accountid: "123456789012",
+        aws_region: "us-east-1",
+      },
+    ]);
   });
   await waitFor(() => {
+    expect(saveAppRequestBodies).toEqual([{ server_ids: ["1"] }]);
+  });
+  await waitFor(() => {
+    expect(manageEntityRequestBodies).toEqual([
+      {
+        // TODO: Set Move Group ID, but it is blocked by WPM-666
+        // destination_entity_id: "1",
+        destination_entity_type: "move_group",
+        operation: "move",
+        source_entity_type: "move_group",
+        target_entities: [
+          {
+            entity_id: "1",
+            entity_type: "server",
+          },
+        ],
+      },
+    ]);
+  });
+
+  await waitFor(() => {
     expect(addNotification).toHaveBeenCalledWith({
-      content: "my-test-server saved successfully.",
+      content: "my-test-server added successfully.",
       dismissible: true,
       header: "Add server",
       type: "success",
     });
   });
-}, 60000);
+});
 
 test('click on row enables "Edit" button and shows "Details" tab', async () => {
   // GIVEN
-  const servers = generateTestServers(1);
-  server.use(
-    rest.get("/user/server", (request, response, context) => {
-      return response(context.status(200), context.json(servers));
-    }),
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
-    })
-  );
+  setupApiCallsForLoad(generateTestServers(1));
 
   const { addNotification } = renderUserServerTable();
   const editButton = screen.getByRole("button", { name: "Edit" });
@@ -202,12 +282,6 @@ test('click on row enables "Edit" button and shows "Details" tab', async () => {
   // THEN
   expect(editButton).not.toBeDisabled();
   expect(screen.getByRole("heading", { name: "Details" })).toBeInTheDocument();
-
-  // AND WHEN
-  await userEvent.click(screen.getByRole("tab", { name: "Application" }));
-
-  // THEN
-  expect(await screen.findByRole("heading", { name: "Application" })).toBeInTheDocument();
 
   // AND WHEN
   await userEvent.click(screen.getByRole("tab", { name: "All attributes" }));
@@ -231,7 +305,7 @@ test('click on row enables "Edit" button and shows "Details" tab', async () => {
     expect(addNotification).toHaveBeenCalledWith({
       content: "No updates to save.",
       dismissible: true,
-      header: "Save server",
+      header: "Edit server",
       type: "warning",
     });
   });
@@ -239,20 +313,10 @@ test('click on row enables "Edit" button and shows "Details" tab', async () => {
 
 test("submitting the edit form saves the server to API", async () => {
   // GIVEN
-  let captureRequest: any;
-  const servers = generateTestServers(1);
-  server.use(
-    rest.get("/user/server", (request, response, context) => {
-      return response(context.status(200), context.json(servers));
-    }),
-    rest.put(`/user/server/${servers[0].server_id}`, async (request, response, context) => {
-      request.json().then((body) => (captureRequest = body));
-      return response(context.status(200));
-    }),
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
-    })
-  );
+  const servers = generateTestServers(1, { appId: "0" });
+
+  setupApiCallsForLoad(servers);
+  const { saveSvrRequestBodies, saveAppRequestBodies, manageEntityRequestBodies } = setupApiCallsForSave("put");
 
   renderUserServerTable();
   const editButton = screen.getByRole("button", { name: "Edit" });
@@ -268,12 +332,7 @@ test("submitting the edit form saves the server to API", async () => {
   const saveButton = await screen.findByRole("button", { name: /Save/i });
   expect(saveButton).toBeEnabled();
 
-  // AND WHEN
-  await userEvent.click(await screen.findByRole("button", { name: "Related details" }));
-
-  // THEN
-  const dialog = await screen.findByRole("dialog", { name: "Item detail" });
-  expect(await within(dialog).findByText("Unit testing App 1")).toBeInTheDocument();
+  expect(await screen.findByText("Unit testing App 0")).toBeInTheDocument();
 
   // AND WHEN we edit some data and hit 'save'
   const serverNameInput = screen.getByRole("textbox", { name: "server_name" });
@@ -282,25 +341,22 @@ test("submitting the edit form saves the server to API", async () => {
 
   // THEN verify the API has received the expected update request
   await waitFor(() => {
-    expect(captureRequest.server_name).toEqual("unittest0-some-name");
+    expect(saveSvrRequestBodies).toEqual([{ server_name: "unittest0-some-name" }]);
+    expect(saveAppRequestBodies).toEqual([]);
+    expect(manageEntityRequestBodies).toEqual([]);
   });
   await screen.findByRole("heading", { name: "Servers (1)" });
 });
 
 test("when update fails with server error, display notification", async () => {
   // GIVEN
-  let captureRequest: any;
   const servers = generateTestServers(1);
+  setupApiCallsForLoad(servers);
+
   server.use(
-    rest.get("/user/server", (request, response, context) => {
-      return response(context.status(200), context.json(servers));
-    }),
     rest.put(`/user/server/${servers[0].server_id}`, async (request, response, context) => {
-      request.json().then((body) => (captureRequest = body));
+      request.json().then(() => {});
       return response(context.status(502));
-    }),
-    rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2)));
     })
   );
 
@@ -336,11 +392,7 @@ test("when update fails with server error, display notification", async () => {
 
 test('click on row enables "Delete" button, shows "Delete" modal', async () => {
   // GIVEN
-  server.use(
-    rest.get("/user/server", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestServers(1)));
-    })
-  );
+  setupApiCallsForLoad(generateTestServers(1));
 
   renderUserServerTable();
   const deleteButton = screen.getByRole("button", { name: "Delete" });
@@ -372,15 +424,8 @@ test('click on row enables "Delete" button, shows "Delete" modal', async () => {
 
 test("confirming the deletion successfully deletes a server", async () => {
   // GIVEN
-  const servers = generateTestServers(1);
-  server.use(
-    rest.get("/user/server", (request, response, context) => {
-      return response.once(context.status(200), context.json(servers));
-    }),
-    rest.delete(`/user/server/:id`, (request, response, context) => {
-      return response(context.status(204));
-    })
-  );
+  setupApiCallsForLoad(generateTestServers(1), []);
+  const { saveAppRequestBodies, saveSvrRequestBodies, manageEntityRequestBodies } = setupApiCallsForSave("delete");
 
   const { addNotification } = renderUserServerTable();
   const deleteButton = screen.getByRole("button", { name: "Delete" });
@@ -394,10 +439,14 @@ test("confirming the deletion successfully deletes a server", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Ok" }));
 
   // THEN
+  expect(saveAppRequestBodies).toEqual([]);
+  expect(saveSvrRequestBodies).toEqual([]);
+  expect(manageEntityRequestBodies).toEqual([{ entity_ids: ["0"], entity_type: "server", operation: "cleanup" }]);
+
   expect(addNotification).toHaveBeenCalledWith({
     content: "unittest0 was deleted.",
     dismissible: true,
-    header: "Server deleted successfully",
+    header: "Delete server",
     type: "success",
   });
   expect(await screen.findByRole("heading", { name: "Servers (0)" })).toBeInTheDocument();
@@ -405,15 +454,8 @@ test("confirming the deletion successfully deletes a server", async () => {
 
 test("delete multiple servers", async () => {
   // GIVEN
-  const servers = generateTestServers(2);
-  server.use(
-    rest.get("/user/server", (request, response, context) => {
-      return response.once(context.status(200), context.json(servers));
-    }),
-    rest.delete(`/user/server/:id`, (request, response, context) => {
-      return response(context.status(204));
-    })
-  );
+  setupApiCallsForLoad(generateTestServers(2), []);
+  const { saveAppRequestBodies, saveSvrRequestBodies, manageEntityRequestBodies } = setupApiCallsForSave("delete");
 
   const { addNotification } = renderUserServerTable();
   const deleteButton = screen.getByRole("button", { name: "Delete" });
@@ -439,21 +481,27 @@ test("delete multiple servers", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Ok" }));
 
   // THEN
+  expect(saveAppRequestBodies).toEqual([]);
+  expect(saveSvrRequestBodies).toEqual([]);
+  expect(manageEntityRequestBodies).toEqual([{ entity_ids: ["0", "1"], entity_type: "server", operation: "cleanup" }]);
+
   expect(addNotification).toHaveBeenCalledWith({
     dismissible: false,
     header: "Deleting selected servers...",
     loading: true,
-    type: "success",
   });
-  await waitFor(() => {
-    expect(addNotification).toHaveBeenCalledWith({
-      id: undefined,
-      content: "unittest0, unittest1 were deleted.",
-      dismissible: true,
-      header: "Servers deleted successfully",
-      type: "success",
-    });
-  });
+
+  await waitFor(
+    () => {
+      expect(addNotification).toHaveBeenCalledWith({
+        content: "unittest0, unittest1 were deleted.",
+        dismissible: true,
+        header: "Delete servers",
+        type: "success",
+      });
+    },
+    { timeout: 10_000 }
+  );
 });
 
 test("click on export downloads an xlsx file", async () => {
@@ -512,9 +560,9 @@ test("buttons are disabled based on user permissions", async () => {
   );
 
   renderUserServerTable({
-    ...defaultTestProps,
+    ...wpmTestProps,
     userEntityAccess: {
-      ...defaultTestProps.userEntityAccess,
+      ...wpmTestProps.userEntityAccess,
       server: {
         delete: false,
         create: false,

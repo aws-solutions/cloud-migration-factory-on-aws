@@ -458,7 +458,7 @@ Resources:
                 Effect: Allow
                 Action:
                   - 'sts:AssumeRole'
-                Resource: '*'
+                Resource: 'arn:aws:iam::*:role/Factory-Replatform-EC2Deploy'
 
     Metadata:
       cfn_nag:

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -18,12 +19,12 @@ export const mock_ssm_api = [
   }),
 ];
 
-export function generateTestAutomationJobs(count: number, data?: { appId: string }): Array<any> {
+export function generateTestAutomationJobs(count: number): Array<any> {
   const numbers = Array.from({ length: count }, (_, index) => index);
   const currUUID = v4();
   const currDateString = new Date().toISOString();
   const instanceId = "i-0f8671916d904a820";
-  return numbers.map((value) => {
+  return numbers.map(() => {
     return {
       script: {
         default: "1",
@@ -77,7 +78,7 @@ export function generateTestAutomationJobs(count: number, data?: { appId: string
   });
 }
 
-export function generateTestAutomationScripts(count: number, data?: { appId: string }): Array<any> {
+export function generateTestAutomationScripts(count: number): Array<any> {
   const numbers = Array.from({ length: count }, (_, index) => index);
   return numbers.map((value, index) => ({
     version: "1",
@@ -102,8 +103,8 @@ export function generateTestAutomationScripts(count: number, data?: { appId: str
         long_desc: "IP Address of an AWS MGN Replication EC2 Instance.",
       },
     ],
-    lambda_function_name_suffix: 'ssm',
-    type: 'Automated',
+    lambda_function_name_suffix: "ssm",
+    type: "Automated",
     script_masterfile: "0-Prerequisites-checks.py",
     default: "1",
     latest: index === 1 ? "2" : "1", // so that there is one entry with two versions

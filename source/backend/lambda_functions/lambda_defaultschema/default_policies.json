@@ -41,7 +41,87 @@
                       "S": "application"
                     },
                     "attr_name": {
-                      "S": "wave_id"
+                      "S": "app_owner"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "wave_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "move_group_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "server_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "database_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "rank"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "complexity_score"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "planning_status"
                     }
                   }
                 },
@@ -114,6 +194,16 @@
                       "S": "wave"
                     },
                     "attr_name": {
+                      "S": "wave_description"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
                       "S": "wave_status"
                     }
                   }
@@ -177,6 +267,96 @@
                       "S": "wave_apps_forecast"
                     }
                   }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "server_count"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "total_server_storage"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "complexity_score"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "app_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "move_group_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "server_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "database_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "wave"
+                    },
+                    "attr_name": {
+                      "S": "warnings"
+                    }
+                  }
                 }
               ]
             },
@@ -217,7 +397,37 @@
                       "S": "server"
                     },
                     "attr_name": {
-                      "S": "app_id"
+                      "S": "app_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "wave_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "move_group_id"
                     }
                   }
                 },
@@ -228,6 +438,16 @@
                     },
                     "attr_name": {
                       "S": "server_name"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "storage_size"
                     }
                   }
                 },
@@ -467,7 +687,27 @@
                       "S": "server"
                     },
                     "attr_name": {
+                      "S": "aws_accountid"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
                       "S": "target_instance_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "aws_region"
                     }
                   }
                 },
@@ -488,6 +728,26 @@
                     },
                     "attr_name": {
                       "S": "ebs_encrypted"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "ami_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "root_vol_size"
                     }
                   }
                 }
@@ -530,7 +790,37 @@
                       "S": "database"
                     },
                     "attr_name": {
-                      "S": "app_id"
+                      "S": "app_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "wave_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "move_group_id"
                     }
                   }
                 },
@@ -1076,7 +1366,77 @@
                       "S": "application"
                     },
                     "attr_name": {
-                      "S": "wave_id"
+                      "S": "wpm_job_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "wave_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "move_group_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "server_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "database_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "rank"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "complexity_score"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "application"
+                    },
+                    "attr_name": {
+                      "S": "planning_status"
                     }
                   }
                 },
@@ -1212,7 +1572,37 @@
                       "S": "server"
                     },
                     "attr_name": {
-                      "S": "app_id"
+                      "S": "app_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "wave_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "move_group_id"
                     }
                   }
                 },
@@ -1425,6 +1815,26 @@
                       "S": "dedicated_host_id"
                     }
                   }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "aws_accountid"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "server"
+                    },
+                    "attr_name": {
+                      "S": "aws_region"
+                    }
+                  }
                 }
               ]
             },
@@ -1465,7 +1875,37 @@
                       "S": "database"
                     },
                     "attr_name": {
-                      "S": "app_id"
+                      "S": "app_ids"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "wpm_job_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "wave_id"
+                    }
+                  }
+                },
+                {
+                  "M": {
+                    "attr_type": {
+                      "S": "database"
+                    },
+                    "attr_name": {
+                      "S": "move_group_id"
                     }
                   }
                 },

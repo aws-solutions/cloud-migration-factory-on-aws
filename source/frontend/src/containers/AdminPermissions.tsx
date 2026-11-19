@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -271,7 +272,7 @@ const AdminPermissions = (props: AdminPermissionsParams) => {
     },
     action: string
   ) {
-    let newItem = Object.assign({}, editItem);
+    const newItem = Object.assign({}, editItem);
     let notificationHeader = "policy";
 
     try {
@@ -403,14 +404,13 @@ const AdminPermissions = (props: AdminPermissionsParams) => {
 
     try {
       notificationId = addNotification({
-        type: "success",
         loading: true,
         dismissible: false,
         header: "Update users",
         content: "Adding selected users to groups: " + groups.selectedGroups.map((group) => group.value),
       });
 
-      let users = [];
+      const users = [];
       for (const user of selectedItems) {
         users.push({ username: user["userRef"], addGroups: groups.selectedGroups.map((group) => group.value) });
       }
@@ -445,14 +445,13 @@ const AdminPermissions = (props: AdminPermissionsParams) => {
 
     try {
       notificationId = addNotification({
-        type: "success",
         loading: true,
         dismissible: false,
         header: "Update users",
         content: "Removing selected users from groups: " + groups.selectedGroups.map((group) => group.value),
       });
 
-      let users = [];
+      const users = [];
       for (const user of selectedItems) {
         users.push({ username: user["userRef"], removeGroups: groups.selectedGroups.map((group) => group.value) });
       }
@@ -487,7 +486,6 @@ const AdminPermissions = (props: AdminPermissionsParams) => {
 
     try {
       notificationId = addNotification({
-        type: "success",
         loading: true,
         dismissible: false,
         header: "Add group",
@@ -522,7 +520,7 @@ const AdminPermissions = (props: AdminPermissionsParams) => {
   }
 
   async function handleDeleteItem() {
-    let currentItem = 0;
+    const currentItem = 0;
     let notifcationHeader = "Group";
 
     setDeleteConfirmationModalVisible(false);

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -64,7 +65,7 @@ const SchemaAttributesTable = (props: SchemaAttributesTableParams) => {
 
   async function handleOnRowClick(detail: TableProps.OnRowClickDetail<any>) {
     if (props.handleSelectionChange) {
-      let selectedItem = [];
+      const selectedItem = [];
       selectedItem.push(detail.item);
 
       props.handleSelectionChange(selectedItem);

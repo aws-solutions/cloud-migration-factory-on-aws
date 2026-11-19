@@ -8,41 +8,31 @@ import { ColumnLayout, Container, Header, SpaceBetween, Tabs } from "@cloudscape
 
 import TextAttribute from "../components/ui_attributes/TextAttribute";
 import AllViewerAttributes from "../components/ui_attributes/AllViewerAttributes";
-import ItemTable from "./ItemTable";
 import Audit from "./ui_attributes/Audit";
-import { EntitySchema } from "../models/EntitySchema";
-import { Application } from "../models/Application";
-import { Wave } from "../models/Wave";
+import { Application, Database, DataLoadingState, EntitySchema, MoveGroup, Server, Wave } from "../models";
+
+export type ApplicationViewDataAll = {
+  readonly app: DataLoadingState<Application>;
+  readonly database: DataLoadingState<Database>;
+  readonly server: DataLoadingState<Server>;
+  readonly move_group: DataLoadingState<MoveGroup>;
+  readonly wave: DataLoadingState<Wave>;
+  // Custom assets
+  readonly [key: string]: DataLoadingState<unknown>;
+};
 
 type ApplicationViewParams = {
   handleTabChange: (arg0: string) => void;
-  selectedTab: any;
-  server?: { server_name: string };
+  selectedTab: string;
   schemas: Record<string, EntitySchema>;
-  dataAll: any;
+  dataAll: ApplicationViewDataAll;
   app: Application;
-  servers: any;
-  wave: Wave;
 };
-const ApplicationView = (props: ApplicationViewParams) => {
-  function handleOnTabChange(activeTabId: string) {
-    if (props.handleTabChange) {
-      props.handleTabChange(activeTabId);
-    }
-  }
-
-  function selectedTab() {
-    if (props.selectedTab) {
-      return props.selectedTab;
-    } else {
-      return null;
-    }
-  }
-
+const ApplicationView = ({ handleTabChange, selectedTab, schemas, dataAll, app }: ApplicationViewParams) => {
   return (
     <Tabs
-      activeTabId={selectedTab()}
-      onChange={({ detail }) => handleOnTabChange(detail.activeTabId)}
+      activeTabId={selectedTab}
+      onChange={({ detail }) => handleTabChange(detail.activeTabId)}
       tabs={[
         {
           label: "Details",
@@ -51,44 +41,9 @@ const ApplicationView = (props: ApplicationViewParams) => {
             <Container header={<Header variant="h2">Details</Header>}>
               <ColumnLayout columns={2}>
                 <SpaceBetween size="l">
-                  <TextAttribute label="Application Name">{props.app.app_name}</TextAttribute>
-                  <TextAttribute label="Wave">{props.app.wave_id ? props.app.wave_id : "-"}</TextAttribute>
-                  <Audit item={props.app} expanded={true} />
-                </SpaceBetween>
-              </ColumnLayout>
-            </Container>
-          ),
-        },
-        {
-          label: "Servers",
-          id: "servers",
-          content: (
-            <ItemTable
-              schema={props.schemas.server}
-              schemaName={"server"}
-              schemaKeyAttribute={"server_id"}
-              items={props.servers.items}
-              dataAll={props.dataAll}
-              isLoading={props.servers.isLoading}
-              errorLoading={props.servers.error}
-              provideLink={true}
-            />
-          ),
-        },
-        {
-          label: "Wave",
-          id: "wave",
-          content: (
-            <Container header={<Header variant="h2">Wave</Header>}>
-              <ColumnLayout columns={2}>
-                <SpaceBetween size="l">
-                  <AllViewerAttributes
-                    schema={props.schemas.wave}
-                    schemas={props.schemas}
-                    item={props.wave}
-                    dataAll={props.dataAll}
-                  />
-                  <Audit item={props.wave} expanded={true} />
+                  <TextAttribute label="Application Name">{app.app_name}</TextAttribute>
+                  <TextAttribute label="Waves">{app.wave_ids?.length ? app.wave_ids.join() : "-"}</TextAttribute>
+                  <Audit item={app} expanded={true} />
                 </SpaceBetween>
               </ColumnLayout>
             </Container>
@@ -101,13 +56,8 @@ const ApplicationView = (props: ApplicationViewParams) => {
             <Container header={<Header variant="h2">All attributes</Header>}>
               <ColumnLayout columns={2} variant="text-grid">
                 <SpaceBetween size="l">
-                  <AllViewerAttributes
-                    schema={props.schemas.application}
-                    schemas={props.schemas}
-                    item={props.app}
-                    dataAll={props.dataAll}
-                  />
-                  <Audit item={props.app} expanded={true} />
+                  <AllViewerAttributes schema={schemas.application} schemas={schemas} item={app} dataAll={dataAll} />
+                  <Audit item={app} expanded={true} />
                 </SpaceBetween>
               </ColumnLayout>
             </Container>

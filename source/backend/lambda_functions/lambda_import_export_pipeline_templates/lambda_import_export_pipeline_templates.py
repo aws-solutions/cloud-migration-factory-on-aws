@@ -33,6 +33,7 @@ SUPPORTED_PARSERS = {
     'lucid-csv': LucidCSVParser,
 }
 
+
 def lambda_handler(e, _=None):
     log_event_received(e)
 
@@ -91,7 +92,6 @@ def sanitize_pipeline_template_tasks(template_tasks: Iterable[PipelineTemplateTa
 
     for task in template_tasks:
         task.pop('pipeline_template_id', None)
-        task.pop('pipeline_template_task_id', None)
         task.pop('_history', None)
 
     return template_tasks
@@ -133,7 +133,7 @@ def get_all_pipeline_template_tasks() -> Iterable[PipelineTemplateTask]:
 
 def with_tasks(pipeline_template: PipelineTemplate, all_tasks: Iterable[PipelineTemplateTask], all_scripts=None) -> dict:
     tasks_for_this_template = [task for task in all_tasks if
-                    task['pipeline_template_id'] == pipeline_template['pipeline_template_id']]
+                               task['pipeline_template_id'] == pipeline_template['pipeline_template_id']]
 
     if all_scripts:
         #     Resolve task_ids to names
@@ -146,7 +146,6 @@ def with_tasks(pipeline_template: PipelineTemplate, all_tasks: Iterable[Pipeline
         **pipeline_template,
         'pipeline_template_tasks': tasks_for_this_template
     }
-
 
 def _parse_pipeline_templates(body):
     """Parse pipeline templates based on file format."""
@@ -182,6 +181,7 @@ def _prepare_task_ids(tasks):
     for task in tasks:
         new_id = str(uuid.uuid4())
         new_to_old_ids[task['pipeline_template_task_id']] = new_id
+        task['pipeline_template_task_id'] = new_id
         task['__pipeline_template_task_id'] = new_id
     return new_to_old_ids
 
@@ -193,6 +193,7 @@ def _save_tasks_without_successors(sanitized_pipeline_template_tasks, request_co
     for task in sanitized_pipeline_template_tasks_no_successors:
         task.pop('task_successors', None)
 
+    logger.info("Call save_pipeline_task_templates to save tasks without related successors")
     return save_pipeline_task_templates(sanitized_pipeline_template_tasks_no_successors, request_context)
 
 
@@ -212,6 +213,8 @@ def _process_single_template(template, request_context, all_scripts):
     # Prepare task IDs and validate
     validation_errors = []
     new_to_old_ids = _prepare_task_ids(tasks)
+
+    logger.info("new_to_old_ids {}".format(json.dumps(new_to_old_ids)))
     sanitized_pipeline_template_tasks = sanitize_pipeline_template_tasks(tasks)
 
     update_task_template_ids(
@@ -240,6 +243,7 @@ def _process_single_template(template, request_context, all_scripts):
         return {'statusCode': 401, **pipeline_template_tasks_response_payload}
 
     # Save tasks with successors
+    logger.info("Call save_pipeline_task_templates to save tasks with related successors")
     pipeline_template_tasks_response_body, pipeline_template_tasks_response_payload = save_pipeline_task_templates(
         sanitized_pipeline_template_tasks, request_context
     )
@@ -253,7 +257,7 @@ def _process_single_template(template, request_context, all_scripts):
 
 def process_post(event: APIGatewayProxyEvent, request_context):
     body = json.loads(event.body)
-    
+
     # Parse pipeline templates based on format
     pipeline_templates = _parse_pipeline_templates(body)
     
@@ -261,21 +265,20 @@ def process_post(event: APIGatewayProxyEvent, request_context):
     validation_result = _validate_pipeline_templates(pipeline_templates)
     if validation_result:
         return validation_result
-
+    
     sanitized_pipeline_templates = sanitize_pipeline_templates(pipeline_templates)
     all_scripts = get_scripts()
 
     # Process each template
     for template in sanitized_pipeline_templates:
         result = _process_single_template(template, request_context, all_scripts)
-        if result:  # Error occurred
+        if result:
             return result
-
+        
     return {
         'headers': default_http_headers,
         'statusCode': 201,
     }
-
 
 def update_task_template_ids(new_pipeline_template_id, template, pipeline_template_tasks, validation_errors, new_to_old_ids, all_scripts):
     # Add new template ID to each task
@@ -298,6 +301,7 @@ def update_task_template_ids(new_pipeline_template_id, template, pipeline_templa
 
 
 def save_pipeline_task_templates(pipeline_template_tasks, request_context):
+    logger.info("save_pipeline_task_templates")
     event_item_ptt = {
         'httpMethod': 'POST',
         'requestContext': request_context,
@@ -319,11 +323,13 @@ def save_pipeline_task_templates(pipeline_template_tasks, request_context):
         pipeline_template_tasks_response['Payload'].read().decode("utf-8"))
 
     pipeline_template_tasks_response_body = json.loads(pipeline_template_tasks_response_payload['body'])
+    logger.info(f"save_pipeline_task_templates: pipeline_template_tasks_response_body {pipeline_template_tasks_response_body}")
 
     return pipeline_template_tasks_response_body, pipeline_template_tasks_response_payload
 
 
 def create_pipeline(template: PipelineTemplate, request_context):
+    logger.info(f"create_pipeline: {template['pipeline_template_name']}")
     event_item_pt = {
         'httpMethod': 'POST',
         'requestContext': request_context,
@@ -341,6 +347,7 @@ def create_pipeline(template: PipelineTemplate, request_context):
         Payload=json.dumps(event_item_pt)
     )
     pipeline_template_response_payload = json.loads(pipeline_template_response['Payload'].read().decode("utf-8"))
+    logger.info(f"create_pipeline: pipeline_template_response_payload {pipeline_template_response_payload}")
     return pipeline_template_response_payload
 
 
@@ -361,6 +368,7 @@ class JsonEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 def rollback_pipeline_template_import(new_pipeline_template_id, request_context):
+    logger.info(f"rollback_pipeline_template_import: {new_pipeline_template_id}")
     event_item_pt_delete = {
         'httpMethod': 'DELETE',
         'requestContext': request_context,
@@ -406,6 +414,7 @@ def get_script_by_id(script_id, scripts):
 
 
 def validate_task(pipeline_template_name, task, all_scripts, validation_errors):
+    logger.info(f"validate_task: {task['pipeline_template_task_name']}")
     if 'task_name' in task and 'task_id' not in task:
         # convert task name to an id.
         scripts = get_script_by_name(task['task_name'], all_scripts)
@@ -427,4 +436,5 @@ def validate_task(pipeline_template_name, task, all_scripts, validation_errors):
             validation_errors.append(
                 {f"{pipeline_template_name}\\{task['pipeline_template_task_name']}": [f"Script name not found for task_id: {task['task_id']}"]})
 
+    logger.info(f"validate_task: validation_errors {validation_errors}")
     task.pop('task_name', None)

@@ -61,7 +61,7 @@ def mock_get_servers(target_aws_accounts, filtered_apps, waveid, servers):
                 {
                     "launch_template_id": "lt-01238c059e3466abc",
                     "server_id": "3",
-                    "app_id": "2",
+                    "app_ids": ["2"],
                     "instanceType": "t3.medium",
                     "r_type": "Rehost",
                     "securitygroup_IDs": [

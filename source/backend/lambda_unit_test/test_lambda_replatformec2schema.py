@@ -67,6 +67,8 @@ class LambdaReplatformEc2SchemaTest(unittest.TestCase):
                   '/sample_data/schema_server_replatform_create_server.json') as json_file:
             server_schema = json.load(json_file)
         self.assertEqual(server_schema, response['Item'])
+        # Verify key_type is preserved
+        self.assertIn('key_type', response['Item'])
         response = self.schema_table.get_item(Key={'schema_name': 'EC2'})
         with open(os.path.dirname(os.path.realpath(__file__)) +
                   '/sample_data/schema_server_replatform_create_ec2.json') as json_file:
@@ -222,6 +224,50 @@ class LambdaReplatformEc2SchemaTest(unittest.TestCase):
         self.insert_ec2_schema(lambda_replatformec2schema)
         self.call_lambda_and_assert_success(mock_requests, lambda_replatformec2schema, self.event_delete)
         self.assert_schemas_delete_with_attrs()
+
+    @patch('lambda_replatformec2schema.requests')
+    def test_key_type_preserved_on_create(self, mock_requests):
+        import lambda_replatformec2schema
+        # Set initial server schema with key_type
+        self.schema_table.put_item(
+            Item={
+                'schema_name': 'server',
+                'schema_type': 'user',
+                'key_type': 'ulid',
+                'attributes': []
+            }
+        )
+        
+        self.call_lambda_and_assert_success(mock_requests, lambda_replatformec2schema, self.event_create)
+        
+        # Verify key_type is preserved
+        response = self.schema_table.get_item(Key={'schema_name': 'server'})
+        self.assertIn('key_type', response['Item'])
+        self.assertEqual('ulid', response['Item']['key_type'])
+
+    @patch('lambda_replatformec2schema.requests')
+    def test_key_type_preserved_on_delete(self, mock_requests):
+        import lambda_replatformec2schema
+        # Set initial server schema with key_type and replatform attributes
+        self.schema_table.put_item(
+            Item={
+                'schema_name': 'server',
+                'schema_type': 'user', 
+                'key_type': 'ulid',
+                'attributes': [
+                    {'name': 'root_vol_size', 'type': 'Integer'},
+                    {'name': 'ami_id', 'type': 'string'}
+                ]
+            }
+        )
+        self.insert_ec2_schema(lambda_replatformec2schema)
+        
+        self.call_lambda_and_assert_success(mock_requests, lambda_replatformec2schema, self.event_delete)
+        
+        # Verify key_type is preserved after deletion
+        response = self.schema_table.get_item(Key={'schema_name': 'server'})
+        self.assertIn('key_type', response['Item'])
+        self.assertEqual('ulid', response['Item']['key_type'])
 
 
 

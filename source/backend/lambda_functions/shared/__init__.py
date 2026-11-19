@@ -1,0 +1,1 @@
+# Shared module for Cloud Migration Factory

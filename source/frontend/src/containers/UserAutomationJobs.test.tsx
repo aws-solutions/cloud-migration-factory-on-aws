@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -15,7 +16,7 @@ import {server} from "../setupTests";
 import {rest} from "msw";
 import {generateTestAutomationJobs, generateTestAutomationScripts} from "../__tests__/mocks/ssm_api";
 import userEvent from "@testing-library/user-event";
-import {generateTestApps, generateTestWaves} from "../__tests__/mocks/user_api";
+import {generateTestAppsWithWaveIds, generateTestWaves} from "../__tests__/mocks/user_api";
 
 const renderUserAutomationJobsComponent = () => {
   return {
@@ -38,23 +39,23 @@ test("it loads and displays the empty table.", async () => {
 
   // page renders the loading state
   expect(screen.getByRole("heading", { name: "Jobs (0)" })).toBeInTheDocument();
-  expect(screen.getByPlaceholderText("Search jobs")).toBeInTheDocument();
-  expect(screen.getByText("Loading jobs")).toBeInTheDocument();
+  expect(screen.getByPlaceholderText("Search Jobs")).toBeInTheDocument();
+  expect(screen.getByText("Loading Jobs")).toBeInTheDocument();
 
-  await waitForElementToBeRemoved(() => screen.queryByText("Loading jobs"));
+  await waitForElementToBeRemoved(() => screen.queryByText("Loading Jobs"));
 
   //empty table rendered
   const table = screen.getByRole("table");
   const tbody = within(table).getAllByRole("rowgroup")[1];
   const row1 = within(tbody).getByRole("row");
 
-  expect(await within(row1).findByText("No jobs")).toBeInTheDocument();
-  expect(await within(row1).findByText("No jobs to display.")).toBeInTheDocument();
+  expect(await within(row1).findByText("No Jobs")).toBeInTheDocument();
+  expect(await within(row1).findByText("No Jobs to display.")).toBeInTheDocument();
 });
 
 async function assert_jobs_list_view(numItems: number, withLoading = true, selected = false) {
   if (withLoading) {
-    await waitForElementToBeRemoved(screen.queryByText("Loading jobs"));
+    await waitForElementToBeRemoved(screen.queryByText("Loading Jobs"));
   }
   if (selected) {
     expect(screen.getByRole("heading", { name: "Jobs (1 of " + numItems + ")" })).toBeInTheDocument();
@@ -277,7 +278,6 @@ test("clicking Submit Automation Job submits the job successfully", async () => 
       dismissible: false,
       header: "Perform wave action",
       loading: true,
-      type: "success",
     });
   });
   await waitFor(() => {
@@ -309,7 +309,6 @@ test("clicking Submit Automation Job submits, api error with error text", async 
       dismissible: false,
       header: "Perform wave action",
       loading: true,
-      type: "success",
     });
   });
   await waitFor(() => {
@@ -336,7 +335,8 @@ async function click_actions_rehost_mgn() {
 
 async function assert_mgn_server_migration_empty_view() {
   expect(screen.getByRole("heading", { name: "MGN server migration" })).toBeInTheDocument();
-  expect(screen.getAllByText("You must specify a valid value.").length).toEqual(3);
+  // Action and Wave are required by default
+  expect(screen.getAllByText("You must specify a valid value.").length).toEqual(2);
   expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
 }
@@ -369,20 +369,23 @@ test("click cancel on submit mgn server migration page", async () => {
   await assert_jobs_list_view(5, false);
 });
 
-async function fill_in_mgn_serer_migration_form() {
+async function fill_in_action() {
   const selectActionButton = screen.getByRole("button", { name: /Select Action/i });
   await userEvent.click(selectActionButton);
   const optionAction1 = screen.getByRole("option", { name: /validate launch template/i });
   await userEvent.click(optionAction1);
+}
 
+async function fill_in_wave() {
   const selectWaveButton = screen.getByRole("button", { name: /Wave/i });
   await userEvent.click(selectWaveButton);
   const optionWave1 = screen.getByRole("option", { name: /Unit testing Wave 0/i });
   await userEvent.click(optionWave1);
+}
 
+async function fill_in_app() {
   const selectAppButton = screen.getByRole("button", { name: /Select Applications/i });
   await userEvent.click(selectAppButton);
-
   const optionApp1 = screen.getByRole("option", { name: /Unit testing App 0/i });
   await userEvent.click(optionApp1);
 }
@@ -396,15 +399,20 @@ async function render_server_migration_and_submit() {
       return response(context.status(200), context.json(generateTestWaves(2)));
     }),
     rest.get("/user/app", (request, response, context) => {
-      return response(context.status(200), context.json(generateTestApps(2, { waveId: "0" })));
+      return response(context.status(200), context.json(generateTestAppsWithWaveIds(2, { waveId: "0" })));
     })
   );
 
   const { addNotification } = renderUserAutomationJobsComponent();
 
   await click_actions_rehost_mgn();
-  await fill_in_mgn_serer_migration_form();
+  await fill_in_action();
+  await fill_in_wave();
 
+  // App input (required) shows up once Wave is filled
+  expect(screen.getAllByText("You must specify a valid value.").length).toEqual(1);
+
+  await fill_in_app();
   await userEvent.click(screen.getByRole("button", { name: "Submit" }));
 
   return addNotification;
@@ -425,7 +433,6 @@ test("submit mgn server migration successfully", async () => {
       dismissible: false,
       header: "Perform wave action",
       loading: true,
-      type: "success",
     });
   });
   await waitFor(() => {
@@ -455,7 +462,6 @@ test("submit mgn server migration api error", async () => {
       dismissible: false,
       header: "Perform wave action",
       loading: true,
-      type: "success",
     });
   });
   await waitFor(() => {

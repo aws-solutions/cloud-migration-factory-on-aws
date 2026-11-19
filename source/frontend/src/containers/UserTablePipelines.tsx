@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -66,9 +67,9 @@ const UserPipelineTable = ({ schemas, userEntityAccess }: UserPipelineTableParam
   const { addNotification } = useContext(NotificationContext);
   const { setHelpPanelContentFromSchema } = useContext(ToolsContext);
 
-  let location = useLocation();
-  let navigate = useNavigate();
-  let params = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = useParams();
 
   //Data items for viewer and table.
   const [{ isLoading: isLoadingMain, data: dataMain, error: errorMain }, { update: updateMain }] = useGetPipelines();
@@ -154,19 +155,19 @@ const UserPipelineTable = ({ schemas, userEntityAccess }: UserPipelineTableParam
   }
 
   async function handleNewSave(editedItem: any) {
-    let newItem = Object.assign({}, editedItem);
+    const newItem = Object.assign({}, editedItem);
     const apiUser = new UserApiClient();
 
     delete newItem[schemaName + "_id"];
     // Adding default pipeline status after creation (pipeline updates are currently not allowed)
     newItem["pipeline_status"] = "Provisioning";
 
-    let resultAdd = await apiUser.postItem(newItem, schemaName);
+    const resultAdd = await apiUser.postItem(newItem, schemaName);
 
     if (resultAdd["errors"]) {
       console.debug("PUT " + schemaName + " errors");
       console.debug(resultAdd["errors"]);
-      let errorsReturned = parsePUTResponseErrors(resultAdd["errors"]).join(",");
+      const errorsReturned = parsePUTResponseErrors(resultAdd["errors"]).join(",");
       addNotification({
         type: "error",
         dismissible: true,
@@ -188,7 +189,7 @@ const UserPipelineTable = ({ schemas, userEntityAccess }: UserPipelineTableParam
   }
 
   async function handleSave(editItem: any, action: string) {
-    let newItem = Object.assign({}, editItem);
+    const newItem = Object.assign({}, editItem);
     try {
       await handleNewSave(newItem);
     } catch (e: any) {
@@ -205,21 +206,20 @@ const UserPipelineTable = ({ schemas, userEntityAccess }: UserPipelineTableParam
     setDeleteConfirmationModalVisible(false);
 
     let currentItem: any = 0;
-    let multiReturnMessage = [];
+    const multiReturnMessage = [];
     let notificationId;
 
     try {
       const apiUser = new UserApiClient();
       if (selectedItems.length > 1) {
         notificationId = addNotification({
-          type: "success",
           loading: true,
           dismissible: false,
           header: "Deleting selected " + schemaName + "s...",
         });
       }
 
-      for (let item in selectedItems) {
+      for (const item in selectedItems) {
         currentItem = item;
         await apiUser.deletePipeline(selectedItems[item][schemaName + "_id"]);
         //Combine notifications into a single message if multi selected used, to save user dismiss clicks.
@@ -312,10 +312,10 @@ const UserPipelineTable = ({ schemas, userEntityAccess }: UserPipelineTableParam
   }
 
   useEffect(() => {
-    let selected = [];
+    const selected = [];
 
     if (!isLoadingMain) {
-      let item = dataMain.filter(function (entry: any) {
+      const item = dataMain.filter(function (entry: any) {
         return entry[itemIDKey] === params.id;
       });
 

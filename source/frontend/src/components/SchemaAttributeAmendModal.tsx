@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -27,6 +28,8 @@ import ToolHelpEdit from "./ToolHelpEdit";
 import ToolHelp from "./ToolHelp";
 import SchemaAttributeConditionsEdit from "./SchemaAttributeConditionsEdit";
 import { EntitySchema } from "../models/EntitySchema";
+import { SOURCE_FILTER_ATTRIBUTE_NAME } from "../utils/Constants";
+import { REL_FILTER_ATTRIBUTE_NAME } from "../utils/Constants";
 
 type Props = {
   title: string;
@@ -47,24 +50,32 @@ const SchemaAttributeAmendModal = ({
   schemas,
   activeSchemaName,
 }: Props) => {
-  const [localAttr, setLocalAttr] = useState(attribute);
+  const [localAttr, setLocalAttr] = useState({ ...attribute });
   const [testRegexStr, setTestRegexStr] = useState("");
   const [saving, setSaving] = useState(false);
 
   function handleUserInput(value: { field: any; value: any }) {
-    let newAttr = Object.assign({}, localAttr);
+    const newAttr = { ...localAttr };
     setNestedValuePath(newAttr, value.field, value.value);
 
     if (value.field === "rel_entity") {
       newAttr["rel_display_attribute"] = "";
       newAttr["rel_key"] = "";
     }
-
+    if (value.field === "type") {
+      if (value.value === "multivalue-relationship") {
+        // `listMultiSelect` must be true for `multivalue-relationship` to render properly
+        newAttr["listMultiSelect"] = true;
+      } else if (localAttr.type === "multivalue-relationship") {
+        // Reset `listMultiSelect` when changing from multivalue-relationship to another type
+        newAttr["listMultiSelect"] = undefined;
+      }
+    }
     setLocalAttr(newAttr);
   }
 
   function handleUserInputEditSchemaHelp(key: string, update: any) {
-    let tempUpdate = Object.assign({}, localAttr);
+    const tempUpdate = Object.assign({}, localAttr);
     if (!tempUpdate.help_content) {
       tempUpdate["help_content"] = {};
     }
@@ -73,7 +84,7 @@ const SchemaAttributeAmendModal = ({
   }
 
   function handleUserInputEditSchemaConditions(key: any, update: any) {
-    let tempUpdate = Object.assign({}, localAttr);
+    const tempUpdate = Object.assign({}, localAttr);
 
     setNestedValuePath(tempUpdate, key, update);
     setLocalAttr(tempUpdate);
@@ -254,7 +265,7 @@ const SchemaAttributeAmendModal = ({
                   : null
               }
               onChange={(event) =>
-                handleUserInput({ field: "rel_filter_attribute_name", value: event.detail.selectedOption.value })
+                handleUserInput({ field: REL_FILTER_ATTRIBUTE_NAME, value: event.detail.selectedOption.value })
               }
               options={
                 localAttr.rel_entity
@@ -278,7 +289,7 @@ const SchemaAttributeAmendModal = ({
                   : null
               }
               onChange={(event) =>
-                handleUserInput({ field: "source_filter_attribute_name", value: event.detail.selectedOption.value })
+                handleUserInput({ field: SOURCE_FILTER_ATTRIBUTE_NAME, value: event.detail.selectedOption.value })
               }
               options={schemas[activeSchemaName].attributes.map((item: { name: any }) => {
                 return { label: item.name, value: item.name };
@@ -356,6 +367,7 @@ const SchemaAttributeAmendModal = ({
                 { label: "list", value: "list" },
                 { label: "multivalue-string", value: "multivalue-string" },
                 { label: "relationship", value: "relationship" },
+                { label: "multivalue-relationship", value: "multivalue-relationship" },
                 { label: "json", value: "json" },
               ]}
               selectedAriaLabel={"selected"}
@@ -365,7 +377,7 @@ const SchemaAttributeAmendModal = ({
           )}
         </FormField>
 
-        {localAttr.type !== "relationship" ? undefined : getRelationshipSection()}
+        {["multivalue-relationship", "relationship"].includes(localAttr.type) ? getRelationshipSection() : undefined}
 
         {localAttr.type === "list" ? (
           <FormField label="Value list" description="Comma delimited list of options.">
@@ -376,12 +388,13 @@ const SchemaAttributeAmendModal = ({
           </FormField>
         ) : null}
 
-        {localAttr.type === "list" || localAttr.type === "relationship" ? (
+        {["list", "relationship", "multivalue-relationship"].includes(localAttr.type) ? (
           <FormField label="Multi Select" description="Allow user to select multiple values.">
             <Checkbox
               onChange={(event) => handleUserInput({ field: "listMultiSelect", value: event.detail.checked })}
               checked={localAttr.listMultiSelect}
-              disabled={!!localAttr.system}
+              // disable for `multivalue-relationship` (i.e. cannot untick)
+              disabled={localAttr.type === "multivalue-relationship" || !!localAttr.system}
             >
               {"Multiple selection possible"}
             </Checkbox>

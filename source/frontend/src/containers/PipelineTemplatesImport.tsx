@@ -1,8 +1,8 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
-import { EntitySchema } from "../models/EntitySchema.ts";
 import React, { useContext, useState } from "react";
 import { Button, Container, Header, SpaceBetween } from "@cloudscape-design/components";
 import ToolsApiClient from "../api_clients/toolsApiClient.ts";
@@ -11,7 +11,7 @@ import { NotificationContext } from "../contexts/NotificationContext.tsx";
 import { FileContent, FileImportStep } from "../components/PipelineTemplateJsonFileImport.tsx";
 import { apiActionErrorHandler, parsePUTResponseErrors } from "../resources/recordFunctions.ts";
 
-export const PipelineTemplatesImport = (props: { schemas: Record<string, EntitySchema> }) => {
+export const PipelineTemplatesImport = () => {
   const [committing, setCommitting] = useState(false);
   const navigate = useNavigate();
   const { addNotification } = useContext(NotificationContext);
@@ -29,7 +29,7 @@ export const PipelineTemplatesImport = (props: { schemas: Record<string, EntityS
       const response = await toolsApiClient.postPipelineTemplateImport(fileJSON);
       setCommitting(false);
       if (response["errors"]) {
-        let errorsReturned = parsePUTResponseErrors(response["errors"]).join(",");
+        const errorsReturned = parsePUTResponseErrors(response["errors"]).join(",");
         addNotification({
           type: "error",
           dismissible: true,

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -13,7 +14,7 @@ export const mock_credentialmanager_api = [
 
 export function generateTestCredentials(count: number): Array<any> {
   const numbers = Array.from({ length: count }, (_, index) => index);
-  return numbers.map((number) => ({
+  return numbers.map(() => ({
     ARN: "arn:aws:secretsmanager:us-east-1:111122223333:secret:dhdfh-1v6ypd",
     Name: "dhdfh",
     Description: "Secret for Migration Factory",

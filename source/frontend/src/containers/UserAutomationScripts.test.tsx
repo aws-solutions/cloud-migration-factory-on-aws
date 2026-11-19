@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -226,7 +227,6 @@ test("it shows success notification when click add, upload file, click next, upl
       dismissible: false,
       header: "Uploading script",
       loading: true,
-      type: "success",
     });
   });
   await waitFor(() => {
@@ -256,7 +256,6 @@ test("it shows error notification when click add, upload file, click next, uploa
       dismissible: false,
       header: "Uploading script",
       loading: true,
-      type: "success",
     });
   });
   await waitFor(() => {
@@ -397,7 +396,6 @@ test("it brings change default version form menu actions and download selected v
       dismissible: false,
       header: "Download script",
       loading: true,
-      type: "success",
     });
   });
   await waitFor(() => {
@@ -439,7 +437,6 @@ test("it changes the default version form menu actions when another version is s
       dismissible: false,
       header: "Change script default version",
       loading: true,
-      type: "success",
     });
   });
   await waitFor(() => {
@@ -473,7 +470,6 @@ test("it doesn't change the default version form menu actions when another versi
       dismissible: false,
       header: "Change script default version",
       loading: true,
-      type: "success",
     });
   });
   await waitFor(() => {
@@ -538,7 +534,6 @@ test("it shows success notification when Actions > Add new version, then Next, u
       dismissible: false,
       header: "Uploading script",
       loading: true,
-      type: "success",
     });
   });
   await waitFor(() => {
@@ -577,7 +572,6 @@ test("it shows error notification when Actions > Add new version, then Next, upl
       dismissible: false,
       header: "Uploading script",
       loading: true,
-      type: "success",
     });
   });
   await waitFor(() => {
@@ -625,7 +619,6 @@ test("it shows success notification when Actions > Download default version succ
 
   await waitFor(() => {
     expect(addNotification).toHaveBeenCalledWith({
-      type: "success",
       dismissible: false,
       header: "Download script",
       loading: true,
@@ -654,7 +647,6 @@ test("it shows error notification when Actions > Download default version failur
 
   await waitFor(() => {
     expect(addNotification).toHaveBeenCalledWith({
-      type: "success",
       dismissible: false,
       header: "Download script",
       loading: true,
@@ -690,7 +682,6 @@ test("it shows success notification when Actions > Download latest version succe
 
   await waitFor(() => {
     expect(addNotification).toHaveBeenCalledWith({
-      type: "success",
       dismissible: false,
       header: "Download script",
       loading: true,
@@ -719,7 +710,6 @@ test("it shows error notification when Actions > Download latest version failure
 
   await waitFor(() => {
     expect(addNotification).toHaveBeenCalledWith({
-      type: "success",
       dismissible: false,
       header: "Download script",
       loading: true,

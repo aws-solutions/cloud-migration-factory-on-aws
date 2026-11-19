@@ -1,7 +1,6 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-from __future__ import print_function
 import json
 import os
 import botocore.exceptions
@@ -15,6 +14,7 @@ import cmf_logger
 import cmf_pipeline
 import threading
 import cmf_boto
+from mfcommon import filter_items, group_servers_by_account
 
 MGN_ACTIONS = [
     'Validate Launch Template',
@@ -32,7 +32,6 @@ MGN_ACTIONS = [
     'Pause replication',
     'Resume replication'
 ]
-
 
 def logging_filter(record):
     try:
@@ -64,10 +63,7 @@ application = os.environ['application']
 environment = os.environ['environment']
 
 servers_table_name = '{}-{}-servers'.format(application, environment)
-apps_table_name = '{}-{}-apps'.format(application, environment)
-
 servers_table = cmf_boto.resource('dynamodb').Table(servers_table_name)
-apps_table = cmf_boto.resource('dynamodb').Table(apps_table_name)
 
 
 # Pagination for server DynamoDB table scan
@@ -79,18 +75,6 @@ def scan_dynamodb_server_table():
         response = servers_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'], ConsistentRead=True)
         scan_data.extend(response['Items'])
     return (scan_data)
-
-
-# Pagination for app DynamoDB table scan
-def scan_dynamodb_app_table():
-    response = apps_table.scan(ConsistentRead=True)
-    scan_data = response['Items']
-    while 'LastEvaluatedKey' in response:
-        log.info("Last Evaluate key for app is   " + str(response['LastEvaluatedKey']))
-        response = apps_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'], ConsistentRead=True)
-        scan_data.extend(response['Items'])
-    return (scan_data)
-
 
 # Pagination for describe MGN source servers
 def get_mgn_source_servers(mgn_client_base):
@@ -115,167 +99,47 @@ def is_valid_aws_account_id(account_id):
     else:
         return False
 
-
-def add_target_account(target_aws_accounts, target_aws_account):
-    if target_aws_account not in target_aws_accounts:
-        target_aws_accounts.append(target_aws_account)
-
-
-def get_valid_account(app, account_id, aws_accounts, app_ids):
-    target_account = {
-        'aws_accountid': str(app['aws_accountid']).strip(),
-        'aws_region': app['aws_region'].lower().strip(),
-        'servers': []
-    }
-    # If account Id is all accounts, skip the check
-    if account_id.strip() == 'All Accounts':
-        add_target_account(aws_accounts, target_account)
-    else:
-        # Check what parameter is used. If account Id is used, a specific
-        # account will be added to the list. If app_ids is used,
-        # AWS account Id of that specific app will be added to the list
-        if account_id != '' and \
-                str(app['aws_accountid']).strip() == str(account_id).strip():
-            add_target_account(aws_accounts, target_account)
-        elif len(app_ids) > 0 and app['app_id'] in app_ids:
-            add_target_account(aws_accounts, target_account)
-
-    return aws_accounts
-
-
-def get_target_aws_accounts(wave_id, apps, account_id, app_ids):
-    aws_accounts = []
+def get_factory_servers(waveid, accountid, appidlist, server_ids=None):
     errors = []
-    for app in apps:
-        if is_valid_app(app) and str(app['wave_id']) == str(wave_id):
-            if is_valid_aws_account_id(app['aws_accountid']):
-                aws_accounts = get_valid_account(
-                    app, account_id, aws_accounts, app_ids)
-            else:
-                msg = f"Incorrect AWS Account Id specified in : {app['app_name']}"
-                log.error(msg)
-                errors.append(msg)
 
-    if len(aws_accounts) == 0:
-        msg = (f"WARNING: No Target AWS accounts for wave id {wave_id}, "
-               f"this could be due to no applications in the wave, "
-               f"or that there are no servers with a Rehost Migration Strategy.")
+    if accountid == '' and len(appidlist) == 0:
+        msg = 'ERROR: Either AWS Account Id or Application Id List must be provided'
         log.error(msg)
         errors.append(msg)
         return [], errors
-
-    return aws_accounts, errors
-
-
-def filter_applications(applications, app_ids):
-    filtered_apps = []
-    if len(app_ids) > 0:
-        for app in applications:
-            if app['app_id'] in app_ids:
-                filtered_apps.append(app)
-    else:
-        filtered_apps = applications
-
-    return filtered_apps
-
-
-def add_servers_to_target_account_matching_app(servers, account, app_id):
-    for server in servers:
-        if 'r_type' in server and server['r_type'] == 'Rehost' and 'app_id' in server and server['app_id'] == app_id:
-            account['servers'].append(server)
-
-
-def is_valid_app(app):
-    if 'wave_id' in app and 'aws_accountid' in app and 'aws_region' in app and 'app_id' in app:
-        return True
-    else:
-        return False
-
-
-def is_app_same_account_and_region(account, app):
-    app_account_id = clean_value(app['aws_accountid'])
-    app_region = clean_value(app['aws_region'])
-    account_id = clean_value(account['aws_accountid'])
-    account_region = clean_value(account['aws_region'])
-
-    if app_account_id == account_id and app_region == account_region:
-        return True
-    else:
-        return False
-
-
-def add_servers_to_target_accounts(target_aws_accounts, applications, servers, wave_id):
-    errors = []
-    for account in target_aws_accounts:
-        for app in applications:
-            if is_valid_app(app) and str(app['wave_id']) == str(wave_id):
-                if is_app_same_account_and_region(account, app):
-                    add_servers_to_target_account_matching_app(servers, account, app['app_id'])
-        if len(account['servers']) == 0:
-            msg = f"ERROR: No servers found in wave {wave_id} and AWS account:{account['aws_accountid']} " \
-                  f"region: {account['aws_region']} with a Rehost migration strategy."
-            log.error(msg)
-            errors.append(msg)
-
-    return errors
-
-
-def add_rehost_servers_to_target_account(target_account, servers, app_id):
-    for server in servers:
-        if server['r_type'] == 'Rehost' and server['app_id'] == app_id:
-            target_account['servers'].append(server)
-
-
-def get_servers(target_aws_accounts, filtered_apps,
-                waveid, servers):
-    errors = []
-    for account in target_aws_accounts:
-        for app in filtered_apps:
-            if is_valid_app(app) and str(app['wave_id']) == str(waveid):
-                if is_app_same_account_and_region(account, app):
-                    add_rehost_servers_to_target_account(account, servers, app['app_id'])
-        if len(account['servers']) == 0:
-            msg = (f"WARNING: Server list for wave id {waveid} and account: {account['aws_accountid']} "
-                   f"region: {account['aws_region']} is empty, "
-                   f"no servers with a 'Rehost' Migration Strategy found.")
-            log.error(msg)
-            errors.append(msg)
-
-    return target_aws_accounts, errors
-
-
-def get_factory_servers(waveid, accountid, appidlist, server_ids=None):
-    errors = []
+    
+    filter_accountid = accountid
+    if accountid.strip() == 'All Accounts':
+        filter_accountid = None
+        
+    r_type = 'Rehost'
+        
     try:
         # Get all Apps and servers from migration factory
         cmf_servers = scan_dynamodb_server_table()
 
+        cmf_servers = filter_items(cmf_servers, 'wave_id', waveid)
+        cmf_servers = filter_items(cmf_servers, 'app_ids', appidlist)
         cmf_servers = filter_items(cmf_servers, 'server_id', server_ids)
-        cmf_servers = sorted(cmf_servers, key=lambda i: i['server_name'])
+        cmf_servers = filter_items(cmf_servers, 'aws_accountid', filter_accountid)
+        cmf_servers = filter_items(cmf_servers, 'r_type', r_type)
 
-        cmf_app = scan_dynamodb_app_table()
-        cmf_app = filter_items(cmf_app, 'app_id', appidlist)
-        cmf_app = sorted(cmf_app, key=lambda i: i['app_name'])
-        if accountid == '' and len(appidlist) == 0:
-            msg = "ERROR: Either AWS Account Id or Application Id List must be provided"
+        if len(cmf_servers) == 0:
+            msg = f'WARNING: No server with "{r_type}" Migration Strategy for wave id {waveid}, account: {accountid}, appidlist: {appidlist}, server_ids: {server_ids} found.'
             log.error(msg)
             errors.append(msg)
             return [], errors
 
-        # Get Unique target AWS account and region
-        target_aws_accounts, target_aws_accounts_errors = get_target_aws_accounts(waveid, cmf_app, accountid, appidlist)
-        if target_aws_accounts_errors:
-            errors.extend(target_aws_accounts_errors)
+        cmf_servers = sorted(cmf_servers, key=lambda i: i['server_name'])
+
+        result = group_servers_by_account(
+            servers=cmf_servers, os_split=False, waveid=waveid, log_error=log.error
+        )
+        if result.errors:
+            errors.extend(result.errors)
             return [], errors
 
-        # Get server list
-        target_aws_accounts, get_servers_errors = get_servers(
-            target_aws_accounts, cmf_app,
-            waveid, cmf_servers)
-
-        errors.extend(get_servers_errors)
-
-        return target_aws_accounts, errors
+        return result.aws_accounts, errors
     except botocore.exceptions.ClientError as error:
         msg = handle_client_error(error)
         errors.append(msg)
@@ -718,9 +582,3 @@ def lambda_handler(event, _):
         log.info(f"Processing complete with body: {status_response.get('body', '')}")
     return status_response
 
-
-def filter_items(items, key, item_ids=None):
-    if item_ids:
-        return [item for item in items if item[key] in item_ids]
-    else:
-        return items

@@ -1,0 +1,868 @@
+[
+  {
+    "rule_id": {
+      "S": "1"
+    },
+    "rule_name": {
+      "S": "Apps sharing Servers"
+    },
+    "rule_type": {
+      "S": "GROUPING_INCLUSIVE"
+    },
+    "relationships": {
+      "L": [
+        {
+          "M": {
+            "asset_type": {
+              "S": "app"
+            },
+            "asset_key": {
+              "S": "server_ids"
+            }
+          }
+        }
+      ]
+    },
+    "status": {
+      "S": "ENABLED"
+    },
+    "isDefault": {
+      "BOOL": true
+    }
+  },
+  {
+    "rule_id": {
+      "S": "2"
+    },
+    "rule_name": {
+      "S": "Apps sharing Databases"
+    },
+    "rule_type": {
+      "S": "GROUPING_INCLUSIVE"
+    },
+    "relationships": {
+      "L": [
+        {
+          "M": {
+            "asset_type": {
+              "S": "app"
+            },
+            "asset_key": {
+              "S": "database_ids"
+            }
+          }
+        }
+      ]
+    },
+    "status": {
+      "S": "ENABLED"
+    },
+    "isDefault": {
+      "BOOL": true
+    }
+  },
+  {
+    "rule_id": {
+      "S": "3"
+    },
+    "rule_name": {
+      "S": "Apps with the same app_owner"
+    },
+    "rule_type": {
+      "S": "GROUPING_INCLUSIVE"
+    },
+    "relationships": {
+      "L": [
+        {
+          "M": {
+            "asset_type": {
+              "S": "app"
+            },
+            "asset_key": {
+              "S": "app_owner"
+            }
+          }
+        }
+      ]
+    },
+    "status": {
+      "S": "DISABLED"
+    },
+    "isDefault": {
+      "BOOL": true
+    }
+  },
+  {
+    "rule_id": {
+      "S": "4"
+    },
+    "rule_name": {
+      "S": "Apps segmenting by server environment"
+    },
+    "rule_type": {
+      "S": "GROUPING_EXCLUSIVE"
+    },
+    "relationships": {
+      "L": [
+        {
+          "M": {
+            "asset_type": {
+              "S": "server"
+            },
+            "asset_key": {
+              "S": "server_environment"
+            }
+          }
+        }
+      ]
+    },
+    "status": {
+      "S": "DISABLED"
+    },
+    "isDefault": {
+      "BOOL": true
+    }
+  },
+  {
+    "rule_id": {
+      "S": "5"
+    },
+    "rule_name": {
+      "S": "score-by-server_environment"
+    },
+    "rule_type": {
+      "S": "PRIORITIZING"
+    },
+    "rule_description": {
+      "S": "Score applications based on server environment"
+    },
+    "sub_type": {
+      "S": "SCORING"
+    },
+    "status": {
+      "S": "ENABLED"
+    },
+    "asset_type": {
+      "S": "server"
+    },
+    "attr_key": {
+      "S": "server_environment"
+    },
+    "scoring_criteria": {
+      "L": [
+        {
+          "M": {
+            "value": {
+              "S": "dev"
+            },
+            "complexity_score": {
+              "N": "10"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "test"
+            },
+            "complexity_score": {
+              "N": "20"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "qa"
+            },
+            "complexity_score": {
+              "N": "30"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "prod"
+            },
+            "complexity_score": {
+              "N": "50"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "rule_id": {
+      "S": "6"
+    },
+    "rule_name": {
+      "S": "score-by-server_os_version"
+    },
+    "rule_type": {
+      "S": "PRIORITIZING"
+    },
+    "rule_description": {
+      "S": "Score applications based on server OS version"
+    },
+    "sub_type": {
+      "S": "SCORING"
+    },
+    "status": {
+      "S": "ENABLED"
+    },
+    "asset_type": {
+      "S": "server"
+    },
+    "attr_key": {
+      "S": "server_os_version"
+    },
+    "scoring_criteria": {
+      "L": [
+        {
+          "M": {
+            "value": {
+              "S": "Windows Server 2022"
+            },
+            "complexity_score": {
+              "N": "10"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Windows Server 2019"
+            },
+            "complexity_score": {
+              "N": "15"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Windows Server 2016"
+            },
+            "complexity_score": {
+              "N": "20"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Windows Server 2012"
+            },
+            "complexity_score": {
+              "N": "30"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Windows Server 2008"
+            },
+            "complexity_score": {
+              "N": "40"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Windows Server 2003"
+            },
+            "complexity_score": {
+              "N": "50"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Windows 10"
+            },
+            "complexity_score": {
+              "N": "20"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Windows 7"
+            },
+            "complexity_score": {
+              "N": "40"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Amazon Linux"
+            },
+            "complexity_score": {
+              "N": "10"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "RHEL 9.x"
+            },
+            "pattern": {
+              "S": "^RHEL 9\\.(\\d+)(?:\\.(\\d+))?$"
+            },
+            "complexity_score": {
+              "N": "15"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "RHEL 8.x"
+            },
+            "pattern": {
+              "S": "^RHEL 8\\.(\\d+)(?:\\.(\\d+))?$"
+            },
+            "complexity_score": {
+              "N": "20"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "RHEL 7.x"
+            },
+            "pattern": {
+              "S": "^RHEL 7\\.(\\d+)(?:\\.(\\d+))?$"
+            },
+            "complexity_score": {
+              "N": "25"
+            }
+          }
+        },
+                {
+          "M": {
+            "name": {
+              "S": "RHEL 6.x"
+            },
+            "pattern": {
+              "S": "^RHEL 6\\.(\\d+)(?:\\.(\\d+))?$"
+            },
+            "complexity_score": {
+              "N": "35"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "RHEL 5.x"
+            },
+            "pattern": {
+              "S": "^RHEL 5\\.(\\d+)(?:\\.(\\d+))?$"
+            },
+            "complexity_score": {
+              "N": "45"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "CentOS 7.x"
+            },
+            "pattern": {
+              "S": "^CentOS 7\\.(\\d+)(?:\\.(\\d+))?$"
+            },
+            "complexity_score": {
+              "N": "25"
+            }
+          }
+        },
+                {
+          "M": {
+            "name": {
+              "S": "CentOS 6.x"
+            },
+            "pattern": {
+              "S": "^CentOS 6\\.(\\d+)(?:\\.(\\d+))?$"
+            },
+            "complexity_score": {
+              "N": "35"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "CentOS 5.x"
+            },
+            "pattern": {
+              "S": "^CentOS 5\\.(\\d+)(?:\\.(\\d+))?$"
+            },
+            "complexity_score": {
+              "N": "45"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "Oracle Linux 9.x"
+            },
+            "pattern": {
+              "S": "^Oracle Linux 9\\.(\\d+)(?:\\.(\\d+))?$"
+            },
+            "complexity_score": {
+              "N": "15"
+            }
+          }
+        },
+                {
+          "M": {
+            "name": {
+              "S": "Oracle Linux 8.x"
+            },
+            "pattern": {
+              "S": "^Oracle Linux 8\\.(\\d+)(?:\\.(\\d+))?$"
+            },
+            "complexity_score": {
+              "N": "20"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "Oracle Linux 7.x"
+            },
+            "pattern": {
+              "S": "^Oracle Linux 7\\.(\\d+)(?:\\.(\\d+))?$"
+            },
+            "complexity_score": {
+              "N": "25"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "Oracle Linux 6.x"
+            },
+            "pattern": {
+              "S": "^Oracle Linux 6\\.(\\d+)(?:\\.(\\d+))?$"
+            },
+            "complexity_score": {
+              "N": "35"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Rocky Linux 8"
+            },
+            "complexity_score": {
+              "N": "20"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "SUSE 15"
+            },
+            "complexity_score": {
+              "N": "15"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "SUSE 14"
+            },
+            "complexity_score": {
+              "N": "25"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "SUSE 13"
+            },
+            "complexity_score": {
+              "N": "25"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "SUSE 12"
+            },
+            "complexity_score": {
+              "N": "25"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "Ubuntu 22.04+"
+            },
+            "pattern": {
+              "S": "^Ubuntu (?:22\\.(?:0[4-9]|[1-9]\\d)|2[3-9]|[3-9]\\d)(?:\\.\\d+)?$"
+            },
+            "complexity_score": {
+              "N": "15"
+            }
+          }
+        },
+        {
+          "M": {
+            "name": {
+              "S": "Ubuntu 18.04-20.04"
+            },
+            "pattern": {
+              "S": "^Ubuntu (?:18\\.04|18\\.10|19\\.\\d{2}|20\\.04)(?:\\.\\d+)?$"
+            },
+            "complexity_score": {
+              "N": "20"
+            }
+          }
+        },
+                {
+          "M": {
+            "name": {
+              "S": "Ubuntu 12.04-16.04"
+            },
+            "pattern": {
+              "S": "^Ubuntu (?:1[2-6]\\.04|12\\.10|13\\.\\d{2}|14\\.\\d{2}|15\\.\\d{2}|16\\.04)(?:\\.\\d+)?$"
+            },
+            "complexity_score": {
+              "N": "30"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Debian 11"
+            },
+            "complexity_score": {
+              "N": "20"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Debian 10"
+            },
+            "complexity_score": {
+              "N": "20"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Debian 9"
+            },
+            "complexity_score": {
+              "N": "30"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Debian 8"
+            },
+            "complexity_score": {
+              "N": "30"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Debian 7"
+            },
+            "complexity_score": {
+              "N": "40"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "Debian 6"
+            },
+            "complexity_score": {
+              "N": "40"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "others"
+            },
+            "complexity_score": {
+              "N": "50"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "rule_id": {
+      "S": "7"
+    },
+    "rule_name": {
+      "S": "score-by-server_storage_size"
+    },
+    "rule_type": {
+      "S": "PRIORITIZING"
+    },
+    "rule_description": {
+      "S": "Score applications based on server storage size"
+    },
+    "sub_type": {
+      "S": "SCORING"
+    },
+    "status": {
+      "S": "ENABLED"
+    },
+    "asset_type": {
+      "S": "server"
+    },
+    "attr_key": {
+      "S": "storage_size"
+    },
+    "scoring_criteria": {
+      "L": [
+        {
+          "M": {
+            "upper_bound": {
+              "N": "200"
+            },
+            "complexity_score": {
+              "N": "20"
+            }
+          }
+        },
+        {
+          "M": {
+            "lower_bound": {
+              "N": "200"
+            },
+            "upper_bound": {
+              "N": "500"
+            },
+            "complexity_score": {
+              "N": "40"
+            }
+          }
+        },
+        {
+          "M": {
+            "lower_bound": {
+              "N": "500"
+            },
+            "upper_bound": {
+              "N": "1000"
+            },
+            "complexity_score": {
+              "N": "60"
+            }
+          }
+        },
+        {
+          "M": {
+            "lower_bound": {
+              "N": "1000"
+            },
+            "upper_bound": {
+              "N": "2000"
+            },
+            "complexity_score": {
+              "N": "80"
+            }
+          }
+        },
+        {
+          "M": {
+            "lower_bound": {
+              "N": "2000"
+            },
+            "complexity_score": {
+              "N": "100"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "rule_id": {
+      "S": "8"
+    },
+    "rule_name": {
+      "S": "sort-by-server_count"
+    },
+    "rule_type": {
+      "S": "PRIORITIZING"
+    },
+    "rule_description": {
+      "S": "Sort applications by server count in ascending order"
+    },
+    "sub_type": {
+      "S": "SORTING"
+    },
+    "status": {
+      "S": "ENABLED"
+    },
+    "asset_type": {
+      "S": "app"
+    },
+    "attr_key": {
+      "S": "server_count"
+    },
+    "sort_order": {
+      "S": "ASC"
+    },
+    "sort_level": {
+      "N": "1"
+    }
+  },
+  {
+    "rule_id": {
+      "S": "9"
+    },
+    "rule_name": {
+      "S": "sort-by-complexity_score"
+    },
+    "rule_type": {
+      "S": "PRIORITIZING"
+    },
+    "rule_description": {
+      "S": "Sort applications by complexity score in ascending order"
+    },
+    "sub_type": {
+      "S": "SORTING"
+    },
+    "status": {
+      "S": "ENABLED"
+    },
+    "asset_type": {
+      "S": "app"
+    },
+    "attr_key": {
+      "S": "complexity_score"
+    },
+    "sort_order": {
+      "S": "ASC"
+    },
+    "sort_level": {
+      "N": "2"
+    }
+  },
+  {
+    "rule_id": {
+      "S": "10"
+    },
+    "rule_name": {
+      "S": "sort-by-app_department"
+    },
+    "rule_type": {
+      "S": "PRIORITIZING"
+    },
+    "rule_description": {
+      "S": "Sort applications by department priority"
+    },
+    "sub_type": {
+      "S": "SORTING"
+    },
+    "status": {
+      "S": "DISABLED"
+    },
+    "asset_type": {
+      "S": "app"
+    },
+    "attr_key": {
+      "S": "app_department"
+    },
+    "sort_by_value": {
+      "L": [
+        {
+          "S": "IT"
+        },
+        {
+          "S": "marketing"
+        },
+        {
+          "S": "sales"
+        },
+        {
+          "S": "finance"
+        },
+        {
+          "S": "security"
+        }
+      ]
+    },
+    "sort_order": {
+      "S": "ASC"
+    },
+    "sort_level": {
+      "N": "3"
+    }
+  },
+  {
+    "rule_id": {
+      "S": "DEFAULT_WPM_JOB_CONFIG"
+    },
+    "rule_name": {
+      "S": "Default configuration for WPM jobs"
+    },
+    "rule_type": {
+      "S": "WPM_JOB"
+    },
+    "configuration": {
+      "M": {
+        "nomination_app_count": {
+          "N": "10"
+        },
+        "wave_server_capacity": {
+          "N": "100"
+        },
+        "wave_storage_capacity": {
+          "N": "10000"
+        },
+        "starting_wave_server_capacity": {
+          "N": "50"
+        },
+        "wave_server_capacity_increase": {
+          "N": "10"
+        }
+      }
+    },
+    "status": {
+      "S": "ENABLED"
+    }
+  }
+]

@@ -480,3 +480,66 @@ class PolicyTestCase(TestCase):
             "cause": "Email address not provided. Access denied."
         }
         self.assertEqual(response, expected_response)
+
+
+    def test_get_user_resource_creation_policy_for_get_event(self):
+        """FINDING-0004: Verify GET requests enforce the 'read' permission flag."""
+        log.info("Testing policy: get_user_resource_creation_policy for GET event")
+        schema_name = 'app'
+        get_event = {
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "email": self.email,
+                        "cognito:groups": [
+                            "admin",
+                            "readonly"
+                        ],
+                        "cognito:username": "testuser"
+                    }
+                }
+            },
+            "httpMethod": "GET"
+        }
+        response = self.auth.get_user_resource_creation_policy(get_event, schema_name)
+        print("Response: ", response)
+        expected_response = {
+            "action": "allow",
+            "cause": "User has permission to read the resource type application.",
+            "user": {
+                "userRef": "testuser",
+                "email": "test@example.com"
+            }
+        }
+        self.assertEqual(response, expected_response)
+
+    def test_get_user_resource_creation_policy_for_get_event_with_mismatching_schema(self):
+        """FINDING-0004: Verify GET request is denied when schema doesn't match policy."""
+        log.info("Testing policy: get_user_resource_creation_policy for GET event with mismatching schema")
+        schema_name = 'app2'
+        get_event = {
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "email": self.email,
+                        "cognito:groups": [
+                            "admin",
+                            "readonly"
+                        ],
+                        "cognito:username": "testuser"
+                    }
+                }
+            },
+            "httpMethod": "GET"
+        }
+        response = self.auth.get_user_resource_creation_policy(get_event, schema_name)
+        print("Response: ", response)
+        expected_response = {
+            "action": "deny",
+            "cause": "User does not have permission to read the resource type app2. Verify you have been assign a policy or role with this permission.",
+            "user": {
+                "userRef": "testuser",
+                "email": "test@example.com"
+            }
+        }
+        self.assertEqual(response, expected_response)

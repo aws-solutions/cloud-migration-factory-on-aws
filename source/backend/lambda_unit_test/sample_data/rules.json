@@ -1,0 +1,55 @@
+[
+  {
+    "rule_type": {
+      "S": "PRIORITIZING"
+    },
+    "rule_id": {
+      "S": "1"
+    },
+    "rule_name": {
+      "S": "test-scoring-rule"
+    },
+    "rule_description": {
+      "S": "Test scoring rule for unit tests"
+    },
+    "sub_type": {
+      "S": "SCORING"
+    },
+    "status": {
+      "S": "ENABLED"
+    },
+    "asset_type": {
+      "S": "server"
+    },
+    "attr_key": {
+      "S": "server_environment"
+    },
+    "scoring_criteria": {
+      "L": [
+        {
+          "M": {
+            "value": {
+              "S": "dev"
+            },
+            "complexity_score": {
+              "N": "10"
+            }
+          }
+        },
+        {
+          "M": {
+            "value": {
+              "S": "prod"
+            },
+            "complexity_score": {
+              "N": "50"
+            }
+          }
+        }
+      ]
+    },
+    "isDefault": {
+      "BOOL": true
+    }
+  }
+]

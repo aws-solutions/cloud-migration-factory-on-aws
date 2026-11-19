@@ -36,6 +36,19 @@ if ! poetry self show plugins | grep -q "poetry-plugin-export"; then
     poetry self add poetry-plugin-export
 fi
 
+# Install poetry if not already installed
+if ! command -v poetry &> /dev/null; then
+    echo "Installing Poetry..."
+    curl -sSL https://install.python-poetry.org | POETRY_HOME=$HOME/.poetry python3 -
+    PATH="$HOME/.poetry/bin:$PATH"
+fi
+
+# Check if Export Poetry Plugin exists, install if it doesn't
+if ! poetry self show plugins | grep -q "poetry-plugin-export"; then
+    echo "Installing Export Poetry Plugin..."
+    poetry self add poetry-plugin-export
+fi
+
 # Check to see if input has been provided:
 
 if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
@@ -111,19 +124,44 @@ echo "--------------------------------------------------------------------------
 
 cd $source_dir/backend/lambda_functions/
 for d in */ ; do
+    # Skip shared directories
+    if [[ "$d" == "shared/" ]]; then
+        echo "Skipping $d (shared code directory)"
+        continue
+    fi
+    
     echo "$d"
     cd $source_dir/backend/lambda_functions/$d
     mkdir ./.build
     cp -r ./[!.]* ./.build
+    
+    # Copy shared files/folders declared in pyproject.toml [tool.shared] section
+    if [ -f "pyproject.toml" ] && grep -q "\[tool.shared\]" pyproject.toml; then
+        shared_items=$(grep -A 10 "\[tool.shared\]" pyproject.toml | grep "files = " | sed 's/.*\["\(.*\)"\].*/\1/' | tr ',' '\n' | sed 's/["\[\] ]//g')
+        # Create shared directory in .build if it doesn't exist
+        mkdir -p ./.build/shared
+        
+        for item in $shared_items; do
+            source_path="$source_dir/backend/lambda_functions/shared/$item"
+            target_path="./.build/shared/$item"
+            echo "  Copying shared module for $d from $source_path"
+            
+            if [ -d "$source_path" ]; then
+                # If it's a directory, copy the entire directory
+                cp -r "$source_path" "./.build/shared/"
+            elif [ -f "$source_path" ]; then
+                # If it's a file, copy the file
+                cp "$source_path" "$target_path"
+            else
+                echo "Warning: Shared item '$item' specified in pyproject.toml does not exist at $source_path"
+            fi
+        done
+    fi
+
     cd ./.build
      if [ -f "$(pwd)/pyproject.toml" ]; then
       poetry export --format requirements.txt --output requirements.txt --without-hashes
-      pip install -r ./requirements.txt -t . --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
-      if [ $? -ne 0 ]
-        then
-          echo "  ---- FAILURE: Build lambda function packages."
-          exit 1
-      fi
+      pip install --no-cache-dir -r ./requirements.txt -t . --implementation cp --python-version 3.11 --platform manylinux2014_x86_64 --only-binary=:all:
     fi
     d1=${d%?}
     zip -r $build_dist_dir/$d1.zip ./
@@ -144,12 +182,7 @@ for d in */ ; do
     cd $source_dir/backend/lambda_layers/$d/.build/python
     if [ -f "$(pwd)/pyproject.toml" ]; then
       poetry export --format requirements.txt --output requirements.txt --without-hashes
-      pip install -r ./requirements.txt -t ./lib/python3.11/site-packages/ --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
-      if [ $? -ne 0 ]
-        then
-          echo "  ---- FAILURE: Build lambda layer packages."
-          exit 1
-      fi
+      pip install --no-cache-dir -r ./requirements.txt -t ./lib/python3.11/site-packages/ --implementation cp --python-version 3.11 --platform manylinux2014_x86_64 --only-binary=:all:
     fi
     cd ../
     d1=${d%?}
@@ -157,6 +190,69 @@ for d in */ ; do
     cd $source_dir/backend/lambda_layers/$d
     rm -rf ./.build
 done
+
+echo "------------------------------------------------------------------------------"
+echo "[Packing] Custom Lambda functions"
+echo "------------------------------------------------------------------------------"
+
+# Pack custom Lambda functions from deployment/lambda-functions/
+if [ -d "$template_dir/lambda-functions/" ]; then
+    cd $template_dir/lambda-functions/
+    for f in *.py; do
+        if [ -f "$f" ]; then
+            echo "Packing custom Lambda: $f"
+            # Create a temporary directory for the Lambda package
+            mkdir -p ./.build
+            
+            # Copy the Python file
+            cp "$f" ./.build/
+            
+            # Add cfnresponse module (required for custom resources)
+            cat > ./.build/cfnresponse.py << 'EOF'
+import urllib3
+import json
+
+SUCCESS = "SUCCESS"
+FAILED = "FAILED"
+
+http = urllib3.PoolManager()
+
+def send(event, context, responseStatus, responseData, physicalResourceId=None, noEcho=False, reason=None):
+    responseUrl = event['ResponseURL']
+    
+    responseBody = {
+        'Status' : responseStatus,
+        'Reason' : reason or "See the details in CloudWatch Log Stream: " + context.log_stream_name,
+        'PhysicalResourceId' : physicalResourceId or context.log_stream_name,
+        'StackId' : event['StackId'],
+        'RequestId' : event['RequestId'],
+        'LogicalResourceId' : event['LogicalResourceId'],
+        'NoEcho' : noEcho,
+        'Data' : responseData
+    }
+    
+    json_responseBody = json.dumps(responseBody)
+    
+    headers = {
+        'content-type' : '',
+        'content-length' : str(len(json_responseBody))
+    }
+    
+    try:
+        response = http.request('PUT', responseUrl, headers=headers, body=json_responseBody)
+    except Exception as e:
+        print("send(..) failed executing http.request(..):", e)
+EOF
+            
+            cd ./.build
+            # Create ZIP file without .py extension
+            filename=$(basename "$f" .py)
+            zip -r "$build_dist_dir/${filename}.zip" .
+            cd ..
+            rm -rf ./.build
+        fi
+    done
+fi
 
 echo "------------------------------------------------------------------------------"
 echo "[Packing] Integration Lambda functions"
@@ -172,12 +268,7 @@ for d in */ ; do
     cd ./.build
      if [ -f "$(pwd)/pyproject.toml" ]; then
       poetry export --format requirements.txt --output requirements.txt --without-hashes
-      pip install -r ./requirements.txt -t . --implementation cp --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --only-binary=:all:
-      if [ $? -ne 0 ]
-        then
-          echo "  ---- FAILURE: Build Integrations lambda packages."
-          exit 1
-      fi
+      pip install --no-cache-dir -r ./requirements.txt -t . --implementation cp --python-version 3.11 --platform manylinux2014_x86_64 --only-binary=:all:
     fi
     d1=${d%?}
     zip -r $build_dist_dir/lambda_$d1.zip .

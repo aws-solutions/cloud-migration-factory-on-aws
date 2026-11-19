@@ -3,8 +3,18 @@
     "server_id": {
       "S": "1"
     },
-    "app_id": {
+    "app_ids": {
+      "L": [
+        {
+          "S": "1"
+        }
+      ]
+    },
+    "wave_id": {
       "S": "1"
+    },
+    "migration_status": {
+      "S": "Not started"
     },
     "instanceType": {
       "S": "t3.medium"
@@ -63,6 +73,12 @@
     "server_tier": {
       "S": "web"
     },
+    "aws_accountid": {
+      "S": "111122223333"
+    },
+    "aws_region": {
+      "S": "us-west-2"
+    },
     "subnet_IDs": {
       "L": [
         {
@@ -119,8 +135,21 @@
     "server_id": {
       "S": "2"
     },
-    "app_id": {
-      "S": "2"
+    "app_ids": {
+      "L": [
+        {
+          "S": "2"
+        },
+        {
+          "S": "3"
+        }
+      ]
+    },
+    "wave_id": {
+      "S": "1"
+    },
+    "migration_status": {
+      "S": "Not started"
     },
     "instanceType": {
       "S": "t3.medium"
@@ -168,6 +197,12 @@
     },
     "server_tier": {
       "S": "db"
+    },
+    "aws_accountid": {
+      "S": "111122223333"
+    },
+    "aws_region": {
+      "S": "us-west-2"
     },
     "subnet_IDs": {
       "L": [
@@ -225,8 +260,18 @@
     "server_id": {
       "S": "3"
     },
-    "app_id": {
-      "S": "2"
+    "app_ids": {
+      "L": [
+        {
+          "S": "2"
+        }
+      ]
+    },
+    "wave_id": {
+      "S": "1"
+    },
+    "migration_status": {
+      "S": "Not started"
     },
     "instanceType": {
       "S": "t3.medium"
@@ -265,6 +310,12 @@
     },
     "server_tier": {
       "S": "web"
+    },
+    "aws_accountid": {
+      "S": "222233334444"
+    },
+    "aws_region": {
+      "S": "us-east-1"
     },
     "subnet_IDs": {
       "L": [

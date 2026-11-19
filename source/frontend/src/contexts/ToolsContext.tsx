@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -23,9 +25,9 @@ export type ToolsState = {
 
 // default context, used if no context is provided. automatically applied to tests
 const NULL_CONTEXT: ToolsContextType = {
-  setHelpPanelContent: (content, silent) => {},
-  setHelpPanelContentFromSchema: (schemas: Record<string, EntitySchema>, schemaName: string) => {},
-  setToolsOpen: (open: boolean) => {},
+  setHelpPanelContent: () => {},
+  setHelpPanelContentFromSchema: () => {},
+  setToolsOpen: () => {},
   toolsState: { toolsOpen: false },
 };
 

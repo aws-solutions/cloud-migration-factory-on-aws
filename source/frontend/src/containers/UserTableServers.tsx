@@ -3,317 +3,411 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useContext, useEffect, useState } from "react";
-import UserApiClient from "../api_clients/userApiClient";
+import React from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import ItemAmend from "../components/ItemAmend";
 import { getChanges } from "../resources/main";
 import { exportTable } from "../utils/xlsx-export";
 import { SpaceBetween } from "@cloudscape-design/components";
 
-import ServerView from "../components/ServerView";
+import {
+  Application,
+  Database,
+  DataLoadingState,
+  EntitySchema,
+  MoveGroup,
+  OperationType,
+  Server,
+  UserAccess,
+  Wave,
+  WPMJob,
+} from "../models";
 import { useMFApps } from "../actions/ApplicationsHook";
 import { useGetServers } from "../actions/ServersHook";
 import { useMFWaves } from "../actions/WavesHook";
+import { apiActionErrorHandler, parsePUTResponseErrors, UNEXPECTED_ERROR } from "../resources/recordFunctions";
+import { Schemas } from "../utils/Constants";
+import { ErrorWithType, useErrorHandler } from "../actions/ErrorHandlerHook";
+import UserApiClient from "../api_clients/userApiClient";
+import ToolsApiClient from "../api_clients/toolsApiClient";
+
+import ServerView from "../components/ServerView";
 import ItemTable from "../components/ItemTable";
-import { apiActionErrorHandler, parsePUTResponseErrors } from "../resources/recordFunctions";
 import { NotificationContext } from "../contexts/NotificationContext";
-import { EntitySchema } from "../models/EntitySchema";
 import { ToolsContext } from "../contexts/ToolsContext";
 import { CMFModal } from "../components/Modal";
+import { useGetDatabases } from "../actions/DatabasesHook";
+import { useGetItems } from "../actions/ItemsHook";
 
-type ViewServerParams = {
-  selectedItems: any[];
-  dataAll: { application: { data: any[] } };
-  isLoadingApps?: boolean;
-  schemas: Record<string, EntitySchema>;
-  errorApps: any;
-};
-const ViewServer = (props: ViewServerParams) => {
-  const [viewerCurrentTab, setViewerCurrentTab] = useState<string>("details");
-
-  if (props.selectedItems.length === 1) {
-    const currentServerApplication = props.dataAll.application.data.filter(function (entry: any) {
-      return entry.app_id === props.selectedItems[0].app_id;
-    });
-
-    const app = { items: currentServerApplication, isLoading: props.isLoadingApps, error: props.errorApps };
-    return (
-      <ServerView
-        server={props.selectedItems[0]}
-        app={app}
-        handleTabChange={setViewerCurrentTab}
-        dataAll={props.dataAll}
-        selectedTab={viewerCurrentTab}
-        schemas={props.schemas}
-      />
-    );
-  } else {
-    return null;
-  }
+type DataAll = {
+  readonly app: DataLoadingState<Application>;
+  readonly database: DataLoadingState<Database>;
+  readonly server: DataLoadingState<Server>;
+  readonly move_group: DataLoadingState<MoveGroup>;
+  readonly wave: DataLoadingState<Wave>;
+  readonly wpm_job: DataLoadingState<WPMJob>;
 };
 
 type UserServerTableParams = {
   schemas: Record<string, EntitySchema>;
-  userEntityAccess: any;
+  userEntityAccess: UserAccess;
   schemaIsLoading?: boolean;
 };
+
+const schemaName = Schemas.Server.name;
+const apiUser = new UserApiClient();
+const apiTools = new ToolsApiClient();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const handlePutErrors = (result: any) => {
+  if (result?.errors) {
+    const errorsReturned = parsePUTResponseErrors(result.errors).join(",");
+    throw new ErrorWithType(errorsReturned, "error");
+  }
+};
+
 const UserServerTable = ({ schemas, userEntityAccess }: UserServerTableParams) => {
-  const { addNotification } = useContext(NotificationContext);
-  const { setHelpPanelContentFromSchema } = useContext(ToolsContext);
-  let location = useLocation();
-  let navigate = useNavigate();
-  let params = useParams();
+  const { addNotification } = React.useContext(NotificationContext);
+  const { setHelpPanelContentFromSchema } = React.useContext(ToolsContext);
+  const handleError = useErrorHandler();
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = useParams();
 
   //Data items for viewer and table.
-  const [{ isLoading: isLoadingApps, data: dataApps, error: errorApps }] = useMFApps();
-  const [{ isLoading: isLoadingServers, data: dataServers, error: errorServers }, { update: updateServers }] =
-    useGetServers();
-  const [{ isLoading: isLoadingWaves, data: dataWaves, error: errorWaves }] = useMFWaves();
+  const [appLoadingState, { update: updateApps }] = useMFApps<Application>();
+  const [databaseLoadingState] = useGetDatabases<Database>();
+  const [serverLoadingState, { update: refreshServers }] = useGetServers<Server>();
+  const [moveGroupLoadingState, { update: updateMoveGroups }] = useGetItems<MoveGroup>(Schemas.MoveGroup.name);
+  const [waveLoadingState, { update: updateWaves }] = useMFWaves<Wave>();
+  const [wpmJobLoadingState] = useGetItems<WPMJob>(Schemas.WPMJob.name);
 
-  const dataAll = {
-    application: {
-      data: dataApps,
-      isLoading: isLoadingApps,
-      error: errorApps,
-    },
-    server: {
-      data: dataServers,
-      isLoading: isLoadingServers,
-      error: errorServers,
-    },
-    wave: {
-      data: dataWaves,
-      isLoading: isLoadingWaves,
-      error: errorWaves,
-    },
-  };
+  const refreshApps = React.useCallback(() => updateApps(Schemas.Application.name), [updateApps]);
+  const refreshMoveGroups = React.useCallback(() => updateMoveGroups(Schemas.MoveGroup.name), [updateMoveGroups]);
+  const refreshWaves = React.useCallback(() => updateWaves(Schemas.Wave.name), [updateWaves]);
 
-  //Layout state management.
-  const [editingItem, setEditingItem] = useState(false);
+  const dataAll: DataAll = React.useMemo(
+    () => ({
+      app: appLoadingState,
+      database: databaseLoadingState,
+      server: serverLoadingState,
+      move_group: moveGroupLoadingState,
+      wave: waveLoadingState,
+      wpm_job: wpmJobLoadingState,
+    }),
+    [
+      appLoadingState,
+      databaseLoadingState,
+      moveGroupLoadingState,
+      serverLoadingState,
+      waveLoadingState,
+      wpmJobLoadingState,
+    ]
+  );
+
+  // Is in add/edit mode
+  const editingItem = React.useRef(false);
 
   //Main table state management.
-  const [selectedItems, setSelectedItems] = useState<Array<any>>([]);
-  const [focusItem, setFocusItem] = useState<any>([]);
+  const [selectedItems, setSelectedItems] = React.useState<Server[]>([]);
+  const [focusItem, setFocusItem] = React.useState<Server>();
+  const [viewCurrentTab, setViewCurrentTab] = React.useState("details");
+
+  const entityLabel = React.useMemo(() => schemaName + (selectedItems.length > 1 ? "s" : ""), [selectedItems]);
 
   //Viewer pane state management.
-  const [action, setAction] = useState<string>("Add");
+  const [action, setAction] = React.useState<"Add" | "Edit">("Add");
 
   //Get base path from the URL, all actions will use this base path.
-  const basePath = location.pathname.split("/").length >= 2 ? "/" + location.pathname.split("/")[1] : "/";
+  const basePath = React.useMemo(
+    () => (location.pathname.split("/").length >= 2 ? "/" + location.pathname.split("/")[1] : "/"),
+    [location.pathname]
+  );
 
-  //Key for main item displayed in table.
-  const itemIDKey = "server_id";
-  const schemaName = "server";
+  const [isDeleteConfirmationModalVisible, setDeleteConfirmationModalVisible] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState<boolean>(false);
 
-  const [isDeleteConfirmationModalVisible, setDeleteConfirmationModalVisible] = useState(false);
-
-  function handleAddItem() {
+  const handleAddItem = React.useCallback(() => {
+    editingItem.current = true;
     navigate({
       pathname: basePath + "/add",
     });
     setAction("Add");
-    setFocusItem({});
-    setEditingItem(true);
-  }
+    setFocusItem(undefined);
+  }, [basePath, navigate]);
 
-  function handleDownloadItems() {
-    if (selectedItems.length > 0) {
-      // Download selected only.
-      exportTable(selectedItems, "Servers", "servers");
-    } else {
-      //Download all.
-      exportTable(dataServers, "Servers", "servers");
-    }
-  }
+  const handleDownloadItems = React.useCallback(() => {
+    exportTable(selectedItems.length > 0 ? selectedItems : serverLoadingState.data, "Servers", "servers");
+  }, [serverLoadingState.data, selectedItems]);
 
-  function handleEditItem(selection = null) {
-    if (selectedItems.length === 1) {
-      navigate({
-        pathname: basePath + "/edit/" + selectedItems[0][itemIDKey],
-      });
-      setAction("Edit");
-      setFocusItem(selectedItems[0]);
-      setEditingItem(true);
-    } else if (selection) {
-      // ATTN: is this else branch reachable or dead code?
-      navigate({
-        pathname: basePath + "/edit/" + selection[itemIDKey],
-      });
-      setAction("Edit");
-      setFocusItem(selection);
-      setEditingItem(true);
-    }
-  }
+  const handleEditItem = React.useCallback(
+    (selection: Server | null = null) => {
+      editingItem.current = true;
+      if (selectedItems.length === 1) {
+        navigate({
+          pathname: basePath + "/edit/" + selectedItems[0].server_id,
+        });
+        setAction("Edit");
+        setFocusItem(selectedItems[0]);
+      } else if (selection) {
+        navigate({
+          pathname: basePath + "/edit/" + selection.server_id,
+        });
+        setAction("Edit");
+        setFocusItem(selection);
+      }
+    },
+    [basePath, navigate, selectedItems]
+  );
 
-  function handleResetScreen() {
-    setEditingItem(false);
+  const handleResetScreen = React.useCallback(() => {
+    editingItem.current = false;
     navigate({
       pathname: basePath,
     });
-  }
+  }, [basePath, navigate]);
 
-  function handleItemSelectionChange(selection: Array<any>) {
-    setSelectedItems(selection);
-    if (selection.length === 1) {
-      //TO-DO Need to pull in Waves or other data here.
-      //updateApps(selection[0].app_id);
-    }
-    //Reset URL to base table path.
-    navigate({
-      pathname: basePath,
-    });
-  }
+  const handleItemSelectionChange = React.useCallback(
+    (selection: Server[]) => {
+      setSelectedItems(selection);
+      //Reset URL to base table path.
+      navigate({
+        pathname: basePath,
+      });
+    },
+    [basePath, navigate]
+  );
 
-  async function handleSave(editItem: any, action: string): Promise<void> {
-    let newItem = Object.assign({}, editItem);
-    let result;
-    try {
-      const apiUser = new UserApiClient();
-      const server_name = newItem.server_name;
-      if (action === "Edit") {
-        let server_id = newItem.server_id;
-        newItem = getChanges(newItem, dataServers, "server_id");
-        if (!newItem) {
-          // no changes to original record.
-          addNotification({
-            type: "warning",
-            dismissible: true,
-            header: "Save " + schemaName,
-            content: "No updates to save.",
-          });
-          return;
-        }
-        result = await apiUser.putItem(server_id, newItem, "server");
-      } else {
-        delete newItem.server_id;
-        result = await apiUser.postItem(newItem, "server");
-      }
+  const getDataChanges = React.useCallback(
+    (serverId: string, svr?: Server) => {
+      // Find out the changed appIds
+      const orig = serverLoadingState.data.find((x) => x.server_id === serverId);
+      const origAppIdsSet = new Set((orig?.app_ids ?? []).filter((x): x is string => !!x));
+      const updatedAppIdSet = new Set((svr?.app_ids ?? []).filter((x): x is string => !!x));
+      const addedAppIds = Array.from(updatedAppIdSet).filter((x) => !origAppIdsSet.has(x));
+      const removedAppIds = Array.from(origAppIdsSet).filter((item) => !updatedAppIdSet.has(item));
 
-      if (result["errors"]) {
-        let errorsReturned = parsePUTResponseErrors(result["errors"]).join(",");
-        addNotification({
-          type: "error",
-          dismissible: true,
-          header: `${action} ${schemaName}`,
-          content: errorsReturned,
-        });
-      } else {
-        addNotification({
-          type: "success",
-          dismissible: true,
-          header: `${action} ${schemaName}`,
-          content: server_name + " saved successfully.",
-        });
-        await updateServers();
-        handleResetScreen();
+      return { orig, addedAppIds, removedAppIds };
+    },
+    [serverLoadingState.data]
+  );
 
-        //This is needed to ensure the item in selectItems reflects new updates
-        setSelectedItems([]);
-        setFocusItem({});
-      }
-    } catch (e: any) {
-      apiActionErrorHandler(action, schemaName, e, addNotification);
-    }
-  }
+  // Callback function to update the delta of appIds
+  const callApiToUpdateApps = React.useCallback(
+    async (serverId: string, params: { addedAppIds: string[]; removedAppIds: string[] }) => {
+      // Helper function to update an app's server_ids
+      const updateApp = async (appId: string, isAdding: boolean) => {
+        const app = appLoadingState.data.find((x) => x.app_id === appId);
+        if (!app) throw new ErrorWithType(`App ${appId} not found`, "error");
 
-  async function handleRefreshClick() {
-    await updateServers();
-  }
-
-  async function handleDeleteItem() {
-    setDeleteConfirmationModalVisible(false);
-
-    let currentItem: any = 0;
-    let multiReturnMessage = [];
-    let notificationId;
-
-    try {
-      const apiUser = new UserApiClient();
-      if (selectedItems.length > 1) {
-        notificationId = addNotification({
-          type: "success",
-          loading: true,
-          dismissible: false,
-          header: "Deleting selected servers...",
-        });
-      }
-      for (let item in selectedItems) {
-        currentItem = item;
-        await apiUser.deleteServer(selectedItems[item].server_id);
-        //Combine notifications into a single message if multi selected used, to save user dismiss clicks.
-        if (selectedItems.length > 1) {
-          multiReturnMessage.push(selectedItems[item].server_name);
+        let serverIds: string[];
+        if (isAdding) {
+          if (app.server_ids?.includes(serverId)) return;
+          serverIds = [...(app.server_ids ?? []), serverId];
         } else {
+          if (!app.server_ids?.length || !app.server_ids.includes(serverId)) return;
+          serverIds = app.server_ids.filter((x) => x !== serverId);
+        }
+        const result = await apiUser.putItem(appId, { server_ids: serverIds }, Schemas.Application.name);
+        handlePutErrors(result);
+      };
+
+      // Update all affected apps
+      await Promise.all([
+        ...params.addedAppIds.map((appId) => updateApp(appId, true)),
+        ...params.removedAppIds.map((appId) => updateApp(appId, false)),
+      ]);
+    },
+    [appLoadingState.data]
+  );
+
+  const callApisToSave = React.useCallback(
+    async (db: Server) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let result: any;
+      let saved: Server;
+      // Create/update server
+      if (!db.server_id) {
+        result = await apiUser.postItem(db, Schemas.Server.name);
+        saved = result.newItems[0];
+      } else {
+        const changes = getChanges(db, serverLoadingState.data, Schemas.Server.keyAttribute);
+        if (!changes) throw new ErrorWithType("No updates to save.", "warning");
+
+        result = await apiUser.putItem(db.server_id, changes, Schemas.Server.name);
+        saved = db;
+      }
+      handlePutErrors(result);
+
+      const { orig, addedAppIds, removedAppIds } = getDataChanges(saved.server_id, saved);
+
+      // Update apps if there are added appIds or removed appIds
+      if (addedAppIds.length > 0 || removedAppIds.length > 0) {
+        await callApiToUpdateApps(saved.server_id, { addedAppIds, removedAppIds });
+      }
+      // Update move group if appIds changed and there is/was move group assigned, or move group indeed changed
+      if (
+        ((addedAppIds.length > 0 || removedAppIds.length > 0) && (saved.move_group_id || orig?.move_group_id)) ||
+        saved.move_group_id !== orig?.move_group_id
+      ) {
+        await apiTools.manageEntities({
+          operation: OperationType.MOVE,
+          source_entity_type: "move_group",
+          source_entity_id: orig?.move_group_id,
+          destination_entity_type: "move_group",
+          destination_entity_id: db?.move_group_id,
+          target_entities: [
+            {
+              entity_id: saved.server_id,
+              entity_type: "server",
+            },
+          ],
+        });
+      }
+    },
+    [callApiToUpdateApps, getDataChanges, serverLoadingState.data]
+  );
+
+  const handleRefreshClick = React.useCallback(() => {
+    refreshServers();
+    refreshApps();
+    refreshMoveGroups();
+    refreshWaves();
+  }, [refreshApps, refreshMoveGroups, refreshServers, refreshWaves]);
+
+  const handleSave = React.useCallback(
+    async (editItem: Server, action: string) => {
+      const header = `${action} ${Schemas.Server.name}`;
+
+      const item = Object.assign({}, editItem);
+      try {
+        if (action === "Edit") {
+          await callApisToSave(item);
           addNotification({
             type: "success",
             dismissible: true,
-            header: "Server deleted successfully",
-            content: selectedItems[item].server_name + " was deleted.",
+            header,
+            content: item.server_name + " updated successfully.",
+          });
+
+          //This is needed to ensure the item in selectItems reflects new updates
+          setSelectedItems([]);
+          setFocusItem(undefined);
+        } else {
+          await callApisToSave(item);
+          addNotification({
+            type: "success",
+            dismissible: true,
+            header,
+            content: item.server_name + " added successfully.",
           });
         }
+        handleRefreshClick();
+        handleResetScreen();
+      } catch (e) {
+        if (e instanceof ErrorWithType) handleError(e, { header });
+        else apiActionErrorHandler(action, Schemas.Server.name, e, addNotification);
       }
+    },
+    [handleRefreshClick, handleResetScreen, callApisToSave, addNotification, handleError]
+  );
+
+  const handleDeleteItem = React.useCallback(async () => {
+    setDeleteConfirmationModalVisible(false);
+
+    let notificationId;
+
+    const currentSelectedItems = selectedItems;
+    setIsDeleting(true);
+    // Clear selected items so as to disable Edit/Edit buttons during deletion
+    setSelectedItems([]);
+
+    try {
+      notificationId = addNotification({
+        loading: true,
+        dismissible: false,
+        header: `Deleting selected ${entityLabel}...`,
+      });
+
+      await apiTools.cleanupEntities(
+        "server",
+        selectedItems.map((item) => item.server_id)
+      );
 
       //Create notification where multi select was used.
-      if (selectedItems.length > 1) {
-        addNotification({
-          id: notificationId,
-          type: "success",
-          dismissible: true,
-          header: "Servers deleted successfully",
-          content: multiReturnMessage.join(", ") + " were deleted.",
-        });
-      }
-
-      //Unselect applications marked for deletion to clear apps.
-      setSelectedItems([]);
-      await updateServers();
-    } catch (e: any) {
-      console.error(e);
       addNotification({
+        id: notificationId,
+        type: "success",
+        dismissible: true,
+        header: `Delete ${entityLabel}`,
+        content: `${selectedItems.map((item) => item.server_name).join(", ")} ${selectedItems.length > 1 ? "were" : "was"} deleted.`,
+      });
+
+      handleRefreshClick();
+    } catch (e) {
+      console.error(e);
+      // Revert selected items on error
+      setSelectedItems(currentSelectedItems);
+      addNotification({
+        id: notificationId,
         type: "error",
         dismissible: true,
-        header: "Server deletion failed",
-        content: selectedItems[currentItem].server_name + " failed to delete.",
+        header: `Delete ${entityLabel}`,
+        content: UNEXPECTED_ERROR,
       });
+    } finally {
+      setIsDeleting(false);
     }
-  }
+  }, [selectedItems, addNotification, entityLabel, handleRefreshClick]);
+
+  // Make cascade changes: wave_id based on move_group_id
+  const handleItemUpdate = React.useCallback(
+    (item: Server) => {
+      const mgId = item.move_group_id;
+      const wave = mgId ? waveLoadingState.data.find((w) => w.move_group_ids?.includes(mgId)) : undefined;
+      const delta: Partial<Server> = {};
+      delta.wave_id = wave?.wave_id;
+      setFocusItem({ ...item, ...delta });
+    },
+    [waveLoadingState.data]
+  );
 
   function displayItemsViewScreen() {
     return (
       <SpaceBetween direction="vertical" size="xs">
         <ItemTable
           schema={schemas[schemaName]}
-          schemaKeyAttribute={itemIDKey}
+          schemaKeyAttribute={Schemas.Server.keyAttribute}
           schemaName={schemaName}
           dataAll={dataAll}
-          items={dataServers}
+          items={serverLoadingState.data}
           selectedItems={selectedItems}
           handleSelectionChange={handleItemSelectionChange}
-          isLoading={isLoadingServers}
-          errorLoading={errorServers}
+          isLoading={serverLoadingState.isLoading || isDeleting}
+          errorLoading={serverLoadingState.error}
           handleRefreshClick={handleRefreshClick}
           handleAddItem={handleAddItem}
-          handleDeleteItem={async function () {
-            setDeleteConfirmationModalVisible(true);
-          }}
+          handleDeleteItem={() => setDeleteConfirmationModalVisible(true)}
           handleEditItem={handleEditItem}
           handleDownloadItems={handleDownloadItems}
           userAccess={userEntityAccess}
         />
-        <ViewServer
-          schemas={schemas}
-          dataAll={dataAll}
-          selectedItems={selectedItems}
-          isLoadingApps={isLoadingApps}
-          errorApps={errorApps}
-        />
+        {selectedItems.length === 1 ? (
+          <ServerView
+            schemas={schemas}
+            server={selectedItems[0]}
+            dataAll={dataAll}
+            selectedTab={viewCurrentTab}
+            handleTabChange={setViewCurrentTab}
+          />
+        ) : undefined}
       </SpaceBetween>
     );
   }
 
   function displayItemsScreen() {
-    if (editingItem) {
+    if (editingItem.current) {
       return (
         <ItemAmend
           action={action}
@@ -321,6 +415,7 @@ const UserServerTable = ({ schemas, userEntityAccess }: UserServerTableParams) =
           schemas={schemas}
           userAccess={userEntityAccess}
           item={focusItem}
+          handleItemUpdate={handleItemUpdate}
           handleSave={handleSave}
           handleCancel={handleResetScreen}
         />
@@ -330,32 +425,39 @@ const UserServerTable = ({ schemas, userEntityAccess }: UserServerTableParams) =
     }
   }
 
-  useEffect(() => {
-    let selected = [];
-
-    if (!isLoadingServers) {
-      let item = dataServers.filter(function (entry: any) {
-        return entry[itemIDKey] === params.id;
+  React.useEffect(() => {
+    if (!serverLoadingState.isLoading) {
+      const item = serverLoadingState.data.find((entry) => {
+        return entry.server_id === params.id;
       });
 
-      if (item.length === 1) {
-        selected.push(item[0]);
-        handleItemSelectionChange(selected);
-        //Check if URL contains edit path and switch to amend component.
-        if (location.pathname && location.pathname.match("/edit/")) {
-          handleEditItem(item[0]);
+      if (item) {
+        if (selectedItems.length === 0) {
+          setSelectedItems([item]);
         }
-      } else if (location.pathname && location.pathname.match("/add")) {
+        //Check if URL contains edit path and switch to amend component.
+        if (location?.pathname.match("/edit/")) {
+          handleEditItem(item);
+        }
+      } else if (location?.pathname.match("/add")) {
         //Add url used, redirect to add screen.
         handleAddItem();
       }
     }
-  }, [dataServers]);
+  }, [
+    handleAddItem,
+    handleEditItem,
+    location?.pathname,
+    params.id,
+    selectedItems.length,
+    serverLoadingState.data,
+    serverLoadingState.isLoading,
+  ]);
 
   //Update help tools panel
-  useEffect(() => {
+  React.useEffect(() => {
     setHelpPanelContentFromSchema(schemas, schemaName);
-  }, [schemas]);
+  }, [schemas, setHelpPanelContentFromSchema]);
 
   return (
     <div>

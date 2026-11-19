@@ -1,6 +1,7 @@
 {
   "schema_name": "server",
   "schema_type": "user",
+  "key_type": "ulid",
   "attributes": [
     {
       "description": "Server Id",
@@ -11,15 +12,41 @@
       "type": "string"
     },
     {
-      "description": "Application",
-      "group_order": "-998",
-      "name": "app_id",
+      "description": "Related Applications",
+      "group_order": "-997",
+      "listMultiSelect": true,
+      "name": "app_ids",
       "rel_display_attribute": "app_name",
-      "rel_entity": "application",
+      "rel_entity": "app",
       "rel_key": "app_id",
+      "required": false,
+      "system": true,
+      "type": "multivalue-relationship"
+    },
+    {
+      "default": "Not started",
+      "name": "migration_status",
+      "type": "string"
+    },
+    {
+      "description": "AWS Account Id",
+      "group": "Target",
+      "listvalue": "111122223333,222233334444",
+      "name": "aws_accountid",
       "required": true,
       "system": true,
-      "type": "relationship"
+      "type": "list",
+      "validation_regex": "^\\d{12}$",
+      "validation_regex_msg": "Invalid AWS account Id."
+    },
+    {
+      "description": "AWS Region",
+      "group": "Target",
+      "listvalue": "us-east-2,us-east-1,us-west-1,us-west-2,af-south-1,ap-east-1,ap-southeast-3,ap-south-1,ap-northeast-3,ap-northeast-2,ap-southeast-1,ap-southeast-2,ap-northeast-1,ca-central-1,cn-north-1,cn-northwest-1,eu-central-1,eu-west-1,eu-west-2,eu-south-1,eu-west-3,eu-north-1,me-south-1,sa-east-1",
+      "name": "aws_region",
+      "required": true,
+      "system": true,
+      "type": "list"
     }
   ]
 }

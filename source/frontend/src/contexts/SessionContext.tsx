@@ -100,7 +100,7 @@ function getDataFromToken(session: CognitoUserSession): SessionState {
   const idToken = session.getIdToken().getJwtToken();
   const accessToken = session.getAccessToken().getJwtToken();
 
-  let decodedIdToken = decodeJwt(idToken);
+  const decodedIdToken = decodeJwt(idToken);
 
   return {
     idToken,

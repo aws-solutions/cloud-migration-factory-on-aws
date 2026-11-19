@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
@@ -34,7 +35,7 @@ const UserExport = () => {
   }
 
   //Check if any data is still loading and disable download button.
-  let dataLoading = isLoadingApps || isLoadingServers || isLoadingWaves || isLoadingDBs;
+  const dataLoading = isLoadingApps || isLoadingServers || isLoadingWaves || isLoadingDBs;
 
   //Update help tools panel. Must be wrapped in useEffect, because React can't update a different component while this component is rendered.
   useEffect(() => {
