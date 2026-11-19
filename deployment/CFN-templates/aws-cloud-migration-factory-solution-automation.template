@@ -2587,11 +2587,15 @@ Resources:
               - 
                 Effect: Allow
                 Action:
-                  - 'logs:CreateLogGroup'
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                   - 'logs:DescribeLogStreams'
                 Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${RunCMFAutomationPackageSSMDocumentLogGroup}:*"
+              - 
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${RunCMFAutomationPackageSSMDocumentLogGroup}"
 
     Metadata:
       cfn_nag:
