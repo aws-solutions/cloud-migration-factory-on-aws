@@ -2019,10 +2019,13 @@ Resources:
                   - !Ref PolicyDynamoDBTableArn
               - Effect: Allow
                 Action:
-                  - 'logs:CreateLogGroup'
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${Application}-${Environment}-calculate-app-ranks:*"
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${Application}-${Environment}-calculate-app-ranks"
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -2107,10 +2110,13 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - 'logs:CreateLogGroup'
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${Application}-${Environment}-wpm-upload-data-entities:*"
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${Application}-${Environment}-wpm-upload-data-entities"
               - Effect: Allow
                 Action:
                   - 's3:PutObject'
@@ -2212,10 +2218,13 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - 'logs:CreateLogGroup'
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${Application}-${Environment}-import-data-from-s3:*"
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${Application}-${Environment}-import-data-from-s3"
               - Effect: Allow
                 Action:
                   - 's3:GetObject'
